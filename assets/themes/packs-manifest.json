@@ -1,0 +1,50 @@
+{
+  "assets": [
+    {
+      "theme": "oathvein",
+      "source": "Oathvein UI/Interface/equipWidget_STB.swf",
+      "sha256": "06880ee16a271bdd489f826bfbd300b186a79839be43a311ac3191af8f35e4a7"
+    },
+    {
+      "theme": "norden",
+      "source": "NordenUI/Interface/equipWidget_STB.swf",
+      "sha256": "42a04165cdce9e8493590241c448741471571a5a26d7aa1d6611b2a34471deab"
+    },
+    {
+      "theme": "veldun",
+      "font": "Vel'dun UI/Interface/ImGuiIcons/Fonts/Lato-Regular.ttf",
+      "sha256": "67d15fbedf53b0bd31f2d0d9a8cfeba7a8679d3bd96f3154d22bb8f8ace96d95"
+    },
+    {
+      "theme": "veldun",
+      "source": "Vel'dun UI/Interface/equipWidget_STB.swf",
+      "sha256": "b4cd4bf01797cfa88f56addbd38da4da8ae77210f1a763d04681fab224238b0f"
+    },
+    {
+      "theme": "edge",
+      "source": "Edge UI/interface/TrueHUD_Assets0.swf",
+      "sha256": "edd78d44e93e6ec6bb4905c4072d2f3d379eefc4fe76bea92680c1eb54d15405"
+    },
+    {
+      "theme": "untarnished",
+      "font": "ImGui Icons - Untarnished UI/Interface/ImGuiIcons/Fonts/Futura Book Regular.ttf",
+      "sha256": "bf42509f521fc7fd13221780dfc76eb4121e010a8f24438c115521108a838097"
+    },
+    {
+      "theme": "untarnished",
+      "source": "Untarnished UI 1.1.6/interface/TrueHUD_Assets0.swf",
+      "sha256": "d2f2f6b155a933bbd35dcc22b0b875b359306c635384b423fb9827ce2dba3ee4"
+    },
+    {
+      "theme": "nordic",
+      "source": "NORDIC UI - Interface Overhaul/interface/hudmenu.swf",
+      "sha256": "f464ad6124b87de7707dd6bc5f81c9737476a4b1d92b1b4edb9828c5b27aed62"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "source": "Dear Diary Dark Mode (white text)/interface/deardiary_dm/favoritesmenu/favoritesmenu_group.swf",
+      "sha256": "7310f6dec15e97f77e6a56bdfab09ae9ac6aa676b22c888db55d28c06bd063f2"
+    }
+  ],
+  "usage": "Source references and hashes for theme artwork and fonts."
+}

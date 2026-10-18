@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "id": "oathvein",
+  "name": "Oathvein",
+  "description": "Oathvein",
+  "frameStyle": 0,
+  "palette": {
+    "accent": [
+      157,
+      65,
+      54
+    ],
+    "border": [
+      155,
+      105,
+      96,
+      210
+    ],
+    "text": [
+      233,
+      230,
+      221
+    ],
+    "background": [
+      13,
+      14,
+      15,
+      170
+    ]
+  },
+  "atlas": "frames.png"
+}

@@ -1,0 +1,18 @@
+ImGui VR Helper public API and Client SDK
+Copyright (c) 2025 ImGuiVRHelper contributors
+SPDX-License-Identifier: LGPL-3.0-or-later
+
+Source: https://github.com/alandtse/imgui-vr-helper
+Revision: 91f63900d0e6896617dd326ce1feeb914308bc42 (1.9.4)
+
+Quickslot compiles the public API stub and header-only Client SDK into its DLL.
+These upstream files are unchanged in third_party/imgui-vr-helper. The helper
+plugin itself is a separate VR-only requirement and is not bundled.
+
+The matching Quickslot source release includes these files, their licenses,
+the integration source, pinned build inputs and BUILDING.md instructions for
+rebuilding/relinking Quickslot with a modified API or SDK. Modifying these
+library portions and reverse engineering to debug such modifications is
+permitted under the LGPL. Preserve the upstream notices and applicable terms.
+
+See ImGuiVRHelper-LGPL-3.0.txt and ImGuiVRHelper-GPL-3.0.txt for the full terms.

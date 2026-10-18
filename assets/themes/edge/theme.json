@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "id": "edge",
+  "name": "Edge",
+  "description": "EdgeUI",
+  "frameStyle": 2,
+  "palette": {
+    "accent": [
+      193,
+      171,
+      112
+    ],
+    "border": [
+      146,
+      133,
+      99,
+      205
+    ],
+    "text": [
+      233,
+      230,
+      221
+    ],
+    "background": [
+      13,
+      16,
+      17,
+      180
+    ]
+  }
+}

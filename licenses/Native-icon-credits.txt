@@ -1,0 +1,22 @@
+Quickslot 0.9.0 RC4 — item artwork
+
+All 58 populated item-atlas cells use artwork supplied by the Quickslot author.
+The original PNGs are retained in assets/icons/source in the source archive.
+Packing normalizes white RGB, preserves aspect ratios and adds clear padding.
+The supplied scroll has a baked checkerboard; its white silhouette is extracted
+in the atlas copy. Source files remain unchanged. No public artwork license is
+assigned by the packing process.
+
+The former nine borrowed placeholder images have been replaced. The runtime
+and source releases contain no item artwork from I4 Weapon Icons Overhaul,
+THICC, SkyUI or Oathvein's inventory icon library.
+
+Jost Regular and Medium: Owen Earl / the Jost Project Authors.
+SIL Open Font License: Jost-OFL.txt.
+https://github.com/indestructible-type/Jost
+
+Keyboard/controller artwork is read from the user's active
+Interface/ImGuiIcons/Icons files. No keycap artwork is included in the runtime
+package. Loader tests use synthetic PNG fixtures.
+
+Frame artwork and fonts are separate assets; see Theme-pack-credits.txt.

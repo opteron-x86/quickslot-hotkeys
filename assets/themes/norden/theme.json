@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "id": "norden",
+  "name": "Norden",
+  "description": "Norden",
+  "frameStyle": 0,
+  "palette": {
+    "accent": [
+      210,
+      213,
+      212
+    ],
+    "border": [
+      169,
+      176,
+      179,
+      210
+    ],
+    "text": [
+      233,
+      230,
+      221
+    ],
+    "background": [
+      13,
+      14,
+      15,
+      170
+    ]
+  },
+  "atlas": "frames.png"
+}

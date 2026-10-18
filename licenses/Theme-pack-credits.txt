@@ -1,0 +1,37 @@
+Quickslot 0.9.0 RC4 — theme artwork and fonts
+
+Nithog — Oathvein UI, Norden UI and Vel'dun UI.
+Oathvein and Norden frames: converted equipWidget_STB.swf shapes 81, 82, 83.
+Vel'dun frames: converted equipWidget_STB.swf shape 82, unrotated for tile use.
+https://www.nexusmods.com/skyrimspecialedition/mods/160916
+https://www.nexusmods.com/skyrimspecialedition/mods/166086
+https://www.nexusmods.com/skyrimspecialedition/mods/176230
+Their upstream credits include STBteam (STB Widgets), 3THANY (STB widget
+reskins) and rob18 (Horizons UI Remake / New Horizons UI).
+Nithog permits use of their own assets with credit. Other contributors' assets
+retain their own terms. This credit file does not grant additional rights.
+
+Native Quickslot visual adaptations:
+Edge UI — EugeneUI; https://www.nexusmods.com/skyrimspecialedition/mods/130983
+Untarnished UI — Vorganger; https://www.nexusmods.com/skyrimspecialedition/mods/75188
+NORDIC UI — outobugi; https://www.nexusmods.com/skyrimspecialedition/mods/49881
+Dear Diary Dark Mode — uranreactor; https://www.nexusmods.com/skyrimspecialedition/mods/60837
+These themes use Quickslot geometry and palettes. Complete upstream menus,
+SWFs and plugins are not included.
+
+Untarnished theme font: Futura Book, from ImGui Icons - Untarnished UI.
+https://www.nexusmods.com/skyrimspecialedition/mods/114953
+Embedded copyright: Copyright 1990-1993 Bitstream Inc. All rights reserved.
+Original font metadata is preserved in untarnished-font.txt. A separate
+redistribution grant for the font binary has not been established by this audit.
+
+Vel'dun theme font: Lato, by Lukasz Dziedzic, licensed under SIL OFL 1.1.
+https://github.com/latofonts/lato-source
+The installed font's metadata is preserved in veldun-font.txt. Full license:
+Lato-OFL.txt.
+
+Jost: Owen Earl / the Jost Project Authors; Jost-OFL.txt.
+Liberation fonts: see Liberation-Fonts.txt.
+
+Source asset hashes are recorded in themes/packs-manifest.json. ImGui keycap
+images remain supplied by the user's installation and are not bundled.

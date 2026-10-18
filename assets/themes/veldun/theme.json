@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "id": "veldun",
+  "name": "Vel'dun",
+  "description": "Vel'dun",
+  "frameStyle": 0,
+  "palette": {
+    "accent": [
+      190,
+      177,
+      138
+    ],
+    "border": [
+      147,
+      141,
+      119,
+      220
+    ],
+    "text": [
+      236,
+      232,
+      217
+    ],
+    "background": [
+      13,
+      14,
+      15,
+      170
+    ]
+  },
+  "font": "font.ttf",
+  "atlas": "frames.png"
+}

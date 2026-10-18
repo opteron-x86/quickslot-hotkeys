@@ -1,0 +1,290 @@
+{
+  "active": 4,
+  "groups": [
+    {
+      "entries": [
+        {
+          "form": 79288,
+          "hand": 0,
+          "kind": 0,
+          "name": "Imperial Sword  (Superior)",
+          "owner": 20,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 15,
+          "unresolved": false
+        },
+        {
+          "form": 80258,
+          "hand": 0,
+          "kind": 4,
+          "name": "Iron Mace",
+          "owner": 20,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 18,
+          "unresolved": false
+        },
+        {
+          "form": 80258,
+          "hand": 1,
+          "kind": 4,
+          "name": "Iron Mace",
+          "owner": 20,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 18,
+          "unresolved": false
+        },
+        {
+          "form": 80257,
+          "hand": 0,
+          "kind": 3,
+          "name": "Iron Warhammer",
+          "owner": 20,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": true,
+          "unique": 14,
+          "unresolved": false
+        }
+      ],
+      "schema": 2,
+      "selected": 3
+    },
+    {
+      "entries": [
+        {
+          "form": 77773,
+          "hand": 1,
+          "kind": 9,
+          "name": "Flames",
+          "owner": 0,
+          "recipe": 0,
+          "spell": true,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 77772,
+          "hand": 1,
+          "kind": 9,
+          "name": "Healing",
+          "owner": 0,
+          "recipe": 0,
+          "spell": true,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 77494,
+          "hand": 1,
+          "kind": 7,
+          "name": "Iron Shield",
+          "owner": 20,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 17,
+          "unresolved": false
+        },
+        {
+          "form": 4261521440,
+          "hand": 0,
+          "kind": 9,
+          "name": "Enchanted Snowball",
+          "owner": 0,
+          "recipe": 0,
+          "spell": true,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        }
+      ],
+      "schema": 2,
+      "selected": 3
+    },
+    {
+      "entries": [
+        {
+          "form": 256739,
+          "hand": 0,
+          "kind": 10,
+          "name": "Potion of Vigorous Healing",
+          "owner": 0,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 256744,
+          "hand": 0,
+          "kind": 10,
+          "name": "Potion of Vigorous Stamina",
+          "owner": 0,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 256741,
+          "hand": 0,
+          "kind": 10,
+          "name": "Potion of Minor Stamina",
+          "owner": 0,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 236516,
+          "hand": 0,
+          "kind": 10,
+          "name": "Potion of Extreme Healing",
+          "owner": 0,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 256733,
+          "hand": 0,
+          "kind": 10,
+          "name": "Potion of Minor Healing",
+          "owner": 0,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 201531,
+          "hand": 0,
+          "kind": 11,
+          "name": "Alto Noir Wine",
+          "owner": 0,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 467432,
+          "hand": 0,
+          "kind": 11,
+          "name": "Cooked Beef",
+          "owner": 0,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 474932,
+          "hand": 0,
+          "kind": 12,
+          "name": "Deadly Poison",
+          "owner": 0,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 934328,
+          "hand": 0,
+          "kind": 12,
+          "name": "Frostbite Venom",
+          "owner": 0,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        }
+      ],
+      "schema": 2,
+      "selected": 4
+    },
+    {
+      "entries": [
+        {
+          "form": 4266412343,
+          "hand": 0,
+          "kind": 13,
+          "name": "Scroll of the Necrotic Spirit Archer",
+          "owner": 0,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 4266347162,
+          "hand": 0,
+          "kind": 13,
+          "name": "Scroll of the Spriggan Matron",
+          "owner": 0,
+          "recipe": 0,
+          "spell": false,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        },
+        {
+          "form": 934083,
+          "hand": 0,
+          "kind": 14,
+          "name": "Battle Cry",
+          "owner": 0,
+          "recipe": 0,
+          "spell": true,
+          "twoHanded": false,
+          "unique": 0,
+          "unresolved": false
+        }
+      ],
+      "schema": 2,
+      "selected": 2
+    },
+    {
+      "entries": [],
+      "schema": 2,
+      "selected": 0
+    },
+    {
+      "entries": [],
+      "schema": 2,
+      "selected": 0
+    },
+    {
+      "entries": [],
+      "schema": 2,
+      "selected": 0
+    },
+    {
+      "entries": [],
+      "schema": 2,
+      "selected": 0
+    }
+  ],
+  "schema": 4
+}

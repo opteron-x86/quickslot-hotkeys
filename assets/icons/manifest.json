@@ -1,0 +1,1463 @@
+{
+  "schema": 2,
+  "atlas": "items.png",
+  "cellSize": 256,
+  "columns": 8,
+  "rows": 8,
+  "padding": 20,
+  "icons": [
+    {
+      "id": "sword",
+      "file": "sword.png",
+      "cell": 0,
+      "kind": "supplied",
+      "source": "source/sword.png",
+      "source_sha256": "96774e63be619b1654f7997c79759eec925f72ebe61bd976c251ffbd42683008",
+      "packedBounds": [
+        23,
+        20,
+        232,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        147,
+        137,
+        810,
+        823
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "greatsword",
+      "file": "greatsword.png",
+      "cell": 1,
+      "kind": "supplied",
+      "source": "source/greatsword.png",
+      "source_sha256": "516369b2155dabf592a50768e4d5890c8ddd5954e7e3dffb27f0c6c1b8e5cf32",
+      "packedBounds": [
+        25,
+        20,
+        230,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        121,
+        109,
+        823,
+        847
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "dagger",
+      "file": "dagger.png",
+      "cell": 2,
+      "kind": "supplied",
+      "source": "source/dagger.png",
+      "source_sha256": "422973353c67110fbfa305e8f58cd943c22f08ab2e95c2763c84202002dd7da5",
+      "packedBounds": [
+        20,
+        24,
+        236,
+        232
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        162,
+        184,
+        782,
+        780
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "axe",
+      "file": "war_axe.png",
+      "cell": 3,
+      "kind": "supplied",
+      "source": "source/war_axe.png",
+      "source_sha256": "7c3daa2f29d689b2abe556be7f330765671fd699e427aeae6f738976e6bd2464",
+      "packedBounds": [
+        39,
+        20,
+        217,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        230,
+        187,
+        715,
+        777
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "mace",
+      "file": "mace.png",
+      "cell": 4,
+      "kind": "supplied",
+      "source": "source/mace.png",
+      "source_sha256": "453e4f74f2cbc715eb49e28110a6305dbad79c15e3c19f5da11b881d398bd50f",
+      "packedBounds": [
+        31,
+        20,
+        225,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        154,
+        123,
+        858,
+        907
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "bow",
+      "file": "bow.png",
+      "cell": 5,
+      "kind": "supplied",
+      "source": "source/bow.png",
+      "source_sha256": "c5face06d746445401b0c97d99a83e6b98fb2fb4257057061d057c17c9acca00",
+      "packedBounds": [
+        23,
+        20,
+        232,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        79,
+        61,
+        947,
+        959
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "staff",
+      "file": "staff.png",
+      "cell": 6,
+      "kind": "supplied",
+      "source": "source/staff.png",
+      "source_sha256": "864a68b6b906f1aaf01f11a606d4c73857995de95bd89b79bb062c7d8c7a6d9c",
+      "packedBounds": [
+        23,
+        20,
+        232,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        103,
+        75,
+        949,
+        949
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "shield",
+      "file": "shield.png",
+      "cell": 7,
+      "kind": "supplied",
+      "source": "source/shield.png",
+      "source_sha256": "f5846373d096257ac54443b32a2b627426fc7d96f75827f9fcdd29cd99f1696d",
+      "packedBounds": [
+        20,
+        20,
+        236,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        51,
+        51,
+        973,
+        973
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "torch",
+      "file": "torch.png",
+      "cell": 8,
+      "kind": "supplied",
+      "source": "source/torch.png",
+      "source_sha256": "8a6f702cad771809f09617c7eea5957cfcc2df50f5774d807dd95e29266872ac",
+      "packedBounds": [
+        24,
+        20,
+        232,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        91,
+        65,
+        949,
+        955
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "spell",
+      "file": "spell.png",
+      "cell": 9,
+      "kind": "supplied",
+      "source": "source/spell.png",
+      "source_sha256": "1f96c1a314272307d7600524e6e0c45ffc09d3b05aff67d71ad10aa4f1179a03",
+      "packedBounds": [
+        21,
+        20,
+        235,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        77,
+        73,
+        945,
+        951
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "battleaxe",
+      "file": "battleaxe.png",
+      "cell": 10,
+      "kind": "supplied",
+      "source": "source/battleaxe.png",
+      "source_sha256": "1159415968fac376600a32cd0102e5ef93ad6967d850af02f8285c026fc2545e",
+      "packedBounds": [
+        24,
+        20,
+        231,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        95,
+        101,
+        866,
+        905
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "warhammer",
+      "file": "warhammer.png",
+      "cell": 11,
+      "kind": "supplied",
+      "source": "source/warhammer.png",
+      "source_sha256": "54e059099f5a3214d7bd5a73fbe2db371619c9e7176b091e63ce022d752351e7",
+      "packedBounds": [
+        24,
+        20,
+        231,
+        236
+      ],
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "sourceBounds": [
+        174,
+        115,
+        1122,
+        1105
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "crossbow",
+      "file": "crossbow.png",
+      "cell": 12,
+      "kind": "supplied",
+      "source": "source/crossbow.png",
+      "source_sha256": "3714b885b473e1894cfd84a86b474ac96b167a0a341afab9bb72991ee9a22ae8",
+      "packedBounds": [
+        20,
+        20,
+        236,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        105,
+        103,
+        921,
+        919
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "alteration",
+      "file": "alteration.png",
+      "cell": 13,
+      "kind": "supplied",
+      "source": "source/alteration.png",
+      "source_sha256": "0b3caef25b34ca9c3fcaedc88a8f72d13d6f6cc3c691f88e39f2491a84ef2399",
+      "packedBounds": [
+        26,
+        20,
+        230,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        85,
+        21,
+        1001,
+        993
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "conjuration",
+      "file": "conjuration.png",
+      "cell": 14,
+      "kind": "supplied",
+      "source": "source/conjuration.png",
+      "source_sha256": "1f10f9dc7320eff011254d6a27df96a9dc22dee4b75108137b2b036fb336a997",
+      "packedBounds": [
+        64,
+        20,
+        191,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        257,
+        90,
+        769,
+        961
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "destruction",
+      "file": "destruction.png",
+      "cell": 15,
+      "kind": "supplied",
+      "source": "source/destruction.png",
+      "source_sha256": "023c00c8c134fc984eccc18830744cd689261832c843a583d22df56cd5833fe1",
+      "packedBounds": [
+        63,
+        20,
+        192,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        237,
+        47,
+        793,
+        981
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "illusion",
+      "file": "illusion.png",
+      "cell": 16,
+      "kind": "supplied",
+      "source": "source/illusion.png",
+      "source_sha256": "c0681dc9459a06c0499bfac7ced543159d24fa565041ac244f68d08510291c7e",
+      "packedBounds": [
+        20,
+        27,
+        236,
+        229
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        49,
+        75,
+        975,
+        941
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "restoration",
+      "file": "restoration.png",
+      "cell": 17,
+      "kind": "supplied",
+      "source": "source/restoration.png",
+      "source_sha256": "676888c3db091cd182da6f12b85d30caa079f56dd3f52741fec2dbcaf5188b9d",
+      "packedBounds": [
+        20,
+        44,
+        236,
+        211
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        64,
+        212,
+        960,
+        904
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "fire",
+      "file": "fire.png",
+      "cell": 18,
+      "kind": "supplied",
+      "source": "source/fire.png",
+      "source_sha256": "7d0e4d934afdda03594de0b1f2c945402ab6a8ee4255cdadaf4119480af94f40",
+      "packedBounds": [
+        59,
+        20,
+        197,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        219,
+        55,
+        805,
+        973
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "frost",
+      "file": "frost.png",
+      "cell": 19,
+      "kind": "supplied",
+      "source": "source/frost.png",
+      "source_sha256": "5c57f1063bb8cd5f1dd049ee9836bd426c7ddba09679b527ed50f1e4fb47a3dc",
+      "packedBounds": [
+        34,
+        20,
+        222,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        97,
+        35,
+        927,
+        989
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "shock",
+      "file": "shock.png",
+      "cell": 20,
+      "kind": "supplied",
+      "source": "source/shock.png",
+      "source_sha256": "159e9201022517c191429ce930d3eb150ca0b3235ed7167117e4d3d3576c12af",
+      "packedBounds": [
+        23,
+        20,
+        233,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        89,
+        75,
+        937,
+        947
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "potion",
+      "file": "potion.png",
+      "cell": 21,
+      "kind": "supplied",
+      "source": "source/potion.png",
+      "source_sha256": "e56deb819d4d9e1336a27653be81e84552d7cb681c5d4db9ff91e6d9a6ffbdc5",
+      "packedBounds": [
+        51,
+        20,
+        205,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        205,
+        81,
+        819,
+        943
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "health",
+      "file": "health.png",
+      "cell": 22,
+      "kind": "supplied",
+      "source": "source/health.png",
+      "source_sha256": "625c3c4c04efeb7ced5dae1a39b32747169365783c6df55da79197b72435a44a",
+      "packedBounds": [
+        62,
+        20,
+        193,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        253,
+        85,
+        771,
+        939
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "magicka",
+      "file": "magicka.png",
+      "cell": 23,
+      "kind": "supplied",
+      "source": "source/magicka.png",
+      "source_sha256": "357316d2a55b1a62f31b709129a858f6ec22816a3b77b765df052c1ec4e1ead6",
+      "packedBounds": [
+        56,
+        20,
+        199,
+        236
+      ],
+      "sourceSize": [
+        512,
+        512
+      ],
+      "sourceBounds": [
+        104,
+        25,
+        408,
+        485
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "stamina",
+      "file": "stamina.png",
+      "cell": 24,
+      "kind": "supplied",
+      "source": "source/stamina.png",
+      "source_sha256": "cb5358a27949debf7d29842596b0236c1b5548cfb2a82dd71194bceb4afebf2f",
+      "packedBounds": [
+        55,
+        20,
+        200,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        225,
+        85,
+        799,
+        939
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "food",
+      "file": "food.png",
+      "cell": 25,
+      "kind": "supplied",
+      "source": "source/food.png",
+      "source_sha256": "e00aaaf1519b9c8ce8cb70b7be0dbc2241da98cc19a49f69a439ef470a044903",
+      "packedBounds": [
+        38,
+        20,
+        218,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        159,
+        83,
+        865,
+        929
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "poison",
+      "file": "poison.png",
+      "cell": 26,
+      "kind": "supplied",
+      "source": "source/poison.png",
+      "source_sha256": "ce0b7c2efa1de7ec231b28a3fede16150e0576780bc5fe5fb1b392a11f50737c",
+      "packedBounds": [
+        62,
+        20,
+        194,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        251,
+        85,
+        773,
+        939
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "scroll",
+      "file": "scroll.png",
+      "cell": 27,
+      "kind": "supplied",
+      "source": "source/scroll.png",
+      "source_sha256": "9415b935e9fb0c85c6cb2f4f9911b567f89c1859f58c1e5bd8331c2afca920f9",
+      "packedBounds": [
+        20,
+        23,
+        236,
+        233
+      ],
+      "sourceSize": [
+        512,
+        512
+      ],
+      "sourceBounds": [
+        31,
+        38,
+        481,
+        475
+      ],
+      "alpha": "white mask from baked checkerboard (160..245)"
+    },
+    {
+      "id": "power",
+      "file": "power.png",
+      "cell": 28,
+      "kind": "supplied",
+      "source": "source/power.png",
+      "source_sha256": "c4d07a89e71df85780cd8840586fdacdd951e9e08aea48ff24ebceace37c3d45",
+      "packedBounds": [
+        25,
+        20,
+        230,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        109,
+        87,
+        917,
+        939
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "shout",
+      "file": "shout.png",
+      "cell": 29,
+      "kind": "supplied",
+      "source": "source/shout.png",
+      "source_sha256": "c4edd13bcaaa2ed6c2ad60e1a56444ca47164e6a6548d32580c68ded82cb1373",
+      "packedBounds": [
+        20,
+        44,
+        236,
+        211
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        83,
+        169,
+        941,
+        833
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "arrow",
+      "file": "arrow.png",
+      "cell": 30,
+      "kind": "supplied",
+      "source": "source/arrow.png",
+      "source_sha256": "a8b07d36cffd39377283daf2d4636f9f412de5f419538e7738d6b2fea12192b7",
+      "packedBounds": [
+        21,
+        20,
+        234,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        75,
+        69,
+        975,
+        983
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "bolt",
+      "file": "bolt.png",
+      "cell": 31,
+      "kind": "supplied",
+      "source": "source/bolt.png",
+      "source_sha256": "04a5a4de5b38f057fdcfcd1440824de44e18889b3279ce3b1e52a6155836da5e",
+      "packedBounds": [
+        20,
+        20,
+        235,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        137,
+        137,
+        887,
+        889
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "unarmed",
+      "file": "unarmed.png",
+      "cell": 32,
+      "kind": "supplied",
+      "source": "source/unarmed.png",
+      "source_sha256": "1f994bb52723f4e825b9baf960eff582235ebe0251f663c44d705049cd151248",
+      "packedBounds": [
+        41,
+        20,
+        214,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        205,
+        129,
+        819,
+        897
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "shortsword",
+      "file": "shortsword.png",
+      "cell": 33,
+      "kind": "supplied",
+      "source": "source/shortsword.png",
+      "source_sha256": "29b4d18d330a8075d694f0a059e5c54fc7eacb855118bc0da29e5347fe1ce0ec",
+      "packedBounds": [
+        31,
+        20,
+        225,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        217,
+        196,
+        730,
+        766
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "rapier",
+      "file": "rapier.png",
+      "cell": 34,
+      "kind": "supplied",
+      "source": "source/rapier.png",
+      "source_sha256": "f9422a91e531ff7d9cb4b55446bafd2e6306d333c6ffd89d19c1f9ae726c89bc",
+      "packedBounds": [
+        31,
+        20,
+        224,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        168,
+        139,
+        757,
+        797
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "saber",
+      "file": "saber.png",
+      "cell": 35,
+      "kind": "supplied",
+      "source": "source/saber.png",
+      "source_sha256": "8ba0e2513ebe75b1f8fd80b914eae1c31e9ab2ad6c0c51ffbb37d2177df0664e",
+      "packedBounds": [
+        22,
+        20,
+        233,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        167,
+        177,
+        755,
+        780
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "scimitar",
+      "file": "scimitar.png",
+      "cell": 36,
+      "kind": "supplied",
+      "source": "source/scimitar.png",
+      "source_sha256": "a4f0b2a2388bf30fdcbf1852639b71e67c30df59c582b097892b303aab873660",
+      "packedBounds": [
+        21,
+        20,
+        235,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        193,
+        191,
+        767,
+        770
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "falchion",
+      "file": "falchion.png",
+      "cell": 37,
+      "kind": "supplied",
+      "source": "source/falchion.png",
+      "source_sha256": "21f6d45d4290107aee1aab5edba17eceb673db74326e3e88e39ba87ff34a9d71",
+      "packedBounds": [
+        21,
+        20,
+        235,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        191,
+        190,
+        769,
+        773
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "katana",
+      "file": "katana.png",
+      "cell": 38,
+      "kind": "supplied",
+      "source": "source/katana.png",
+      "source_sha256": "f66e1faecd457f20a57eac9f71bcdfe0a8bd33087adcef2db6127c6627c19263",
+      "packedBounds": [
+        24,
+        20,
+        232,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        177,
+        160,
+        788,
+        795
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "nodachi",
+      "file": "nodachi.png",
+      "cell": 39,
+      "kind": "supplied",
+      "source": "source/nodachi.png",
+      "source_sha256": "371ef3f60b62c35d14ab3bcb214e67c48bc0ce7f5593e628a6d50a13af15c241",
+      "packedBounds": [
+        27,
+        20,
+        228,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        134,
+        117,
+        827,
+        860
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "flamberge",
+      "file": "flamberge.png",
+      "cell": 40,
+      "kind": "supplied",
+      "source": "source/flamberge.png",
+      "source_sha256": "420a6951715f323876216dadb3b4ef7a6419b657a015e9d3436f056f00976a2d",
+      "packedBounds": [
+        24,
+        20,
+        232,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        136,
+        137,
+        797,
+        823
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "stiletto",
+      "file": "stiletto.png",
+      "cell": 41,
+      "kind": "supplied",
+      "source": "source/stiletto.png",
+      "source_sha256": "2011bca62754ac761ae1e0b1ce5198e6be1f8ea3abdbe1498140b12e6f6a66e7",
+      "packedBounds": [
+        20,
+        20,
+        235,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        193,
+        195,
+        749,
+        753
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "tanto",
+      "file": "tanto.png",
+      "cell": 42,
+      "kind": "supplied",
+      "source": "source/tanto.png",
+      "source_sha256": "9e6569cfcb3dfccb9600bc3ecff0e74bb9da7d96b153ace14d2bf175b7e40927",
+      "packedBounds": [
+        35,
+        20,
+        220,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        231,
+        188,
+        729,
+        769
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "hatchet",
+      "file": "hatchet.png",
+      "cell": 43,
+      "kind": "supplied",
+      "source": "source/hatchet.png",
+      "source_sha256": "f73f7f009d521071d483aa118c3fef322f0403535548f840ce2462ee6f5cb94d",
+      "packedBounds": [
+        38,
+        20,
+        218,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        240,
+        192,
+        719,
+        768
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "morningstar",
+      "file": "morningstar.png",
+      "cell": 44,
+      "kind": "supplied",
+      "source": "source/morningstar.png",
+      "source_sha256": "5af317aab0a3a61032be6297d944021f2b6724edefb2ffde69e04e8c37018318",
+      "packedBounds": [
+        33,
+        20,
+        222,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        180,
+        138,
+        826,
+        876
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "club",
+      "file": "club.png",
+      "cell": 45,
+      "kind": "supplied",
+      "source": "source/club.png",
+      "source_sha256": "51acc94889ca6d1098311d6d46eb63db5e87773b516ab82d3c7bcae88e91b785",
+      "packedBounds": [
+        33,
+        20,
+        222,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        195,
+        151,
+        829,
+        874
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "spiked_club",
+      "file": "spiked_club.png",
+      "cell": 46,
+      "kind": "supplied",
+      "source": "source/spiked_club.png",
+      "source_sha256": "9fc872e26518a0bef6cc706bd1228796735e17fbef5ef7c0f540dd3ac1a33048",
+      "packedBounds": [
+        28,
+        20,
+        227,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        169,
+        140,
+        858,
+        886
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "maul",
+      "file": "maul.png",
+      "cell": 47,
+      "kind": "supplied",
+      "source": "source/maul.png",
+      "source_sha256": "1230bee854ffc417e6c717ec40b66b72324d03df5e2713d8bfcda0cb9c19b05f",
+      "packedBounds": [
+        26,
+        20,
+        229,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        157,
+        134,
+        867,
+        891
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "spear",
+      "file": "spear.png",
+      "cell": 48,
+      "kind": "supplied",
+      "source": "source/spear.png",
+      "source_sha256": "81852c0ddbd5ec8c143435ccacc583f4b19d6789703b6b7b8c7202e3a916e02a",
+      "packedBounds": [
+        26,
+        20,
+        230,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        112,
+        92,
+        906,
+        932
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "shortspear",
+      "file": "shortspear.png",
+      "cell": 49,
+      "kind": "supplied",
+      "source": "source/shortspear.png",
+      "source_sha256": "ce0d2b891e9b2cfc8eb7a3a7aaeb431a40da28d6d164047dee24a0eb478120de",
+      "packedBounds": [
+        32,
+        20,
+        223,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        204,
+        164,
+        807,
+        847
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "pike",
+      "file": "pike.png",
+      "cell": 50,
+      "kind": "supplied",
+      "source": "source/pike.png",
+      "source_sha256": "df05d32e86e1fb8f5275bb2cd2585713f4a7ccdcba64cbf3ef30b9db59fdc032",
+      "packedBounds": [
+        23,
+        20,
+        232,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        92,
+        79,
+        932,
+        947
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "halberd",
+      "file": "halberd.png",
+      "cell": 51,
+      "kind": "supplied",
+      "source": "source/halberd.png",
+      "source_sha256": "b297843e171330953969cf4511b4ac7dc2f7ee579203f92744ae7b1f3c08159b",
+      "packedBounds": [
+        20,
+        20,
+        236,
+        236
+      ],
+      "sourceSize": [
+        512,
+        512
+      ],
+      "sourceBounds": [
+        31,
+        30,
+        486,
+        486
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "glaive",
+      "file": "glaive.png",
+      "cell": 52,
+      "kind": "supplied",
+      "source": "source/glaive.png",
+      "source_sha256": "22e3667cd0c1d417ec2cee274ecd9cf97d88d578dc7a8cc9efa9e06cd13cbf85",
+      "packedBounds": [
+        20,
+        20,
+        236,
+        236
+      ],
+      "sourceSize": [
+        512,
+        512
+      ],
+      "sourceBounds": [
+        62,
+        62,
+        450,
+        450
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "naginata",
+      "file": "naginata.png",
+      "cell": 53,
+      "kind": "supplied",
+      "source": "source/naginata.png",
+      "source_sha256": "031bcce4172ecfaa6d2a8f4188385d8794887e94a05700a540d06af8a16e668b",
+      "packedBounds": [
+        25,
+        20,
+        230,
+        236
+      ],
+      "sourceSize": [
+        512,
+        512
+      ],
+      "sourceBounds": [
+        61,
+        46,
+        458,
+        464
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "trident",
+      "file": "trident.png",
+      "cell": 54,
+      "kind": "supplied",
+      "source": "source/trident.png",
+      "source_sha256": "e3e5b291c9d0c060fac01d42b4fff62e475d933bf5440092c3845033b1855548",
+      "packedBounds": [
+        22,
+        20,
+        234,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        94,
+        80,
+        943,
+        943
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "scythe",
+      "file": "scythe.png",
+      "cell": 55,
+      "kind": "supplied",
+      "source": "source/scythe.png",
+      "source_sha256": "cab0ec0fbb547200ac7ef32b8243745f4c1e4b79e3ea29ff895007706bdff7c2",
+      "packedBounds": [
+        21,
+        20,
+        235,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        99,
+        85,
+        946,
+        939
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "pickaxe",
+      "file": "pickaxe.png",
+      "cell": 56,
+      "kind": "supplied",
+      "source": "source/pickaxe.png",
+      "source_sha256": "4fc3d1c674877786838d7375f0729a16303b7730702719a46de3d7b79b68e04e",
+      "packedBounds": [
+        23,
+        20,
+        233,
+        236
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        107,
+        95,
+        919,
+        931
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "woodcutters_axe",
+      "file": "woodcutters_axe.png",
+      "cell": 57,
+      "kind": "supplied",
+      "source": "source/woodcutters_axe.png",
+      "source_sha256": "38fd9a0c0f275580799c27b705a0a4fd441264db5dbd41a98e1d9d6e258ecb22",
+      "packedBounds": [
+        20,
+        23,
+        236,
+        233
+      ],
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "sourceBounds": [
+        91,
+        103,
+        933,
+        923
+      ],
+      "alpha": "source alpha"
+    }
+  ],
+  "atlas_sha256": "e045f1761fa10c9d4b06dfa6577105a129c4457d735e8f01235a1887ec2701b0",
+  "supplied": 58,
+  "placeholders": 0
+}

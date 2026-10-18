@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "id": "nordic",
+  "name": "Nordic",
+  "description": "Nordic",
+  "frameStyle": 3,
+  "palette": {
+    "accent": [
+      218,
+      219,
+      218
+    ],
+    "border": [
+      151,
+      155,
+      156,
+      210
+    ],
+    "text": [
+      233,
+      230,
+      221
+    ],
+    "background": [
+      7,
+      10,
+      12,
+      200
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "id": "untarnished",
+  "name": "Untarnished",
+  "description": "Untarnished",
+  "frameStyle": 1,
+  "palette": {
+    "accent": [
+      207,
+      207,
+      207
+    ],
+    "border": [
+      145,
+      145,
+      145,
+      190
+    ],
+    "text": [
+      231,
+      231,
+      231
+    ],
+    "background": [
+      18,
+      18,
+      18,
+      175
+    ]
+  },
+  "font": "font.ttf"
+}

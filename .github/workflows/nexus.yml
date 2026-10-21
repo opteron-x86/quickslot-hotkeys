@@ -56,7 +56,7 @@ jobs:
           mod_id: ${{ vars.NEXUSMODS_MOD_ID }}
           filename: ${{ steps.release.outputs.filename }}
           version: ${{ steps.release.outputs.version }}
-          display_name: Quickslot ${{ steps.release.outputs.version }}
+          display_name: Quickslot Hotkeys
           description: Quickslot runtime package. See the Changelog tab for release notes.
           category: main
           archive_existing_version: 'true'

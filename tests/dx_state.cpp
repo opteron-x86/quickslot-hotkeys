@@ -3,9 +3,48 @@
 #include <d3dcompiler.h>
 #include <iostream>
 #include <cstring>
+#include <limits>
 using Microsoft::WRL::ComPtr;
 void check(bool value,const char* why){if(!value)throw std::runtime_error(why);}
+namespace {
+struct Instance {
+    unsigned released=0;
+    void Release()noexcept{++released;}
+};
+void shaderInstanceOwnership() {
+    using namespace preview;
+    Instance active,unreported,last;
+    std::array<Instance*,4> slots{&unreported,nullptr,nullptr,nullptr};
+    check(UnexpectedShaderInstances(slots,0),"Detect populated slots with zero returned instances");
+    ReleaseShaderInstances(slots,0);
+    check(unreported.released==0,"Do not Release an unreported slot");
+
+    slots={&active,nullptr,&unreported,&last};
+    ReleaseShaderInstances(slots,1);
+    check(active.released==1&&slots[0]==nullptr,"Release a captured instance exactly once");
+    check(unreported.released==0&&last.released==0,"Ignore populated slots outside returned count");
+    ReleaseShaderInstances(slots,1);
+    check(active.released==1,"Repeated cleanup does not double-release");
+
+    slots={nullptr,&active,nullptr,&last};
+    check(!UnexpectedShaderInstances(slots,4),"Valid captured range is accepted");
+    ReleaseShaderInstances(slots,4);
+    check(active.released==2&&last.released==1,"Release full valid range and tolerate null slots");
+
+    slots={&active,nullptr,nullptr,nullptr};
+    check(UnexpectedShaderInstances(slots,999),"Detect out-of-range driver counts");
+    check(ShaderInstanceCount(slots,(std::numeric_limits<unsigned>::max)())==4,"Clamp count to output capacity");
+    ReleaseShaderInstances(slots,(std::numeric_limits<unsigned>::max)());
+    check(active.released==3,"Oversized count cannot walk off array");
+
+    std::array<Instance*,4> legacy{&unreported,nullptr,nullptr,nullptr};
+    for(auto* instance:legacy)if(instance)instance->Release();
+    check(unreported.released==1,"Legacy full-array cleanup releases a zero-count unowned output");
+}
+}
 int main()try {
+    shaderInstanceOwnership();
+    std::cout<<"PASS: shader class-instance cleanup respects reported counts; legacy regression reproduced\n";
     ComPtr<ID3D11Device> device;ComPtr<ID3D11DeviceContext> context;D3D_FEATURE_LEVEL level;
     const D3D_FEATURE_LEVEL levels[]{D3D_FEATURE_LEVEL_11_0};
     HRESULT result=D3D11CreateDevice(nullptr,D3D_DRIVER_TYPE_HARDWARE,nullptr,0,levels,1,D3D11_SDK_VERSION,&device,&level,&context);

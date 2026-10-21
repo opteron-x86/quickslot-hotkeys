@@ -1,4 +1,4 @@
-// Isolated ABI fixture; never installed in Skyrim or the mod package.
+
 #include "MenuFrameworkMock.h"
 #include <cstdio>
 #include <cstdarg>

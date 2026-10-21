@@ -1,5 +1,6 @@
 #include "EquipmentAction.h"
 #include "EditorModel.h"
+#include "ItemIdentity.h"
 #include "Presets.h"
 #include "LiveEditor.h"
 #include <iostream>
@@ -78,6 +79,71 @@ int main()try {
     check(!handClearTarget(shieldOnly,Hand::right)&&handClearTarget(shieldOnly,Hand::left)==Hand::left,"Clearing empty right hand preserves a left shield");
     check(handClearTarget(bow,Hand::left)==Hand::right&&handClearTarget(bow,Hand::right)==Hand::right,"Clearing either hand removes a two-handed weapon held in right slot");
     check(handClearTarget(leftRitual,Hand::right)==Hand::left,"Two-handed magic in left slot also blocks the right hand");
+    Entry torch;torch.kind=Kind::torch;torch.hand=Hand::left;
+    check(!objectEquipHand(torch,false)&&!objectEquipHand(torch,true),"Torch equip and removal use native light slots");
+    check(wornForEntry(torch,true,false)&&wornForEntry(torch,false,true)&&!wornForEntry(torch,false,false),"Torch confirmation recognizes either worn marker, not an unworn copy");
+    {
+        auto light=torch;light.form=0x1d4ec;light.name="Torch";
+        check(isStack(light)&&!tracksInstance(light)&&!isConsumable(light),"Torches follow stock while retaining equipment behavior");
+        check(validPair(sword,light)&&!validPair(light,sword),"Torch remains a left-hand combination item");
+        check(!selectsConsumable(light,{0,0,0,0,true},Options{}),"Browsing a torch equips it on release");
+        for(unsigned state=0;state<3;++state) {
+            auto old=light;old.owner=state==1?0xff001234:0x14;old.unique=23;
+            if(state==2){old.owner=0;old.unique=0;old.unresolved=true;}
+            Group saved;saved.add(sword);saved.add(old);
+            const auto loaded=decode(encode(saved),[&](auto id,auto& out){
+                if(id==light.form){out=id+0x1000000;return true;}
+                if(id==sword.form||id==sword.owner){out=id;return true;}
+                throw std::runtime_error("Torch must not resolve a discarded copy owner");
+            });
+            const auto& restored=loaded.entries[1];
+            check(loaded.selected==1&&restored.form==light.form+0x1000000&&!restored.unresolved&&!restored.owner&&!restored.unique,"Saved torch repairs from its base form without changing selection");
+            check(loaded.entries[0].same(sword),"Repair leaves exact weapon identity unchanged");
+            check(decode(encode(loaded),identity).entries[1].same(restored),"Repaired torch stays stable on subsequent loads");
+        }
+        Group stock;stock.add(light);const auto initial=encode(stock);
+        check(followIdentityChange(stock,{light.form,0x14,0,23,0})==0&&encode(stock)==initial,"Dropping the final torch cannot invalidate its shortcut");
+        check(followIdentityChange(stock,{light.form,0,0x14,0,24})==0&&encode(stock)==initial,"Picking up a new torch identity keeps the same shortcut");
+        check(!stock.add(light)&&stock.entries.size()==1,"Restocked torches do not create duplicate shortcuts");
+        auto otherLight=light;++otherLight.form;check(stock.add(otherLight),"A different torch base form remains a separate choice");
+        Row depleted{light,false,false,{},0};check(rowStatus(depleted)=="Empty","Depletion shows recoverable stock instead of a missing copy");
+        Row held{light,true,true,{},3};check(rowStatus(held)=="Left hand · ×3 · Equipped","Held torch shows its hand, equipped state and current stock");
+        auto missing=decode(encode(stock),[](auto,auto&){return false;});
+        check(missing.entries[0].unresolved&&!missing.entries[0].form,"Missing torch plugin clears the base reference");
+        check(decode(encode(missing),identity).entries[0].unresolved,"A lost base reference cannot bind a reused form ID");
+        Group exact;exact.add(sword);check(followIdentityChange(exact,{sword.form,sword.owner,0,sword.unique,0})==1,"Weapons still process removed copy identities");
+        check(decode(encode(exact),identity).entries[0].unresolved,"Weapon with erased identity is not restored from base form alone");
+        for(const auto* field:{"spell","twoHanded","hand","recipe"}) {
+            auto data=Json::parse(encode(stock));auto& entry=data["entries"][0];
+            if(std::string(field)=="hand")entry[field]=0u;
+            else if(std::string(field)=="recipe")entry[field]=1u;
+            else entry[field]=true;
+            rejects([&]{decode(data.dump(),identity);},"Torch repair rejects a malformed hand, spell or recipe");
+        }
+        Arsenal shared;Options opts;Entry pair;pair.kind=Kind::combo;pair.name="Sword and torch";pair.parts={sword,light};
+        EditCommand add;add.action=EditAction::saveShortcut;add.shortcut=pair;
+        check(editStructure(shared,opts,add),"Create reusable sword-and-torch combination");
+        const auto shortcut=shared.groups[0].entries[0].shortcut;
+        check(addShortcut(shared,1,shortcut),"Reuse torch combination in another group");
+        eachSavedEntry(shared,[](Entry& entry){eachLeaf(entry,[](Entry& leaf){if(leaf.kind==Kind::torch){leaf.unresolved=true;leaf.owner=leaf.unique=0;}});});
+        shared=decodeArsenal(encodeArsenal(shared),identity);
+        check(libraryShortcut(shared,shortcut)->parts[1].same(light)&&shared.groups[0].entries[0].parts[1].same(light)&&shared.groups[1].entries[0].parts[1].same(light),"Loading repairs the library and every use of a depleted torch combination");
+        check(followIdentityChange(shared,{light.form,0x14,0,23,0})==0,"Later torch identity removal leaves all combination uses intact");
+        shared.presetIdentity="source";Arsenal foreign;foreign.presetIdentity="other";
+        const auto exported=exportPreset(shared,opts,false,[](auto id){return Json{{"file","Test.esp"},{"local",id}};});
+        const auto imported=importPreset(exported,foreign,opts,false,[](const auto&,auto id){return id;});
+        const auto& importedPair=imported.arsenal.groups[0].entries[0];
+        check(importedPair.parts[1].same(light)&&importedPair.parts[0].unresolved,"Foreign presets retain torch stock but cannot substitute a specific sword");
+        EditHistory undo;undo.begin(shared,opts);undo.prepare(shared,opts);
+        check(deleteShortcut(shared,shortcut),"Remove the shared torch combination");undo.finish(true,false,1);
+        check(undo.undo(shared,opts)&&libraryShortcut(shared,shortcut)->parts[1].same(light)&&shared.groups[1].entries[0].parts[1].same(light),"Undo restores torch stock in the definition and all groups");
+    }
+    Entry hammer;hammer.kind=Kind::greatsword;hammer.twoHanded=true;hammer.hand=Hand::left;
+    check(!objectEquipHand(hammer,false)&&objectEquipHand(hammer,true)==Hand::right,"Clearing a two-handed weapon targets its worn slot from either hand");
+    Entry dagger;dagger.kind=Kind::dagger;dagger.hand=Hand::left;
+    check(objectEquipHand(dagger,true)==Hand::left&&objectEquipHand(dagger,true,true)==Hand::right,"One-handed removal and cross-hand moves preserve explicit hand targeting");
+    check(wornForEntry(dagger,false,true)&&!wornForEntry(dagger,true,false),"A different right-hand copy cannot satisfy a left-hand shortcut");
+    Entry ammo;ammo.kind=Kind::ammo;check(!objectEquipHand(ammo,false)&&!objectEquipHand(ammo,true),"Ammo retains native equipment slot");
     check(equipmentSequence(unarmed)&&!equipmentSequence(right)&&equipmentStep(unarmed,0).same(right)&&equipmentStep(unarmed,1).same(left),"Unarmed clears right then left through confirmed sequence");
     check(!skipEquipmentStep(left,false,false)&&skipEquipmentStep(left,false,true),"Empty-hand combination executes only while occupied");
     check(skipEquipmentStep(left,true,false)&&skipEquipmentStep(left,true,true),"Unequipping a combination never executes its empty-hand component");

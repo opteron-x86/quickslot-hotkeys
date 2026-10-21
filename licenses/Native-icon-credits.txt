@@ -1,7 +1,8 @@
-Quickslot 0.9.0 RC4 — item artwork
+Quickslot 0.9.0 RC8 — item artwork
 
-All 58 populated item-atlas cells use artwork supplied by the Quickslot author.
-The original PNGs are retained in assets/icons/source in the source archive.
+All 63 populated item-atlas cells use artwork supplied by the Quickslot author:
+58 supplied drawings and five family aliases.
+Original PNGs are retained in the development assets/icons/source directory.
 Packing normalizes white RGB, preserves aspect ratios and adds clear padding.
 The supplied scroll has a baked checkerboard; its white silhouette is extracted
 in the atlas copy. Source files remain unchanged. No public artwork license is

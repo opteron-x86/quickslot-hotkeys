@@ -1,18 +1,20 @@
 #pragma once
-#include "Model.h"
+#include "SmartEquipment.h"
 #include <optional>
 
 namespace quickslot {
 inline Icon baseIcon(const Entry& e) {
     if(e.icon>Icon::automatic&&e.icon<Icon::count)return e.icon;
+    if(isSmartEquipment(e))return smartEquipmentIcon(e);
     constexpr Icon kinds[]{Icon::sword,Icon::greatsword,Icon::dagger,Icon::axe,Icon::mace,
         Icon::bow,Icon::staff,Icon::shield,Icon::torch,Icon::spell,Icon::potion,Icon::food,
         Icon::poison,Icon::scroll,Icon::power,Icon::power,Icon::shout};
     if(e.kind==Kind::smartPotion)return e.resource==1?Icon::magicka:e.resource==2?Icon::stamina:Icon::health;
     if(e.kind==Kind::ammo)return Icon::arrow;
-    if(e.kind==Kind::unarmed)return Icon::unarmed;
+    if(isHandAction(e))return Icon::unarmed;
     return unsigned(e.kind)<std::size(kinds)?kinds[unsigned(e.kind)]:Icon::spell;
 }
+
 struct AtlasRegion {float u0,v0,u1,v1;};
 inline std::optional<AtlasRegion> atlasRegion(Icon icon) {
     if(icon<=Icon::automatic||icon>=Icon::count)return {};

@@ -11,7 +11,12 @@ int main(int argc,char** argv)try {
     if(argc!=2)return 2;
     ImGui::CreateContext();auto& io=ImGui::GetIO();io.IniFilename=nullptr;io.LogFilename=nullptr;io.DisplaySize={1600,900};io.DeltaTime=1.f/60;
     ImGui::GetCurrentContext()->TestEngineHookItems=true;
-    Hud hud;hud.initialize(std::string(argv[1])+"/assets/fonts");unsigned char* pixels;int width,height;io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height);
+    Hud hud;hud.initialize(std::string(argv[1])+"/assets/fonts");
+    for(const auto& theme:hud.themes().all()) {
+        Options option;option.themeId=theme.id;
+        for(const unsigned code:{0x00e9u,0x0416u,0x03a9u,0x5251u,0x5263u,0xac80u})check(hud.bodyFont(option)->IsGlyphInFont(ImWchar(code)),"Theme fallback supplies Latin, Greek, Cyrillic, Chinese, Japanese and Korean glyphs");
+    }
+    unsigned char* pixels;int width,height;io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height);
     Editor editor;auto state=fixture::editor();editor.beginSession(state);std::vector<EditCommand> commands;
     EditHistory history;std::uint64_t historySession=0;
     const auto frame=[&](const std::vector<EditorInput>& events=std::vector<EditorInput>{}) {
@@ -20,16 +25,15 @@ int main(int argc,char** argv)try {
         for(const auto& command:commands)check(fixture::apply(state,command,history),"UI produces applicable command");
     };
     const auto mouse=[&](ImVec2 point){frame({{EditorInputType::move,0,false,point.x-io.MousePos.x,point.y-io.MousePos.y}});};
-    const auto click=[&](const std::string& label,std::size_t index=0){
-        // Combo menus clip rows; scroll the open popup until the requested
-        // item is submitted before asking for its hit rectangle.
+    const auto click=[&](const std::string& label,std::size_t index=0,std::source_location at=std::source_location::current()){
+
         for(unsigned attempt=0;attempt<16&&probe::find(label).empty();++attempt) {
             auto& popups=ImGui::GetCurrentContext()->OpenPopupStack;
             if(popups.empty()||!popups.back().Window)break;
             mouse(popups.back().Window->InnerClipRect.GetCenter());frame({{EditorInputType::wheel,0,false,0,-2}});frame();
         }
-        // Exercise real scrolling when taller fonts/controls put an item below
-        // its child window. Clicking an off-screen rectangle is not a UI test.
+        if(probe::find(label).empty())throw std::runtime_error("Missing UI item "+label+" at line "+std::to_string(at.line()));
+
         for(unsigned attempt=0;attempt<24;++attempt) {
             const auto item=probe::one(label,index);auto* window=ImGui::FindWindowByName(item.window.c_str());
             if(!window||window->InnerClipRect.Contains(item.rect.GetCenter()))break;
@@ -47,7 +51,7 @@ int main(int argc,char** argv)try {
     check(probe::find("##candidate").size()==1,"Search filters the rendered catalog");
     click("##candidate");click("Add left");
     check(state.draft.groups[0].entries.back().name=="Healing"&&state.draft.groups[0].entries.back().hand==Hand::left,"Click adds a known spell directly to the chosen hand");
-    click("Change hand"); // First row is selected by default.
+    click("Change hand");
     check(state.draft.groups[0].entries[0].hand==Hand::left,"Saved row hand changes without equipment calls");
     click("Remove");check(state.draft.groups[0].entries.size()==3,"Remove updates editor groups");
     click("Undo");check(state.draft.groups[0].entries.size()==4,"Undo restores removed shortcut from the real editor");
@@ -108,7 +112,14 @@ int main(int argc,char** argv)try {
     click("Reset theme");check(!adjustments(state.options).customAccent,"Theme reset removes only current overrides");
     click("Undo");check(adjustments(state.options).customAccent,"Theme reset is undoable");
     click("Visibility");click("Show keys");check(!state.options.showKeys,"Widget key visibility changes live");click("Undo");check(state.options.showKeys,"Key visibility is undoable");
-    click("Fade while idle");check(state.options.fadeIdle,"Idle fade can be enabled");
+    click("##widget visibility");click("Hide when idle");check(widgetVisibility(state.options)==WidgetVisibility::hide,"Complete hiding is available as an explicit mode");
+    check(probe::find("##Idle opacity").empty(),"Hide mode needs no opacity slider");
+    click("Keep visible in combat");check(!state.options.keepCombatVisible,"Hiding can also apply during combat");
+    click("Keep visible with weapons drawn");check(state.options.keepDrawnVisible,"Drawn-weapon override applies live");
+    click("Undo");check(!state.options.keepDrawnVisible,"Visibility overrides support Undo");
+    click("##widget visibility");click("Only while selecting");check(widgetVisibility(state.options)==WidgetVisibility::selecting,"Selection-only visibility applies live");
+    click("Undo");check(widgetVisibility(state.options)==WidgetVisibility::hide,"Undo restores the previous visibility mode");
+    click("##widget visibility");click("Fade when idle");check(state.options.fadeIdle&&state.options.idleOpacity>0,"Partial fading remains available");
     click("Selector");click("Animate scrolling");check(!state.options.animateScroll,"Animation can be disabled immediately");
     click("##selector dock");click("Independent");check(state.options.selectorDock==4,"Selector can be detached through settings");
     click("Position");check(!probe::find("Drag widget").empty(),"Full-screen placement opens");
@@ -124,11 +135,31 @@ int main(int argc,char** argv)try {
     check(!probe::find("X").empty()&&!probe::find("Y").empty(),"Placement exposes both axes");
     mouse(probe::one("Drag selector").rect.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,-101,-77}});frame({{EditorInputType::button,0,false}});frame();
-    const auto snapped=hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y);const float centerX=snapped.origin.x+(snapped.selectorOrigin.x+snapped.selectorWidth*.5f)*snapped.scale;
-    const auto gridX=(centerX-io.DisplaySize.x*.5f)/placementGridStep(io.DisplaySize.y);
-    check(std::abs(gridX-std::round(gridX))<.001f,"Dragging snaps selector center to actual displayed grid");
-    click("Back");click("Equipment");
-    // A native drag/drop uses the real item rectangles and payload implementation.
+    const auto snappedBox=probe::one("Drag selector").rect;const float gridStep=placementGridStep(state.options,io.DisplaySize.y);
+    float edgeError=gridStep;
+    for(float x:{snappedBox.Min.x,snappedBox.GetCenter().x,snappedBox.Max.x}) {
+        const float cells=(x-io.DisplaySize.x*.5f)/gridStep;edgeError=std::min(edgeError,std::abs(cells-std::round(cells))*gridStep);
+    }
+    check(edgeError<1.5f,"Dragging aligns a rendered selector edge or center with the visible grid");
+    click("Spacing");click("Coarse");check(state.options.placementSpacing==2,"Coarse spacing applies live");
+    click("Grid frame");click("21:9");check(state.options.placementFrame==3,"Aspect guide applies live");
+    click("Spacing");click("Custom");check(!probe::find("Grid size").empty(),"Custom spacing exposes its size control");
+    click("Undo");check(state.options.placementSpacing==2,"Grid density supports Undo");
+
+    const auto freeBefore=state.options;const auto freeGeometry=hudGeometry(freeBefore,io.DisplaySize.x,io.DisplaySize.y);
+    mouse(probe::one("Drag selector").rect.GetCenter());frame({{EditorInputType::key,42,true},{EditorInputType::button,0,true}});
+    frame({{EditorInputType::move,0,false,13,9}});frame({{EditorInputType::button,0,false},{EditorInputType::key,42,false}});frame();
+    check(std::abs(state.options.selectorX-(freeBefore.selectorX+13/(io.DisplaySize.x-16-freeGeometry.selectorWidth*freeGeometry.scale)))<.0001f,"Shift moves freely without grid quantization");
+    click("Back");click("##selector dock");click("Above widget");click("Position");
+    const auto docked=hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y);click("Selector");
+    const auto detached=hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y);
+    check(state.options.selectorDock==4&&std::abs(docked.origin.x+docked.selectorOrigin.x*docked.scale-detached.origin.x-detached.selectorOrigin.x*detached.scale)<.001f&&std::abs(docked.origin.y+docked.selectorOrigin.y*docked.scale-detached.origin.y-detached.selectorOrigin.y*detached.scale)<.001f,"Detaching the selector preserves its visible location");
+    click("Back");click("Style");const auto textSize=state.options.textScale;
+    mouse(probe::one("##Text size").rect.GetCenter());frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();
+    check(state.options.textScale!=textSize,"Text size changes live independently of icon scale");
+    click("Undo");check(state.options.textScale==textSize,"Text-size changes support Undo");
+    click("Groups##main");
+
     const auto rows=probe::find("##entry");check(rows.size()==3,"Three draft rows available for drag test");
     const auto oldFirst=state.draft.groups[0].entries[0];mouse(rows[0].rect.GetCenter());frame({{EditorInputType::button,0,true}});
     const auto target=rows[2].rect.GetCenter();mouse({target.x,target.y-2});frame();frame({{EditorInputType::button,0,false}});frame();
@@ -144,8 +175,9 @@ int main(int argc,char** argv)try {
     check(state.options.themeId=="minimal"&&state.options.names[0]=="Arsenal"&&state.draft.groups[0].entries.size()==3,"Revert restores the opening groups, names and settings");
     click("Undo");check(state.options.themeId==beforeRevert&&state.options.names[0]=="Combat","Session revert can itself be undone");
     click("Close");check(!state.open,"Save closes editor and submits settings");
-    state=fixture::editor();state.session=2;frame();frame();key(1);check(!state.open,"Escape closes with changes kept");
+    state=fixture::editor();state.session=2;frame();frame();click("Appearance");click("Visibility");key(1);check(!state.open,"Escape closes with changes kept");
     state=fixture::editor();state.session=3;state.draft.groups[0]={};fixture::rows(state);io.DisplaySize={800,600};frame();frame();
+    check(!probe::find("##widget visibility").empty(),"Reopening remembers the main tab and appearance subpage");click("Groups##main");
     check(probe::one("Close").rect.Max.y<=600,"Editor actions remain accessible at 800x600");
     check(probe::one("Change hand").disabled,"Empty group cannot change a nonexistent entry's hand");
     io.DisplaySize={1600,900};unsigned session=4;
@@ -186,24 +218,24 @@ int main(int argc,char** argv)try {
     click("Undo");check(state.options.groupCount==3&&state.draft.active==0&&state.draft.groups[0].entries.size()==3,"Undo restores removed group's entries and focus");
     click("Group down");check(state.options.groupOrder[1]==0&&state.options.keys==initialKeys,"Group ordering changes independently of keys");
     click("Clear group");check(state.draft.groups[0].entries.empty()&&state.options.groupCount==3,"Clear keeps the group available");click("Undo");
-    click("Shortcuts");click("Add smart slot");check(state.draft.groups[0].entries.back().kind==Kind::smartPotion,"Smart slot is created through actual editor controls");
-    click("Health restoration · lowest");click("Choose");
+    click("Groups##main");click("New");click("Smart potion");click("Add smart potion");check(state.draft.groups[0].entries.back().kind==Kind::smartPotion,"Smart slot is created through actual editor controls");
+    click("##entry",state.draft.current().entries.size()-1);click("Choose");
     click("Highest strength");
     check(state.draft.groups[0].entries.back().policy==1,"Editing smart policy applies immediately");
-    click("Rare crafted potion");check(state.draft.groups[0].entries.back().exclusions.size()==1,"Excluding a bottle changes the live rule");
+    click("Excluded potions");click("Rare crafted potion");check(state.draft.groups[0].entries.back().exclusions.size()==1,"Excluding a bottle changes the live rule");
     click("Resource");click("Stamina");check(state.draft.groups[0].entries.back().resource==2,"Resource change updates the selected smart rule");
     click("Effect");click("Regeneration");check(state.draft.groups[0].entries.back().effect==1,"Regeneration has a separate live rule");
     click("Clear exclusions");check(state.draft.groups[0].entries.back().exclusions.empty(),"Exclusions can be reset");
     click("Undo");check(state.draft.groups[0].entries.back().exclusions.size()==1,"Exclusion changes can be undone");
-    click("New combination");click("##right component");click("Imperial Sword (Superior) · Arsenal");
-    click("##left component");click("Steel Dagger · Offhand");click("Add combination");
+    click("New");click("Combination");click("##right component");click("Imperial Sword (Superior)");
+    click("##left component");click("Steel Dagger");click("Add combination");
     check(state.draft.groups[0].entries.back().kind==Kind::combo&&state.draft.groups[0].entries.back().parts.size()==2,"Editor creates a two-hand combination from saved copies");
     check(state.draft.groups[0].entries.back().parts[0].hand==Hand::right&&state.draft.groups[0].entries.back().parts[1].hand==Hand::left,"Combination captures explicit hand assignments");
-    click("Equipment combination");const auto rightCopy=state.draft.groups[0].entries.back().parts[0].unique;
+    click("##entry",state.draft.current().entries.size()-1);const auto rightCopy=state.draft.groups[0].entries.back().parts[0].unique;
     click("Swap hands");check(state.draft.groups[0].entries.back().parts[1].unique==rightCopy&&state.draft.groups[0].entries.back().parts[1].hand==Hand::left,"Swap moves exact components and updates hand targets live");
-    click("Remove shortcut");check(state.draft.groups[0].entries.back().kind==Kind::smartPotion,"Special shortcuts can be removed without deleting inventory");
+    click("Remove");check(state.draft.groups[0].entries.back().kind==Kind::smartPotion,"Special shortcuts can be removed without deleting inventory");
     click("Undo");check(state.draft.groups[0].entries.back().kind==Kind::combo,"Undo restores both exact combination components");
-    click("Controls");click("General");click("Use consumables on release");check(state.options.consumableOnRelease,"Optional release-to-use changes live");
+    click("Controls");click("General");check(probe::find("Use consumables on release").empty(),"Consumables retain one safe browse/use interaction");
     click("Skip unavailable items");check(state.options.skipEmpty,"Skip empty is configurable");
     click("Add from Inventory / Magic");check(!state.options.menuCapture,"Menu capture can be disabled for key conflicts");
     click("##selection clock");click("Slow motion");check(state.options.selectionSpeed==.5f,"Slow motion is selectable");
@@ -211,16 +243,16 @@ int main(int argc,char** argv)try {
     click("##selection clock");click("Full speed");check(state.options.selectionSpeed==1,"Full speed is selectable");
     click("Undo");check(state.options.selectionSpeed==0,"Undo restores pause mode");
     state=fixture::editor();state.session=session++;io.DisplaySize={1920,1080};frame();frame();
-    const auto normalTab=probe::one("Equipment").rect.GetSize();
+    const auto normalTab=probe::one("Groups##main").rect.GetSize();
     const auto normalWindow=ImGui::FindWindowByName("Quickslot")->Size;
     io.DisplaySize={3840,2160};frame();frame();
-    const auto largeTab=probe::one("Equipment").rect.GetSize();
+    const auto largeTab=probe::one("Groups##main").rect.GetSize();
     const auto largeWindow=ImGui::FindWindowByName("Quickslot")->Size;
     check(std::abs(largeWindow.x-normalWindow.x*2)<1&&std::abs(largeWindow.y-normalWindow.y*2)<1,"4K doubles the editor window's size");
     check(std::abs(largeTab.x-normalTab.x*2)<1&&std::abs(largeTab.y-normalTab.y*2)<3,"4K scales font and hit target height together");
     check(probe::one("Close").rect.Max.y<2160,"4K editor footer stays reachable");
     const auto stable=largeWindow;for(unsigned i=0;i<5;++i)frame();
-    check(ImGui::FindWindowByName("Quickslot")->Size.x==stable.x&&probe::one("Equipment").rect.GetSize().y==largeTab.y,"Repeated frames do not compound UI scaling");
+    check(ImGui::FindWindowByName("Quickslot")->Size.x==stable.x&&probe::one("Groups##main").rect.GetSize().y==largeTab.y,"Repeated frames do not compound UI scaling");
     click("Controls");click("##selection clock");click("Pause");check(state.options.selectionSpeed==0,"4K popup hit targets select pause correctly");
     check(probe::find("Editor size").empty(),"Editor sizing is automatic with no resize slider");
     click("Appearance");
@@ -232,7 +264,7 @@ int main(int argc,char** argv)try {
         check(corner.x==0?geo.origin.x<9:geo.origin.x+geo.width*geo.scale>3831,"Widget drag reaches horizontal screen extents at 4K");
         check(corner.y==0?geo.origin.y<9:geo.origin.y+geo.height*geo.scale>2151,"Widget drag reaches vertical screen extents at 4K");
     }
-    click("Back");click("Shortcuts");check(!probe::find("Add smart slot").empty(),"4K smart editor remains usable");
+    click("Back");click("Groups##main");click("New");click("Smart potion");check(!probe::find("Add smart potion").empty(),"4K smart editor remains usable");
     io.DisplaySize={1280,720};frame();frame();
     check(probe::one("Close").rect.Max.y<720&&ImGui::FindWindowByName("Quickslot")->Pos.x>=0,"Fixed editor remains usable at 720p");
     click("Close");check(!state.open,"Largest 4K editor remains interactive");
@@ -240,60 +272,143 @@ int main(int argc,char** argv)try {
     click("Presets");click("##preset name");for(const auto ch:std::string("Combat backup"))frame({{EditorInputType::character,unsigned(ch)}});
     click("##export scope");click("Complete setup");click("Export preset");check(state.presets.size()==1,"Export command saves named preset");
     click("Update preset");check(state.presets.size()==1,"Updating a preset retains one list entry");
-    click("Equipment");click("Clear group");check(state.draft.groups[0].entries.empty(),"Fixture changed before preset restore");
+    click("Groups##main");click("Clear group");check(state.draft.groups[0].entries.empty(),"Fixture changed before preset restore");
     click("Presets");click("##preset file");click("Combat backup");click("Appearance only");click("Import preset");
     check(state.draft.groups[0].entries.size()==3,"Complete preset restores exact saved group");
     click("Undo");check(state.draft.groups[0].entries.empty(),"Preset import is a single undoable edit");
     for(const auto screen:std::array<ImVec2,3>{{{1280,720},{1920,1080},{3840,2160}}}) {
         state=fixture::editor();state.session=session++;io.DisplaySize=screen;frame();frame();
-        click("Shortcuts");click("New hand action");click("Add action");
+        click("Groups##main");click("New");click("Hand action");click("Add action");
         check(state.draft.groups[0].entries.back().kind==Kind::unarmed,"Unarmed can be added at every editor scale");
-        click("Action");click("Empty right hand");click("Add action");
+        click("New");click("Hand action");click("Action");click("Empty right hand");click("Add action");
         check(state.draft.groups[0].entries.back().same(emptyHandEntry(Hand::right)),"Action picker adds an empty right hand");
-        click("Action");click("Empty left hand");click("Add action");
+        click("New");click("Hand action");click("Action");click("Empty left hand");click("Add action");
         check(state.draft.groups[0].entries.back().same(emptyHandEntry(Hand::left)),"Action picker adds an empty left hand");
-        click("Unarmed");click("Remove shortcut");
+        click("##entry",3);click("Remove");
         check(std::none_of(state.draft.groups[0].entries.begin(),state.draft.groups[0].entries.end(),[](const auto& e){return e.kind==Kind::unarmed;}),"Hand actions can be removed from shortcuts list");
         click("Undo");check(state.draft.groups[0].entries[3].kind==Kind::unarmed,"Undo restores an action in its original slot");
-        click("New combination");click("##right component");click("Imperial Sword (Superior) · Arsenal");
+        click("New");click("Combination");click("##right component");click("Imperial Sword (Superior)");
         click("##left component");click("Empty left hand");click("Add combination");
         check(state.draft.groups[0].entries.back().parts[1].same(emptyHandEntry(Hand::left)),"Combination picker offers empty hand without an inventory entry");
-        click("Equipment combination");click("Swap hands");
+        click("##entry",state.draft.current().entries.size()-1);click("Swap hands");
         const auto& pair=state.draft.groups[0].entries.back();
         check(pair.parts[0].same(emptyHandEntry(Hand::right))&&pair.parts[0].name=="Empty right hand"&&pair.parts[1].hand==Hand::left,"Swapping a combination keeps empty-hand target and label aligned");
     }
     state=fixture::editor();state.session=session++;io.DisplaySize={1920,1080};frame();frame();
-    click("Shortcuts");click("New hand action");click("Add action");click("Unarmed");
+    click("Groups##main");click("New");click("Hand action");click("Add action");click("##entry",3);
     click("Action");click("Empty left hand");
     check(state.draft.groups[0].entries.size()==4&&state.draft.groups[0].entries.back().same(emptyHandEntry(Hand::left)),"Editing action updates its existing slot immediately");
     click("Undo");check(state.draft.groups[0].entries.back().kind==Kind::unarmed,"Undo restores the prior hand action");
+    for(const auto screen:std::array<ImVec2,3>{{{1280,720},{1920,1080},{3840,2160}}}) {
+        state=fixture::editor();state.session=session++;state.draft.groups[0]={};fixture::rows(state);io.DisplaySize=screen;frame();frame();
+        check(probe::find("Shortcuts").empty(),"Group editing has no separate shortcuts tab");
+        click("##group mode");key(1);check(state.open&&ImGui::GetCurrentContext()->OpenPopupStack.empty(),"Escape dismisses a group popup without closing the editor");
+        click("New");click("Combination");click("##right component");frame();check(io.WantTextInput,"Opening a hand picker focuses search");
+        for(const auto ch:std::string("healing"))frame({{EditorInputType::character,unsigned(ch)}});
+        check(probe::find("Flames").empty()&&!probe::find("Healing").empty(),"Hand picker searches known spells directly");
+        click("Healing");click("Both hands");click("Add combination");
+        check(state.draft.current().entries.size()==1&&state.draft.current().entries[0].name=="Healing · Both hands","Both-hands shortcut adds one entry to an empty group at every scale");
+        click("##entry",0);click("##left component");click("##hand search");
+        for(const auto ch:std::string("flames"))frame({{EditorInputType::character,unsigned(ch)}});click("Flames");
+        check(state.draft.current().entries.size()==1&&state.draft.current().entries[0].parts[1].name=="Flames","Existing combination updates directly from searchable catalog without singles");
+        click("Undo");check(state.draft.current().entries[0].parts[1].name=="Healing","Combination edit is one undoable action");
+        click("New");click("Combination");click("Use equipped");click("Add combination");
+        check(state.draft.current().entries.back().parts[0].name=="Imperial Sword (Superior)"&&state.draft.current().entries.back().parts[1].kind==Kind::emptyHand,"Current equipment creates a combination directly");
+        click("##group mode");click("Tap to cycle");
+        check(state.options.groupModes[0]==GroupMode::cycle,"Group mode applies live at every resolution");
+        check(probe::find("Controller tap").empty()&&probe::find("Hold action").empty(),"Independent overrides are absent");
+        click("2   Offhand\n     1 / 16");check(state.options.groupModes[1]==GroupMode::browse,"Mode does not leak to other groups");
+        click("Undo");check(state.options.groupModes[0]==GroupMode::browse,"Mode change supports Undo");
+    }
     state=fixture::editor();state.session=session++;state.controller=true;io.DisplaySize={1920,1080};frame();frame();
     const auto padKey=[&](PadButton b){frame({{EditorInputType::pad,unsigned(b),true}});frame({{EditorInputType::pad,unsigned(b),false}});frame();};
-    // Establish focus through a real click, then navigate/activate with the pad.
-    click("Equipment");padKey(PadButton::right);
-    check(ImGui::GetCurrentContext()->NavId==probe::one("Shortcuts").id,"D-pad moves between actual top-level tabs");
-    padKey(PadButton::a);check(!probe::find("Add smart slot").empty(),"A activates focused tab without mouse input");
-    padKey(PadButton::right);padKey(PadButton::right);padKey(PadButton::a);
+
+    click("Groups##main");padKey(PadButton::right);
+    check(ImGui::GetCurrentContext()->NavId==probe::one("Appearance").id,"D-pad moves between actual top-level tabs");
+    padKey(PadButton::a);check(!probe::find("Style").empty(),"A activates focused tab without mouse input");
+    padKey(PadButton::right);padKey(PadButton::a);
     check(!probe::find("General").empty(),"Controller reaches Controls tab");
+    padKey(PadButton::down);
+    check(ImGui::GetCurrentContext()->NavId==probe::one("General").id||ImGui::GetCurrentContext()->NavId==probe::one("Keyboard").id||ImGui::GetCurrentContext()->NavId==probe::one("Controller").id,"D-pad enters the Controls section from the main tab");
     click("General");click("Activate with group hotkey");check(!state.options.voiceHotkey,"Voice activation can be disabled live");
     click("Undo");check(state.options.voiceHotkey,"Undo restores voice activation");
-    click("Activate powers / shouts on release");check(state.options.voiceOnRelease,"Release casting is configurable");
+    check(probe::find("Activate powers / shouts on release").empty(),"Release always readies powers safely");
     click("Controller");click("Button icons");click("PlayStation");check(state.options.controllerStyle==1,"Controller glyph family changes live");
     click("Browse with");click("Left stick");check(state.options.controllerStick==0,"Browse stick is configurable");
     click("Browse with bumpers");check(!state.options.controllerBumpers,"Combat bumper capture can be disabled");
+    click("Modifier buttons");click("L2");check(!(state.options.controllerModifiers&padButtonMask(PadButton::lt)),"Held trigger can be exempted from controller modifier matching");
+    click("Undo");check(state.options.controllerModifiers&padButtonMask(PadButton::lt),"Modifier protection supports Undo");
     click("Enable controller");check(!state.options.controllerEnabled,"Controller gameplay bindings can be disabled");click("Undo");
-    // Open an actual group binding combo; choosing its current value is a no-op.
+
     click("##pad button0");click("Triangle");check(state.options.controllerGroups[0].button==PadButton::y,"Controller group button changes independently of keyboard key");
     check(state.options.keys[0]==2,"Controller binding preserves keyboard binding");
     click("##pad modifier0");click("L1");check(state.options.controllerGroups[0].modifier==PadButton::lb,"Controller modifiers apply immediately");
-    click("Equipment");click("Edit text##1");click("Clear text");click("a");click("b");click("c");click("Done");
+    click("Groups##main");click("Items");padKey(PadButton::up);
+    check(ImGui::GetCurrentContext()->NavId==probe::one("##Group name").id,"D-pad reaches the group name field");padKey(PadButton::a);
+    click("Clear text");click("a");click("b");click("c");click("Done");
     check(state.options.names[0]=="abc","On-screen keyboard renames the active group");
-    click("Edit text##0");click("f");click("l");click("a");click("m");click("e");click("s");click("Done");
+    check(probe::find("Edit text##1").empty()&&probe::find("Edit text##0").empty(),"Text fields have no separate edit buttons");
+    click("Items");padKey(PadButton::down);
+    check(ImGui::GetCurrentContext()->NavId==probe::one("##search").id,"D-pad enters inventory search directly");padKey(PadButton::a);
+    click("f");click("l");click("a");click("m");click("e");click("s");click("Done");
     check(probe::find("##candidate").size()==1,"On-screen keyboard filters inventory and magic");
-    click("Edit text##0");padKey(PadButton::b);check(ImGui::GetCurrentContext()->OpenPopupStack.empty(),"B dismisses text entry without changing text");
-    click("Presets");click("Edit text##2");click("Clear text");click("p");click("a");click("d");click("Done");click("Export preset");
+    padKey(PadButton::a);click("Clear text");padKey(PadButton::b);check(ImGui::GetCurrentContext()->OpenPopupStack.empty()&&probe::find("##candidate").size()==1,"B cancels text changes and retains search");
+    padKey(PadButton::down);check(ImGui::GetCurrentContext()->NavId==probe::one("##filter").id,"D-pad follows search to the filter");
+    padKey(PadButton::down);check(ImGui::GetCurrentContext()->NavId==probe::one("##candidate").id,"D-pad enters the item list");
+    const auto beforeAdd=state.draft.current().entries.size();padKey(PadButton::a);
+    check(state.draft.current().entries.size()==beforeAdd&&ImGui::GetCurrentContext()->NavId==probe::one("Add right").id,"A selects a row and focuses Add without adding prematurely");
+    padKey(PadButton::right);padKey(PadButton::a);
+    check(state.draft.current().entries.size()==beforeAdd+1&&state.draft.current().entries.back().name=="Flames"&&state.draft.current().entries.back().hand==Hand::left,"Two confirmations add a spell directly to the requested hand");
+    click("Presets");padKey(PadButton::down);
+    check(ImGui::GetCurrentContext()->NavId==probe::one("##preset name").id,"D-pad enters preset settings directly");padKey(PadButton::a);
+    click("Clear text");click("p");click("a");click("d");click("Done");click("Export preset");
     check(std::find(state.presets.begin(),state.presets.end(),"pad")!=state.presets.end(),"Controller text entry can name an exported preset");
     padKey(PadButton::start);check(!state.open,"Start closes the editor with live edits retained");
+
+    state=fixture::editor();state.session=session++;state.controller=true;frame();frame();click("Groups##main");
+    const auto startPointer=io.MousePos;
+    frame({{EditorInputType::stick,1,false,.1f,0}});frame();
+    check(!editor.controllerPointer()&&io.MousePos.x==startPointer.x,"Stick deadzone prevents pointer drift");
+    frame({{EditorInputType::stick,1,false,1,0}});const float firstMove=io.MousePos.x;
+    frame();check(editor.controllerPointer()&&io.MousePos.x>firstMove,"Held stick moves each rendered frame without repeated events");
+    frame({{EditorInputType::stick,1,false,0,0}});const auto stopped=io.MousePos;frame();
+    check(io.MousePos.x==stopped.x&&editor.controllerPointer(),"Centering the stick leaves a usable stationary pointer");
+    const auto pointAt=[&](ImVec2 point){
+        mouse(point);frame({{EditorInputType::stick,1,false,.21f,0}});frame({{EditorInputType::stick,1,false,0,0}});
+    };
+    pointAt(probe::one("##Group name").rect.GetCenter());padKey(PadButton::a);
+    check(!probe::find("Clear text").empty(),"Controller pointer click opens text keyboard directly");padKey(PadButton::b);
+    click("New");click("Combination");click("##right component");
+    pointAt(probe::one("##hand search").rect.GetCenter());padKey(PadButton::a);
+    click("h");click("e");click("a");click("l");click("Done");
+    check(!probe::find("Healing").empty()&&probe::find("Flames").empty(),"Nested hand search keeps its picker open after controller text entry");
+    padKey(PadButton::a);click("Clear text");padKey(PadButton::b);
+    check(!probe::find("Healing").empty()&&probe::find("Flames").empty(),"Cancelling nested text edit preserves the parent filter and picker");
+    padKey(PadButton::b);click("Appearance");click("Groups");click("Position");
+    click("Widget");const auto beforeDrag=ImVec2{state.options.positionX,state.options.positionY};
+    pointAt(probe::one("Drag widget").rect.GetCenter());
+    frame({{EditorInputType::pad,unsigned(PadButton::a),true},{EditorInputType::stick,1,false,-.8f,.5f}});
+    for(unsigned i=0;i<15;++i)frame();
+    frame({{EditorInputType::stick,1,false,0,0},{EditorInputType::pad,unsigned(PadButton::a),false}});frame();
+    check(state.options.positionX<beforeDrag.x&&state.options.positionY<beforeDrag.y&&!io.MouseDown[0],"Right stick plus held A drags widget bounds and releases cleanly");
+    pointAt(probe::one("X").rect.GetCenter());padKey(PadButton::a);
+    padKey(PadButton::a);padKey(PadButton::left);padKey(PadButton::a);
+    check(!editor.controllerPointer(),"D-pad returns from the pointer to focused navigation");
+    click("Back");click("Equipment");click("##equipment visibility");click("Show always");
+    const float groupScale=state.options.scale;
+    const auto changeSlider=[&](const char* label){const auto r=probe::one(label).rect;mouse({r.Min.x+r.GetWidth()*.8f,r.GetCenter().y});frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();};
+    changeSlider("##Scale");check(state.options.equipmentScale>1.4f&&state.options.scale==groupScale,"Equipment Scale changes independently of group size");
+    click("Undo");check(state.options.equipmentScale==1,"Equipment Scale supports Undo");
+    changeSlider("##Text size");check(state.options.equipmentTextScale>1.2f&&state.options.textScale==1,"Equipment Text size changes independently of other text");
+    click("Undo");check(state.options.equipmentTextScale==1,"Equipment Text size supports Undo");
+    const auto groupSpacing=state.options.spacing,selectorSpacing=state.options.selectorSpacing;
+    changeSlider("##Spacing");check(state.options.equipmentSpacing>3&&state.options.spacing==groupSpacing&&state.options.selectorSpacing==selectorSpacing,"Equipment Spacing applies live without changing groups or selector");
+    click("Undo");check(state.options.equipmentSpacing==1,"Equipment Spacing supports Undo");
+    click("Groups");changeSlider("##Spacing");check(state.options.spacing>30&&state.options.equipmentSpacing==1,"Groups use their own Spacing control");click("Undo");
+    click("Selector");changeSlider("##Spacing");check(state.options.selectorSpacing>24&&state.options.spacing==groupSpacing,"Selector uses its own Spacing control");click("Undo");click("Equipment");
+    click("Position");check(!probe::find("Scale").empty(),"Equipment placement exposes its independent scale");
+    const auto oldEquipmentScale=state.options.equipmentScale;changeSlider("Scale");check(state.options.equipmentScale!=oldEquipmentScale&&state.options.scale==groupScale,"Position Scale affects only the selected equipment widget");
+    click("Back");click("Close");
     state=fixture::editor();state.session=session++;state.vr=true;state.controller=false;frame();frame();
     const auto desktopBindings=state.options.controllerGroups;
     click("Controls");click("Controller");
@@ -304,5 +419,143 @@ int main(int argc,char** argv)try {
     click("Browse with");click("Off-hand stick / pad");check(state.options.vrStick==0&&state.options.controllerStick==1,"VR browse hand is configured independently");
     click("Undo");check(state.options.vrStick==1,"VR control changes support Undo");
     click("Close");check(!state.open,"VR pointer interaction reaches the close button");
+
+    state=fixture::editor();state.session=session++;state.draft.groups[0]={};fixture::rows(state);frame();frame();
+    check(!probe::find("Browse with").empty(),"Reopening retains the Controls controller subpage");click("Groups##main");
+    click("New");click("Smart weapon");click("Type");click("Mace");click("Add smart weapon");
+    check(state.draft.groups[0].entries.size()==1&&state.draft.groups[0].entries[0].kind==Kind::smartWeapon&&state.draft.groups[0].entries[0].equipmentType==unsigned(WeaponFamily::mace),"Smart mace adds directly to an empty group");
+    click("##entry");click("Hand");click("Left");check(state.draft.groups[0].entries[0].hand==Hand::left,"Smart weapon hand changes live");
+    click("New");click("Smart ammo");click("Type");click("Bolts");click("Add smart ammo");
+    check(state.draft.groups[0].entries.back().kind==Kind::smartAmmo&&state.draft.groups[0].entries.back().equipmentType==1,"Smart bolts add from the unified editor");
+    click("##group mode");click("Tap to cycle");check(state.options.groupModes[0]==GroupMode::cycle,"Smart weapon group can cycle");
+    click("New");click("Smart potion");click("Add smart potion");
+    check(state.options.groupModes[0]==GroupMode::browse&&probe::one("##group mode").disabled,"Adding a consumable restores browse/use and disables incompatible mode");
+    click("Undo");check(state.options.groupModes[0]==GroupMode::cycle&&state.draft.groups[0].entries.size()==2,"Undo restores contents and cycle mode together");
+
+    click("Items");click("##filter");click("Shortcuts");
+    check(probe::find("##candidate").size()==2,"Shortcut filter shows both created smart definitions");
+    click("##candidate",0);click("Edit shortcut");click("Type");click("Sword");
+    const auto sharedID=state.draft.groups[0].entries[0].shortcut;
+    check(libraryShortcut(state.draft,sharedID)->equipmentType==unsigned(WeaponFamily::sword),"Library editor updates the first group");
+    click("2   Offhand\n     1 / 16");click("##candidate",0);click("Add to group");
+    check(state.draft.groups[1].entries.back().shortcut==sharedID,"Search result adds the shared definition to another group");
+    click("##entry",1);click("Type");click("Dagger");
+    check(state.draft.groups[0].entries[0].equipmentType==unsigned(WeaponFamily::dagger),"Editing from second group updates first group");
+    click("Remove");check(libraryShortcut(state.draft,sharedID)&&state.draft.groups[0].entries.size()==2,"Removing group membership keeps shared definition");
+    click("Items");click("##candidate",0);click("Delete shortcut");click("Delete");
+    check(!libraryShortcut(state.draft,sharedID)&&state.draft.groups[0].entries.size()==1,"Explicit library delete removes all memberships");
+    click("Undo");check(libraryShortcut(state.draft,sharedID)&&state.draft.groups[0].entries.size()==2,"Undo restores shared definition and memberships");
+    hud.setIcons("sample-icons","Sample icons",123);click("Appearance");click("Style");click("##item icon set");click("Sample icons");
+    check(state.options.itemIconSet=="sample-icons"&&hud.iconTexture(state.options)==123,"Icon pack selection changes the live HUD texture");
+    click("Undo");check(state.options.itemIconSet=="quickslot","Icon pack selection supports Undo");
+    click("Equipment");click("##equipment visibility");click("Show always");check(state.options.showEquipment&&!state.options.equipmentDim,"Equipment can stay visible independently");
+    click("##equipment visibility");click("Dim when idle");check(state.options.equipmentDim,"Equipment dim mode applies immediately");
+    click("Undo");check(!state.options.equipmentDim&&state.options.showEquipment,"Equipment visibility supports Undo");
+    click("##equipment style");click("Circles");click("##equipment layout");click("Horizontal");click("##equipment text");click("Bottom");
+    check(state.options.equipmentStyle==1&&state.options.equipmentLayout==1&&state.options.equipmentTextPosition==1,"Shape, arrangement and text position apply live");
+    click("##equipment style");click("Diamonds");check(state.options.equipmentStyle==2,"Diamond equipment icons available");
+    click("##equipment style");click("Squares");check(state.options.equipmentStyle==3,"Square equipment icons available");
+    click("##equipment style");click("Text only");check(state.options.equipmentStyle==4&&probe::find("##equipment text").empty(),"Text-only hides irrelevant icon text-position control");
+    click("##equipment style");click("List");check(state.options.equipmentStyle==0&&probe::find("##equipment layout").empty(),"List retains its compact vertical layout");
+    click("Position");check(!probe::find("Drag equipment").empty(),"Independent equipment placement has a bounding box");
+    const auto oldWidget=Point{state.options.positionX,state.options.positionY};
+    const auto eqBox=probe::one("Drag equipment").rect;mouse(eqBox.GetCenter());frame({{EditorInputType::button,0,true}});
+    frame({{EditorInputType::move,0,false,120,-60}});frame({{EditorInputType::button,0,false}});frame();
+    check(state.options.equipmentX!=Options{}.equipmentX&&state.options.positionX==oldWidget.x&&state.options.positionY==oldWidget.y,"Dragging equipment leaves widget position unchanged");
+    click("Grid");click("Snap to grid");click("Equipment");
+    const auto snapStart=probe::one("Drag equipment").rect;mouse(snapStart.GetCenter());frame({{EditorInputType::button,0,true}});
+    frame({{EditorInputType::move,0,false,47,29}});frame({{EditorInputType::button,0,false}});frame();
+    const auto eqSnapped=probe::one("Drag equipment").rect;const float eqStep=placementGridStep(state.options,io.DisplaySize.y);
+    const auto aligned=[](float value,float center,float step){return std::abs((value-center)/step-std::round((value-center)/step))*step<1.5f;};
+    check(aligned(eqSnapped.Min.x,io.DisplaySize.x*.5f,eqStep)||aligned(eqSnapped.GetCenter().x,io.DisplaySize.x*.5f,eqStep)||aligned(eqSnapped.Max.x,io.DisplaySize.x*.5f,eqStep),"Equipment bounds snap to grid");
+    click("Back");
+    click("Visibility");click("Hide empty groups");click("##inactive groups");click("Dim");
+    check(state.options.hideEmptyGroups&&state.options.inactiveGroups==1,"Visibility controls apply immediately");
+    click("##inactive groups");click("Hide");check(state.options.inactiveGroups==2,"Inactive groups can be hidden");
+    click("Undo");check(state.options.inactiveGroups==1,"Inactive visibility supports Undo");
+    click("Groups##main");
+    const auto closeID=probe::one("Close").id;
+    const auto translations=std::filesystem::temp_directory_path()/"quickslot-ui-language-probe";std::filesystem::create_directories(translations);
+    {std::ofstream file(translations/"ru.json");file<<Json{{"language","ru"},{"name","Русский"},{"strings",{{"Close","Закрыть"},{"Groups","Группы"},{"Appearance","Оформление"},{"Controls","Управление"},{"Presets","Пресеты"}}}}.dump();}
+    localization().load(translations,"russian");localization().select("auto");frame();frame();
+    check(probe::one("Close").id==closeID&&probe::one("Close").label=="Закрыть###Close","Translated controls preserve IDs and show localized labels");
+    click("Appearance");check(!probe::find("Hide empty groups").empty(),"Appearance retains Visibility after group editing");
+    click("Style");check(!probe::find("##language").empty(),"Language selector is available in Appearance");
+    click("##language");click("English");check(state.options.language=="en","Language selection applies immediately to settings");
+    localization().select(state.options.language);frame();check(probe::one("Close").label=="Close","Returning to English restores editor labels");
+    click("Close");check(!state.open,"Translated controls remain clickable");
+    std::filesystem::remove_all(translations);
+    Snapshot hidden;hidden.visible=true;hidden.interaction=1;hidden.rows={{unarmedEntry(),true,true,{}}};hidden.groups[0]={unarmedEntry(),1,true,true};
+    Options visibility;setWidgetVisibility(visibility,WidgetVisibility::hide);visibility.fadeDelay=0;
+    const auto vertices=[&](double now){ImGui::NewFrame();auto* draw=ImGui::GetBackgroundDrawList();const auto before=draw->VtxBuffer.Size;hud.draw(hidden,visibility,now,{}, {},draw);const auto count=draw->VtxBuffer.Size-before;ImGui::Render();return count;};
+    check(vertices(100)>0&&vertices(101)==0,"A fully faded HUD submits no frames, icons, keycaps or captions");
+    hidden.notice="Ready";hidden.noticeUntil=110;check(vertices(102)>0&&vertices(103)==0,"Notifications fade with the complete widget");
+    ++hidden.interaction;check(vertices(104)>0,"A repeated hotkey wakes the rendered widget");
+    hidden.browsing=true;check(vertices(105)>0,"Selector is visible while using hidden-idle mode");
+    hidden.visible=false;check(vertices(106)==0,"A blocking game menu hides the complete HUD including its selector");
+    hidden.visible=true;hidden.browsing=false;setWidgetVisibility(visibility,WidgetVisibility::selecting);check(vertices(107)==0,"Selection-only mode leaves no idle notification behind");
+    hidden.editorPreview=true;check(vertices(108)>0,"Editor and positioning preview remain visible in selection-only mode");
+    hidden=Snapshot{};hidden.visible=true;hidden.equipment=fixture::editor().equippedDisplay;
+    visibility=Options{};visibility.showEquipment=true;hidden.groups[0]={hidden.equipment.hands[0]->entry,1,true,true};
+    for(const ImVec2 screen:{ImVec2{1280,720},ImVec2{3840,2160}}) {
+        io.DisplaySize=screen;ImGui::NewFrame();HudBounds bounds;
+        hud.draw(hidden,visibility,200,{}, {},ImGui::GetBackgroundDrawList(),&bounds);ImGui::Render();
+        check(bounds.equipment.valid&&bounds.widget.valid&&!bounds.tiles.empty(),"Equipment and group widgets render together");
+        check(bounds.equipment.min.x>=0&&bounds.equipment.min.y>=0&&bounds.equipment.max.x<=screen.x&&bounds.equipment.max.y<=screen.y,"Equipment list fits at 720p and 4K");
+    }
+    hidden.equipment.hands[0]->entry.twoHanded=true;
+    ImGui::NewFrame();HudBounds bothBounds;hud.draw(hidden,visibility,201,{}, {},ImGui::GetBackgroundDrawList(),&bothBounds);ImGui::Render();
+    check(bothBounds.equipment.valid&&bothBounds.equipment.height()<equipmentGeometry(visibility,io.DisplaySize.x,io.DisplaySize.y,4).height*equipmentGeometry(visibility,io.DisplaySize.x,io.DisplaySize.y,4).scale,"Two-handed equipment uses one compact row");
+    hidden.equipment.hands[0]->entry.twoHanded=false;hidden.editorPreview=hidden.placementPreview=true;
+    for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<2;++layout)for(unsigned position=0;position<4;++position)
+        for(const ImVec2 screen:{ImVec2{1280,720},ImVec2{3840,2160}})for(float spacing:{0.f,4.f}) {
+            io.DisplaySize=screen;visibility.equipmentStyle=style;visibility.equipmentLayout=layout;visibility.equipmentTextPosition=position;
+            visibility.equipmentX=visibility.equipmentY=1;visibility.textScale=1.5f;visibility.equipmentScale=2;visibility.equipmentTextScale=1.5f;
+            visibility.equipmentSpacing=spacing;
+            ImGui::NewFrame();HudBounds b;hud.draw(hidden,visibility,210,{}, {},ImGui::GetBackgroundDrawList(),&b);ImGui::Render();
+            if(b.equipment.max.x>screen.x||b.equipment.max.y>screen.y||b.equipment.min.x<0||b.equipment.min.y<0)
+                std::cerr<<"Equipment bounds: style "<<style<<", layout "<<layout<<", text "<<position<<", screen "<<screen.x<<'x'<<screen.y<<", bounds "<<b.equipment.min.x<<','<<b.equipment.min.y<<" to "<<b.equipment.max.x<<','<<b.equipment.max.y<<'\n';
+            check(b.equipment.valid&&b.equipment.min.x>=0&&b.equipment.min.y>=0&&b.equipment.max.x<=screen.x&&b.equipment.max.y<=screen.y,"All rendered styles and text positions stay on-screen at 720p/4K");
+        }
+    hidden.editorPreview=hidden.placementPreview=false;visibility=Options{};visibility.showEquipment=true;
+    const auto renderBounds=[&](double now){ImGui::NewFrame();HudBounds b;hud.draw(hidden,visibility,now,{}, {},ImGui::GetBackgroundDrawList(),&b);ImGui::Render();return b;};
+    setWidgetVisibility(visibility,WidgetVisibility::selecting);auto independent=renderBounds(220);
+    check(independent.equipment.valid&&!independent.widget.valid,"Hidden groups do not suppress rendered equipment");
+    setWidgetVisibility(visibility,WidgetVisibility::always);setEquipmentVisibility(visibility,EquipmentVisibility::off);independent=renderBounds(221);
+    check(independent.widget.valid&&!independent.equipment.valid,"Disabling equipment preserves the rendered group widget");
+    setEquipmentVisibility(visibility,EquipmentVisibility::dim);visibility.equipmentFadeDelay=0;visibility.equipmentIdleOpacity=.25f;
+    setWidgetVisibility(visibility,WidgetVisibility::hide);visibility.fadeDelay=0;++hidden.interaction;renderBounds(222);independent=renderBounds(223);
+    check(independent.equipment.valid&&!independent.widget.valid,"Equipment remains dimmed after groups fade completely");
+    unsigned alpha=0;for(const auto& v:ImGui::GetBackgroundDrawList()->VtxBuffer)alpha=std::max(alpha,unsigned(v.col>>24));
+    check(alpha>0&&alpha<80,"Equipment uses its own rendered opacity");
+    hidden.visible=false;independent=renderBounds(224);check(!independent.widget.valid&&!independent.equipment.valid,"Blocking menus hide both independent displays");
+    Snapshot fixed;fixed.visible=true;fixed.groups[0]={unarmedEntry(),1,true,true};
+    for(unsigned layout=0;layout<6;++layout)for(unsigned shape=0;shape<4;++shape)for(bool preview:{false,true})
+        for(const ImVec2 screen:{ImVec2{1280,720},ImVec2{3840,2160}}) {
+            io.DisplaySize=screen;fixed.editorPreview=preview;
+            Options look;look.layout=layout;look.shape=shape;look.groupCount=4;look.showLabels=false;look.themeId="oathvein";look.scale=1.5f;
+            const auto drawSpacing=[&](float spacing){look.spacing=spacing;ImGui::NewFrame();HudBounds b;
+                hud.draw(fixed,look,300,{},preview?ImVec2{600,440}:ImVec2{},ImGui::GetBackgroundDrawList(),&b);ImGui::Render();return b;};
+            const auto tight=drawSpacing(0),loose=drawSpacing(40);
+            check(tight.tiles.size()==4&&loose.tiles.size()==4,"Both spacing extremes render all four group tiles");
+            for(unsigned i=0;i<4;++i)check(std::abs(tight.tiles[i].width()-loose.tiles[i].width())<.02f&&std::abs(tight.tiles[i].height()-loose.tiles[i].height())<.02f,"Rendered tile dimensions stay fixed when group spacing changes");
+            const auto distance=[](const HudBounds& b){const auto& a=b.tiles[0];const auto& c=b.tiles[1];return std::hypot(a.min.x+a.max.x-c.min.x-c.max.x,a.min.y+a.max.y-c.min.y-c.max.y)*.5f;};
+            check(distance(loose)>distance(tight),"Rendered tiles move farther apart in HUD and preview");
+        }
+    state=fixture::editor();state.session=session++;io.DisplaySize={1600,900};frame();frame();click("Groups##main");
+    const auto priorEntries=state.draft.groups[0].entries.size();
+    click("New");click("Combination");click("##right component");
+    check(probe::find("Best Shield").empty()&&probe::find("Best Two-handed").empty(),"Right-hand smart choices exclude shields and two-handed weapons");
+    click("Best Sword");click("##left component");click("Best Mace");
+    check(!probe::one("Add combination").disabled,"Both smart hand choices enable Add combination");
+    click("Add combination");
+    check(state.draft.groups[0].entries.size()==priorEntries+1&&state.draft.groups[0].entries.back().parts[0].kind==Kind::smartWeapon&&state.draft.groups[0].entries.back().parts[1].kind==Kind::smartWeapon,"Both smart hand rules are added in one step without separate group entries");
+    click("##entry",priorEntries);click("Swap hands");
+    check(state.draft.groups[0].entries.back().parts[0].equipmentType==unsigned(WeaponFamily::mace),"Smart hand rules swap without capturing physical items");
+    click("##left component");click("Best Shield");
+    check(smartShield(state.draft.groups[0].entries.back().parts[1])&&probe::one("Swap hands").disabled,"Smart shield stays in the left hand during live combination editing");
+    click("Undo");check(!smartShield(state.draft.groups[0].entries.back().parts[1]),"Undo restores the previous smart component");
+    click("New");click("Smart shield");check(probe::find("Hand").empty(),"Standalone shield has no invalid right-hand choice");
+    click("Add smart shield");check(smartShield(state.draft.groups[0].entries.back()),"A smart shield can also be saved as its own shortcut");
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

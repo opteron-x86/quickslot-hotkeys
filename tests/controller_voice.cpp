@@ -1,4 +1,6 @@
 #include "Controller.h"
+#include "GameplayMenus.h"
+#include "InputFilter.h"
 #include "VoiceAction.h"
 #include "Presets.h"
 #include "KeyGlyphs.h"
@@ -11,10 +13,54 @@ void check(bool ok,const char* why,std::source_location at=std::source_location:
 }
 int main()try {
     Options o;ControllerInput pad;Selection selection;Group group;
+    {
+        Options controls;Selection::Commit c{0,1,0};Entry item;
+        for(unsigned k=0;k<=unsigned(Kind::smartAmmo);++k)for(bool gamepad:{false,true}) {
+            item.kind=Kind(k);c.controller=gamepad;c.browsed=false;c.cycling=false;
+            check(selectionAction(item,c,controls)==(isConsumable(item)||isVoice(item)?SelectionAction::use:SelectionAction::equip),"Normal tap behavior is consistent across devices");
+            c.browsed=true;check(selectionAction(item,c,controls)==(isConsumable(item)?SelectionAction::select:SelectionAction::equip),"Browse never spends items or casts powers");
+            c.browsed=false;c.cycling=true;check(selectionAction(item,c,controls)==(isConsumable(item)?SelectionAction::select:SelectionAction::equip),"Cycle equips without activation");
+        }
+        controls.groupModes[0]=GroupMode::cycle;controls.controllerModifiers&=~padButtonMask(PadButton::rt);
+        const auto saved=decodeOptions(encodeOptions(controls));
+        check(saved.groupModes==controls.groupModes&&saved.controllerModifiers==controls.controllerModifiers,"Modes and modifier exceptions persist");
+        Options appearance;const auto local=appearance;importAppearance(appearance,saved);
+        check(appearance.groupModes==local.groupModes&&appearance.controllerModifiers==local.controllerModifiers,"Appearance import preserves controls");
+        auto broken=controls;broken.groupModes[0]=GroupMode(999);broken.controllerModifiers=~0u;sanitizeOptions(broken);
+        check(broken.groupModes[0]==GroupMode::browse&&broken.controllerModifiers==allPadButtons,"Invalid settings default to browse");
+        Arsenal a;reorderGroup(controls,0,1);check(controls.groupModes[0]==GroupMode::cycle,"Mode follows stable group ID");
+        removeGroup(a,controls,0);check(controls.groupModes[0]==GroupMode::browse,"Removed group resets mode");
+    }
+    for(const auto codes:{PadCodeSet::xinput,PadCodeSet::orbis})for(unsigned modifier=5;modifier<unsigned(PadButton::count);++modifier) {
+        Options controls;ControllerInput input;const auto mod=PadButton(modifier);
+        input.button(mod,true,true,controls,true,false);
+        const auto trigger=padButton(padCodes(codes)[unsigned(PadButton::up)],codes);
+        check(!input.button(trigger,true,true,controls,true,false).consumed&&!input.active(),"A foreign controller chord does not start a bare D-pad group");
+        input.button(mod,false,false,controls,true,false);
+        check(!input.button(trigger,true,false,controls,true,false).consumed,"Releasing a foreign modifier cannot adopt an already-held D-pad");
+        check(!input.button(trigger,false,false,controls,true,false).consumed,"Unmatched chord releases pass through");
+        check(input.button(trigger,true,true,controls,true,false).action==PadAction::press,"Bare binding works after foreign chord is released");input.reset();
+        PadState physical{};physical[unsigned(mod)]=physical[unsigned(trigger)]=true;input.observe(physical);
+        check(!input.button(trigger,true,true,controls,true,false).consumed,"Physical snapshot protects chords when D-pad event comes first");
+        input.reset();controls.controllerGroups[0]={trigger,mod};input.observe(physical);
+        check(input.button(trigger,true,true,controls,true,false).action==PadAction::press,"Explicit chord works in either event order");
+        physical[unsigned(trigger)]=false;input.observe(physical);
+        check(input.button(trigger,false,false,controls,true,true).action==PadAction::release,"Pre-dispatch sampling does not discard a legitimate group release");
+        input.reset();controls.controllerGroups[0]={trigger};controls.controllerModifiers&=~padButtonMask(mod);
+        input.button(mod,true,true,controls,true,false);
+        check(input.button(trigger,true,true,controls,true,false).action==PadAction::press,"Exempted held button permits bare binding");
+    }
+    {
+        Options controls;ControllerInput input;controls.controllerGroups[0]={PadButton::up,PadButton::lb};
+        input.button(PadButton::lb,true,true,controls,true,false);input.button(PadButton::b,true,true,controls,true,false);
+        check(!input.button(PadButton::up,true,true,controls,true,false).consumed,"An additional modifier prevents a partial chord match");
+        input.reset();controls.controllerEditor={PadButton::up};input.button(PadButton::b,true,true,controls,true,false);
+        check(!input.button(PadButton::up,true,true,controls,true,false).consumed,"Unmodified editor binding also respects foreign modifiers");
+    }
     Entry sword;sword.form=1;group.add(sword);Entry potion;potion.form=2;potion.kind=Kind::potion;group.add(potion);group.selected=0;
     for(unsigned i=1;i<unsigned(PadButton::count);++i)check(padButton(padNativeCodes[i])==PadButton(i),"Native button masks map bijectively, including triggers");
     check(padButton(0)==PadButton::none&&padButton(0xffff)==PadButton::none,"Unknown controller input does not alias a group");
-    // The same raw code has different meanings for the two native devices.
+
     check(padButton(0x10,PadCodeSet::orbis)==PadButton::up&&padButton(0x10)==PadButton::start,"PS4 D-pad Up is not Xbox Start");
     check(padButton(0x4000,PadCodeSet::orbis)==PadButton::a&&padButton(0x4000)==PadButton::x,"PS4 Cross is not Xbox X");
     check(padButton(0x1000,PadCodeSet::orbis)==PadButton::y&&padButton(0x1000)==PadButton::a,"PS4 Triangle is not Xbox A");
@@ -77,6 +123,56 @@ int main()try {
     check(pad.button(PadButton::b,false,false,o,true,false).action==PadAction::none,"Chord's late trigger release cannot cast after cancelling an owned modifier");
     pad.button(PadButton::up,true,true,o,true,false);
     check(pad.button(PadButton::up,false,false,o,false,true).action==PadAction::none,"A menu opening invalidates the held gesture");
+    check(gameplayMenuOpen([](auto name){return name=="LootMenu";}),"QuickLoot owns navigation without pause or menu-context flags");
+    for(const auto menu:gameplayBlockingMenus) {
+        const auto blocked=gameplayMenuOpen([&](auto name){return name==menu;});
+        check(blocked,"Interactive game menus block Quickslot even without pause or context flags");
+        check(gameplayMenuOpen([&](auto name){return name==menu;},MenuPurpose::hud)==(menu!="LootMenu"),"Only QuickLoot leaves the passive HUD visible");
+        check(gameplayMenuOpen([&](auto name){return name==menu||name=="LootMenu";},MenuPurpose::hud)==(menu!="LootMenu"),"QuickLoot cannot override another menu hiding the HUD");
+        ControllerInput navigation;Options menuOptions;menuOptions.groupCount=4;
+        for(const auto button:{PadButton::up,PadButton::right,PadButton::down,PadButton::left,PadButton::a,PadButton::b}) {
+            const auto press=navigation.button(button,true,true,menuOptions,!blocked,false);
+            const auto release=navigation.button(button,false,false,menuOptions,!blocked,false);
+            check(!press.consumed&&!release.consumed&&press.action==PadAction::none&&release.action==PadAction::none,"Menu navigation reaches Skyrim without starting a group or consuming release");
+        }
+        check(navigation.button(PadButton::up,true,true,menuOptions,true,false).action==PadAction::press,"Bindings resume after closing the menu");
+        check(navigation.button(PadButton::up,false,false,menuOptions,!blocked,true).action==PadAction::none,"Opening a menu during a held group prevents delayed activation");
+    }
+    check(!gameplayMenuOpen([](auto name){return name=="HUD Menu"||name=="Quickslot"||name=="QuickslotSelectionPause";}),"HUD and Quickslot's own overlays do not block gameplay");
+    for(const auto codes:{PadCodeSet::xinput,PadCodeSet::orbis})for(const auto mode:{GroupMode::browse,GroupMode::cycle}) {
+        Options lootOptions;lootOptions.groupModes[0]=mode;
+        ControllerInput navigation;Selection choosing;Group items;
+        Entry sword;sword.form=1;items.add(sword);Entry potion;potion.kind=Kind::potion;potion.form=2;items.add(potion);
+        bool lootOpen=true;
+        const auto allowed=[&]{return !gameplayMenuOpen([&](auto name){return lootOpen&&name=="LootMenu";});};
+        for(unsigned i=1;i<unsigned(PadButton::count);++i) {
+            const auto button=padButton(padCodes(codes)[i],codes);
+            const auto down=navigation.button(button,true,true,lootOptions,allowed(),false);
+            const auto repeat=navigation.button(button,true,false,lootOptions,allowed(),false);
+            const auto up=navigation.button(button,false,false,lootOptions,allowed(),false);
+            check(!down.consumed&&!repeat.consumed&&!up.consumed&&down.action==PadAction::none&&repeat.action==PadAction::none&&up.action==PadAction::none,"QuickLoot receives controller presses, repeats and releases in both group modes");
+        }
+        const auto trigger=padButton(padCodes(codes)[unsigned(PadButton::up)],codes);
+        navigation.button(trigger,true,true,lootOptions,allowed(),false);lootOpen=false;
+        check(navigation.button(trigger,true,false,lootOptions,allowed(),false).action==PadAction::none,"Closing QuickLoot cannot adopt a held navigation button");
+        check(!navigation.button(trigger,false,false,lootOptions,allowed(),false).consumed,"A navigation release still passes through after QuickLoot closes");
+        check(navigation.button(trigger,true,true,lootOptions,allowed(),false).action==PadAction::press,"A fresh press resumes Quickslot after QuickLoot closes");
+        choosing.press(1,items);choosing.cycle(1,items);lootOpen=true;choosing.cancel();navigation.cancel();
+        check(navigation.button(trigger,false,false,lootOptions,allowed(),false).action==PadAction::none&&!choosing.release(items),"QuickLoot opening cancels a held selection without equipment or consumption on release");
+        lootOpen=false;choosing.press(2,items);auto released=choosing.release(items);lootOpen=true;choosing.cancel();
+        check(!choosing.accepts(*released,items),"QuickLoot opening invalidates a released but queued use");
+        auto cycled=choosing.requestCycle(items,0,0);choosing.cancel();
+        check(!choosing.accepts(*cycled,items),"QuickLoot opening invalidates a queued tap-cycle equip");
+    }
+    {
+        bool owned=false;
+        check(captureGameplayStick(owned,false,true,false)&&owned,"Browsing captures a deflected stick");
+        check(!captureGameplayStick(owned,false,false,true)&&!owned,"An open menu immediately receives a previously captured stick");
+        check(!captureGameplayStick(owned,false,false,false),"Closing a menu cannot resume old stick capture");
+        check(captureGameplayStick(owned,false,true,false),"New browsing can capture the stick again");
+        check(captureGameplayStick(owned,false,false,false)&&owned,"Normal selector release still prevents accidental movement");
+        check(captureGameplayStick(owned,true,false,false)&&!owned&&!captureGameplayStick(owned,false,false,false),"Centering restores normal gameplay stick input");
+    }
     pad.button(PadButton::up,true,true,o,true,false);
     std::array<bool,unsigned(PadButton::count)> physical{};
     check(pad.synchronize(physical)&&!pad.active(),"A lost release cancels rather than activates");
@@ -104,8 +200,8 @@ int main()try {
     for(const auto kind:{Kind::power,Kind::lesserPower,Kind::shout}) {
         Entry e;e.kind=kind;Selection::Commit c{0,0,0};Options controls;
         check(activatesVoice(e,c,controls),"Power and shout taps activate");c.browsed=true;
-        check(!activatesVoice(e,c,controls),"Browsing voice entries selects by default");controls.voiceOnRelease=true;
-        check(activatesVoice(e,c,controls),"Release activation is opt-in");controls.voiceHotkey=false;
+        check(!activatesVoice(e,c,controls),"Browsing voice entries selects by default");c.browsed=false;c.cycling=true;
+        check(!activatesVoice(e,c,controls),"Cycling never casts");c.cycling=false;controls.voiceHotkey=false;
         check(!activatesVoice(e,c,controls),"Select-only preference disables hotkey casting");
     }
     VoiceAction voice;check(voice.begin(1,1.2f)&&!voice.begin(1.1f,1.2f),"Repeated requests cannot overlap an active voice gesture");

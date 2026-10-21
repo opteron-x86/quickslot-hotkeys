@@ -1,0 +1,16 @@
+/build/
+/build-*/
+/dist/
+/package/
+/releases/
+/release-build/
+/validation*/
+/.deps/
+/vcpkg_installed/
+/CMakeUserPresets.json
+/.vs/
+/.vscode/
+__pycache__/
+*.pyc
+/imgui.ini
+/.DS_Store

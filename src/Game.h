@@ -8,6 +8,7 @@
 #include "EditorLaunch.h"
 #include "MenuFramework.h"
 #include "Controller.h"
+#include "GameplayMenus.h"
 #include "VoiceAction.h"
 #include <RE/Skyrim.h>
 #include <SKSE/SKSE.h>
@@ -31,6 +32,7 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     std::recursive_mutex mutex_;
     Arsenal arsenal_;
     Selection selection_;
+    GroupRecall groupRecall_;
     Snapshot snapshot_;
     Options options_;
     EditorState editor_;
@@ -54,13 +56,15 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     RE::INPUT_DEVICE voiceDevice_=RE::INPUT_DEVICE::kKeyboard;
     unsigned voiceCode_=0;
     void cycleSelection(int);
+    void beginSelection(std::size_t,bool);
+    void finishSelection();
     bool consumeController(RE::InputEvent*);
     void startVoice(const Entry&);
     void progressVoice();
     void stopVoice();
     bool initialized_=false,ready_=false,dirty_=true,menuRequested_=false;
     std::atomic_bool tickQueued_{false};
-    struct Pending {Selection::Commit commit;double deadline=0;EquipmentPhase phase=EquipmentPhase::equipping;int pairStep=-1;bool remove=false,castVoice=false;};
+    struct Pending {Selection::Commit commit;double deadline=0;EquipmentPhase phase=EquipmentPhase::equipping;int pairStep=-1;bool remove=false,castVoice=false;std::optional<Entry> action;};
     std::optional<Pending> pending_;
     struct Released {Selection::Commit commit;bool unequip=false;};
     std::optional<Released> released_;
@@ -74,14 +78,14 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     void watchAnimation();
     void drainAnimation();
     void stopAnimationWatch();
-    void equipPairStep(const Selection::Commit&,int,bool);
+    void equipPairStep(const Selection::Commit&,int,bool,std::optional<Entry> plan={});
     void menuCapture(std::size_t,Hand);
     bool captureMenuOpen()const;
     void selectionTime(bool);
     SelectionTime selectionTime_;
     bool soulsRequested_=false,pauseRequested_=false;
     std::uint64_t menuCaptureEpoch_=0;
-    bool allowed()const;
+    bool allowed(MenuPurpose purpose=MenuPurpose::input)const;
     bool consume(RE::InputEvent*);
     void capture(Hand);
     void equip(const Selection::Commit&,bool unequip=false);
@@ -95,7 +99,7 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     void refresh();
     void publish();
     void cancel();
-    void notice(std::string);
+    void notice(std::string,bool visible=true);
     void tick();
     void queueEdit(int action,std::optional<std::size_t> index={});
     bool editorAllowed()const;
@@ -107,6 +111,8 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     void refreshPresets();
     bool presetCommand(const EditCommand&);
     bool addCandidate(const EditCommand&);
+    std::optional<Entry> captureCandidate(std::uint64_t,Hand);
+    bool saveCombination(const EditCommand&);
     void applyEditor();
     void flushSettings(bool force=false);
     void saveSettings(const Options&);

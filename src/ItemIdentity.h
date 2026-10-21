@@ -7,6 +7,7 @@
 namespace quickslot {
 using UsedItemIDs=std::bitset<65536>;
 
+// Select a free 16-bit inventory ID, including zero.
 inline std::optional<std::uint16_t> allocateItemID(const UsedItemIDs& used,std::uint16_t start) {
     for(std::size_t attempt=0;attempt<used.size();++attempt) {
         const auto id=std::uint16_t(start+attempt);
@@ -19,6 +20,8 @@ struct IdentityChange {
     std::uint32_t form=0,oldOwner=0,newOwner=0;
     std::uint16_t oldID=0,newID=0;
 };
+
+// Apply the engine identity change to matching saved copies.
 inline std::size_t followIdentityChange(Group& group,const IdentityChange& change) {
     if(!change.form||!change.oldOwner||
        (change.oldOwner==change.newOwner&&change.oldID==change.newID))return 0;
@@ -27,6 +30,7 @@ inline std::size_t followIdentityChange(Group& group,const IdentityChange& chang
         if(!tracksInstance(entry)||entry.unresolved||entry.form!=change.form||
            entry.owner!=change.oldOwner||entry.unique!=change.oldID)return;
         entry.owner=change.newOwner;entry.unique=change.newID;
+
         if(!change.newOwner)entry.unresolved=true;
         ++count;
     });
@@ -34,6 +38,8 @@ inline std::size_t followIdentityChange(Group& group,const IdentityChange& chang
     return count;
 }
 inline std::size_t followIdentityChange(Arsenal& arsenal,const IdentityChange& change) {
-    std::size_t count=0;for(auto& group:arsenal.groups)count+=followIdentityChange(group,change);return count;
+    std::size_t count=0;for(auto& group:arsenal.groups)count+=followIdentityChange(group,change);
+    Group library;library.entries=std::move(arsenal.shortcuts);
+    count+=followIdentityChange(library,change);arsenal.shortcuts=std::move(library.entries);return count;
 }
 }

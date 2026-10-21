@@ -23,6 +23,7 @@ int main(int argc,char** argv)try {
     std::ifstream file(std::filesystem::path(argv[1])/"tests/fixtures/arsenal.json");const std::string bytes((std::istreambuf_iterator<char>(file)),{});
     auto a=decodeArsenal(bytes,identity);check(a.size()==23,"Current save preserves all 23 entries");
     auto before=Json::parse(bytes);auto after=Json::parse(encodeArsenal(a));
+    for(auto& group:after["groups"])for(auto& entry:group["entries"])entry.erase("shortcut");
     for(unsigned g=0;g<8;++g){check(before["groups"][g]["entries"]==after["groups"][g]["entries"],"Every original entry field survives storage");check(before["groups"][g]["selected"]==after["groups"][g]["selected"],"Every remembered selection survives storage");}
     check(encodeArsenal(decodeArsenal(encodeArsenal(a),identity))==encodeArsenal(a),"Current save round-trips exactly");
     a.active=4;Options o;o.groupCount=5;const auto keys=o.keys;EditHistory history;history.begin(a,o);history.prepare(a,o);
@@ -43,15 +44,14 @@ int main(int argc,char** argv)try {
     Options removed;Arsenal tiny;check(removeGroup(tiny,removed,1)&&removeGroup(tiny,removed,2)&&!removeGroup(tiny,removed,0),"Retain at least one group");
     check(addGroup(tiny,removed)&&removed.groupCount==2&&groupVisible(removed,tiny.active),"Add reuses a hidden group ID");
     removed.keys[0]=removed.keys[1];sanitizeOptions(removed);check(removed.keys[0]==3&&removed.keys[1]!=3,"A removed group's hotkey can be reassigned without rejecting the user's binding");
-    o.skipEmpty=true;o.consumableOnRelease=true;o.selectionSpeed=.25f;o.menuCapture=false;
+    o.skipEmpty=true;o.selectionSpeed=.25f;o.menuCapture=false;
     check(encodeOptions(decodeOptions(encodeOptions(o)))==encodeOptions(o),"New behavior and group order persist");
 
     Entry potion;potion.kind=Kind::potion;potion.form=0x123;potion.name="Potion";Group group;group.add(potion);group.add(weapon(2));Selection select;Options controls;
     group.selected=0;select.press(1,group);auto tap=select.release(group);check(tap&&!tap->browsed&&!selectsConsumable(potion,*tap,controls),"Tap requests a single use");
     select.press(2,group);select.tick(2.2);auto held=select.release(group);check(held&&held->browsed&&selectsConsumable(potion,*held,controls),"A hold selects without spending a dose");
     select.press(3,group);select.cycle(1,group);select.cycle(-1,group);auto scrolled=select.release(group);check(scrolled&&selectsConsumable(potion,*scrolled,controls),"Even a fast scroll makes release selection-only");
-    controls.consumableOnRelease=true;check(!selectsConsumable(potion,*scrolled,controls),"Explicit release-to-use preference is honored");
-    controls.consumableOnRelease=false;check(!selectsConsumable(weapon(1),*scrolled,controls),"Weapons still equip on release");
+    check(!selectsConsumable(weapon(1),*scrolled,controls),"Weapons still equip on release");
     select.press(4,group);select.cycleAvailable(1,group,{true,false});check(select.index()==0,"Skip empty wraps to available entry");
     select.cycleAvailable(-1,group,{false,false});check(select.index()==0&&select.browsing(),"All empty retains a valid shortcut without deleting it");
     select.cycleAvailable(1,group,{false,true});check(select.index()==1,"Restocked entry becomes scrollable");

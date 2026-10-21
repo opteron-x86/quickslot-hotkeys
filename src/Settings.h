@@ -1,9 +1,11 @@
 #pragma once
 #include "Storage.h"
+#include "IconPacks.h"
 #include "VRInput.h"
 
 namespace quickslot {
 inline void sanitizeOptions(Options& o) {
+    if(!languageID(o.language))o.language="auto";
     o.groupCount=std::clamp(o.groupCount,std::size_t(1),Arsenal::count);
     std::array<bool,Arsenal::count> seen{};
     bool validOrder=true;for(const auto id:o.groupOrder){if(id>=Arsenal::count||seen[id]){validOrder=false;break;}seen[id]=true;}
@@ -19,6 +21,8 @@ inline void sanitizeOptions(Options& o) {
     }
     o.selectionSpeed=std::isfinite(o.selectionSpeed)?(o.selectionSpeed==0?0:std::clamp(o.selectionSpeed,.1f,1.f)):1.f;
     o.controllerStyle=std::min(o.controllerStyle,1u);o.controllerStick=std::min(o.controllerStick,2u);
+    o.controllerModifiers&=allPadButtons;
+    for(auto& mode:o.groupModes)if(unsigned(mode)>unsigned(GroupMode::cycle))mode=GroupMode::browse;
     if(!validPadBinding(o.controllerEditor))o.controllerEditor={};
     std::vector<PadBinding> padAssigned;if(o.controllerEditor.button!=PadButton::none)padAssigned.push_back(o.controllerEditor);
     for(const auto id:o.groupOrder) {
@@ -38,11 +42,21 @@ inline void sanitizeOptions(Options& o) {
     o.layout=std::min(o.layout,5u);o.shape=std::min(o.shape,3u);o.selector=std::min(o.selector,4u);
     o.selectorDock=std::min(o.selectorDock,4u);o.selectorShape=std::min(o.selectorShape,3u);
     o.itemIconColor=std::min(o.itemIconColor,2u);
+    if(!validIconPackID(o.itemIconSet))o.itemIconSet="quickslot";
     const auto finite=[](float v,float fallback,float min,float max){return std::isfinite(v)?std::clamp(v,min,max):fallback;};
+    o.inactiveGroups=std::min(o.inactiveGroups,2u);
+    o.inactiveGroupOpacity=finite(o.inactiveGroupOpacity,.3f,.05f,.9f);
     o.controllerDeadzone=finite(o.controllerDeadzone,.45f,.2f,.9f);o.shoutCharge=finite(o.shoutCharge,1.2f,.05f,2.5f);
-    o.scale=finite(o.scale,1,.55f,1.5f);o.opacity=finite(o.opacity,.92f,.4f,1);
+    o.scale=finite(o.scale,1,.55f,1.5f);o.textScale=finite(o.textScale,1,.75f,1.5f);o.opacity=finite(o.opacity,.92f,.4f,1);
+    o.placementSpacing=std::min(o.placementSpacing,3u);o.placementFrame=std::min(o.placementFrame,3u);
+    o.placementGridSize=finite(o.placementGridSize,16,4,128);
     o.spacing=finite(o.spacing,14,0,40);o.selectorSpacing=finite(o.selectorSpacing,16,0,32);
     o.positionX=finite(o.positionX,1,0,1);o.positionY=finite(o.positionY,1,0,1);
+    o.equipmentX=finite(o.equipmentX,.02f,0,1);o.equipmentY=finite(o.equipmentY,.8f,0,1);
+    o.equipmentScale=finite(o.equipmentScale,1,.5f,2.f);o.equipmentTextScale=finite(o.equipmentTextScale,1,.75f,1.5f);
+    o.equipmentSpacing=finite(o.equipmentSpacing,1,0,4);
+    o.equipmentStyle=std::min(o.equipmentStyle,4u);o.equipmentLayout=std::min(o.equipmentLayout,1u);o.equipmentTextPosition=std::min(o.equipmentTextPosition,3u);
+    o.equipmentFadeDelay=finite(o.equipmentFadeDelay,4,0,20);o.equipmentIdleOpacity=finite(o.equipmentIdleOpacity,.35f,.05f,.9f);
     o.selectorGap=finite(o.selectorGap,12,0,100);o.selectorX=finite(o.selectorX,.75f,0,1);o.selectorY=finite(o.selectorY,.4f,0,1);
     o.fadeDelay=finite(o.fadeDelay,4,0,20);o.idleOpacity=finite(o.idleOpacity,.35f,0,1);
     const auto validId=[](const std::string& id){return !id.empty()&&id.size()<=48&&std::all_of(id.begin(),id.end(),[](unsigned char c){return (c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='-'||c=='_';});};
@@ -61,27 +75,45 @@ inline std::string encodeOptions(Options o) {
     const auto binding=[](PadBinding b){return Json::array({unsigned(b.button),unsigned(b.modifier)});};
     Json padGroups=Json::array();for(const auto b:o.controllerGroups)padGroups.push_back(binding(b));
     Json vrGroups=Json::array();for(const auto b:o.vrGroups)vrGroups.push_back(binding(b));
-    return Json{{"schema",1},{"groupOrder",o.groupOrder},{"consumableOnRelease",o.consumableOnRelease},{"skipEmpty",o.skipEmpty},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"themeAdjustments",tweaks},
-        {"voiceHotkey",o.voiceHotkey},{"voiceOnRelease",o.voiceOnRelease},{"shoutCharge",o.shoutCharge},
+    Json modes=Json::array();for(const auto mode:o.groupModes)modes.push_back(unsigned(mode));
+    return Json{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"themeAdjustments",tweaks},
+        {"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},
         {"controllerEnabled",o.controllerEnabled},{"controllerBumpers",o.controllerBumpers},{"controllerStyle",o.controllerStyle},{"controllerStick",o.controllerStick},{"controllerDeadzone",o.controllerDeadzone},{"controllerGroups",padGroups},{"controllerEditor",binding(o.controllerEditor)},
-        {"vrGroups",vrGroups},{"vrEditor",binding(o.vrEditor)},{"vrStick",o.vrStick},
-        {"itemIconColor",o.itemIconColor},
+        {"groupModes",modes},{"controllerModifiers",o.controllerModifiers},{"vrGroups",vrGroups},{"vrEditor",binding(o.vrEditor)},{"vrStick",o.vrStick},
+        {"showEquipment",o.showEquipment},{"equipmentX",o.equipmentX},{"equipmentY",o.equipmentY},{"hideEmptyGroups",o.hideEmptyGroups},{"inactiveGroups",o.inactiveGroups},{"inactiveGroupOpacity",o.inactiveGroupOpacity},
+        {"equipmentDim",o.equipmentDim},{"equipmentFadeDelay",o.equipmentFadeDelay},{"equipmentIdleOpacity",o.equipmentIdleOpacity},
+        {"equipmentScale",o.equipmentScale},{"equipmentTextScale",o.equipmentTextScale},{"equipmentSpacing",o.equipmentSpacing},
+        {"equipmentStyle",o.equipmentStyle},{"equipmentLayout",o.equipmentLayout},{"equipmentTextPosition",o.equipmentTextPosition},
+        {"itemIconColor",o.itemIconColor},{"itemIconSet",o.itemIconSet},
         {"selectorDock",o.selectorDock},{"selectorGap",o.selectorGap},{"selectorX",o.selectorX},{"selectorY",o.selectorY},
-        {"animateScroll",o.animateScroll},{"fadeIdle",o.fadeIdle},{"keepCombatVisible",o.keepCombatVisible},{"fadeDelay",o.fadeDelay},{"idleOpacity",o.idleOpacity},{"keys",o.keys},{"names",o.names},{"editorKey",o.editorKey},{"editorModifiers",o.editorModifiers},{"groupCount",o.groupCount},
-        {"layout",o.layout},{"shape",o.shape},{"selector",o.selector},{"scale",o.scale},{"opacity",o.opacity},
+        {"animateScroll",o.animateScroll},{"fadeIdle",o.fadeIdle},{"keepCombatVisible",o.keepCombatVisible},{"keepDrawnVisible",o.keepDrawnVisible},{"fadeDelay",o.fadeDelay},{"idleOpacity",o.idleOpacity},{"keys",o.keys},{"names",o.names},{"editorKey",o.editorKey},{"editorModifiers",o.editorModifiers},{"groupCount",o.groupCount},
+        {"layout",o.layout},{"shape",o.shape},{"selector",o.selector},{"scale",o.scale},{"textScale",o.textScale},{"opacity",o.opacity},
+        {"placementSpacing",o.placementSpacing},{"placementFrame",o.placementFrame},{"placementGridSize",o.placementGridSize},
         {"spacing",o.spacing},{"positionX",o.positionX},{"positionY",o.positionY},{"showIdle",o.showIdle},{"showHints",o.showHints},
         {"selectorShape",o.selectorShape},{"selectorSpacing",o.selectorSpacing},{"showLabels",o.showLabels},{"showCardNames",o.showCardNames},{"showKeys",o.showKeys},{"placementGrid",o.placementGrid},{"placementSnap",o.placementSnap},{"keyIcons",o.keyIcons},{"coloredMagic",o.coloredMagic}}.dump(2);
 }
 inline Options decodeOptions(const std::string& bytes) {
     if(bytes.size()>65536)throw std::runtime_error("Settings file too large");
     const auto j=Json::parse(bytes);if(j.at("schema")!=1)throw std::runtime_error("Unsupported settings version");
-    Options o;o.keys=j.at("keys").get<decltype(o.keys)>();o.names=j.at("names").get<decltype(o.names)>();
+    Options o;o.language=j.value("language",std::string("auto"));o.keys=j.at("keys").get<decltype(o.keys)>();o.names=j.at("names").get<decltype(o.names)>();
     o.editorKey=j.at("editorKey").get<unsigned>();o.groupCount=j.at("groupCount").get<std::size_t>();
     o.editorModifiers=j.at("editorModifiers").get<decltype(o.editorModifiers)>();
-    o.groupOrder=j.at("groupOrder").get<decltype(o.groupOrder)>();o.consumableOnRelease=j.at("consumableOnRelease").get<decltype(o.consumableOnRelease)>();
+    o.groupOrder=j.at("groupOrder").get<decltype(o.groupOrder)>();
     o.skipEmpty=j.at("skipEmpty").get<decltype(o.skipEmpty)>();o.menuCapture=j.at("menuCapture").get<decltype(o.menuCapture)>();o.selectionSpeed=j.at("selectionSpeed").get<decltype(o.selectionSpeed)>();
-    o.voiceHotkey=j.at("voiceHotkey").get<decltype(o.voiceHotkey)>();o.voiceOnRelease=j.at("voiceOnRelease").get<decltype(o.voiceOnRelease)>();o.shoutCharge=j.at("shoutCharge").get<decltype(o.shoutCharge)>();
+    o.voiceHotkey=j.at("voiceHotkey").get<decltype(o.voiceHotkey)>();o.shoutCharge=j.at("shoutCharge").get<decltype(o.shoutCharge)>();
     o.controllerEnabled=j.at("controllerEnabled").get<decltype(o.controllerEnabled)>();o.controllerBumpers=j.at("controllerBumpers").get<decltype(o.controllerBumpers)>();
+    o.controllerModifiers=j.value("controllerModifiers",allPadButtons);
+    if(j.contains("groupModes")) {
+        const auto modes=j.at("groupModes").get<std::array<unsigned,Arsenal::count>>();
+        for(std::size_t i=0;i<Arsenal::count;++i)o.groupModes[i]=GroupMode(modes[i]);
+    }
+    o.showEquipment=j.value("showEquipment",false);o.hideEmptyGroups=j.value("hideEmptyGroups",false);
+    o.equipmentX=j.value("equipmentX",.02f);o.equipmentY=j.value("equipmentY",.8f);
+    o.equipmentScale=j.value("equipmentScale",1.f);o.equipmentTextScale=j.value("equipmentTextScale",1.f);
+    o.equipmentSpacing=j.value("equipmentSpacing",1.f);
+    o.equipmentDim=j.value("equipmentDim",false);o.equipmentFadeDelay=j.value("equipmentFadeDelay",4.f);o.equipmentIdleOpacity=j.value("equipmentIdleOpacity",.35f);
+    o.equipmentStyle=j.value("equipmentStyle",0u);o.equipmentLayout=j.value("equipmentLayout",0u);o.equipmentTextPosition=j.value("equipmentTextPosition",3u);
+    o.inactiveGroups=j.value("inactiveGroups",0u);o.inactiveGroupOpacity=j.value("inactiveGroupOpacity",.3f);
     o.controllerStyle=j.at("controllerStyle").get<decltype(o.controllerStyle)>();o.controllerStick=j.at("controllerStick").get<decltype(o.controllerStick)>();o.controllerDeadzone=j.at("controllerDeadzone").get<decltype(o.controllerDeadzone)>();
     const auto binding=[](const Json& value){const auto b=value.get<std::array<unsigned,2>>();return PadBinding{PadButton(b[0]),PadButton(b[1])};};
     {const auto& groups=j.at("controllerGroups");if(!groups.is_array()||groups.size()!=Arsenal::count)throw std::runtime_error("Invalid controller bindings");for(std::size_t i=0;i<Arsenal::count;++i)o.controllerGroups[i]=binding(groups[i]);}
@@ -90,8 +122,10 @@ inline Options decodeOptions(const std::string& bytes) {
     o.vrEditor=binding(j.at("vrEditor"));
     o.vrStick=j.at("vrStick").get<decltype(o.vrStick)>();
     o.itemIconColor=j.at("itemIconColor").get<decltype(o.itemIconColor)>();
+    o.itemIconSet=j.value("itemIconSet",std::string("quickslot"));
     o.layout=j.at("layout").get<unsigned>();o.shape=j.at("shape").get<unsigned>();o.selector=j.at("selector").get<unsigned>();
     o.scale=j.at("scale").get<float>();o.opacity=j.at("opacity").get<float>();o.spacing=j.at("spacing").get<float>();
+    o.textScale=j.value("textScale",1.f);o.placementSpacing=j.value("placementSpacing",1u);o.placementFrame=j.value("placementFrame",0u);o.placementGridSize=j.value("placementGridSize",16.f);
     o.positionX=j.at("positionX").get<float>();o.positionY=j.at("positionY").get<float>();
     o.showIdle=j.at("showIdle").get<bool>();
     o.showHints=j.at("showHints").get<decltype(o.showHints)>();
@@ -105,11 +139,12 @@ inline Options decodeOptions(const std::string& bytes) {
     }
     o.selectorDock=j.at("selectorDock").get<decltype(o.selectorDock)>();o.selectorGap=j.at("selectorGap").get<decltype(o.selectorGap)>();o.selectorX=j.at("selectorX").get<decltype(o.selectorX)>();o.selectorY=j.at("selectorY").get<decltype(o.selectorY)>();
     o.animateScroll=j.at("animateScroll").get<decltype(o.animateScroll)>();o.fadeIdle=j.at("fadeIdle").get<decltype(o.fadeIdle)>();o.keepCombatVisible=j.at("keepCombatVisible").get<decltype(o.keepCombatVisible)>();
+    o.keepDrawnVisible=j.value("keepDrawnVisible",false);
     o.fadeDelay=j.at("fadeDelay").get<decltype(o.fadeDelay)>();o.idleOpacity=j.at("idleOpacity").get<decltype(o.idleOpacity)>();
     sanitizeOptions(o);return o;
 }
 inline void revealSavedGroups(Options& o,const Arsenal& a) {
-    sanitizeOptions(o);
+    sanitizeOptions(o);normalizeGroupModes(o,a);
     for(std::size_t id=0;id<Arsenal::count;++id)if((!a.groups[id].entries.empty()||id==a.active)&&!groupVisible(o,id)) {
         const auto it=std::find(o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),o.groupOrder.end(),id);
         std::rotate(o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),it,it+1);++o.groupCount;

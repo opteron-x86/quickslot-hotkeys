@@ -6,6 +6,7 @@
 
 namespace quickslot {
 struct CallSite {std::size_t size;std::uintptr_t target;};
+
 template<class ReadPointer>
 std::optional<CallSite> decodeCall(std::uintptr_t address,std::span<const std::uint8_t> bytes,ReadPointer readPointer) {
     std::int32_t displacement=0;

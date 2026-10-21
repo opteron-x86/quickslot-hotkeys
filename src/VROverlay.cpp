@@ -18,7 +18,7 @@ struct Overlay {
     VRFocus focus;
     VRPanelFocus panelFocus;
 };
-// SKSE plugins are process lifetime; avoid DX/ImGui or helper calls at teardown.
+
 Overlay& overlay(){static auto* value=new Overlay;return *value;}
 void clear(api::Client& client,ID3D11DeviceContext* context) {
     api::PanelHandle panel{};
@@ -41,8 +41,7 @@ bool initializeVROverlay() {
     if(!v.editor.Connect("Quickslot",release::version,api::kClientFlag_RendersOnFocus)) {
         SKSE::log::error("Skyrim VR requires ImGui VR Helper; Quickslot remains disabled until it is installed");return false;
     }
-    // Render on the helper's frame thread, even when Skyrim hides/closes our
-    // menus. This clears stale HUD pixels during loading, TM, and menu swaps.
+
     v.hud=v.editor.Helper()->RegisterClient("Quickslot HUD",release::version,[](const api::Frame*,void*){
         auto& state=overlay();
         if(state.ready){state.hasFocus=state.editor.HasFocus();Game::get().drawVR();}
@@ -52,8 +51,7 @@ bool initializeVROverlay() {
 }
 bool vrOverlayReady(){return overlay().ready;}
 bool vrOtherOverlayOpen() {
-    // SDK HasFocus belongs to the helper's frame thread. Publish its snapshot
-    // before drawing so game-thread input never races that non-atomic field.
+
     auto& v=overlay();return v.ready&&v.editor.Helper()->IsOverlayVisible()&&!v.hasFocus;
 }
 void feedVROverlay(RE::InputEvent* event) {
@@ -73,7 +71,7 @@ bool beginVROverlay(bool editorOpen) {
     auto& v=overlay();if(!v.ready)return false;
     const auto reply=v.editorReply.exchange(-1);
     v.focus.update(editorOpen,reply<0?std::nullopt:std::optional<bool>(reply!=0));
-    v.editor.ApplyPanelDisplaySize(); // Wand coordinates must use the panel's exact size before PumpInput.
+    v.editor.ApplyPanelDisplaySize();
     if(const auto request=v.panelFocus.update(v.focus.desired,v.editor.HasFocus())) {
         if(*request)v.editor.RequestFocus();else v.editor.ReleaseFocus();
     }
@@ -85,8 +83,7 @@ bool beginVROverlay(bool editorOpen) {
     auto& io=ImGui::GetIO();
     if(editing)v.editor.ApplyPanelDisplaySize();
     else {
-        // Layout uses a stable 1080p canvas; helper supersampling changes the
-        // render resolution without moving or shrinking Quickslot's widgets.
+
         io.DisplaySize={1920,1080};io.DisplayFramebufferScale={1,1};
         if(const auto panel=hudPanel();panel.width&&panel.height)
             io.DisplayFramebufferScale={panel.width/1920.f,panel.height/1080.f};

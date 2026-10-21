@@ -8,7 +8,7 @@ struct Theme {
     std::string id="minimal",name="Minimal",description;
     std::uint32_t text=rgba(233,230,221),secondary=rgba(180,179,174),muted=rgba(134,135,132),
         accent=rgba(157,65,54),background=rgba(13,14,15,155),border=rgba(126,126,119,180);
-    unsigned frameStyle=0; // cut corners, straight, double, nordic
+    unsigned frameStyle=0;
     std::filesystem::path atlas,font,titleFont;
 };
 inline ThemeAdjustments adjustments(const Options& o){const auto it=o.themeAdjustments.find(o.themeId);return it==o.themeAdjustments.end()?ThemeAdjustments{}:it->second;}

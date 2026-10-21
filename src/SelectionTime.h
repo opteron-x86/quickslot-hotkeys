@@ -7,6 +7,7 @@ namespace quickslot {
 enum class SelectionClock {full,slow,pause};
 inline SelectionClock selectionClock(float speed){return speed==0?SelectionClock::pause:speed<.999f?SelectionClock::slow:SelectionClock::full;}
 inline bool selectionPauseAllowsInput(unsigned pauseCount,bool ownPauseOpen){return pauseCount<=unsigned(ownPauseOpen);}
+
 class SelectionTime {
     bool owned_=false,yielded_=false;
     float before_=1,targetBefore_=1,applied_=1,targetApplied_=1;

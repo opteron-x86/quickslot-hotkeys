@@ -18,6 +18,7 @@ struct InventorySample {
 };
 struct TransferTicket {IdentityChange identity;InventorySample before;};
 struct TransferMatch {bool valid=false,plain=false;std::uintptr_t token=0;};
+
 inline TransferMatch matchIncomingCopy(const InventorySample& before,const InventorySample& after,int requested=1) {
     if(requested!=1||before.count<0||before.count==std::numeric_limits<int>::max()||after.count!=before.count+1||before.plain()<0||after.plain()<0)return {};
     for(const auto& old:before.stacks) {

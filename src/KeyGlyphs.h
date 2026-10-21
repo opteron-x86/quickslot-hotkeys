@@ -3,6 +3,7 @@
 #include <array>
 #include <string>
 namespace quickslot {
+
 inline std::string keyGlyphName(unsigned scan) {
     if(scan>=256)return padGlyphName(scan);
     if(scan>=2&&scan<=10)return std::to_string(scan-1);

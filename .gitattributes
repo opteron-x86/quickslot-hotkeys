@@ -1,0 +1,8 @@
+* text=auto eol=lf
+vendor/** -text -whitespace
+third_party/** -text -whitespace
+*.png -text
+*.ttf -text
+*.otf -text
+*.bin -text
+*.lib -text

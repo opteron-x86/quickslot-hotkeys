@@ -1,6 +1,7 @@
 #pragma once
 
 namespace quickslot {
+
 class EditorLaunch {
     bool pending_=false;
     double deadline_=0;

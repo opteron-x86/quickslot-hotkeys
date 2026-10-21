@@ -1,4 +1,4 @@
-# Standalone source-archive build with the same CommonLib lifetime override.
+# Build CommonLib with the shared entry-lifetime override.
 file(READ "${COMMONLIB_ROOT}/REVISION.txt" COMMONLIB_REV)
 string(STRIP "${COMMONLIB_REV}" COMMONLIB_REV)
 if(NOT COMMONLIB_REV STREQUAL "5decf47b01dde5501b03afaa91cd4d182e793cca")
@@ -27,4 +27,4 @@ foreach(QUICKSLOT_DEFINITIONS COMPILE_DEFINITIONS INTERFACE_COMPILE_DEFINITIONS)
   list(APPEND QUICKSLOT_COMMONLIB_DEFINITIONS WINVER=0x0A00 _WIN32_WINNT=0x0A00)
   set_property(TARGET CommonLibSSE PROPERTY ${QUICKSLOT_DEFINITIONS} "${QUICKSLOT_COMMONLIB_DEFINITIONS}")
 endforeach()
-target_compile_options(CommonLibSSE PRIVATE /Brepro)
+target_compile_options(CommonLibSSE PRIVATE /Brepro /Z7)

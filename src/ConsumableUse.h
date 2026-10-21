@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <string_view>
 namespace quickslot {
+
 class ConsumableUse {
     bool pending_=false,poison_=false,sawMenu_=false,animation_=false,expected_=false;
     int before_=0;
@@ -31,6 +32,7 @@ public:
         if(!pending_)return animation_?Result::waiting:Result::idle;
         if(count<before_) {
             pending_=false;
+
             if(expected_&&!animation_&&!settleUntil_){animation_=true;animationAge_=5;}
             return Result::decreased;
         }

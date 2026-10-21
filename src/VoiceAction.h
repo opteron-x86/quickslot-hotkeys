@@ -3,8 +3,9 @@
 
 namespace quickslot {
 inline bool activatesVoice(const Entry& entry,const Selection::Commit& c,const Options& o) {
-    return isVoice(entry)&&o.voiceHotkey&&(!c.browsed||o.voiceOnRelease);
+    return isVoice(entry)&&selectionAction(entry,c,o)==SelectionAction::use;
 }
+
 class VoiceAction {
     bool active_=false,released_=false;
     double started_=0;

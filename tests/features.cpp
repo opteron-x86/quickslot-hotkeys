@@ -45,11 +45,11 @@ int main()try {
     Entry recrafted;recrafted.form=0xff123456;recrafted.recipe=123456;
     check(exclusionMatches(exclusionReload.groups[1].entries[0].exclusions[0],recrafted),"Editor and ranking agree about an imported recipe exclusion");
     const auto missing=importPreset(bytes,arsenal,options,false,[](const auto&,auto){return 0;});check(missing.arsenal.groups[0].entries[0].unresolved,"Missing plugin entries remain placeholders");
-    Options target;target.names[0]="Keep name";target.keys[0]=68;target.groupCount=1;target.selectionSpeed=0;target.consumableOnRelease=true;
+    Options target;target.names[0]="Keep name";target.keys[0]=68;target.groupCount=1;target.selectionSpeed=0;target.groupModes[0]=GroupMode::cycle;
     target.editorKey=67;target.editorModifiers=keyModifier::ctrl|keyModifier::shift;
     const auto visual=importPreset(bytes,other,target,true,lookup);
     check(editorShortcutMatches(visual.options,67,keyModifier::ctrl|keyModifier::shift),"Appearance imports preserve the local editor key and modifiers");
-    check(visual.options.themeId=="oathvein"&&!visual.options.showKeys&&visual.options.keys[0]==68&&visual.options.names[0]=="Keep name"&&visual.options.groupCount==1&&visual.options.selectionSpeed==0&&visual.options.consumableOnRelease,"Appearance import leaves controls and group identities intact");
+    check(visual.options.themeId=="oathvein"&&!visual.options.showKeys&&visual.options.keys[0]==68&&visual.options.names[0]=="Keep name"&&visual.options.groupCount==1&&visual.options.selectionSpeed==0&&visual.options.groupModes[0]==GroupMode::cycle,"Appearance import leaves controls and group identities intact");
     check(encodeArsenal(visual.arsenal)==encodeArsenal(other),"Appearance import preserves exact saved entries");
     const auto style=exportPreset(arsenal,options,true,describe);check(!Json::parse(style).contains("arsenal"),"Appearance exports omit equipment references");
     check(importPreset(style,other,target,false,lookup).appearanceOnly,"Appearance files never overwrite groups even with full import selected");
@@ -79,14 +79,45 @@ int main()try {
     check(choosePotion(rule,bottles,10)!=&bottles[0],"Crafted exclusion follows recipe across runtime IDs");
     for(const auto screen:std::array<Point,5>{{{800,600},{1280,720},{1920,1080},{3440,1440},{3840,2160}}}) {
         const auto editor=editorGeometry(options,screen.x,screen.y);check(editor.width<=screen.x-24&&editor.height<=screen.y-24,"Fixed editor fits all tested resolutions");
-        for(float axis:{screen.x,screen.y})for(float position:{0.f,.01f,.23f,.5f,.77f,.99f,1.f}) {
-            const float extent=axis*.2f,step=placementGridStep(screen.y),snapped=snapPosition(position,extent,axis,step);
-            check(snapped>=0&&snapped<=1,"Snapping stays in bounds");
-            if(position==.5f)check(std::abs(snapped-.5f)<.00001f,"Grid center exactly matches display center");
-            if(position==0||position==1)check(snapped==position,"Snapping retains both screen edges");
-            else if(snapped>0&&snapped<1){const float cells=(8+snapped*(axis-16-extent)+extent*.5f-axis*.5f)/step;check(std::abs(cells-std::round(cells))<.001f,"Snapped centers lie on the visible grid");}
+        for(unsigned density=0;density<4;++density)for(unsigned guide=0;guide<4;++guide) {
+            Options grid;grid.placementSpacing=density;grid.placementFrame=guide;grid.placementGridSize=25;
+            const auto frame=placementFrame(grid,screen.x,screen.y);const float step=placementGridStep(grid,screen.y);
+            check(frame.min.x>=0&&frame.min.y>=0&&frame.max.x<=screen.x&&frame.max.y<=screen.y,"Aspect guide fits the viewport");
+            check(std::abs((frame.min.x+frame.max.x)*.5f-screen.x*.5f)<.01f,"Aspect guides remain centered");
+            for(bool horizontal:{false,true})for(float position:{0.f,.01f,.23f,.5f,.77f,.99f,1.f}) {
+                const float axis=horizontal?screen.x:screen.y,extent=axis*.2f;
+                const float frameLow=horizontal?frame.min.x:frame.min.y,frameHigh=horizontal?frame.max.x:frame.max.y;
+
+                const float low=-7,high=extent+13;
+                const auto result=snapPlacementAxis(position,extent,axis,low,high,frameLow,frameHigh,step);
+                check(result.value>=0&&result.value<=1,"Bounding-box snapping stays within position range");
+                if(position==0||position==1)check(result.value==position,"Snapping preserves both screen extents");
+                if(result.aligned) {
+                    const float start=8+result.value*(axis-16-extent);
+                    check(std::min({std::abs(start+low-result.guide),std::abs(start+(low+high)*.5f-result.guide),std::abs(start+high-result.guide)})<.001f,"A rendered bound edge or center lands exactly on its guide");
+                }
+            }
         }
     }
+    const auto aligned=snapPlacementAxis(.3f,200,1920,0,200,0,1920,16,std::array{520.f,720.f});
+    check(aligned.aligned&&std::abs(aligned.guide-520)<.01f,"Nearby element edges take priority over the grid");
+    Options textOptions;
+    for(float scale:{.55f,1.f,1.5f})for(float size:{.75f,1.f,1.5f}) {
+        textOptions.scale=scale;textOptions.textScale=size;
+        check(scale*hudTextFactor(textOptions)>=size,"Shrinking icons retains readable label sizing");
+        for(unsigned layout=0;layout<5;++layout) {
+            textOptions.selector=layout;textOptions.showHints=true;const auto g=selectorGeometry(textOptions);const float factor=hudTextFactor(textOptions);
+            check(g.statusY>=g.nameY+(layout==2?20:23)*factor,"Selected name and status do not overlap");
+            check(g.pagerY>=g.statusY+13*factor,"Pager follows the status row");
+            check(g.hintY>=g.pagerY+6+12*factor&&g.height>=g.hintY+13*factor,"Hints fit below pager at every text scale");
+            if(layout==4)check(g.listHeight>=16*factor+14&&g.listPitch>=g.listHeight,"List rows reserve enough height for scaled names");
+        }
+    }
+    textOptions.textScale=1.35f;textOptions.placementSpacing=3;textOptions.placementFrame=2;textOptions.placementGridSize=27;
+    const auto textReload=decodeOptions(encodeOptions(textOptions));
+    check(textReload.textScale==1.35f&&textReload.placementSpacing==3&&textReload.placementFrame==2&&textReload.placementGridSize==27,"Text and grid settings persist");
+    Options textImported;importAppearance(textImported,textOptions);
+    check(textImported.textScale==1.35f&&textImported.placementFrame==2&&textImported.placementGridSize==27,"Appearance presets include text size and grid options");
     Options cards;cards.shape=0;cards.showLabels=false;const auto namedCards=groupGeometry(cards);cards.showCardNames=false;
     check(groupGeometry(cards).tileWidth<namedCards.tileWidth,"Hidden card names reclaim horizontal space");
     cards.selector=4;const auto savedCards=decodeOptions(encodeOptions(cards));
@@ -95,13 +126,42 @@ int main()try {
     check(!appearance.showCardNames&&appearance.selector==4,"Appearance imports include new layout and card visibility");
     for(unsigned selector=0;selector<5;++selector)for(unsigned layout=0;layout<6;++layout)for(unsigned count=1;count<=8;++count)for(bool browsing:{false,true}) {
         Options o;o.layout=layout;o.shape=layout%4;o.groupCount=count;o.selector=selector;o.showCardNames=false;
-        const auto g=fitPreviewGeometry(hudGeometry(o,780,600),780,600,browsing);
+        const auto g=previewGeometry(o,1920,1080,780,600,browsing);
         check(g.origin.x>=0&&g.origin.y>=0&&g.origin.x+g.width*g.scale<=780.1f&&g.origin.y+g.height*g.scale<=600.1f,"Fitted preview keeps all groups inside its panel");
         if(browsing){const float x=g.origin.x+g.selectorOrigin.x*g.scale,y=g.origin.y+(g.selectorOrigin.y-32)*g.scale;
             check(x>=0&&y>=0&&x+g.selectorWidth*g.scale<=780.1f&&y+(g.selectorHeight+32)*g.scale<=600.1f,"Fitted preview includes full selector");}
     }
-    Options previewOptions;const auto onlySelector=fitPreviewGeometry(hudGeometry(previewOptions,3840,2160),780,600,true,false);
+    Options previewOptions;const auto onlySelector=previewGeometry(previewOptions,3840,2160,780,600,true,false);
     const float sx=onlySelector.origin.x+onlySelector.selectorOrigin.x*onlySelector.scale,sy=onlySelector.origin.y+(onlySelector.selectorOrigin.y-32)*onlySelector.scale;
     check(sx>=0&&sy>=0&&sx+onlySelector.selectorWidth*onlySelector.scale<=780.1f&&sy+(onlySelector.selectorHeight+32)*onlySelector.scale<=600.1f,"Selector-only preview fills its panel without off-screen clipping");
+    const auto sameSize=[](float a,float b){return std::abs(a-b)<.001f;};
+    for(unsigned layout=0;layout<6;++layout)for(unsigned shape=0;shape<4;++shape)for(unsigned count:{1u,4u,8u})
+        for(bool labels:{false,true})for(float scale:{.55f,1.5f})for(const Point screen:{Point{1280,720},Point{3840,2160}}) {
+            Options tight;tight.layout=layout;tight.shape=shape;tight.groupCount=count;tight.showLabels=labels;tight.scale=scale;tight.spacing=0;tight.selectorSpacing=0;
+            auto loose=tight;loose.spacing=40;loose.selectorSpacing=32;
+            const auto checkSpacing=[&](const HudGeometry& a,const HudGeometry& b) {
+                check(sameSize(a.scale,b.scale)&&sameSize(a.groups.tileWidth*a.scale,b.groups.tileWidth*b.scale)&&sameSize(a.groups.tileHeight*a.scale,b.groups.tileHeight*b.scale),"Spacing must preserve physical group icon/frame size");
+                if(count>1) {
+                    const auto distance=[](const HudGeometry& g){const auto a=g.groups.tiles[0],b=g.groups.tiles[1];return std::hypot(a.x-b.x,a.y-b.y)*g.scale;};
+                    check(distance(b)>distance(a),"Spacing must increase actual separation between group icons");
+                }else check(sameSize(a.width*a.scale,b.width*b.scale)&&sameSize(a.height*a.scale,b.height*b.scale),"Single group ignores spacing");
+            };
+            checkSpacing(hudGeometry(tight,screen.x,screen.y),hudGeometry(loose,screen.x,screen.y));
+            for(bool browsing:{false,true})for(unsigned dock:{0u,2u,4u}) {
+                tight.selectorDock=loose.selectorDock=dock;
+                const auto a=previewGeometry(tight,screen.x,screen.y,600,440,browsing),b=previewGeometry(loose,screen.x,screen.y,600,440,browsing);
+                checkSpacing(a,b);
+                check(b.origin.x>=0&&b.origin.y>=0&&b.origin.x+b.width*b.scale<=600.1f&&b.origin.y+b.height*b.scale<=440.1f,"Widest group preview stays in the panel");
+            }
+        }
+    for(unsigned selector=0;selector<5;++selector) {
+        Options tight;tight.selector=selector;tight.selectorSpacing=0;auto loose=tight;loose.selectorSpacing=32;
+        const auto a=previewGeometry(tight,1920,1080,600,440,true,false),b=previewGeometry(loose,1920,1080,600,440,true,false);
+        check(sameSize(a.scale,b.scale),"Selector spacing cannot resize its preview icons");
+    }
+    Options resized;resized.shape=3;resized.layout=2;resized.groupCount=4;resized.showLabels=false;resized.scale=.75f;
+    const auto smaller=previewGeometry(resized,1920,1080,600,440,false);resized.scale=1.5f;
+    const auto larger=previewGeometry(resized,1920,1080,600,440,false);
+    check(larger.scale>smaller.scale*1.9f,"Widget scale changes icon size in the preview");
     std::cout<<"PASS: "<<checks<<" preset, ammo, feedback, fixed editor, grid and preview checks\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

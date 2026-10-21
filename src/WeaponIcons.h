@@ -4,6 +4,7 @@
 #include <string_view>
 
 namespace quickslot {
+
 struct WeaponIconSelection {
     Icon icon=Icon::automatic;
     unsigned priority=0;
@@ -40,10 +41,12 @@ struct WeaponIconSelection {
             {"shortspear",Icon::shortspear,60},{"pike",Icon::pike,50},{"spear",Icon::spear,30},
             {"naginata",Icon::naginata,60},{"glaive",Icon::glaive,40},{"halberd",Icon::halberd,30},
             {"trident",Icon::trident,60},{"scythe",Icon::scythe,60},
-            {"unarmed",Icon::unarmed,40}
+            {"unarmed",Icon::unarmed,40},{"javelin",Icon::javelin,60},{"quarterstaff",Icon::quarterstaff,60},
+            {"claw",Icon::claw,60},{"whip",Icon::whip,60},{"gun",Icon::gun,60}
         };
         for(const auto& rule:rules)if(matches(rule.name)) {
             const auto candidate=rule.icon==Icon::katana&&twoHanded?Icon::nodachi:rule.icon;
+
             if(rule.priority>priority||(rule.priority==priority&&unsigned(candidate)<unsigned(icon))) {
                 icon=candidate;priority=rule.priority;
             }

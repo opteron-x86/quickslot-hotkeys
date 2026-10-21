@@ -4,6 +4,7 @@
 #include <deque>
 
 namespace quickslot {
+
 class EditHistory {
     struct State {Arsenal arsenal;Options options;};
     State baseline_;

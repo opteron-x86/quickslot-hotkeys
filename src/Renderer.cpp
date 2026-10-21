@@ -3,6 +3,7 @@
 #include "Editor.h"
 #include "DXIsolation.h"
 #include "Assets.h"
+#include "IconPacks.h"
 #include "VROverlay.h"
 #include <imgui_impl_dx11.h>
 #include <windows.h>
@@ -18,7 +19,8 @@ std::atomic<HWND> gameWindow{nullptr};
 struct Graphics {
     ImGuiContext* imgui=nullptr;ID3D11Device* device=nullptr;
     std::unique_ptr<preview::DXIsolation> isolation;
-    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> iconTexture,keyTexture;
+    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> keyTexture;
+    std::map<std::string,Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> iconTextures;
     std::map<std::string,Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> themeTextures;
     Hud hud;Editor editor;bool backend=false;double previous=0;
     ~Graphics() {
@@ -46,9 +48,11 @@ struct Graphics {
             Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
             return SUCCEEDED(d->CreateTexture2D(&textureDesc,&pixels,&texture))&&SUCCEEDED(d->CreateShaderResourceView(texture.Get(),nullptr,&view));
         };
-        const auto atlas=loadItemAtlas(dataDirectory()/itemAtlasPath);
-        if(upload(atlas,iconTexture))
-            hud.setIcons(reinterpret_cast<ImTextureID>(iconTexture.Get()));
+        for(const auto& pack:loadIconPacks(dataDirectory()/"Quickslot/icons")) {
+            const auto atlas=loadItemAtlas(pack.atlas);auto& view=iconTextures[pack.id];
+            if(upload(atlas,view))hud.setIcons(pack.id,pack.name,reinterpret_cast<ImTextureID>(view.Get()));
+            else SKSE::log::warn("Icon pack {} unavailable",pack.id);
+        }
         for(const auto& theme:hud.themes().all())if(!theme.atlas.empty()) {
             const auto image=loadImageAsset(theme.atlas);auto& view=themeTextures[theme.id];
             if(image.width==1024&&image.height==320&&upload(image,view))hud.setTheme(theme.id,reinterpret_cast<ImTextureID>(view.Get()));
@@ -57,13 +61,14 @@ struct Graphics {
         for(const auto& warning:hud.themes().warnings())SKSE::log::warn("Theme pack: {}",warning);
         const auto keys=loadKeyAtlas(dataDirectory()/"Interface/ImGuiIcons/Icons");
         if(upload(keys.image,keyTexture))hud.setKeys(reinterpret_cast<ImTextureID>(keyTexture.Get()),keys.glyphs);
-        SKSE::log::info("Quickslot HUD assets: item atlas {}, theme packs {}, ImGui key glyphs {}",bool(iconTexture),hud.themes().all().size(),keyTexture?keys.loaded:0);
-        if(!iconTexture)SKSE::log::warn("Quickslot icon atlas unavailable; using fallback glyphs");
+        SKSE::log::info("Quickslot HUD assets: item atlas {}, theme packs {}, ImGui key glyphs {}",bool(iconTextures["quickslot"]),hud.themes().all().size(),keyTexture?keys.loaded:0);
+        if(!iconTextures["quickslot"])SKSE::log::warn("Quickslot icon atlas unavailable; using fallback glyphs");
         backend=ImGui_ImplDX11_Init(d,c);if(!backend)throw std::runtime_error("D3D11 backend initialization failed");
         previous=clockNow();SKSE::log::info("Quickslot native renderer ready");
     }
 };
 struct Renderer {std::unique_ptr<Graphics> graphics;double retryAfter=0;};
+
 Renderer& renderer(){static auto* value=new Renderer;return *value;}
 }
 bool renderHasFocus() {
@@ -89,13 +94,14 @@ std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& optio
         if(r.graphics&&r.graphics->device!=device)r.graphics.reset();
         if(!r.graphics){r.graphics=std::make_unique<Graphics>();r.graphics->initialize(device,context,swap);}
         auto& g=*r.graphics;ImGui::SetCurrentContext(g.imgui);
+        localization().select(options.language);
         const bool vr=REL::Module::IsVR();
         preview::DXIsolation::Frame isolated(*g.isolation,!vr);
         const auto size=vr?ImVec2{1920,1080}:isolated.targetSize();if(size.x<=0||size.y<=0)return {};
         auto& io=ImGui::GetIO();io.DisplaySize=size;io.DisplayFramebufferScale={1,1};
         io.DeltaTime=float(std::clamp(now-g.previous,.001,.1));g.previous=now;
-        io.MouseDrawCursor=editor&&!editor->controller;
         if(editor){g.editor.beginSession(*editor);g.editor.input(input);}
+        io.MouseDrawCursor=editor&&(!editor->controller||g.editor.controllerPointer());
         const bool showEditor=vr?beginVROverlay(editor!=nullptr):editor!=nullptr;
         if(vr)io.MouseDrawCursor=false;
         ImGui_ImplDX11_NewFrame();ImGui::NewFrame();begun=true;

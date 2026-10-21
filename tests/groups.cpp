@@ -23,7 +23,7 @@ int main()try {
     a.groups[0].selected=0;a.groups[1].selected=1;a.groups[2].selected=2;
     Selection s;
     s.press(1,a.groups[0],0);s.cycle(1,a.groups[0]);
-    s.press(2,a.groups[1],1); // Group 1 is still physically held when group 2 is pressed.
+    s.press(2,a.groups[1],1);
     check(!s.release(a.groups[0],0)&&s.held(),"An older group's release must not commit the new group");
     const auto second=s.release(a.groups[1],1);
     check(second&&second->group==1&&second->index==1,"Release commits the current group");
@@ -36,7 +36,6 @@ int main()try {
     s.press(4,a.groups[0],0);check(!s.accepts(*clear,a.groups[1],1),"New group cancels a queued unequip");
     s.cancel();check(!s.request(a.groups[0],0,99),"Out-of-range unequip is rejected");
 
-    // Reorder the highlighted item while preserving the remembered item by identity.
     auto& order=a.groups[0];order.selected=1;const auto remembered=order.entries[1];
     s.press(5,order,0);s.cycle(-1,order);const auto moving=order.entries[0];
     check(order.reorder(0,2),"Move a card later in the carousel");s.rebase(order,2);
@@ -47,8 +46,18 @@ int main()try {
     check(order.reorder(2,0)&&order.entries[order.selected].same(remembered),"Moving earlier preserves another remembered item");
     order.selected=2;const auto selected=order.entries[2];order.reorder(2,0);
     check(order.selected==0&&order.entries[0].same(selected),"Moving the remembered item follows its new position");
+    for(unsigned scan:{203u,205u}) {
+        const auto arrow=selectorArrow(scan,false);check(arrow.delta==(scan==203?-1:1)&&!arrow.reorder,"Bare arrows browse instead of editing group order");
+        auto list=order;list.selected=scan==203?0:list.entries.size()-1;const auto before=encode(list);
+        Selection browse;browse.press(0,list);browse.cycle(arrow.delta,list);
+        check(browse.index()==(scan==203?list.entries.size()-1:0)&&encode(list)==before,"Arrow browsing wraps in either direction without changing saved order");
+        const auto move=selectorArrow(scan,true);check(move.reorder&&move.delta==arrow.delta,"Ctrl keeps fast arrow reordering available");
+        const auto movingItem=list.entries[list.selected];const auto target=wrappedIndex(list.selected,move.delta,list.entries.size());
+        Selection reorder;reorder.press(0,list);check(list.reorder(list.selected,target),"Ctrl-arrow crosses the first/last boundary");reorder.rebase(list,target);
+        const auto commit=reorder.release(list);check(commit&&list.entries[commit->index].same(movingItem),"Wrapped reordering keeps the moved item highlighted and commits that item");
+    }
+    check(wrappedIndex(0,-1,0)==0&&wrappedIndex(0,1,1)==0,"Empty and single-entry groups have safe arrow boundaries");
 
-    // A move is atomic when the destination is full; duplicate destinations merge.
     Arsenal moves;moves.groups[0].add(item(0));moves.groups[0].add(item(1));moves.groups[0].add(item(2));
     moves.groups[0].selected=2;const auto saved=moves.groups[0].entries[2];
     check(moves.move(0,0,1)&&moves.active==1,"Move activates destination without an equipment request");

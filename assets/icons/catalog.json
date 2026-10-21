@@ -236,6 +236,31 @@
     {
       "id": "woodcutters_axe",
       "file": "woodcutters_axe.png"
+    },
+    {
+      "id": "javelin",
+      "name": "Javelin",
+      "alias": "spear"
+    },
+    {
+      "id": "quarterstaff",
+      "name": "Quarterstaff",
+      "alias": "staff"
+    },
+    {
+      "id": "claw",
+      "name": "Claw",
+      "alias": "unarmed"
+    },
+    {
+      "id": "whip",
+      "name": "Whip",
+      "alias": "sword"
+    },
+    {
+      "id": "gun",
+      "name": "Gun",
+      "alias": "crossbow"
     }
   ]
 }

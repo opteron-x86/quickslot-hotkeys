@@ -1,61 +1,57 @@
-# Building Quickslot 0.9.0 RC5
+# Building Quickslot
 
-Extract the complete source archive, including `vendor/`. CMake builds Quickslot and CommonLib from these sources. vcpkg supplies the remaining Windows libraries using the included baseline and overlay ports.
+Clone the repository or extract a release source archive. Dependencies and their revisions are recorded in `vendor/dependencies.json`.
 
-## Dependency versions
+## Windows DLL
 
-| Dependency | Version / revision |
-| --- | --- |
-| alandtse/CommonLibSSE-NG | 9.0.0; `5decf47b01dde5501b03afaa91cd4d182e793cca` |
-| Dear ImGui | `6ded5230d043aa32c755e65c910c2af5002fb9f9` |
-| ImGui VR Helper API / Client SDK | 1.9.4; `91f63900d0e6896617dd326ce1feeb914308bc42` |
-| MinHook hde64 decoder | v1.3.4; `c3fcafdc10146beb5919319d0683e44e3c30d537` |
-| nlohmann/json | 3.12.0 |
-| fmt | 12.2.0 |
-| spdlog | 1.17.0 |
-| DirectXTK | 2026-05-07 |
-| DirectXMath | 2026-06-12 |
-| rapidcsv | 8.99 |
-| vcpkg | `00c5775211f45cd08b37fce0484b4cb940e422ab` |
-
-## Windows x64 DLL
-
-Use Visual Studio Build Tools with a C++23-capable compiler and Windows SDK, CMake 3.24+, Ninja and vcpkg. Bootstrap vcpkg before configuring. From an x64 developer PowerShell, run these commands in the extracted source directory. Set `VCPKG_ROOT` to your vcpkg checkout.
+Install Visual Studio 2022 C++ Build Tools, a Windows SDK, LLVM with clang-cl, CMake 3.24+, Ninja, Git and Python 3.11+. Run these commands from an x64 developer PowerShell with LLVM on `PATH`:
 
 ```powershell
-cmake -S . -B build-release -G Ninja `
-  -DCMAKE_BUILD_TYPE=Release `
-  "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
-  -DVCPKG_TARGET_TRIPLET=x64-windows-quickslot `
-  "-DVCPKG_OVERLAY_TRIPLETS=$PWD/cmake/triplets" `
-  "-DVCPKG_OVERLAY_PORTS=$PWD/cmake/vcpkg-ports"
-cmake --build build-release --parallel 4
-cmake --install build-release --prefix package
+git clone https://github.com/opteron-x86/quickslot-hotkeys.git
+cd quickslot-hotkeys
+git clone https://github.com/microsoft/vcpkg.git .deps/vcpkg
+git -C .deps/vcpkg checkout 00c5775211f45cd08b37fce0484b4cb940e422ab
+./.deps/vcpkg/bootstrap-vcpkg.bat -disableMetrics
+$env:VCPKG_ROOT = "$PWD/.deps/vcpkg"
+$env:PYTHONUTF8 = '1'
+cmake --preset windows-release
+cmake --build --preset windows-release
+python tools/test-windows.py --build build/windows --output build/test-results
 ```
 
-The DLL is written to `package/SKSE/Plugins/Quickslot.dll`. CommonLib builds with SE, AE and VR enabled.
+The DLL and PDB are in `build/windows`. The DLL includes SE, AE and VR support. vcpkg supplies static libraries with the dynamic Microsoft C runtime.
+
+Install into a staging directory with:
+
+```powershell
+cmake --install build/windows --prefix build/package
+```
+
+See [Releasing](docs/RELEASING.md) for ZIP packages and GitHub Releases.
+
+## Linux tests and UI preview
+
+Install a C++23 compiler, CMake, Ninja, pkg-config, SDL2 and OpenGL development packages, and Python 3.11+. GitHub Actions uses GCC 14 on Ubuntu 24.04.
+
+```sh
+cmake --preset native
+cmake --build --preset native
+ctest --preset native
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+./build/native/quickslot_preview .
+```
 
 ## Linux cross-compilation
 
-Use clang-cl, lld-link, LLVM resource/manifest tools, and an xwin Windows SDK/CRT sysroot. Set `XWIN_SYSROOT` to that sysroot and `QUICKSLOT_WINDOWS_PREFIX` to the installed dependency prefix built for the Microsoft x64 ABI with a dynamic CRT and static libraries.
+Install clang-cl, lld-link, LLVM resource/manifest tools and an xwin Windows SDK/CRT. Set `XWIN_SYSROOT` to the SDK and `QUICKSLOT_WINDOWS_PREFIX` to the Windows dependency prefix. Those libraries use the Microsoft x64 ABI, static linkage and dynamic CRT.
 
 ```sh
-cmake -S . -B build-release -G Ninja -DCMAKE_BUILD_TYPE=Release \
+cmake -S . -B build/windows-local -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE="$PWD/vendor/commonlib/cmake/toolchain-linux-clangcl.cmake" \
   -DXWIN_SYSROOT="$XWIN_SYSROOT" \
   -DCMAKE_PREFIX_PATH="$QUICKSLOT_WINDOWS_PREFIX"
-cmake --build build-release --parallel 4
-cmake --install build-release --prefix package
+cmake --build build/windows-local --parallel 4
+python3 tools/test-windows.py --build build/windows-local --output build/test-results
 ```
 
-## Portable tests and UI preview
-
-On Linux, install a C++23 compiler, CMake, Ninja, pkg-config, SDL2 development files and OpenGL development files. The source archive supplies ImGui and the JSON headers.
-
-```sh
-cmake -S . -B build-native -G Ninja
-cmake --build build-native --parallel 4
-ctest --test-dir build-native --output-on-failure
-./build-native/quickslot_preview .
-```
-
+The probe runner uses Wine on Linux. Native tests cover the editor and model; Windows probes cover DLL loading, rendering state and integration interfaces. [Gameplay checks](docs/TESTING.md) cover equipment behavior and controller/headset testing.

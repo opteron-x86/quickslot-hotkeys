@@ -3,6 +3,7 @@
 #include "EditorFixture.h"
 #include "UiProbe.h"
 #include "Assets.h"
+#include "IconPacks.h"
 #include "Layout.h"
 #include <SDL.h>
 #include <SDL_opengl.h>
@@ -36,7 +37,9 @@ int main(int argc,char** argv) {
         glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,image.width,image.height,0,GL_RGBA,GL_UNSIGNED_BYTE,image.pixels.data());return id;
     };
     const auto texture=[&](const std::string& path){return upload(loadImageAsset(path));};
-    const auto atlas=upload(loadItemAtlas(root+"/assets/icons/items.png"));hud.setIcons(ImTextureID(atlas));
+    const auto atlas=upload(loadItemAtlas(root+"/assets/icons/items.png"));hud.setIcons("quickslot","Quickslot",ImTextureID(atlas));
+    std::vector<GLuint> iconTextures;
+    for(const auto& pack:loadIconPacks(std::filesystem::path(root)/"assets/icons"))if(pack.id!="quickslot"){auto id=upload(loadItemAtlas(pack.atlas));iconTextures.push_back(id);hud.setIcons(pack.id,pack.name,ImTextureID(id));}
     std::vector<GLuint> themes;for(const auto& t:hud.themes().all())if(!t.atlas.empty()){const auto id=texture(t.atlas.string());themes.push_back(id);hud.setTheme(t.id,ImTextureID(id));}
     const auto keys=loadKeyAtlas(argc>7?std::filesystem::path(argv[7]):std::filesystem::path(root)/"tests/fixtures/keys");
     const auto keyTexture=keys.image?upload(keys.image):0;hud.setKeys(ImTextureID(keyTexture),keys.glyphs);
@@ -207,20 +210,103 @@ int main(int argc,char** argv) {
         if(scene.find("hints")!=std::string::npos)options.showHints=true;
         for(std::size_t i=0;i<4&&i<snapshot.rows.size();++i)snapshot.groups[i]={snapshot.rows[i].entry,7,true,i==0,snapshot.rows[i].quantity};
     }
+    if(scene=="editor-unicode") {
+        editing.options.themeId="untarnished";
+        const char* names[]{"Стальной меч","火球術","治癒の手","치유의 손","Épée enchantée"};
+        for(unsigned i=0;i<5;++i)editing.catalog[i].entry.name=names[i];
+        editing.draft.groups[0]={};for(unsigned i=0;i<5;++i)editing.draft.groups[0].add(editing.catalog[i].entry);
+        editing.options.names[0]="装備 · Снаряжение";fixture::rows(editing);
+    }
+    if(scene.starts_with("editor-library")) {
+        editing.options.themeId="oathvein";
+        Entry combo;combo.kind=Kind::combo;combo.name="Fire and healing";combo.parts={editing.catalog[4].entry,editing.catalog[5].entry};combo.parts[1].hand=Hand::left;
+        const auto id=rememberShortcut(editing.draft,combo);addShortcut(editing.draft,0,id);addShortcut(editing.draft,1,id);
+        for(const auto& entry:{smartEntry(0,0,2),smartEquipmentEntry(false,unsigned(WeaponFamily::mace)),smartEquipmentEntry(true),unarmedEntry(),emptyHandEntry(Hand::left)})rememberShortcut(editing.draft,entry);
+        fixture::rows(editing);
+    }
+    if(scene=="editor-position-bounds"||scene=="editor-position-custom") {
+        editing.options.themeId="oathvein";editing.options.placementGrid=true;editing.options.placementSnap=true;
+        editing.options.placementFrame=3;editing.options.placementSpacing=2;editing.options.positionX=.8f;editing.options.positionY=.7f;
+        editing.options.groupCount=4;layoutPreset(editing.options,1);
+        if(scene=="editor-position-custom"){editing.options.placementSpacing=3;editing.options.placementGridSize=48;}
+    }
+    if(scene.starts_with("text-")) {
+        options.themeId="oathvein";options.scale=.55f;options.showHints=true;options.showLabels=true;options.positionX=.6f;options.positionY=.8f;
+        options.groupCount=4;options.shape=1;options.layout=2;
+        if(scene.find("large")!=std::string::npos)options.textScale=1.5f;
+        if(scene.find("ring")!=std::string::npos)options.selector=2;
+        if(scene.find("list")!=std::string::npos)options.selector=4;
+    }
     std::vector<std::string> previewClicks;
+    if(scene.starts_with("equipped-")) {
+        options.themeId="oathvein";layoutPreset(options,2);options.groupCount=4;options.showEquipment=true;options.inactiveGroups=1;
+        options.positionX=.9f;options.positionY=.8f;options.showCardNames=true;
+        snapshot.browsing=false;snapshot.equipment=editing.equippedDisplay;snapshot.selected=snapshot.preview=0;
+        snapshot.activeGroup=0;snapshot.rows={{editing.catalog[0].entry,true,true}};
+        snapshot.groups[0]={editing.catalog[0].entry,4,true,true};
+        snapshot.groups[1]={editing.catalog[6].entry,2,true,true};
+        snapshot.groups[2]={editing.catalog[4].entry,2,true,false};
+        snapshot.groups[3]={editing.catalog[10].entry,2,true,false,7};snapshot.groups[3].consumable=true;
+        if(scene.find("twohand")!=std::string::npos) {
+            auto e=editing.catalog[7].entry;e.kind=Kind::greatsword;e.twoHanded=true;e.icon=Icon::greatsword;e.name="Steel Greatsword";
+            snapshot.equipment.hands={Row{e,true,true},Row{e,true,true}};
+            snapshot.groups[0]={e,4,true,true};
+            snapshot.groups[1].equipped=false;
+        }
+        if(scene.find("hide")!=std::string::npos)options.inactiveGroups=2;
+        if(scene.find("silver")!=std::string::npos)options.themeId="silver";
+        if(scene.find("nordic")!=std::string::npos)options.themeId="nordic";
+        if(scene.find("small")!=std::string::npos){options.scale=.55f;options.textScale=1.5f;}
+        if(scene.find("circle")!=std::string::npos)options.equipmentStyle=1;
+        if(scene.find("diamond")!=std::string::npos)options.equipmentStyle=2;
+        if(scene.find("square")!=std::string::npos)options.equipmentStyle=3;
+        if(scene.find("text")!=std::string::npos)options.equipmentStyle=4;
+        if(scene.find("horizontal")!=std::string::npos)options.equipmentLayout=1;
+        if(scene.find("top")!=std::string::npos)options.equipmentTextPosition=0;
+        if(scene.find("bottom")!=std::string::npos)options.equipmentTextPosition=1;
+        if(scene.find("left")!=std::string::npos)options.equipmentTextPosition=2;
+        if(scene.find("only")!=std::string::npos)options.showIdle=false;
+        if(scene.find("tight")!=std::string::npos)options.equipmentSpacing=0;
+        if(scene.find("loose")!=std::string::npos)options.equipmentSpacing=4;
+        if(scene.find("faded")!=std::string::npos){options.equipmentDim=true;options.equipmentFadeDelay=0;}
+        if(scene.find("used")!=std::string::npos)snapshot.equipment.voice=Row{editing.catalog[14].entry,true,true,{},0,0,true};
+    }
+    if(scene=="editor-equipped"){editing.options.showEquipment=true;editing.options.themeId="oathvein";previewClicks={"Appearance","Equipment"};}
+    if(scene=="editor-equipped-spacing"){editing.options.showEquipment=true;editing.options.themeId="oathvein";editing.options.equipmentStyle=1;editing.options.equipmentSpacing=4;previewClicks={"Appearance","Equipment"};}
+    if(scene=="editor-equipped-layout"){editing.options.showEquipment=true;editing.options.themeId="oathvein";previewClicks={"Appearance","Equipment","##equipment style","Circles","##equipment layout","Horizontal","##equipment text","Bottom"};}
+    if(scene=="editor-cycle")previewClicks={"##group mode"};
+    if(scene=="editor-library")previewClicks={"##filter","Shortcuts"};
+    if(scene=="editor-library-edit")previewClicks={"##filter","Shortcuts","##candidate","Edit shortcut"};
     if(scene=="editor-controller")previewClicks={"Controls","Controller"};
-    if(scene=="editor-controller-keyboard")previewClicks={"Edit text##1"};
+    if(scene=="editor-controller-keyboard")previewClicks={"Groups##main","Items"};
+    if(scene=="editor-controller-position"){editing.options.placementGrid=true;previewClicks={"Appearance","Groups","Position"};}
     if(scene=="editor-layout")previewClicks={"Appearance"};
     if(scene=="editor-groups")previewClicks={"Appearance","Groups"};
+    if(scene.starts_with("editor-spacing-")) {
+        editing.options.themeId="oathvein";editing.options.groupCount=4;layoutPreset(editing.options,1);editing.options.scale=1.5f;
+        editing.options.spacing=scene.find("loose")!=std::string::npos?40:0;previewClicks={"Appearance","Groups"};
+        if(scene.find("circles")!=std::string::npos){editing.options.shape=1;editing.options.layout=4;}
+        if(scene.find("cross")!=std::string::npos){editing.options.shape=2;editing.options.layout=5;}
+    }
     if(scene=="editor-selector")previewClicks={"Appearance","Selector"};
-    if(scene=="editor-position-grid")previewClicks={"Appearance","Position"};
+    if(scene=="editor-position-grid"||scene=="editor-position-bounds"||scene=="editor-position-custom")previewClicks={"Appearance","Position"};
     if(scene=="editor-presets")previewClicks={"Presets"};
-    if(scene=="editor-hand-actions")previewClicks={"Shortcuts","Unarmed"};
+    if(scene=="editor-hand-actions")previewClicks={"New","Hand action"};
     if(scene.starts_with("editor-behavior"))previewClicks={"Controls"};
-    if(scene=="editor-smart")previewClicks={"Shortcuts","Health restoration · best fit"};
-    if(scene=="editor-combinations")previewClicks={"Shortcuts","Sword & shield"};
+    if(scene=="editor-smart-weapon")previewClicks={"New","Smart weapon"};
+    if(scene=="editor-smart-ammo")previewClicks={"New","Smart ammo"};
+    if(scene=="editor-smart-shield")previewClicks={"New","Smart shield"};
+    if(scene=="editor-smart-combination")previewClicks={"New","Combination","##right component","Best Sword","##left component","Best Shield"};
+    if(scene=="editor-smart-hand-picker")previewClicks={"New","Combination","##left component"};
+        if(scene=="editor-language")previewClicks={"Appearance"};
+    if(scene=="editor-visibility")previewClicks={"Appearance","Visibility","##widget visibility","Hide when idle"};
+    if(scene=="editor-visibility-modes")previewClicks={"Appearance","Visibility","##widget visibility"};
+    if(scene=="editor-smart")previewClicks={"New","Smart potion"};
+    if(scene=="editor-combinations")previewClicks={"New","Combination","##right component","Healing","Both hands"};
+    if(scene=="editor-hand-picker")previewClicks={"New","Combination","##right component"};
+    if(scene=="editor-group-behavior")previewClicks={"##group mode"};
     EditHistory history;history.begin(editing.draft,editing.options);
-    bool running=true;int frames=0;ImVec2 tabPoint{};
+    bool running=true;int frames=0,previewStep=0,scrollAttempts=0,settled=0,keyboardStep=0;ImVec2 tabPoint{};
     while(running) {
         SDL_Event event;while(SDL_PollEvent(&event)) {
             ImGui_ImplSDL2_ProcessEvent(&event);
@@ -234,12 +320,25 @@ int main(int argc,char** argv) {
         }
         ImGui_ImplOpenGL3_NewFrame();ImGui_ImplSDL2_NewFrame();
         if(editorScene){editor.beginSession(editing);
-            const int click=int(frames/4),phase=frames%4;
+            const int click=previewStep/4,phase=previewStep%4;bool advance=true;
             if(click<int(previewClicks.size())){
-                if(phase==1){tabPoint=probe::one(previewClicks[std::size_t(click)]).rect.GetCenter();io.AddMousePosEvent(tabPoint.x,tabPoint.y);}
+                if(phase==1){
+                    const auto& target=previewClicks[std::size_t(click)];
+                    if(probe::find(target).empty()) {
+                        auto& popups=ImGui::GetCurrentContext()->OpenPopupStack;
+                        if(popups.empty()||!popups.back().Window||++scrollAttempts>24)throw std::runtime_error("Preview target unavailable: "+target);
+                        auto* popup=popups.back().Window;ImGui::SetScrollY(popup,popup->Scroll.y+popup->InnerClipRect.GetHeight()*.4f);advance=false;
+                    }else {tabPoint=probe::one(target).rect.GetCenter();io.AddMousePosEvent(tabPoint.x,tabPoint.y);scrollAttempts=0;}
+                }
                 if(phase==2)io.AddMouseButtonEvent(0,true);
                 if(phase==3)io.AddMouseButtonEvent(0,false);
-            }
+                if(advance)++previewStep;
+            }else if(scene=="editor-controller-keyboard"&&keyboardStep<10) {
+                std::vector<EditorInput> events;
+                if(keyboardStep==0||keyboardStep==1)events.push_back({EditorInputType::pad,unsigned(PadButton::up),keyboardStep==0});
+                if(keyboardStep==4||keyboardStep==5)events.push_back({EditorInputType::pad,unsigned(PadButton::a),keyboardStep==4});
+                editor.input(events);++keyboardStep;
+            }else ++settled;
         }
         probe::clear();ImGui::NewFrame();
         auto* background=ImGui::GetBackgroundDrawList();const auto size=io.DisplaySize;
@@ -251,7 +350,7 @@ int main(int argc,char** argv) {
         else hud.draw(snapshot,options,double(SDL_GetTicks64())/1000.);
         ImGui::Render();int fw,fh;SDL_GL_GetDrawableSize(window,&fw,&fh);glViewport(0,0,fw,fh);glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        if(!output.empty()&&frames==16) {
+        if(!output.empty()&&(editorScene?settled>=8:frames>=16)) {
             std::vector<unsigned char> pixels(fw*fh*4),flipped(pixels.size());
             glReadPixels(0,0,fw,fh,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
             for(int y=0;y<fh;++y)std::copy_n(pixels.data()+(fh-1-y)*fw*4,fw*4,flipped.data()+y*fw*4);
@@ -261,6 +360,6 @@ int main(int argc,char** argv) {
         }
         SDL_GL_SwapWindow(window);++frames;
     }
-    glDeleteTextures(1,&atlas);for(const auto t:themes)glDeleteTextures(1,&t);glDeleteTextures(1,&keyTexture);if(backdrop)glDeleteTextures(1,&backdrop);
+    glDeleteTextures(1,&atlas);for(const auto t:iconTextures)glDeleteTextures(1,&t);for(const auto t:themes)glDeleteTextures(1,&t);glDeleteTextures(1,&keyTexture);if(backdrop)glDeleteTextures(1,&backdrop);
     ImGui_ImplOpenGL3_Shutdown();ImGui_ImplSDL2_Shutdown();ImGui::DestroyContext();SDL_GL_DeleteContext(gl);SDL_DestroyWindow(window);SDL_Quit();
 }

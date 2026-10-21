@@ -4,6 +4,7 @@
 #include "Layout.h"
 #include "HudMotion.h"
 #include "Assets.h"
+#include "Presets.h"
 #include <fstream>
 #include <iostream>
 #include <source_location>
@@ -27,7 +28,7 @@ int main(int argc,char** argv)try {
     for(const auto& id:{"minimal","silver","oathvein","norden","veldun","edge","untarnished","nordic","dear-diary-dark"})check(themes.contains(id),"Expected theme is selectable");
     check(themes.get("missing-pack").id=="minimal","Missing selected theme has a readable fallback");
     for(const auto& t:themes.all())if(!t.atlas.empty()){const auto image=loadImageAsset(t.atlas);check(image.width==1024&&image.height==320,"Converted theme atlas meets renderer contract");}
-    // Use isolated fixtures to exercise malformed or untrusted theme packages.
+
     const auto temp=std::filesystem::temp_directory_path()/"quickslot-theme-tests";std::filesystem::create_directories(temp);
     const auto write=[&](const char* dir,Json j){auto p=temp/dir;std::filesystem::create_directories(p);std::ofstream(p/"theme.json")<<j.dump();};
     write("a-valid",{{"schema",1},{"id","custom"},{"name","Custom"},{"palette",{{"accent",{10,20,30}}}}});
@@ -55,7 +56,7 @@ int main(int argc,char** argv)try {
     check(history.undo(a,edited)&&a.groups[0].entries[0].unique==42,"Identity events during a native edit also update its pending checkpoint");
     check(history.revert(a,edited)&&edited.themeId=="minimal"&&a.groups[0].entries[0].unique==42,"Session revert restores original choices with current engine identities");
     check(history.undo(a,edited)&&edited.themeId=="edge"&&history.canRevert(),"Revert itself can be undone and reverted again");
-    history.prepare(a,edited);edited.opacity=.8f;history.finish(false,false,4); // A declined native action creates no checkpoint.
+    history.prepare(a,edited);edited.opacity=.8f;history.finish(false,false,4);
     for(unsigned i=0;i<40;++i){history.prepare(a,edited);edited.spacing=float(i);history.finish(true,false,5+i);}
     unsigned undoCount=0;while(history.undo(a,edited))++undoCount;check(undoCount==32,"Undo history is bounded during long editing sessions");
     SettingsAutosave autosave;check(!autosave.due(100),"No disk writes without edits");autosave.change(1);check(!autosave.due(1.2),"Continuous editing waits before writing");autosave.change(1.2);check(!autosave.due(1.4)&&autosave.due(1.56),"Each new edit extends the debounce");autosave.failed(1.56);check(autosave.pending()&&!autosave.due(2)&&autosave.due(4.57),"Write failure retains pending settings and backs off");autosave.saved();check(!autosave.pending()&&!autosave.due(100),"Successful write clears pending work");
@@ -76,5 +77,31 @@ int main(int argc,char** argv)try {
     IdleFade fade;Options fadeOptions;fadeOptions.fadeIdle=true;fadeOptions.fadeDelay=2;fadeOptions.idleOpacity=.25f;s.editorPreview=false;s.browsing=false;
     check(fade.update(s,fadeOptions,0)==1&&fade.update(s,fadeOptions,1)==1,"Idle delay starts fully visible");
     check(near(fade.update(s,fadeOptions,3),.25f),"Idle group fades to chosen opacity");s.browsing=true;check(fade.update(s,fadeOptions,3.1)==1,"Holding a hotkey restores full opacity immediately");s.browsing=false;check(fade.update(s,fadeOptions,3.2)==1,"Releasing restarts idle delay");s.inCombat=true;check(fade.update(s,fadeOptions,10)==1,"Combat can keep groups visible");s.inCombat=false;s.noticeUntil=15;check(fade.update(s,fadeOptions,11)==1,"Notifications reset the fade timer");
+    Options hidden;setWidgetVisibility(hidden,WidgetVisibility::hide);hidden.fadeDelay=2;
+    check(hidden.showIdle&&hidden.fadeIdle&&hidden.idleOpacity==0,"Hide when idle selects complete transparency");
+    Snapshot activity;activity.visible=true;IdleFade visibility;
+    check(visibility.update(activity,hidden,0)==1&&near(visibility.update(activity,hidden,2.175),.5f)&&visibility.update(activity,hidden,2.4)==0,"Hide delay fades smoothly to exactly zero");
+    ++activity.interaction;check(visibility.update(activity,hidden,3)==1,"Using the same group and item reveals the widget");
+    check(visibility.update(activity,hidden,5.4)==0,"Repeated selection gets a fresh idle delay");
+    activity.inCombat=true;check(visibility.update(activity,hidden,6)==1&&visibility.update(activity,hidden,60)==1,"Combat overrides hiding until combat ends");
+    activity.inCombat=false;check(visibility.update(activity,hidden,60.1)==1&&visibility.update(activity,hidden,62.4)==0,"Combat exit resumes the idle delay");
+    activity.weaponsDrawn=true;check(visibility.update(activity,hidden,63)==0,"Drawn weapons do not override hiding by default");
+    hidden.keepDrawnVisible=true;check(visibility.update(activity,hidden,63.1)==1,"Optional drawn-weapon visibility reveals the widget");
+    activity.weaponsDrawn=false;check(visibility.update(activity,hidden,65.5)==0,"Sheathing allows complete hiding again");
+    hidden.keepCombatVisible=false;activity.inCombat=true;check(visibility.update(activity,hidden,70)==0,"Combat override can be disabled independently");
+    activity.browsing=true;check(visibility.update(activity,hidden,71)==1,"Browsing always reveals a hidden widget");
+    activity.browsing=false;visibility.update(activity,hidden,71.1);activity.notice="Ready";activity.noticeUntil=99;
+    check(visibility.update(activity,hidden,72)==1&&visibility.update(activity,hidden,74.4)==0,"A notification wakes the widget but cannot prevent complete fading");
+    setWidgetVisibility(hidden,WidgetVisibility::selecting);
+    check(visibility.update(activity,hidden,75)==0,"Only while selecting hides idle messages and combat state");
+    activity.editorPreview=true;check(visibility.update(activity,hidden,76)==1,"Editor preview stays visible with hidden gameplay settings");
+    activity.visible=false;check(visibility.update(activity,hidden,77)==0,"Blocking menus suppress every visibility mode");
+    activity.visible=true;activity.editorPreview=false;activity.browsing=true;check(visibility.update(activity,hidden,78)==1,"Selection can reveal the widget after a menu closes");
+    for(const auto mode:{WidgetVisibility::always,WidgetVisibility::fade,WidgetVisibility::hide,WidgetVisibility::selecting}) {
+        setWidgetVisibility(hidden,mode);const auto restored=decodeOptions(encodeOptions(hidden));
+        check(widgetVisibility(restored)==mode&&restored.keepDrawnVisible,"Visibility mode and drawn-weapon override survive settings reload");
+        Options imported;importAppearance(imported,restored);check(widgetVisibility(imported)==mode&&imported.keepDrawnVisible,"Appearance presets include visibility settings");
+    }
+    auto prior=Json::parse(encodeOptions(hidden));prior.erase("keepDrawnVisible");check(!decodeOptions(prior.dump()).keepDrawnVisible,"Existing settings leave the new override off");
     std::cout<<"PASS: "<<checks<<" live editing, identity-safe undo, autosave, theme loading, placement and motion checks.\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

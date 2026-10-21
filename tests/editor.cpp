@@ -16,10 +16,36 @@ void check(bool value,const char* reason,std::source_location at=std::source_loc
 Entry item(unsigned id,Hand hand=Hand::right) {Entry e;e.form=0x1234;e.owner=0x14;e.unique=std::uint16_t(id);e.hand=hand;e.name="Sword "+std::to_string(id);return e;}
 int main(int argc,char** argv)try {
     const auto identity=[](auto oldID,auto& newID){newID=oldID;return true;};
+    {
+        EditorState s;s.open=true;s.session=1;s.revision=1;s.catalogVersion=10;
+        Entry spell;spell.kind=Kind::spell;spell.spell=true;spell.form=42;spell.name="Healing";
+        s.catalog.push_back({spell,1,1,false,true,{}});
+        auto weapon=item(3);s.catalog.push_back({weapon,2,1,false,true,{}});
+        EditCommand c;c.action=EditAction::saveCombination;c.catalogVersion=10;c.shortcut.kind=Kind::combo;c.shortcut.parts.resize(2);c.components={1,1};
+        const auto capture=[&](std::uint64_t id,Hand hand)->std::optional<Entry>{auto e=catalogItem(s,id)->entry;e.hand=hand;return e;};
+        auto pair=composeCombination(s,c,capture);
+        check(pair&&pair->name=="Healing · Both hands"&&pair->parts[0].hand==Hand::right&&pair->parts[1].hand==Hand::left,"Known spell forms a named two-hand combination without saved singles");
+        check(s.draft.size()==0,"Composing does not create temporary entries");
+        auto save=c;save.action=EditAction::saveShortcut;save.shortcut=*pair;
+        check(editStructure(s.draft,s.options,save)&&s.draft.size()==1,"Both hands are committed as one group entry");
+        c.components={2,2};check(!validCombinationDraft(s,c),"One physical weapon cannot fill both hands");
+        s.catalog[1].entry.unique=0;s.catalog[1].count=2;check(validCombinationDraft(s,c),"A plain stack of two weapons can supply separate copies");
+        unsigned next=10;pair=composeCombination(s,c,[&](std::uint64_t id,Hand hand)->std::optional<Entry>{auto e=*capture(id,hand);e.unique=std::uint16_t(next++);return e;});
+        check(pair&&pair->parts[0].unique!=pair->parts[1].unique,"Each plain copy is captured separately");
+        const auto before=encodeArsenal(s.draft);unsigned calls=0;
+        check(!composeCombination(s,c,[&](std::uint64_t id,Hand hand)->std::optional<Entry>{if(++calls==2)return {};return capture(id,hand);})&&encodeArsenal(s.draft)==before,"Failed second capture leaves the entire group unchanged");
+        c.catalogVersion=9;calls=0;
+        check(!composeCombination(s,c,[&](auto id,auto hand){++calls;return capture(id,hand);})&&calls==0,"Stale catalog IDs are rejected before inventory access");
+        c.catalogVersion=10;c.components={1,0};c.shortcut.parts[1]=emptyHandEntry(Hand::left);
+        check(composeCombination(s,c,capture).has_value(),"A catalog spell can be paired with an explicit empty hand");
+        s.catalog[0].entry.twoHanded=true;check(!validCombinationDraft(s,c),"Two-handed spells cannot be combined with another hand");
+        s.catalog[0].entry=weapon;s.catalog[0].entry.kind=Kind::shield;
+        check(!validCombinationDraft(s,c),"A shield cannot occupy the right-hand picker");
+    }
     if(argc!=2)throw std::runtime_error("Expected current save fixture");
     std::ifstream file(argv[1]);check(bool(file),"Open current save fixture");
     const std::string bytes((std::istreambuf_iterator<char>(file)),{});const auto saved=Json::parse(bytes);const auto persisted=decodeArsenal(bytes,identity);
-    check(persisted.size()==23&&Json::parse(encodeArsenal(persisted))==saved,"Current save retains every entry, identity and selection");
+    check(persisted.size()==23&&[&]{auto upgraded=Json::parse(encodeArsenal(persisted));upgraded.erase("shortcuts");for(auto& group:upgraded["groups"])for(auto& entry:group["entries"])entry.erase("shortcut");return upgraded==saved;}(),"Current save retains every entry, identity and selection");
 
     Options o;o.names[5]="Magie — Épée";o.layout=3;o.selector=2;o.shape=1;o.groupCount=6;o.positionX=.27f;o.positionY=.38f;o.keys[5]=61;o.showHints=true;o.themeId="oathvein";o.selectorShape=3;o.selectorSpacing=0;o.showLabels=false;o.keyIcons=false;o.coloredMagic=false;
     const auto settings=encodeOptions(o);check(encodeOptions(decodeOptions(settings))==settings,"Names, bindings, eight groups and independent layouts persist");
@@ -56,6 +82,9 @@ int main(int argc,char** argv)try {
     }
     const auto complete=Json::parse(settings);
     for(const auto& [field,value]:complete.items()) {
+        if(field=="controllerModifiers"||field=="groupModes"||field=="language"||field=="itemIconSet"||field=="keepDrawnVisible"||field=="textScale"||field=="placementSpacing"||field=="placementFrame"||field=="placementGridSize"||
+           field=="equipmentX"||field=="equipmentY"||field=="equipmentScale"||field=="equipmentTextScale"||field=="equipmentSpacing"||field=="showEquipment"||field=="hideEmptyGroups"||field=="inactiveGroups"||field=="inactiveGroupOpacity"||
+           field=="equipmentDim"||field=="equipmentStyle"||field=="equipmentLayout"||field=="equipmentTextPosition"||field=="equipmentFadeDelay"||field=="equipmentIdleOpacity")continue;
         auto incomplete=complete;incomplete.erase(field);bool rejected=false;
         try{decodeOptions(incomplete.dump());}catch(const std::exception&){rejected=true;}
         check(rejected,"Incomplete settings are rejected instead of guessing missing fields");

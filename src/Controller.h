@@ -15,6 +15,8 @@ public:
     bool active()const{return active_.has_value();}
     PadBinding binding()const{return active_.value_or(PadBinding{});}
     bool owned(PadButton b)const{return validPadButton(b)&&owned_[unsigned(b)];}
+
+    void observe(const PadState& physical){down_=physical;}
     void cancel(){active_.reset();direction_=0;repeatAt_=0;}
     void begin(PadBinding binding,std::size_t group){active_=binding;group_=group;direction_=0;}
     void reset(){cancel();down_.fill(false);owned_.fill(false);}
@@ -31,7 +33,7 @@ public:
         if(!isDown){const auto result=owner;owner=false;return result;}
         return true;
     }
-    PadResult button(PadButton b,bool isDown,bool fresh,const Options& o,bool allowed,bool selecting,bool vr=false) {
+    PadResult button(PadButton b,bool isDown,bool fresh,const Options& o,bool allowed,bool selecting,bool vr=false,bool browse=true,bool editorHotkey=true) {
         if(b==PadButton::none||!validPadButton(b))return {};
         const auto n=unsigned(b);down_[n]=isDown;
         if(!allowed)cancel();
@@ -44,8 +46,18 @@ public:
             return {true};
         }
         if(!allowed||!o.controllerEnabled||!fresh)return {};
-        const auto matches=[&](PadBinding bind){return bind.button!=PadButton::none&&bind.button==b&&(bind.modifier==PadButton::none||down(bind.modifier));};
-        if(matches(vr?o.vrEditor:o.controllerEditor)){owned_[n]=true;cancel();return {true,PadAction::editor};}
+        unsigned modifiers=o.controllerModifiers;
+        if(!vr) {
+            modifiers|=padButtonMask(o.controllerEditor.modifier);
+            for(std::size_t p=0;p<o.groupCount;++p)modifiers|=padButtonMask(o.controllerGroups[o.groupOrder[p]].modifier);
+        }
+        const auto matches=[&](PadBinding bind){
+            if(bind.button==PadButton::none||bind.button!=b||(bind.modifier!=PadButton::none&&!down(bind.modifier)))return false;
+            if(!vr)for(unsigned i=1;i<down_.size();++i)
+                if(down_[i]&&(modifiers&(1u<<i))&&PadButton(i)!=bind.button&&PadButton(i)!=bind.modifier)return false;
+            return true;
+        };
+        if(editorHotkey&&matches(vr?o.vrEditor:o.controllerEditor)){owned_[n]=true;cancel();return {true,PadAction::editor};}
         const auto groupBinding=[&](bool chord)->std::optional<PadResult> {
             for(std::size_t p=0;p<o.groupCount;++p) {
                 const auto g=o.groupOrder[p];const auto bind=(vr?o.vrGroups:o.controllerGroups)[g];
@@ -55,11 +67,12 @@ public:
             }
             return {};
         };
+
         if(const auto group=groupBinding(true))return *group;
         if(selecting) {
             if(b==PadButton::b){owned_[n]=true;cancel();return {true,PadAction::cancel};}
             if(b==PadButton::x){owned_[n]=true;cancel();return {true,PadAction::unequip};}
-            if(!vr&&o.controllerBumpers&&(!active_||b!=active_->modifier)&&(b==PadButton::lb||b==PadButton::rb)) {
+            if(browse&&!vr&&o.controllerBumpers&&(!active_||b!=active_->modifier)&&(b==PadButton::lb||b==PadButton::rb)) {
                 owned_[n]=true;return {true,b==PadButton::lb?PadAction::previous:PadAction::next};
             }
         }

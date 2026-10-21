@@ -20,6 +20,7 @@ inline const PotionCandidate* choosePotion(const Entry& rule,const std::vector<P
     const PotionCandidate* best=nullptr;float bestScore=0;
     if(rule.resource>2||rule.effect>1||rule.policy>2)return nullptr;
     const auto strength=[&](const PotionCandidate& c){return (rule.effect?c.regeneration:c.restore)[rule.resource];};
+
     for(const auto& c:bottles) {
         if(c.count<=0||c.entry.unresolved||c.entry.kind!=Kind::potion||!c.entry.form)continue;
         if(std::any_of(rule.exclusions.begin(),rule.exclusions.end(),[&](const auto& x){return exclusionMatches(x,c.entry);}))continue;
@@ -38,14 +39,14 @@ inline const PotionCandidate* choosePotion(const Entry& rule,const std::vector<P
 struct PotionFeedback {std::string reason,estimate;};
 inline PotionFeedback potionFeedback(const Entry& rule,const PotionCandidate* bottle,float missing) {
     missing=std::isfinite(missing)?std::max(0.f,missing):0.f;
-    static constexpr const char* resources[]{"Health", "Magicka", "Stamina"};
-    if(!rule.effect&&rule.policy==2&&missing<.01f)return {std::string(resources[std::min(rule.resource,2u)])+" full", "No potion needed"};
-    if(!bottle)return {"No matching potion", ""};
+    const char* resources[]{tr("Health"), tr("Magicka"), tr("Stamina")};
+    if(!rule.effect&&rule.policy==2&&missing<.01f)return {std::string(resources[std::min(rule.resource,2u)])+tr(" full"), tr("No potion needed")};
+    if(!bottle)return {tr("No matching potion"), ""};
     const float strength=(rule.effect?bottle->regeneration:bottle->restore)[std::min(rule.resource,2u)];
-    const auto reason=rule.policy==0?"Lowest strength":rule.policy==1?"Highest strength":strength>=missing?"Smallest sufficient":"Strongest available";
+    const auto reason=rule.policy==0?tr("Lowest strength"):rule.policy==1?tr("Highest strength"):strength>=missing?tr("Smallest sufficient"):tr("Strongest available");
     char text[180];
-    if(rule.effect)std::snprintf(text,sizeof(text),"Estimated regeneration: +%.0f%%",strength);
-    else std::snprintf(text,sizeof(text),"Missing %.0f · Estimated %.0f · %.0f %s",missing,strength,std::abs(strength-missing),strength>=missing?"excess":"shortfall");
+    if(rule.effect)std::snprintf(text,sizeof(text),tr("Estimated regeneration: +%.0f%%"),strength);
+    else std::snprintf(text,sizeof(text),tr("Missing %.0f · Estimated %.0f · %.0f %s"),missing,strength,std::abs(strength-missing),strength>=missing?tr("excess"):tr("shortfall"));
     return {reason,text};
 }
 inline Entry smartEntry(unsigned resource,unsigned effect,unsigned policy) {

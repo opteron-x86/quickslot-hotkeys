@@ -35,3 +35,11 @@ Liberation fonts: see Liberation-Fonts.txt.
 
 Source asset hashes are recorded in themes/packs-manifest.json. ImGui keycap
 images remain supplied by the user's installation and are not bundled.
+
+Missing-glyph fallback: Noto Sans CJK SC Regular, Sans2.004, from
+https://github.com/notofonts/noto-cjk/tree/Sans2.004
+Font: Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf
+License: NotoSansCJK-OFL.txt. This font supplies missing characters only;
+primary theme fonts, including Futura, retain priority.
+
+© 2014-2021 Adobe (http://www.adobe.com/).

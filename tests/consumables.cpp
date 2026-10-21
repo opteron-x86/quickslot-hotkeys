@@ -22,8 +22,8 @@ int main(int argc,char** argv)try {
     std::ifstream file(std::filesystem::path(argv[1])/"tests/fixtures/arsenal.json");
     const std::string bytes((std::istreambuf_iterator<char>(file)),{});const auto saved=Json::parse(bytes);
     const auto restored=decodeArsenal(bytes,identity);
-    check(restored.size()==23&&Json::parse(encodeArsenal(restored))==saved,"Current save round-trips all 23 shortcuts");
-    const Kind kinds[]{Kind::potion,Kind::food,Kind::poison,Kind::scroll,Kind::power,Kind::lesserPower,Kind::shout};
+    check(restored.size()==23&&[&]{auto upgraded=Json::parse(encodeArsenal(restored));upgraded.erase("shortcuts");for(auto& group:upgraded["groups"])for(auto& entry:group["entries"])entry.erase("shortcut");return upgraded==saved;}(),"Current save round-trips all 23 shortcuts");
+    const Kind kinds[]{Kind::torch,Kind::potion,Kind::food,Kind::poison,Kind::scroll,Kind::power,Kind::lesserPower,Kind::shout};
     for(const auto kind:kinds) {
         auto e=item(kind);e.hand=normalizedHand(e,Hand::left);Group g;g.add(e);
         check(!tracksInstance(e)&&!e.owner&&!e.unique,"Stack and learned abilities never allocate item IDs");
@@ -34,10 +34,10 @@ int main(int argc,char** argv)try {
         check(mapped.entries[0].form==e.form+0x1000000&&mapped.entries[0].owner==0,"Remap base forms without inventing copy owners");
         const auto missing=decode(encode(g),[](auto,auto&){return false;});
         check(missing.entries[0].unresolved&&decode(encode(missing),identity).entries[0].unresolved,"Removed content remains a missing placeholder");
-        g.entries[0].owner=20;g.entries[0].unique=7; // Even stray events cannot rebind stack/voice entries.
+        g.entries[0].owner=20;g.entries[0].unique=7;
         check(followIdentityChange(g,{e.form,20,42,7,8})==0,"Physical-copy tracking ignores stack/voice entries");
         CatalogItem c;c.entry=e;
-        const int filter=kind==Kind::potion?4:kind==Kind::food?5:kind==Kind::poison?6:kind==Kind::scroll?7:8;
+        const int filter=kind==Kind::torch?3:kind==Kind::potion?4:kind==Kind::food?5:kind==Kind::poison?6:kind==Kind::scroll?7:8;
         for(int f=0;f<=8;++f)check(catalogMatches(c,"",f)==(f==0||f==filter),"New categories appear only in their intended filters");
         check(!flexibleHand(e)==(kind!=Kind::scroll),"Only scrolls expose hand choice");
         if(isVoice(e))check(handName(e)=="Voice","Voice abilities use the voice slot");

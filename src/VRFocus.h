@@ -2,11 +2,7 @@
 #include <optional>
 
 namespace quickslot {
-// The helper snapshots focus before dispatching its clients in unspecified
-// order. Our HUD callback can therefore see the editor SDK's previous frame.
-// Allow two dispatches after a local request before mirroring helper focus.
-// Requests themselves are synchronous; no time-based retry can steal focus
-// back from another overlay after the user deliberately switches away.
+
 class VRPanelFocus {
     bool previousDesired_=false;
     unsigned settleFrames_=0;
@@ -19,8 +15,7 @@ public:
         desired=focused;previousDesired_=desired;return {};
     }
 };
-// Rendering requests a game-thread editor transition. Keep that request alive
-// across frames until the task acknowledges it; a snapshot is not an ack.
+
 class VRFocus {
     bool previousOpen_=false,pending_=false;
 public:

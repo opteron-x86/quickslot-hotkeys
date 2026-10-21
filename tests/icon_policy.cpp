@@ -1,7 +1,9 @@
 #include "IconPolicy.h"
 #include "WeaponIcons.h"
 #include "Settings.h"
+#include "Presets.h"
 #include <cassert>
+#include <chrono>
 #include <iostream>
 using namespace quickslot;
 int main() {
@@ -34,15 +36,40 @@ int main() {
     assert(classify({"OCF_WeapTypeWoodaxe1H","OCF_WeapTypeWoodHatchet1H"})==Icon::hatchet);
     assert(classify({"ABC_I4WIO_Pickaxe1H"})==Icon::pickaxe);
     assert(classify({"OCF_WeapTypeWoodaxe2H"})==Icon::woodcutters_axe);
-    assert(classify({"WeapTypeSword","WeapTypeClaw"})==Icon::automatic);
+    assert(classify({"WeapTypeSword","WeapTypeClaw"})==Icon::claw);
+    assert(classify({"WeapTypeJavelin"})==Icon::javelin);
+    assert(classify({"WeapTypeQuarterstaff"})==Icon::quarterstaff);
+    assert(classify({"WeapTypeWhip"})==Icon::whip);
+    assert(classify({"WeapTypeGun"})==Icon::gun);
+    assert(baseIcon(emptyHandEntry(Hand::right))==Icon::unarmed&&baseIcon(emptyHandEntry(Hand::left))==Icon::unarmed);
     assert(classify({"Fancy Katana","OCF_varWeapNotKatana","OCF_WeapTypeGun2H_BasicSpear","WeapTypeSpearExtra"})==Icon::automatic);
     assert(atlasTint(0x80decafe,1,false)==0x80decafe);
     assert(atlasTint(0x80decafe,0,false)==0x80ffffff&&atlasTint(0x80decafe,2,false)==0x80ffffff);
-    assert(atlasTint(0x60808080,2,true)==0x60808080); // Preserve unavailable state and opacity.
+    assert(atlasTint(0x60808080,2,true)==0x60808080);
     Options options;assert(options.itemIconColor==1);
     options.itemIconColor=2;assert(decodeOptions(encodeOptions(options)).itemIconColor==2);
     options.itemIconColor=999;sanitizeOptions(options);assert(options.itemIconColor==2);
+    options.itemIconSet="sample-icons";assert(decodeOptions(encodeOptions(options)).itemIconSet=="sample-icons");
+    auto previous=Json::parse(encodeOptions(options));previous.erase("itemIconSet");assert(decodeOptions(previous.dump()).itemIconSet=="quickslot");
+    Arsenal arsenal;const auto preset=exportPreset(arsenal,options,true,[](auto){return Json{};});
+    assert(importPreset(preset,arsenal,Options{},true,[](const auto&,auto){return 0u;}).options.itemIconSet=="sample-icons");
+    options.itemIconSet="../other";sanitizeOptions(options);assert(options.itemIconSet=="quickslot");
+    const auto folder=std::filesystem::temp_directory_path()/("quickslot-icon-packs-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    struct Cleanup {std::filesystem::path folder;~Cleanup(){std::error_code e;std::filesystem::remove_all(folder,e);}} cleanup{folder};
+    assert(loadIconPacks(folder).size()==1);
+    const Json pack{{"schema",1},{"id","sample-icons"},{"name","Sample icons"},{"atlas","items.png"},{"columns",8},{"rows",8},{"cellSize",256},{"icons",63}};
+    const auto write=[&](const char* name,const Json& metadata){const auto path=folder/"packs"/name;std::filesystem::create_directories(path);std::ofstream(path/"pack.json")<<metadata;std::ofstream(path/"items.png")<<"test";};
+    write("01-valid",pack);
+    auto malformed=pack;malformed["atlas"]="../items.png";write("02-traversal",malformed);
+    malformed=pack;malformed["id"]="quickslot";write("03-reserved",malformed);
+    malformed=pack;malformed["icons"]=58;write("04-dimensions",malformed);
+    malformed=pack;malformed["id"]="invalid/name";write("05-id",malformed);
+    write("06-duplicate",pack);
+    write("07-invalid-json",pack);std::ofstream(folder/"packs/07-invalid-json/pack.json")<<"{";
+    const auto packs=loadIconPacks(folder);assert(packs.size()==2&&packs[1].id=="sample-icons"&&packs[1].atlas==folder/"packs/01-valid/items.png");
+    std::filesystem::remove_all(folder/"packs");std::ofstream(folder/"packs")<<"not a directory";
+    assert(loadIconPacks(folder).size()==1);
     Entry original;original.form=0x1234;original.name="Sword";auto appearance=original;appearance.icon=Icon::greatsword;
     assert(original.same(appearance)&&encodeEntry(original)==encodeEntry(appearance));
-    std::cout<<"PASS: 58 atlas cells, weapon keyword precedence/fallback, ammo/unarmed, tint, settings and equipment identity isolation\n";
+    std::cout<<"PASS: 63 atlas cells, weapon keywords, hand actions, tint, optional pack validation, settings/presets and equipment identity isolation\n";
 }

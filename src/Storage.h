@@ -1,5 +1,7 @@
 #pragma once
 #include "Model.h"
+#include "SmartEquipment.h"
+#include "ShortcutLibrary.h"
 #include <nlohmann/json.hpp>
 #include <functional>
 #include <stdexcept>
@@ -8,6 +10,7 @@ namespace quickslot {
 using Json=nlohmann::json;
 inline constexpr unsigned groupSchema=5,arsenalSchema=7;
 inline std::string cleanName(const std::string& raw) {
+
     auto name=Json::parse(Json(raw).dump(-1,' ',false,Json::error_handler_t::replace)).get<std::string>();
     if(name.size()>512) {
         std::size_t end=512;
@@ -20,6 +23,8 @@ inline Json encodeEntry(const Entry& e) {
     Json j={{"form",e.form},{"owner",e.owner},{"unique",e.unique},{"hand",unsigned(e.hand)},
         {"kind",unsigned(e.kind)},{"twoHanded",e.twoHanded},{"spell",e.spell},{"unresolved",e.unresolved},{"name",e.name},{"recipe",e.recipe}};
     if(e.kind==Kind::smartPotion){j["resource"]=e.resource;j["effect"]=e.effect;j["policy"]=e.policy;j["exclusions"]=Json::array();for(const auto& x:e.exclusions)j["exclusions"].push_back({{"form",x.form},{"recipe",x.recipe}});}
+    if(isSmartEquipment(e))j["equipmentType"]=e.equipmentType;
+    if(e.shortcut)j["shortcut"]=e.shortcut;
     if(e.kind==Kind::combo){j["parts"]=Json::array();for(const auto& part:e.parts)j["parts"].push_back(encodeEntry(part));}
     return j;
 }
@@ -34,10 +39,16 @@ inline Entry decodeEntry(const Json& v,const std::function<bool(std::uint32_t,st
         const auto n=v.at(k).get<std::uint64_t>();if(n>max)throw std::runtime_error("Item reference outside range");return std::uint32_t(n);
     };
     e.form=number("form",UINT32_MAX);e.owner=number("owner",UINT32_MAX);e.unique=std::uint16_t(number("unique",UINT16_MAX));
-    e.hand=Hand(number("hand",1));e.kind=Kind(number("kind",unsigned(Kind::unarmed)));
+    e.hand=Hand(number("hand",1));e.kind=Kind(number("kind",unsigned(Kind::smartAmmo)));
+    if(v.contains("shortcut")){e.shortcut=number("shortcut",UINT32_MAX);if(depth||!e.shortcut||!isReusable(e))throw std::runtime_error("Invalid shortcut link");}
     e.name=v.at("name").get<std::string>();if(e.name.size()>512)throw std::runtime_error("Item name too long");
     e.twoHanded=v.at("twoHanded").get<bool>();e.spell=v.at("spell").get<bool>();e.unresolved=v.at("unresolved").get<bool>();
     if(!v.at("recipe").is_number_unsigned())throw std::runtime_error("Invalid recipe signature");e.recipe=v.at("recipe").get<std::uint64_t>();
+    if(isSmartEquipment(e)) {
+        e.equipmentType=number("equipmentType",unsigned(WeaponFamily::count)-1);
+        if(depth>1||(depth&&!pairable(e))||!validSmartEquipment(e)||v.contains("parts")||v.contains("exclusions")||v.contains("resource")||v.contains("effect")||v.contains("policy"))throw std::runtime_error("Invalid smart equipment");
+        return e;
+    }
     if(isHandAction(e)) {
         if(!validHandAction(e)||(depth&&e.kind==Kind::unarmed)||v.contains("parts")||v.contains("exclusions")||v.contains("resource")||v.contains("effect")||v.contains("policy"))throw std::runtime_error("Invalid hand action");
         e.name=handActionName(e);return e;
@@ -61,6 +72,11 @@ inline Entry decodeEntry(const Json& v,const std::function<bool(std::uint32_t,st
             if(!e.parts[0].unresolved&&!e.parts[1].unresolved&&!validPair(e.parts[0],e.parts[1]))throw std::runtime_error("Same physical copy in both hands");
         }
         return e;
+    }
+    if(e.kind==Kind::torch) {
+        if(e.spell||e.twoHanded||e.hand!=Hand::left||e.recipe)throw std::runtime_error("Invalid torch reference");
+
+        e.owner=0;e.unique=0;e.unresolved=!e.form;
     }
     if(unsigned(e.kind)>unsigned(Kind::spell)) {
         const bool spell=e.kind==Kind::power||e.kind==Kind::lesserPower;
@@ -87,18 +103,35 @@ inline Group decode(const std::string& bytes,const std::function<bool(std::uint3
 }
 inline std::string encodeArsenal(const Arsenal& arsenal) {
     Json groups=Json::array();for(const auto& group:arsenal.groups)groups.push_back(Json::parse(encode(group)));
-    return Json{{"schema",arsenalSchema},{"presetIdentity",arsenal.presetIdentity},{"active",arsenal.active},{"groups",groups}}.dump();
+    Json shortcuts=Json::array();for(const auto& e:arsenal.shortcuts)shortcuts.push_back(encodeEntry(e));
+    Json result{{"schema",arsenalSchema},{"presetIdentity",arsenal.presetIdentity},{"active",arsenal.active},{"groups",groups},{"shortcuts",shortcuts}};
+    if(arsenal.consumableGroup<Arsenal::count)result["consumableGroup"]=arsenal.consumableGroup;
+    return result.dump();
 }
 inline Arsenal decodeArsenal(const std::string& bytes,const std::function<bool(std::uint32_t,std::uint32_t&)>& resolve) {
-    if(bytes.size()>2097152)throw std::runtime_error("Quickslot data exceeds limit");
+    if(bytes.size()>8388608)throw std::runtime_error("Quickslot data exceeds limit");
     const auto j=Json::parse(bytes);Arsenal arsenal;
     if(j.at("schema")!=arsenalSchema||!j.at("groups").is_array()||j.at("groups").size()!=Arsenal::count||
        !j.at("active").is_number_unsigned())throw std::runtime_error("Unsupported group data");
     for(std::size_t i=0;i<Arsenal::count;++i)arsenal.groups[i]=decode(j.at("groups")[i].dump(),resolve);
     const auto active=j.at("active").get<std::uint64_t>();
     if(active>=Arsenal::count)throw std::runtime_error("Invalid active group");
-    arsenal.active=std::size_t(active);arsenal.presetIdentity=j.at("presetIdentity").get<std::string>();
+    arsenal.active=std::size_t(active);arsenal.consumableGroup=std::min(j.value("consumableGroup",Arsenal::count),Arsenal::count);arsenal.presetIdentity=j.at("presetIdentity").get<std::string>();
     if(arsenal.presetIdentity.size()>64)throw std::runtime_error("Invalid preset identity");
+    if(j.contains("shortcuts")) {
+        const auto& definitions=j.at("shortcuts");
+        if(!definitions.is_array()||definitions.size()>Arsenal::shortcutLimit)throw std::runtime_error("Invalid shortcut library");
+        for(const auto& value:definitions) {
+            auto entry=decodeEntry(value,resolve);
+            if(!isReusable(entry)||!entry.shortcut||libraryShortcut(arsenal,entry.shortcut))throw std::runtime_error("Invalid shortcut definition");
+            arsenal.shortcuts.push_back(std::move(entry));
+        }
+    }
+    for(const auto& group:arsenal.groups)for(const auto& e:group.entries)if(e.shortcut) {
+        const auto* definition=libraryShortcut(arsenal,e.shortcut);
+        if(!definition||e.kind!=definition->kind)throw std::runtime_error("Invalid shortcut reference");
+    }
+    collectShortcuts(arsenal);
     return arsenal;
 }
 }

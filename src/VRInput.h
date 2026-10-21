@@ -4,8 +4,7 @@
 
 namespace quickslot {
 constexpr bool vrDevice(unsigned device){return device>=3&&device<=8;}
-// Devices 3/5/7 are physically right; Skyrim's left-handed setting exchanges
-// the main/off-hand roles. Bindings use those roles rather than fixed hands.
+
 constexpr bool vrMainHand(unsigned device,bool leftHanded){return vrDevice(device)&&((device%2!=0)!=leftHanded);}
 constexpr PadButton vrButton(unsigned device,unsigned code,bool leftHanded=false) {
     if(!vrDevice(device))return PadButton::none;

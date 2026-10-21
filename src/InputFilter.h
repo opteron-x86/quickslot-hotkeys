@@ -3,6 +3,14 @@
 #include <vector>
 
 namespace quickslot {
+
+inline bool captureGameplayStick(bool& owned,bool neutral,bool browsing,bool menuOpen) {
+    if(menuOpen){owned=false;return false;}
+    const bool capture=browsing||owned;
+    owned=capture&&!neutral;
+    return capture;
+}
+
 template<class Node,class Predicate,class Forward>
 void filterEvents(Node* head,Predicate consume,Forward forward) {
     struct Restore {

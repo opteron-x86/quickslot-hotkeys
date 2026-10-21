@@ -32,6 +32,7 @@ ImageAsset loadItemAtlas(const std::filesystem::path& path) {
 
 namespace quickslot {
 KeyAtlas loadKeyAtlas(const std::filesystem::path& directory) {
+
     constexpr int cellW=128,cellH=64,columns=8,width=columns*cellW,height=36*cellH;
     KeyAtlas atlas;atlas.image.width=width;atlas.image.height=height;
     atlas.image.pixels.resize(width*height*4);

@@ -1,6 +1,7 @@
 #pragma once
 #include "Transfer.h"
 namespace quickslot {
+
 inline TransferMatch matchMenuCopy(const InventorySample& live,const std::vector<std::uintptr_t>& row) {
     if(live.count<=0)return {};
     if(row.empty())return live.plain()>0?TransferMatch{true,true,0}:TransferMatch{};

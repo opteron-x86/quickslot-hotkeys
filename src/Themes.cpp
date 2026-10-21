@@ -9,6 +9,7 @@ using Json=nlohmann::json;
 bool validID(const std::string& id){return !id.empty()&&id.size()<=48&&std::all_of(id.begin(),id.end(),[](char c){return (c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='-'||c=='_';});}
 std::filesystem::path asset(const std::filesystem::path& root,const Json& j,const char* key) {
     const auto value=j.value(key,std::string{});if(value.empty())return {};
+
     if(value.find('\\')!=std::string::npos||value.find(':')!=std::string::npos)throw std::runtime_error("Invalid asset path");
     const std::filesystem::path p(value);if(p.is_absolute())throw std::runtime_error("Absolute asset path");
     for(const auto& part:p)if(part==".."||part==".")throw std::runtime_error("Asset traversal");

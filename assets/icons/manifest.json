@@ -1455,9 +1455,75 @@
         923
       ],
       "alpha": "source alpha"
+    },
+    {
+      "id": "javelin",
+      "name": "Javelin",
+      "alias": "spear",
+      "cell": 58,
+      "kind": "alias",
+      "packedBounds": [
+        26,
+        20,
+        230,
+        236
+      ]
+    },
+    {
+      "id": "quarterstaff",
+      "name": "Quarterstaff",
+      "alias": "staff",
+      "cell": 59,
+      "kind": "alias",
+      "packedBounds": [
+        23,
+        20,
+        232,
+        236
+      ]
+    },
+    {
+      "id": "claw",
+      "name": "Claw",
+      "alias": "unarmed",
+      "cell": 60,
+      "kind": "alias",
+      "packedBounds": [
+        41,
+        20,
+        214,
+        236
+      ]
+    },
+    {
+      "id": "whip",
+      "name": "Whip",
+      "alias": "sword",
+      "cell": 61,
+      "kind": "alias",
+      "packedBounds": [
+        23,
+        20,
+        232,
+        236
+      ]
+    },
+    {
+      "id": "gun",
+      "name": "Gun",
+      "alias": "crossbow",
+      "cell": 62,
+      "kind": "alias",
+      "packedBounds": [
+        20,
+        20,
+        236,
+        236
+      ]
     }
   ],
-  "atlas_sha256": "e045f1761fa10c9d4b06dfa6577105a129c4457d735e8f01235a1887ec2701b0",
+  "atlas_sha256": "8f41f1204caba62e3a8721a8c19d3caef0d6914ea50e09c454557505acef0cc6",
   "supplied": 58,
+  "aliases": 5,
   "placeholders": 0
 }

@@ -3,12 +3,16 @@
 #include <string>
 
 namespace quickslot {
+
 enum class PadButton : unsigned {none,up,right,down,left,a,b,x,y,lb,rb,lt,rt,ls,rs,back,start,count};
+inline constexpr unsigned padButtonMask(PadButton b){return b>PadButton::none&&b<PadButton::count?1u<<unsigned(b):0u;}
+inline constexpr unsigned allPadButtons=(1u<<unsigned(PadButton::count))-2u;
 struct PadBinding {
     PadButton button=PadButton::none,modifier=PadButton::none;
     bool operator==(const PadBinding&)const=default;
 };
 inline constexpr std::array<unsigned,17> padNativeCodes{0,1,8,2,4,0x1000,0x2000,0x4000,0x8000,0x100,0x200,9,10,0x40,0x80,0x20,0x10};
+
 enum class PadCodeSet {xinput,orbis};
 inline constexpr std::array<unsigned,17> padOrbisCodes{0,0x10,0x20,0x40,0x80,0x4000,0x2000,0x8000,0x1000,0x400,0x800,9,10,2,4,0x100000,8};
 inline constexpr const auto& padCodes(PadCodeSet codeSet) {return codeSet==PadCodeSet::orbis?padOrbisCodes:padNativeCodes;}

@@ -11,10 +11,15 @@ int main() {
     e.icon=Icon::battleaxe;assert(baseIcon(e)==Icon::battleaxe);
     e.icon=Icon::bolt;e.kind=Kind::ammo;assert(baseIcon(e)==Icon::bolt);
     e.icon=Icon::automatic;e.kind=Kind::smartPotion;e.resource=2;assert(baseIcon(e)==Icon::stamina);
+    e.kind=Kind::power;assert(baseIcon(e)==Icon::greater_power);
+    e.kind=Kind::lesserPower;assert(baseIcon(e)==Icon::lesser_power);
+    e.kind=Kind::shout;assert(baseIcon(e)==Icon::shout);
     assert(baseIcon(unarmedEntry())==Icon::unarmed);
-    const auto first=atlasRegion(Icon::sword),last=atlasRegion(Icon::woodcutters_axe);
-    assert(first&&first->u0==0&&first->v0==0&&first->u1==.125f&&first->v1==.125f);
-    assert(last&&last->u0==.125f&&last->v0==.875f&&last->u1==.25f&&last->v1==1);
+    const auto first=atlasRegion(Icon::sword),last=atlasRegion(Icon::greater_power),lesser=atlasRegion(Icon::lesser_power);
+    assert(first&&first->u0==0&&first->v0==0&&first->u1==.125f&&first->v1==1.f/9);
+    assert(last&&last->u0==0&&last->v0==8.f/9&&last->u1==.125f&&last->v1==1);
+    assert(lesser&&lesser->u0==.875f&&lesser->v0==7.f/9&&lesser->u1==1&&std::abs(lesser->v1-8.f/9)<1e-6f);
+    static_assert(unsigned(Icon::woodcutters_axe)==58&&unsigned(Icon::gun)==63);
     assert(atlasRegion(Icon::arrow)&&atlasRegion(Icon::bolt)&&atlasRegion(Icon::unarmed));
     for(unsigned i=1;i<unsigned(Icon::count);++i) {
         const auto uv=atlasRegion(Icon(i));assert(uv&&uv->u0>=0&&uv->v0>=0&&uv->u1<=1&&uv->v1<=1);
@@ -57,7 +62,7 @@ int main() {
     const auto folder=std::filesystem::temp_directory_path()/("quickslot-icon-packs-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     struct Cleanup {std::filesystem::path folder;~Cleanup(){std::error_code e;std::filesystem::remove_all(folder,e);}} cleanup{folder};
     assert(loadIconPacks(folder).size()==1);
-    const Json pack{{"schema",1},{"id","sample-icons"},{"name","Sample icons"},{"atlas","items.png"},{"columns",8},{"rows",8},{"cellSize",256},{"icons",63}};
+    const Json pack{{"schema",1},{"id","sample-icons"},{"name","Sample icons"},{"atlas","items.png"},{"columns",8},{"rows",9},{"cellSize",256},{"icons",65}};
     const auto write=[&](const char* name,const Json& metadata){const auto path=folder/"packs"/name;std::filesystem::create_directories(path);std::ofstream(path/"pack.json")<<metadata;std::ofstream(path/"items.png")<<"test";};
     write("01-valid",pack);
     auto malformed=pack;malformed["atlas"]="../items.png";write("02-traversal",malformed);
@@ -66,10 +71,11 @@ int main() {
     malformed=pack;malformed["id"]="invalid/name";write("05-id",malformed);
     write("06-duplicate",pack);
     write("07-invalid-json",pack);std::ofstream(folder/"packs/07-invalid-json/pack.json")<<"{";
+    malformed=pack;malformed["id"]="old-layout";malformed["rows"]=8;malformed["icons"]=63;write("08-old-layout",malformed);
     const auto packs=loadIconPacks(folder);assert(packs.size()==2&&packs[1].id=="sample-icons"&&packs[1].atlas==folder/"packs/01-valid/items.png");
     std::filesystem::remove_all(folder/"packs");std::ofstream(folder/"packs")<<"not a directory";
     assert(loadIconPacks(folder).size()==1);
     Entry original;original.form=0x1234;original.name="Sword";auto appearance=original;appearance.icon=Icon::greatsword;
     assert(original.same(appearance)&&encodeEntry(original)==encodeEntry(appearance));
-    std::cout<<"PASS: 63 atlas cells, weapon keywords, hand actions, tint, optional pack validation, settings/presets and equipment identity isolation\n";
+    std::cout<<"PASS: 65 atlas cells, distinct power icons, weapon keywords, hand actions, tint, optional pack validation, settings/presets and equipment identity isolation\n";
 }

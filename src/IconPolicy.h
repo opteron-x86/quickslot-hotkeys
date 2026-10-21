@@ -8,7 +8,7 @@ inline Icon baseIcon(const Entry& e) {
     if(isSmartEquipment(e))return smartEquipmentIcon(e);
     constexpr Icon kinds[]{Icon::sword,Icon::greatsword,Icon::dagger,Icon::axe,Icon::mace,
         Icon::bow,Icon::staff,Icon::shield,Icon::torch,Icon::spell,Icon::potion,Icon::food,
-        Icon::poison,Icon::scroll,Icon::power,Icon::power,Icon::shout};
+        Icon::poison,Icon::scroll,Icon::greater_power,Icon::lesser_power,Icon::shout};
     if(e.kind==Kind::smartPotion)return e.resource==1?Icon::magicka:e.resource==2?Icon::stamina:Icon::health;
     if(e.kind==Kind::ammo)return Icon::arrow;
     if(isHandAction(e))return Icon::unarmed;

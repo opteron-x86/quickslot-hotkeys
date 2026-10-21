@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.0
+
+This standard release brings together the features and refinements from the 0.9.0 release candidates.
+
+- Hold-to-browse and tap-to-cycle groups with remembered selections, wrapping keyboard navigation and shortcut reordering.
+- Searchable shared shortcuts and hand combinations, including smart weapons and shields with separate item copies for each hand.
+- Smart equipment ranking, consumable selection and restocking, and torch shortcuts that follow inventory stock.
+- Controller navigation, modifier bindings, pointer controls and on-screen text entry.
+- Independent equipment display with right-hand-first ordering, quantity badges, shout timers and spent-power dimming.
+- Theme, layout, scale, spacing, positioning and visibility controls with live previews, Undo and presets.
+- Refreshed icon artwork, distinct lesser/greater power icons, and dedicated javelin, quarterstaff, claw and whip drawings. The atlas contains 64 supplied drawings and one gun-to-crossbow alias.
+- Automated Linux tests, Windows build/probes, and versioned packages containing the mod, source, symbols, menu API and checksums.
+
+Updating: install the DLL and atlas together and keep existing settings and presets. Custom icon packs must use the new 2048 × 2304, 65-icon layout described in `THEMES.md`.
+
+VR support remains experimental; physical headset validation is pending.
+
 ## 0.9.0-rc20
 
 - Smart weapon and shield rules in combination hand pickers; separate item copies for each hand.

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "columns": 8,
-  "rows": 8,
+  "rows": 9,
   "cellSize": 256,
   "padding": 20,
   "icons": [
@@ -240,27 +240,35 @@
     {
       "id": "javelin",
       "name": "Javelin",
-      "alias": "spear"
+      "file": "javelin.png"
     },
     {
       "id": "quarterstaff",
       "name": "Quarterstaff",
-      "alias": "staff"
+      "file": "quarterstaff.png"
     },
     {
       "id": "claw",
       "name": "Claw",
-      "alias": "unarmed"
+      "file": "claw.png"
     },
     {
       "id": "whip",
       "name": "Whip",
-      "alias": "sword"
+      "file": "whip.png"
     },
     {
       "id": "gun",
       "name": "Gun",
       "alias": "crossbow"
+    },
+    {
+      "id": "lesser_power",
+      "file": "lesser_power.png"
+    },
+    {
+      "id": "greater_power",
+      "file": "greater_power.png"
     }
   ]
 }

@@ -16,6 +16,7 @@ spec.loader.exec_module(package)
 
 class ReleaseTools(unittest.TestCase):
     def test_tag_must_match_version(self):
+        self.assertEqual(support.package_version('0.10.0', 'a' * 40, 'v0.10.0'), '0.10.0')
         self.assertEqual(support.package_version('0.9.0-rc20', 'a' * 40, 'v0.9.0-rc20'), '0.9.0-rc20')
         with self.assertRaises(ValueError):
             support.package_version('0.9.0-rc20', 'a' * 40, 'v0.9.0')

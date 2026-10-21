@@ -124,10 +124,10 @@ int main(int argc,char** argv) {
         if(scene=="v04-food")snapshot.rows={row("Vegetable Soup",Kind::food,Icon::food,4),row("Weak Poison",Kind::poison,Icon::poison,9),row("Potion of Healing",Kind::potion,Icon::health,12)};
         if(scene=="v04-poison"){snapshot.rows={row("Weak Poison",Kind::poison,Icon::poison,9),row("Potion of Healing",Kind::potion,Icon::health,12)};}
         if(scene=="v04-voice") {
-            snapshot.activeGroup=2;voice.equipped=true;snapshot.rows={voice,row("Battle Cry",Kind::power,Icon::power,0),row("Night Eye",Kind::lesserPower,Icon::power,0)};
+            snapshot.activeGroup=2;voice.equipped=true;snapshot.rows={voice,row("Battle Cry",Kind::power,Icon::greater_power,0),row("Night Eye",Kind::lesserPower,Icon::lesser_power,0)};
             snapshot.rows[1].powerUsed=true;
         }
-        if(scene=="v04-power"){snapshot.activeGroup=2;auto power=row("Battle Cry",Kind::power,Icon::power,0);power.powerUsed=true;snapshot.rows={power,voice};}
+        if(scene=="v04-power"){snapshot.activeGroup=2;auto power=row("Battle Cry",Kind::power,Icon::greater_power,0);power.powerUsed=true;snapshot.rows={power,voice};}
         if(scene=="v04-scroll"){snapshot.activeGroup=3;scroll.entry.hand=Hand::left;snapshot.rows={scroll,row("Scroll of Blizzard",Kind::scroll,Icon::scroll,1)};snapshot.rows[1].entry.twoHanded=true;}
         if(scene=="v04-circles"){layoutPreset(options,2);options.themeId="silver";}
         if(scene=="v04-ring"){options.selector=2;options.selectorShape=1;options.selectorSpacing=0;}

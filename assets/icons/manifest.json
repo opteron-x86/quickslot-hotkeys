@@ -3,7 +3,7 @@
   "atlas": "items.png",
   "cellSize": 256,
   "columns": 8,
-  "rows": 8,
+  "rows": 9,
   "padding": 20,
   "icons": [
     {
@@ -212,22 +212,22 @@
       "cell": 8,
       "kind": "supplied",
       "source": "source/torch.png",
-      "source_sha256": "8a6f702cad771809f09617c7eea5957cfcc2df50f5774d807dd95e29266872ac",
+      "source_sha256": "68e0893dc56eac008eb23bb2aa112cf73601e28c249fdb12d018abcdfe656f44",
       "packedBounds": [
-        24,
+        27,
         20,
-        232,
+        228,
         236
       ],
       "sourceSize": [
-        1024,
-        1024
+        960,
+        960
       ],
       "sourceBounds": [
-        91,
-        65,
-        949,
-        955
+        204,
+        177,
+        762,
+        778
       ],
       "alpha": "source alpha"
     },
@@ -237,22 +237,22 @@
       "cell": 9,
       "kind": "supplied",
       "source": "source/spell.png",
-      "source_sha256": "1f96c1a314272307d7600524e6e0c45ffc09d3b05aff67d71ad10aa4f1179a03",
+      "source_sha256": "10130aebe7faa1b18205ab76689eebb6dc7e8775c9794270ac94459c2a430c3f",
       "packedBounds": [
-        21,
+        20,
         20,
         235,
         236
       ],
       "sourceSize": [
-        1024,
-        1024
+        960,
+        960
       ],
       "sourceBounds": [
-        77,
-        73,
-        945,
-        951
+        163,
+        160,
+        801,
+        800
       ],
       "alpha": "source alpha"
     },
@@ -462,22 +462,22 @@
       "cell": 18,
       "kind": "supplied",
       "source": "source/fire.png",
-      "source_sha256": "7d0e4d934afdda03594de0b1f2c945402ab6a8ee4255cdadaf4119480af94f40",
+      "source_sha256": "88646ffa55d4b2f1df298d1e5cf378b68da56aa818fdc3653bc01ea728246218",
       "packedBounds": [
-        59,
+        46,
         20,
-        197,
+        210,
         236
       ],
       "sourceSize": [
-        1024,
-        1024
+        960,
+        960
       ],
       "sourceBounds": [
-        219,
-        55,
-        805,
-        973
+        234,
+        157,
+        726,
+        804
       ],
       "alpha": "source alpha"
     },
@@ -487,22 +487,22 @@
       "cell": 19,
       "kind": "supplied",
       "source": "source/frost.png",
-      "source_sha256": "5c57f1063bb8cd5f1dd049ee9836bd426c7ddba09679b527ed50f1e4fb47a3dc",
+      "source_sha256": "4f2fe15ea005a431e9964025016515d6e71149a3e60e9595246ddf55c8fc553a",
       "packedBounds": [
-        34,
+        29,
         20,
-        222,
+        227,
         236
       ],
       "sourceSize": [
-        1024,
-        1024
+        960,
+        960
       ],
       "sourceBounds": [
-        97,
-        35,
-        927,
-        989
+        169,
+        150,
+        792,
+        831
       ],
       "alpha": "source alpha"
     },
@@ -512,22 +512,22 @@
       "cell": 20,
       "kind": "supplied",
       "source": "source/shock.png",
-      "source_sha256": "159e9201022517c191429ce930d3eb150ca0b3235ed7167117e4d3d3576c12af",
+      "source_sha256": "12e2d572f81c693eaa27bcb77add895bf72a940642df7328c8926a79bc4791a5",
       "packedBounds": [
-        23,
+        53,
         20,
-        233,
+        202,
         236
       ],
       "sourceSize": [
-        1024,
-        1024
+        960,
+        960
       ],
       "sourceBounds": [
-        89,
-        75,
-        937,
-        947
+        274,
+        178,
+        686,
+        776
       ],
       "alpha": "source alpha"
     },
@@ -712,22 +712,22 @@
       "cell": 28,
       "kind": "supplied",
       "source": "source/power.png",
-      "source_sha256": "c4d07a89e71df85780cd8840586fdacdd951e9e08aea48ff24ebceace37c3d45",
+      "source_sha256": "fa10ecc1f90325bee6c452e61c5565f8a1bf4508fddd1be0a4005d1cfab81566",
       "packedBounds": [
-        25,
         20,
-        230,
+        20,
+        236,
         236
       ],
       "sourceSize": [
-        1024,
-        1024
+        960,
+        960
       ],
       "sourceBounds": [
-        109,
-        87,
-        917,
-        939
+        153,
+        153,
+        808,
+        807
       ],
       "alpha": "source alpha"
     },
@@ -1459,54 +1459,106 @@
     {
       "id": "javelin",
       "name": "Javelin",
-      "alias": "spear",
+      "file": "javelin.png",
       "cell": 58,
-      "kind": "alias",
+      "kind": "supplied",
+      "source": "source/javelin.png",
+      "source_sha256": "3225a7e03cfb0b3cee235e704fb3381d738d790626e7b8e03c73c3ffa78ab759",
       "packedBounds": [
-        26,
         20,
-        230,
-        236
-      ]
+        23,
+        236,
+        232
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        156,
+        177,
+        786,
+        788
+      ],
+      "alpha": "source alpha"
     },
     {
       "id": "quarterstaff",
       "name": "Quarterstaff",
-      "alias": "staff",
+      "file": "quarterstaff.png",
       "cell": 59,
-      "kind": "alias",
+      "kind": "supplied",
+      "source": "source/quarterstaff.png",
+      "source_sha256": "9c693bdf8d5e24405d184b0882c10d7c09d044d9584496e36534f6fdf0dbfffc",
       "packedBounds": [
-        23,
+        25,
         20,
-        232,
+        230,
         236
-      ]
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        211,
+        180,
+        784,
+        785
+      ],
+      "alpha": "source alpha"
     },
     {
       "id": "claw",
       "name": "Claw",
-      "alias": "unarmed",
+      "file": "claw.png",
       "cell": 60,
-      "kind": "alias",
+      "kind": "supplied",
+      "source": "source/claw.png",
+      "source_sha256": "9356fe3fbe7fe3c7706ef681e2d80c1e05a0aa98d4870b4ca537afd6a7a7dba7",
       "packedBounds": [
-        41,
         20,
-        214,
-        236
-      ]
+        21,
+        236,
+        235
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        137,
+        164,
+        752,
+        773
+      ],
+      "alpha": "source alpha"
     },
     {
       "id": "whip",
       "name": "Whip",
-      "alias": "sword",
+      "file": "whip.png",
       "cell": 61,
-      "kind": "alias",
+      "kind": "supplied",
+      "source": "source/whip.png",
+      "source_sha256": "da7d15976e1d3fd6857fa00c77e5d285422e52df3e681396844da09c8e18ec05",
       "packedBounds": [
         23,
         20,
         232,
         236
-      ]
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        232,
+        223,
+        728,
+        736
+      ],
+      "alpha": "source alpha"
     },
     {
       "id": "gun",
@@ -1520,10 +1572,60 @@
         236,
         236
       ]
+    },
+    {
+      "id": "lesser_power",
+      "file": "lesser_power.png",
+      "cell": 63,
+      "kind": "supplied",
+      "source": "source/lesser_power.png",
+      "source_sha256": "5123b9b62276f53bdef1c6e6371a3cc97eecddeac0fd45f1ba239fa91f01e1ad",
+      "packedBounds": [
+        34,
+        20,
+        222,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        177,
+        130,
+        785,
+        829
+      ],
+      "alpha": "source alpha"
+    },
+    {
+      "id": "greater_power",
+      "file": "greater_power.png",
+      "cell": 64,
+      "kind": "supplied",
+      "source": "source/greater_power.png",
+      "source_sha256": "cd54ac21fb482fbcf59c473ee01fae6dceadea8ab5c4a107265d5236ff47cfc6",
+      "packedBounds": [
+        24,
+        20,
+        231,
+        236
+      ],
+      "sourceSize": [
+        960,
+        960
+      ],
+      "sourceBounds": [
+        154,
+        141,
+        806,
+        821
+      ],
+      "alpha": "source alpha"
     }
   ],
-  "atlas_sha256": "8f41f1204caba62e3a8721a8c19d3caef0d6914ea50e09c454557505acef0cc6",
-  "supplied": 58,
-  "aliases": 5,
+  "atlas_sha256": "26000c7e4500947cc65e19ee67d8b93f6dd4d2ccbd6312a9c268f7f56d7d5847",
+  "supplied": 64,
+  "aliases": 1,
   "placeholders": 0
 }

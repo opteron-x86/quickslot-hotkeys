@@ -148,7 +148,8 @@ Icon visualIcon(RE::TESForm* form) {
         return Icon::potion;
     }
     if(auto* spell=form->As<RE::SpellItem>()) {
-        if(spell->GetSpellType()==RE::MagicSystem::SpellType::kPower||spell->GetSpellType()==RE::MagicSystem::SpellType::kLesserPower)return Icon::power;
+        if(spell->GetSpellType()==RE::MagicSystem::SpellType::kPower)return Icon::greater_power;
+        if(spell->GetSpellType()==RE::MagicSystem::SpellType::kLesserPower)return Icon::lesser_power;
         const auto* effect=spell->GetCostliestEffectItem();
         if(!effect||!effect->baseEffect)return Icon::spell;
         const auto& data=effect->baseEffect->data;

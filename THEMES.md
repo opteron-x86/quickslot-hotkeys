@@ -34,7 +34,7 @@ Frame and font credits are in `licenses/Theme-pack-credits.txt`. Source hashes a
 
 ## Item atlas
 
-`Quickslot/icons/items.png` is a 2048 × 2048 RGBA PNG with eight columns and eight rows of 256 × 256 cells. Artwork uses white RGB values and transparent cutouts. The packer preserves each silhouette's aspect ratio, centers it, and leaves at least 20 pixels of clear padding. Cells are numbered from zero:
+`Quickslot/icons/items.png` is a 2048 × 2304 RGBA PNG with eight columns and nine rows of 256 × 256 cells. Artwork uses white RGB values and transparent cutouts. The packer preserves each silhouette's aspect ratio, centers it, and leaves at least 20 pixels of clear padding. Cells are numbered from zero:
 
 | Row | Cells | Order from left to right |
 | --- | --- | --- |
@@ -45,9 +45,12 @@ Frame and font credits are in `licenses/Theme-pack-credits.txt`. Source hashes a
 | 5 | 32–39 | unarmed, shortsword, rapier, saber, scimitar, falchion, katana, nodachi |
 | 6 | 40–47 | flamberge, stiletto, tanto, hatchet, morningstar, club, spiked_club, maul |
 | 7 | 48–55 | spear, shortspear, pike, halberd, glaive, naginata, trident, scythe |
-| 8 | 56–63 | pickaxe, woodcutters_axe, javelin, quarterstaff, claw, whip, gun, unused |
+| 8 | 56–63 | pickaxe, woodcutters_axe, javelin, quarterstaff, claw, whip, gun, lesser_power |
+| 9 | 64–71 | greater_power, unused, unused, unused, unused, unused, unused, unused |
 
-The 58 source icons are stored in `assets/icons/source`. Five further cells alias existing drawings, making 63 populated cells. `catalog.json` maps filenames to cells; `war_axe.png` supplies the `axe` cell. The manifest records each source hash, packing bounds, conversion method and source type. The packer extracts the white mask from an opaque scroll source and uses alpha for transparent sources.
+The 64 source icons are stored in `assets/icons/source`. The gun cell aliases the crossbow drawing, making 65 populated cells. Dedicated `gun.png` artwork can replace this last alias in `catalog.json`. The catalog maps filenames to cells; `war_axe.png` supplies the `axe` cell. The manifest records each source hash, packing bounds, conversion method and source type. The packer extracts the white mask from an opaque scroll source and uses alpha for transparent sources.
+
+`lesser_power.png` supplies lesser powers (`kLesserPower`); `greater_power.png` supplies daily powers (`kPower`). The original generic `power` cell remains at index 28. The new cells are appended, preserving all existing icon IDs. This layout requires the matching rebuilt DLL; earlier 2048 × 2048 atlases and 63-icon packs need updating.
 
 Run `python3 tools/pack-icons.py` after updating the source PNGs. It generates `items.png`, `manifest.json` and `src/Icons.h` from the catalog. `--check` verifies that these files match the inputs; `--preview <path.png>` produces a labeled contact sheet. Missing source files stop packing. Packing requires Pillow. Adding catalog entries or changing the grid requires rebuilding the DLL; replacing artwork in an existing cell preserves the layout contract.
 
@@ -62,9 +65,9 @@ Install a replacement PNG under the same path in a mod with higher priority, the
 An additional set lives in `Data/Quickslot/icons/packs/<folder>/`. Include `items.png` and this `pack.json`:
 
 ```json
-{"schema":1,"id":"my-icons","name":"My icons","atlas":"items.png","columns":8,"rows":8,"cellSize":256,"icons":63}
+{"schema":1,"id":"my-icons","name":"My icons","atlas":"items.png","columns":8,"rows":9,"cellSize":256,"icons":65}
 ```
 
-Keep the cell order above and the 2048 × 2048 size. IDs use lowercase ASCII letters, digits, hyphens or underscores, up to 64 characters; `quickslot` is reserved. Names are UTF-8, up to 80 bytes. The atlas must be a PNG filename within the same folder. Discovery checks up to 64 folders; invalid metadata or images are skipped.
+Keep the cell order above and the 2048 × 2304 size. IDs use lowercase ASCII letters, digits, hyphens or underscores, up to 64 characters; `quickslot` is reserved. Names are UTF-8, up to 80 bytes. The atlas must be a PNG filename within the same folder. Discovery checks up to 64 folders; invalid metadata or images are skipped.
 
 Restart after installation. **Appearance → Style → Icon set** appears when an additional pack is installed and switches among loaded packs immediately, independently of frame themes and keycap packs. The choice supports Undo and appearance presets. Missing packs fall back to Quickslot while retaining the chosen ID for reinstallation.

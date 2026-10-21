@@ -96,7 +96,8 @@ def main():
         if digest(runtime / 'SKSE/Plugins/Quickslot.dll') != report['dll_sha256']:
             raise ValueError('Installed DLL differs from the tested binary')
         icon_manifest = json.loads((runtime / 'Quickslot/icons/manifest.json').read_text(encoding='utf-8'))
-        if icon_manifest['placeholders'] != 0 or len(icon_manifest['icons']) != 63:
+        icon_catalog = json.loads((ROOT / 'assets/icons/catalog.json').read_text(encoding='utf-8'))
+        if icon_manifest['placeholders'] != 0 or [e['id'] for e in icon_manifest['icons']] != [e['id'] for e in icon_catalog['icons']]:
             raise ValueError('Incomplete icon atlas')
         for file in (runtime / 'Quickslot').rglob('*.json'):
             json.loads(file.read_text(encoding='utf-8'))

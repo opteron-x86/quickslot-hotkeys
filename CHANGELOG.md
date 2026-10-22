@@ -1,20 +1,15 @@
 # Changelog
 
-## 0.10.2-alpha.2
+## 0.10.2
 
 - Removing a group now resets its name, contents, remembered selection, keyboard/controller/VR bindings, behavior and auto-sort setting. Undo restores the complete group.
 - Added groups start fresh, including slots left hidden by older versions. The keyboard binding uses the lowest unused number from **1–8**, skipping the editor shortcut; the default name follows that number. Controller and VR bindings use available defaults. Existing groups keep their bindings.
 - Refreshed the editor's name field after adding or removing a group so old names cannot reappear while editing.
-
-Local test build; includes the alpha.1 changes below.
-
-## 0.10.2-alpha.1
-
 - Fixed the editor closing when a non-modal, cursor-only text-entry overlay appears. Gameplay hotkeys still yield to cursor menus; full game menus and other modal interfaces still close the editor.
 - Editor close logs now include the reason and, when another menu intervenes, its name and flags.
 - Added individual switches and **Enable all / Disable all** under **Controls → Keyboard → Editing shortcuts**. Capture for each hand, moving between groups, unequipping, removing and reordering can all be disabled independently. Disabled actions pass their keys to the game and other mods; browsing and cancellation remain available. Existing settings keep all editing shortcuts enabled.
 
-Local test build for validation before a standard release.
+Updating: keep your settings and presets. Existing groups retain their names, items and bindings; the reset behavior applies when removing or adding a group. Editing shortcuts remain enabled until you opt out.
 
 ## 0.10.1
 

@@ -97,6 +97,21 @@ std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& optio
         localization().select(options.language);
         const bool vr=REL::Module::IsVR();
         preview::DXIsolation::Frame isolated(*g.isolation,!vr);
+        const auto capturedCounts=isolated.shaderInstanceCounts();
+        static bool captureLogged=false,nonzeroCaptureLogged=false;
+        const bool nonzeroCounts=capturedCounts[0]||capturedCounts[1]||capturedCounts[2];
+        if(!captureLogged||(!nonzeroCaptureLogged&&nonzeroCounts)) {
+            captureLogged=true;nonzeroCaptureLogged=nonzeroCaptureLogged||nonzeroCounts;
+            SKSE::log::info("DX compatibility: captured shader instance counts (HS={}, DS={}, CS={}).",capturedCounts[0],capturedCounts[1],capturedCounts[2]);
+        }
+        if(isolated.unexpectedShaderInstances()) {
+            static bool logged=false;
+            if(!logged) {
+                logged=true;
+                const auto counts=isolated.shaderInstanceCounts();
+                SKSE::log::warn("DX compatibility: shader output contains unreported slots or oversized counts; limiting restore/release to captured counts (HS={}, DS={}, CS={}).",counts[0],counts[1],counts[2]);
+            }
+        }
         const auto size=vr?ImVec2{1920,1080}:isolated.targetSize();if(size.x<=0||size.y<=0)return {};
         auto& io=ImGui::GetIO();io.DisplaySize=size;io.DisplayFramebufferScale={1,1};
         io.DeltaTime=float(std::clamp(now-g.previous,.001,.1));g.previous=now;

@@ -4,6 +4,7 @@
 #include <wrl/client.h>
 #include <array>
 #include <stdexcept>
+#include "DXShaderInstances.h"
 
 namespace preview {
 
@@ -40,13 +41,21 @@ public:
             auto* c=owner.context.Get();UINT count=UINT(targets.size());while(count&&!targets[count-1])--count;
             std::array<UINT,D3D11_1_UAV_SLOT_COUNT> counts;counts.fill(UINT(-1));
             c->OMSetRenderTargetsAndUnorderedAccessViews(count,targets.data(),depth.Get(),count,owner.uavCount-count,uavs.data()+count,counts.data()+count);
-            c->HSSetShader(hull.Get(),hullInstances.data(),hullCount);
-            c->DSSetShader(domain.Get(),domainInstances.data(),domainCount);
-            c->CSSetShader(compute.Get(),computeInstances.data(),computeCount);
+            c->HSSetShader(hull.Get(),hullCount?hullInstances.data():nullptr,UINT(ShaderInstanceCount(hullInstances,hullCount)));
+            c->DSSetShader(domain.Get(),domainCount?domainInstances.data():nullptr,UINT(ShaderInstanceCount(domainInstances,domainCount)));
+            c->CSSetShader(compute.Get(),computeCount?computeInstances.data():nullptr,UINT(ShaderInstanceCount(computeInstances,computeCount)));
             c->RSSetViewports(viewportCount,viewports.data());
             for(auto* p:targets)if(p)p->Release();for(auto* p:uavs)if(p)p->Release();
-            for(auto* p:hullInstances)if(p)p->Release();for(auto* p:domainInstances)if(p)p->Release();for(auto* p:computeInstances)if(p)p->Release();
+            ReleaseShaderInstances(hullInstances,hullCount);
+            ReleaseShaderInstances(domainInstances,domainCount);
+            ReleaseShaderInstances(computeInstances,computeCount);
         }
+        bool unexpectedShaderInstances()const noexcept {
+            return UnexpectedShaderInstances(hullInstances,hullCount)||
+                UnexpectedShaderInstances(domainInstances,domainCount)||
+                UnexpectedShaderInstances(computeInstances,computeCount);
+        }
+        std::array<UINT,3> shaderInstanceCounts()const noexcept{return {hullCount,domainCount,computeCount};}
         Frame(const Frame&)=delete;Frame& operator=(const Frame&)=delete;
         void bindTarget() {}
         ImVec2 targetSize()const {

@@ -124,9 +124,21 @@ int main()try {
     pad.button(PadButton::up,true,true,o,true,false);
     check(pad.button(PadButton::up,false,false,o,false,true).action==PadAction::none,"A menu opening invalidates the held gesture");
     check(gameplayMenuOpen([](auto name){return name=="LootMenu";}),"QuickLoot owns navigation without pause or menu-context flags");
+    check(!menuFlagsBlock(false,true,false,false,MenuPurpose::editor),"Cursor-only text-entry overlay does not dismiss the editor");
+    for(const auto purpose:{MenuPurpose::input,MenuPurpose::hud})
+        check(menuFlagsBlock(false,true,false,false,purpose),"Cursor-only overlays still block gameplay controls and the passive HUD");
+    for(const auto purpose:{MenuPurpose::input,MenuPurpose::hud,MenuPurpose::editor}) {
+        check(!menuFlagsBlock(false,false,false,false,purpose),"Passive overlay does not take over an interface");
+        check(menuFlagsBlock(true,false,false,false,purpose),"Menu-context owner blocks with no cursor");
+        check(menuFlagsBlock(false,false,true,false,purpose),"Paused interface blocks with no cursor");
+        check(menuFlagsBlock(true,true,false,false,purpose),"Cursor exception cannot override menu-context ownership");
+        check(menuFlagsBlock(false,true,true,false,purpose),"Cursor exception cannot override a paused interface");
+    }
+    check(menuFlagsBlock(false,true,false,true,MenuPurpose::editor)&&menuFlagsBlock(false,false,false,true,MenuPurpose::editor),"Modal interfaces always dismiss the editor");
     for(const auto menu:gameplayBlockingMenus) {
         const auto blocked=gameplayMenuOpen([&](auto name){return name==menu;});
         check(blocked,"Interactive game menus block Quickslot even without pause or context flags");
+        check(gameplayMenuOpen([&](auto name){return name==menu;},MenuPurpose::editor),"Editor still yields to named game interfaces including QuickLoot without flags");
         check(gameplayMenuOpen([&](auto name){return name==menu;},MenuPurpose::hud)==(menu!="LootMenu"),"Only QuickLoot leaves the passive HUD visible");
         check(gameplayMenuOpen([&](auto name){return name==menu||name=="LootMenu";},MenuPurpose::hud)==(menu!="LootMenu"),"QuickLoot cannot override another menu hiding the HUD");
         ControllerInput navigation;Options menuOptions;menuOptions.groupCount=4;

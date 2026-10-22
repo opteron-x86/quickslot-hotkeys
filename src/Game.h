@@ -102,9 +102,9 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     void notice(std::string,bool visible=true);
     void tick();
     void queueEdit(int action,std::optional<std::size_t> index={});
-    bool editorAllowed()const;
+    std::string editorBlockReason()const;
     void openEditor();
-    void closeEditor();
+    void closeEditor(std::string_view reason="requested");
     void edit(const EditCommand&);
     void buildCatalog();
     void refreshEditor();

@@ -5,9 +5,11 @@ Run these in a loaded game. Record the package version, Skyrim/SKSE version and 
 | Area | Check |
 | --- | --- |
 | Updating | Groups, shortcuts, settings and presets survive installation and save/load. |
+| Group lifecycle | Rename, bind and populate a group; enable auto-sort and change its behavior. Remove it and add another repeatedly. Each new group should be empty with a fresh name, default behavior and the lowest unused 1–8 key (1, 3 → 2), skipping the editor key. Check controller/VR defaults, unchanged bindings on other groups, Undo restoring all removed state, and save/load. Clear group should retain its name, bindings and settings. |
 | Hold to browse | Tap equips the remembered entry. Hold, browse and release selects another. Cancel restores gameplay controls. |
 | Tap to cycle | Returning from another group recalls the saved choice; subsequent taps advance. Check wrapping, rapid taps and unavailable entries. |
 | Keyboard | Left/Right browses; Ctrl + Left/Right reorders. Both wrap and retain the highlighted entry. Ctrl belongs to the selector while browsing. |
+| Optional shortcuts | Under Controls → Keyboard, disable all editing shortcuts and check that Ctrl/Shift/Alt group chords, Ctrl-arrows, Backspace and Delete reach other mods without triggering Quickslot actions. Plain arrows/wheel browsing and Escape/right-click cancellation should still work. Re-enable actions individually, including right/left capture in gameplay and Inventory/Magic and moving with capture disabled. Verify save/load, Undo and the separate menu-capture switch. |
 | Consumables | Tap uses one dose. Browsing readies a dose. Check animation timing, poison confirmation, smart-potion ranking and restocking. |
 | Powers and shouts | Check selection, activation, charge, cooldown and used-power dimming. |
 | Equipment | Check left/right hands, shields, torches, two-handed weapons, spells and empty-hand actions. Highlights reflect the complete equipped entry. |
@@ -22,5 +24,6 @@ Run these in a loaded game. Record the package version, Skyrim/SKSE version and 
 | Visibility | Check show/dim/hide, combat, drawn weapons, browsing and independent equipment visibility. |
 | VR | Check helper opening, pointer input, hand bindings, grip chords, headset placement and focus changes. |
 | Integrations | Check the menu API with the launcher and RTSS on Windows. |
+| IME overlays | Open the editor and trigger a cursor-only language bar, type, select candidates and close the editor. Test a SimpleIME version that still pushes its language-bar menu, since its newer workaround masks the original failure. Inventory/Map/Console, a modal overlay, and loss of window focus must still close the editor and log why. Physical in-game verification is pending. |
 
 For failures, include `Quickslot.log`, reproduction steps and relevant equipment/input mods. For crashes, include the crash log. Report automated test results and in-game observations separately.

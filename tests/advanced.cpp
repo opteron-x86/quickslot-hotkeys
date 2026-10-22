@@ -17,8 +17,51 @@ void check(bool value,const char* why,std::source_location at=std::source_locati
     ++checks;
 }
 Entry weapon(unsigned id,Hand hand=Hand::right){Entry e;e.form=0x1234;e.owner=0x14;e.unique=std::uint16_t(id);e.name="Sword";e.hand=hand;return e;}
+void groupLifecycle() {
+    Arsenal a;Options o;EditHistory history;
+    const auto shared=rememberShortcut(a,unarmedEntry());addShortcut(a,0,shared);addShortcut(a,1,shared);
+    a.groups[1].add(weapon(1));a.groups[1].add(weapon(2));a.active=1;
+    o.names[1]="Bow";o.groupModes[1]=GroupMode::cycle;o.autoSort[1]=true;
+    o.controllerGroups[1]={PadButton::x,PadButton::lb};o.vrGroups[1]={PadButton::b,PadButton::rb};
+    const auto savedArsenal=encodeArsenal(a),savedOptions=encodeOptions(o);const auto revision=a.groups[1].revision;
+    history.begin(a,o);history.prepare(a,o);
+    check(removeGroup(a,o,1),"Remove a customized group");history.finish(true,false,0);
+    check(a.groups[1].entries.empty()&&a.groups[1].selected==0&&a.groups[1].revision>revision,"Removal clears contents and selection and invalidates pending input");
+    check(o.names[1]!="Bow"&&o.keys[1]==0&&o.controllerGroups[1]==PadBinding{}&&o.vrGroups[1]==PadBinding{},"Removal resets the name and every input binding");
+    check(o.groupModes[1]==GroupMode::browse&&!o.autoSort[1],"Removal resets group behavior and auto-sort");
+    check(libraryShortcut(a,shared)&&shortcutUses(a,shared)==1,"Removing a group preserves shared shortcuts and their other uses");
+    check(encodeOptions(decodeOptions(encodeOptions(o)))==encodeOptions(o),"The cleared group settings survive save/load");
+    check(history.undo(a,o)&&encodeArsenal(a)==savedArsenal&&encodeOptions(o)==savedOptions,"Undo restores the complete removed group, bindings and order");
+    check(removeGroup(a,o,1),"Remove the restored group again");
+    for(unsigned attempt=0;attempt<16;++attempt) {
+        check(addGroup(a,o)&&o.keys[a.active]==3&&o.names[a.active]=="Group 2","Repeated additions fill the 1,3 key gap with 2 and a fresh default name");
+        check(o.keys[0]==2&&o.keys[2]==4&&o.names[0]=="Arsenal"&&o.names[2]=="Group 3","Existing groups retain their names and bindings");
+        check(o.controllerGroups[a.active]==PadBinding{PadButton::right}&&o.vrGroups[a.active]==PadBinding{PadButton::rs,PadButton::lb},"New groups reuse free default controller and VR bindings");
+        check(a.current().entries.empty()&&a.current().selected==0&&o.groupModes[a.active]==GroupMode::browse&&!o.autoSort[a.active],"Recycled groups start empty with default behavior");
+        o.names[a.active]="Potion2";o.groupModes[a.active]=GroupMode::cycle;o.autoSort[a.active]=true;a.current().add(weapon(3));
+        check(removeGroup(a,o,a.active),"Remove the newly customized group");
+    }
+    a={};o={};a.groups[3].add(weapon(4));o.names[3]="Old hidden name";o.keys[3]=9;o.groupModes[3]=GroupMode::cycle;o.autoSort[3]=true;
+    o.controllerGroups[3]={PadButton::y,PadButton::lb};o.vrGroups[3]={PadButton::b,PadButton::rb};
+    check(addGroup(a,o)&&a.active==3&&a.current().entries.empty()&&o.names[3]=="Group 4"&&o.keys[3]==5,"Adding resets stale hidden slots from older settings");
+    check(o.controllerGroups[3]==PadBinding{PadButton::left}&&o.vrGroups[3]==PadBinding{PadButton::ls,PadButton::rb}&&!o.autoSort[3]&&o.groupModes[3]==GroupMode::browse,"A fresh fourth group keeps the standard controller defaults");
+    a={};o={};o.groupCount=4;o.keys[0]=59;o.keys[1]=4;o.keys[2]=0;o.keys[3]=2;
+    reorderGroup(o,0,1);const auto customKeys=o.keys;
+    check(addGroup(a,o)&&o.keys[a.active]==3,"Default key allocation ignores display order and hidden bindings");
+    for(std::size_t id=0;id<4;++id)check(o.keys[id]==customKeys[id],"Adding preserves custom, numeric and explicitly unbound existing groups");
+    check(assignGroupKey(o,a.active,4)&&o.keys[1]==3&&o.keys[a.active]==4,"The new group's key still supports swapping");
+    check(assignGroupKey(o,a.active,0)&&o.keys[a.active]==0,"The new group's key can still be cleared");
+    a={};o={};o.groupCount=7;o.editorKey=2;for(std::size_t id=0;id<7;++id)o.keys[id]=unsigned(id)+3;
+    check(addGroup(a,o)&&o.keys[a.active]==0&&o.editorKey==2,"If 1–8 are all reserved, a new group stays unbound without stealing the editor key");
+    check(!addGroup(a,o),"Cannot add a ninth group");
+    a={};o={};o.groupCount=1;o.editorKey=3;o.controllerEditor={PadButton::right};o.vrEditor={PadButton::rs,PadButton::lb};
+    check(addGroup(a,o)&&o.keys[a.active]==4&&o.controllerGroups[a.active]==PadBinding{PadButton::down}&&o.vrGroups[a.active]==PadBinding{PadButton::lt,PadButton::rb},"New default bindings skip editor shortcuts on every input device");
+    a={};o={};addShortcut(a,1,rememberShortcut(a,smartEntry(0,0,0)));a.consumableGroup=1;
+    check(removeGroup(a,o,1)&&a.consumableGroup==Arsenal::count,"Removing a consumable group clears its remembered selection");
+}
 int main(int argc,char** argv)try {
     if(argc!=2)return 2;
+    groupLifecycle();
     const auto identity=[](auto before,auto& after){after=before;return true;};
     std::ifstream file(std::filesystem::path(argv[1])/"tests/fixtures/arsenal.json");const std::string bytes((std::istreambuf_iterator<char>(file)),{});
     auto a=decodeArsenal(bytes,identity);check(a.size()==23,"Current save preserves all 23 entries");

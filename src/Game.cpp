@@ -62,20 +62,31 @@ public:
     void PostDisplay()override{if(!REL::Module::IsVR())Game::get().draw(true);}
     static RE::IMenu* create(){return new EditorMenu;}
 };
-bool foreignMenu(RE::UI* ui,MenuPurpose purpose=MenuPurpose::input) {
+struct MenuBlocker {std::string name;std::uint32_t flags=0;};
+bool foreignMenu(RE::UI* ui,MenuPurpose purpose=MenuPurpose::input,MenuBlocker* blocker=nullptr) {
     static_assert(gameplayBlockingMenus==std::array{
         RE::TweenMenu::MENU_NAME,RE::InventoryMenu::MENU_NAME,RE::MagicMenu::MENU_NAME,RE::FavoritesMenu::MENU_NAME,RE::MapMenu::MENU_NAME,RE::StatsMenu::MENU_NAME,RE::JournalMenu::MENU_NAME,
         RE::BookMenu::MENU_NAME,RE::ContainerMenu::MENU_NAME,RE::BarterMenu::MENU_NAME,RE::GiftMenu::MENU_NAME,RE::CraftingMenu::MENU_NAME,RE::SleepWaitMenu::MENU_NAME,
         RE::LockpickingMenu::MENU_NAME,RE::TrainingMenu::MENU_NAME,RE::MessageBoxMenu::MENU_NAME,RE::MainMenu::MENU_NAME,RE::LoadingMenu::MENU_NAME,RE::DialogueMenu::MENU_NAME,
         RE::Console::MENU_NAME,RE::LevelUpMenu::MENU_NAME,RE::RaceSexMenu::MENU_NAME,std::string_view{"LootMenu"}});
-    if(gameplayMenuOpen([&](auto name){return ui->IsMenuOpen(name);},purpose))return true;
+    if(gameplayMenuOpen([&](auto name){
+        if(!ui->IsMenuOpen(name))return false;
+        if(blocker){blocker->name=name;if(const auto menu=ui->GetMenu(name))blocker->flags=menu->menuFlags.underlying();}
+        return true;
+    },purpose))return true;
     const auto editor=ui->GetMenu(editorMenuName);
     const auto selectionPause=ui->GetMenu(pauseMenuName);
     const auto own=ui->GetMenu(menuName),hud=ui->GetMenu(RE::HUDMenu::MENU_NAME),cursor=ui->GetMenu(RE::CursorMenu::MENU_NAME);
     const auto loot=purpose==MenuPurpose::hud?ui->GetMenu(quickLootMenuName):nullptr;
     for(const auto& menu:ui->menuStack)
         if(menu&&menu.get()!=own.get()&&menu.get()!=editor.get()&&menu.get()!=selectionPause.get()&&menu.get()!=hud.get()&&menu.get()!=cursor.get()&&menu.get()!=loot.get()&&
-           (menu->UsesMenuContext()||menu->UsesCursor()||menu->PausesGame()))return true;
+           menuFlagsBlock(menu->UsesMenuContext(),menu->UsesCursor(),menu->PausesGame(),menu->Modal(),purpose)) {
+            if(blocker) {
+                blocker->name="unregistered";blocker->flags=menu->menuFlags.underlying();
+                for(const auto& [name,entry]:ui->menuMap)if(entry.menu.get()==menu.get()){blocker->name=name.c_str();break;}
+            }
+            return true;
+        }
     return false;
 }
 bool pressed(RE::BSWin32KeyboardDevice* device,unsigned key) {
@@ -686,12 +697,12 @@ void Game::publish(){
         snapshot_.inCombat=player->IsInCombat();snapshot_.weaponsDrawn=player->AsActorState()->IsWeaponDrawn();
     }
 }
-void Game::loaded(){std::scoped_lock lock(mutex_);closeEditor();cancel();use_.reset();groupRecall_.reset();
+void Game::loaded(){std::scoped_lock lock(mutex_);closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
     if(arsenal_.presetIdentity.empty()){GUID id{};if(SUCCEEDED(CoCreateGuid(&id))){char key[40];std::snprintf(key,sizeof(key),"%08lx%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",id.Data1,id.Data2,id.Data3,id.Data4[0],id.Data4[1],id.Data4[2],id.Data4[3],id.Data4[4],id.Data4[5],id.Data4[6],id.Data4[7]);arsenal_.presetIdentity=key;}}
     if(auto* devices=RE::BSInputDeviceManager::GetSingleton())controllerLast_=controllerConnected_=REL::Module::IsVR()||devices->IsGamepadEnabled();
     revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);dirty_=true;menuRequested_=false;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);}
 void Game::reset(bool clear) {
-    std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor();cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;menuRequested_=false;
+    std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;menuRequested_=false;
     if(clear)arsenal_=Arsenal{};
     snapshot_=Snapshot{};groupRecall_.reset();keyboardOwned_.fill(false);mouseOwned_.fill(false);controller_.reset();stickOwned_.fill(false);nativeVoiceDown_=false;
 }
@@ -863,7 +874,7 @@ bool Game::consume(RE::InputEvent* event) {
                 else if(down&&(code==8||code==9))editorInput_.push_back({EditorInputType::wheel,0,false,0,code==8?1.f:-1.f});
             }
         }
-        if(editorInput_.size()>2048){editorInput_.clear();SKSE::GetTaskInterface()->AddTask([this]{std::scoped_lock lock(mutex_);closeEditor();});}
+        if(editorInput_.size()>2048){editorInput_.clear();SKSE::GetTaskInterface()->AddTask([this]{std::scoped_lock lock(mutex_);closeEditor("input queue overflow");});}
         return captured;
     }
     auto* button=event?event->AsButtonEvent():nullptr;if(!button)return false;
@@ -888,8 +899,9 @@ bool Game::consume(RE::InputEvent* event) {
     if(keyboard&&code&&button->IsDown()&&options_.menuCapture&&captureMenuOpen()) {
         const auto it=std::find(options_.keys.begin(),options_.keys.end(),code);
         auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
-        if(it!=options_.keys.end()&&groupVisible(options_,std::size_t(it-options_.keys.begin()))&&(pressed(device,29)||pressed(device,157))) {
-            *owned=true;menuCapture(std::size_t(it-options_.keys.begin()),pressed(device,42)||pressed(device,54)?Hand::left:Hand::right);return true;
+        const auto hand=menuCaptureHand(options_,keyboardModifiers([&](unsigned scan){return pressed(device,scan);}));
+        if(it!=options_.keys.end()&&groupVisible(options_,std::size_t(it-options_.keys.begin()))&&hand) {
+            *owned=true;menuCapture(std::size_t(it-options_.keys.begin()),*hand);return true;
         }
     }
     if(!allowed())return false;
@@ -902,29 +914,39 @@ bool Game::consume(RE::InputEvent* event) {
     }
     const auto key=std::find(options_.keys.begin(),options_.keys.end(),code);
     if(keyboard&&code&&key!=options_.keys.end()&&groupVisible(options_,std::size_t(key-options_.keys.begin()))&&button->IsDown()) {
+        auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
+        const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
+        const auto groupID=std::size_t(key-options_.keys.begin());
+        const auto action=groupKeyAction(options_,modifiers,selection_.held()&&groupID!=arsenal_.active);
+        if(action==GroupKeyAction::pass)return false;
         *owned=true;
         if(voice_.active()){notice(tr("Voice action in progress"));return true;}
-        auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
-        const bool ctrl=pressed(device,29)||pressed(device,157),shift=pressed(device,42)||pressed(device,54),alt=pressed(device,56)||pressed(device,184);
-        const auto groupID=std::size_t(key-options_.keys.begin());
-        if(ctrl&&selection_.held()&&groupID!=arsenal_.active){queueMove(groupID);return true;}
+        if(action==GroupKeyAction::move){queueMove(groupID);return true;}
         activate(groupID);
-        if(ctrl)queueEdit(shift?1:0);
-        else if(alt)queueEdit(2);
-        else if(shift)queueUnequip();
+        if(action==GroupKeyAction::captureRight||action==GroupKeyAction::captureLeft)queueEdit(action==GroupKeyAction::captureLeft?1:0);
+        else if(action==GroupKeyAction::remove)queueEdit(2);
+        else if(action==GroupKeyAction::unequip)queueUnequip();
         else {cancel();beginSelection(groupID,false);}
         return true;
     }
     if(selection_.held()) {
 
-        if(keyboard&&(code==29||code==157)&&button->IsDown()){*owned=true;return true;}
+        if(keyboard&&(code==29||code==157)&&button->IsDown()&&selectorUsesCtrl(options_)){*owned=true;return true;}
         if(((keyboard&&code==1)||(mouse&&code==1))&&button->IsDown()) {*owned=true;cancel();notice(tr("Selection cancelled"),false);return true;}
-        if(keyboard&&code==211&&button->IsDown()) {*owned=true;queueEdit(2,selection_.index());return true;}
-        if(keyboard&&code==14&&button->IsDown()) {*owned=true;queueUnequip(selection_.index());return true;}
-        if(keyboard&&(code==203||code==205)&&button->IsDown()) {
+        if(keyboard&&button->IsDown()) {
             auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
-            const auto arrow=selectorArrow(code,pressed(device,29)||pressed(device,157));
-            *owned=true;if(arrow.reorder)queueReorder(arrow.delta);else cycleSelection(arrow.delta);return true;
+            const auto key=selectorKeyAction(options_,code,pressed(device,29)||pressed(device,157));
+            if(key.action!=SelectorKeyAction::pass) {
+                *owned=true;
+                switch(key.action) {
+                case SelectorKeyAction::browse:cycleSelection(key.delta);break;
+                case SelectorKeyAction::reorder:queueReorder(key.delta);break;
+                case SelectorKeyAction::unequip:queueUnequip(selection_.index());break;
+                case SelectorKeyAction::remove:queueEdit(2,selection_.index());break;
+                default:break;
+                }
+                return true;
+            }
         }
         if(selection_.canBrowse()&&mouse&&(code==8||code==9)) {
             if(button->IsPressed())cycleSelection(code==8?-1:1);
@@ -997,7 +1019,7 @@ void Game::tick() {
     flushSettings();
     try {
         const auto apiCommand=menuAPI().take();
-        if(apiCommand==MenuAPIState::Command::close){closeEditor();publish();}
+        if(apiCommand==MenuAPIState::Command::close){closeEditor("menu API close request");publish();}
         else if(apiCommand==MenuAPIState::Command::open&&initialized_&&ready_&&!editor_.open&&!editorLaunch_.pending()) {
             cancel();editorLaunch_.request(clockNow());frameworkMessage_.clear();
         }
@@ -1013,7 +1035,7 @@ void Game::tick() {
             if(launch!=EditorLaunch::Result::idle)return;
         }
         if(editor_.open) {
-            if(!editorAllowed()){closeEditor();publish();return;}
+            if(const auto reason=editorBlockReason();!reason.empty()){closeEditor(reason);publish();return;}
             if(catalogDirty_)buildCatalog();
             if(dirty_)refreshEditor();
             return;
@@ -1431,11 +1453,18 @@ void Game::drawVR() {
     bool editing=false;{std::scoped_lock lock(mutex_);editing=editor_.open;}
     draw(editing);
 }
-void Game::rendererFailed(){SKSE::GetTaskInterface()->AddTask([this]{std::scoped_lock lock(mutex_);cancel();closeEditor();snapshot_.visible=false;});}
-bool Game::editorAllowed()const {
+void Game::rendererFailed(){SKSE::GetTaskInterface()->AddTask([this]{std::scoped_lock lock(mutex_);cancel();closeEditor("renderer failure");snapshot_.visible=false;});}
+std::string Game::editorBlockReason()const {
     auto* ui=RE::UI::GetSingleton();auto* player=RE::PlayerCharacter::GetSingleton();
-    return initialized_&&ready_&&ui&&player&&player->Is3DLoaded()&&!player->IsDead()&&!player->IsInKillMove()&&
-        ui->IsShowingMenus()&&ui->IsMenuOpen(RE::HUDMenu::MENU_NAME)&&!foreignMenu(ui)&&!frameworkCapturingInput()&&renderHasFocus();
+    if(!initialized_||!ready_||!ui||!player||!player->Is3DLoaded())return "game not ready";
+    if(player->IsDead())return "player died";
+    if(player->IsInKillMove())return "kill move started";
+    if(!ui->IsShowingMenus()||!ui->IsMenuOpen(RE::HUDMenu::MENU_NAME))return "HUD hidden";
+    MenuBlocker blocker;
+    if(foreignMenu(ui,MenuPurpose::editor,&blocker))return fmt::format("foreign menu '{}' (flags 0x{:08X})",blocker.name,blocker.flags);
+    if(frameworkCapturingInput())return "SKSE Menu Framework captured input";
+    if(!renderHasFocus())return "game window lost focus";
+    return {};
 }
 FrameworkStatus Game::frameworkStatus() {
 
@@ -1448,7 +1477,7 @@ bool Game::requestEditorFromFramework() {
 void Game::requestVREditor(bool open) {
     SKSE::GetTaskInterface()->AddTask([this,open]{
         std::scoped_lock lock(mutex_);
-        if(open==vrEditorWanted()){if(open){if(!editor_.open)openEditor();}else closeEditor();}
+        if(open==vrEditorWanted()){if(open){if(!editor_.open)openEditor();}else closeEditor("VR overlay close request");}
         vrEditorResult(editor_.open);
     });
 }
@@ -1470,16 +1499,16 @@ void Game::openEditor() {
         RE::ControlMap::GetSingleton()->AllowTextInput(true);textInputOwned_=true;
         RE::UIMessageQueue::GetSingleton()->AddMessage(editorMenuName,RE::UI_MESSAGE_TYPE::kShow,nullptr);
         menuAPI().publish(ready_,true);log::info("Editor opened: {} choices, {} groups",editor_.catalog.size(),editor_.options.groupCount);
-    }catch(const std::exception& e){closeEditor();log::error("Editor opening failed: {}",e.what());notice(tr("Could not open editor"));}
+    }catch(const std::exception& e){closeEditor("opening failed");log::error("Editor opening failed: {}",e.what());notice(tr("Could not open editor"));}
 }
-void Game::closeEditor() {
+void Game::closeEditor(std::string_view reason) {
     const bool wasOpen=editor_.open;
     if(wasOpen)flushSettings(true);
     editor_.open=false;menuAPI().publish(initialized_&&ready_,false);editorRequested_=false;editorLaunch_.cancel();++editor_.session;editorInput_.clear();candidates_.clear();
     if(textInputOwned_){if(auto* controls=RE::ControlMap::GetSingleton())controls->AllowTextInput(false);textInputOwned_=false;}
     if(wasOpen) {
         if(auto* queue=RE::UIMessageQueue::GetSingleton())queue->AddMessage(editorMenuName,RE::UI_MESSAGE_TYPE::kHide,nullptr);
-        cancel();dirty_=true;if(!settingsError_.empty())notice(tr("Settings could not be saved"));log::info("Editor closed; live edits retained");
+        cancel();dirty_=true;if(!settingsError_.empty())notice(tr("Settings could not be saved"));log::info("Editor closed; live edits retained; reason: {}",reason);
     }
 }
 void Game::saveSettings(const Options& options) {
@@ -1694,7 +1723,7 @@ void Game::edit(const EditCommand& c) {
     std::scoped_lock lock(mutex_);
     if(!editor_.open||c.session!=editor_.session)return;
     if(c.action==EditAction::close&&!c.hasSettings){closeEditor();return;}
-    if(!editorAllowed()){closeEditor();return;}
+    if(const auto reason=editorBlockReason();!reason.empty()){closeEditor(reason);return;}
     if(!matchingEdit(editor_,c)){editor_.message=tr("List updated; try again");return;}
     try {
         if(c.action==EditAction::exportPreset||c.action==EditAction::importPreset||c.action==EditAction::refreshPresets){presetCommand(c);return;}
@@ -1718,6 +1747,7 @@ void Game::edit(const EditCommand& c) {
         else editor_.message=tr(c.action==EditAction::sortGroup?"Already sorted":"Could not change item");
         editHistory_.finish(changed&&c.action!=EditAction::select,c.continuous,clockNow());
         if(changed) {
+            if(c.action==EditAction::addGroup||c.action==EditAction::removeGroup)++editor_.restoreSerial;
             if(c.action==EditAction::removeGroup)editor_.message=tr("Group removed");
             if(c.action==EditAction::clearGroup)editor_.message=tr("Group cleared");
             if(unsigned(c.action)>=unsigned(EditAction::addGroup))log::info("Editor structure action {}, group {}, visible {}, saved entries {}",unsigned(c.action),c.group+1,editor_.options.groupCount,editor_.draft.size());
@@ -1768,7 +1798,7 @@ void Game::save(SKSE::SerializationInterface* serial) {
     }catch(const std::exception& e){log::error("Save failed: {}",e.what());}
 }
 void Game::load(SKSE::SerializationInterface* serial) {
-    std::scoped_lock lock(mutex_);closeEditor();cancel();use_.reset();stopAnimationWatch();arsenal_=Arsenal{};dirty_=true;
+    std::scoped_lock lock(mutex_);closeEditor("loading saved groups");cancel();use_.reset();stopAnimationWatch();arsenal_=Arsenal{};dirty_=true;
     std::uint32_t type,version,length;bool found=false;
     while(serial->GetNextRecordInfo(type,version,length)) {
         if(type!=recordType)continue;
@@ -1791,8 +1821,8 @@ RE::BSEventNotifyControl Game::ProcessEvent(const RE::MenuOpenCloseEvent* e,RE::
         if(e->menuName==pauseMenuName&&e->opening&&(!selection_.browsing()||!allowed()||selectionClock(options_.selectionSpeed)!=SelectionClock::pause)) {
             pauseRequested_=false;RE::UIMessageQueue::GetSingleton()->AddMessage(pauseMenuName,RE::UI_MESSAGE_TYPE::kHide,nullptr);
         }
-        if(e->menuName==editorMenuName&&!e->opening&&editor_.open)closeEditor();
-        if(editor_.open&&!editorAllowed())closeEditor();
+        if(e->menuName==editorMenuName&&!e->opening&&editor_.open)closeEditor("editor menu removed from stack");
+        if(editor_.open)if(const auto reason=editorBlockReason();!reason.empty())closeEditor(reason);
         if(e->opening&&e->menuName==RE::MainMenu::MENU_NAME){ready_=false;menuAPI().publish(false,false);cancel();use_.reset();stopAnimationWatch();}
         else if((e->opening&&gameplayMenuOpen([&](auto name){return e->menuName==name;}))||!allowed())cancel();
         dirty_=true;publish();

@@ -17,6 +17,51 @@ void check(bool value,const char* why,std::source_location at=std::source_locati
     ++checks;
 }
 int main()try {
+    const auto shortcutFlags=[](const Options& o){return std::array{
+        o.groupCaptureRightHotkey,o.groupCaptureLeftHotkey,o.groupMoveHotkey,o.groupUnequipHotkey,
+        o.groupRemoveHotkey,o.selectorReorderHotkey,o.selectorUnequipHotkey,o.selectorRemoveHotkey};};
+    for(unsigned mask=0;mask<256;++mask) {
+        Options keys;
+        keys.groupCaptureRightHotkey=mask&1;keys.groupCaptureLeftHotkey=mask&2;keys.groupMoveHotkey=mask&4;
+        keys.groupUnequipHotkey=mask&8;keys.groupRemoveHotkey=mask&16;
+        keys.selectorReorderHotkey=mask&32;keys.selectorUnequipHotkey=mask&64;keys.selectorRemoveHotkey=mask&128;
+        const auto expected=shortcutFlags(keys);
+        check(groupKeyAction(keys,0)==GroupKeyAction::select,"Bare group keys work with every combination of editing switches");
+        check(groupKeyAction(keys,keyModifier::shift)==(keys.groupUnequipHotkey?GroupKeyAction::unequip:GroupKeyAction::pass),"Disabled Shift shortcut passes through without plain group activation");
+        check(groupKeyAction(keys,keyModifier::alt)==(keys.groupRemoveHotkey?GroupKeyAction::remove:GroupKeyAction::pass),"Disabled Alt shortcut passes through without deleting or selecting");
+        check(groupKeyAction(keys,keyModifier::shift|keyModifier::alt)==(keys.groupRemoveHotkey?GroupKeyAction::remove:GroupKeyAction::pass),"Alt retains precedence and cannot fall through to Shift unequip");
+        for(const unsigned extra:{0u,keyModifier::alt}) {
+            check(groupKeyAction(keys,keyModifier::ctrl|extra)==(keys.groupCaptureRightHotkey?GroupKeyAction::captureRight:GroupKeyAction::pass),"Right capture can be disabled independently without falling through");
+            check(groupKeyAction(keys,keyModifier::ctrl|keyModifier::shift|extra)==(keys.groupCaptureLeftHotkey?GroupKeyAction::captureLeft:GroupKeyAction::pass),"Left capture can be disabled independently without falling through");
+            for(const unsigned shift:{0u,keyModifier::shift})
+                check(groupKeyAction(keys,keyModifier::ctrl|shift|extra,true)==(keys.groupMoveHotkey?GroupKeyAction::move:GroupKeyAction::pass),"Moving is independent of capture and never falls back to adding an item");
+        }
+        check(menuCaptureHand(keys,keyModifier::ctrl)==(keys.groupCaptureRightHotkey?std::optional{Hand::right}:std::nullopt),"Right capture switch also governs Inventory and Magic");
+        check(menuCaptureHand(keys,keyModifier::ctrl|keyModifier::shift)==(keys.groupCaptureLeftHotkey?std::optional{Hand::left}:std::nullopt),"Left capture switch also governs Inventory and Magic");
+        check(!menuCaptureHand(keys,0)&&!menuCaptureHand(keys,keyModifier::shift),"Unmodified and Shift-only menu bindings belong to Skyrim");
+        keys.menuCapture=false;
+        check(!menuCaptureHand(keys,keyModifier::ctrl)&&!menuCaptureHand(keys,keyModifier::ctrl|keyModifier::shift),"Menu-only opt-out still overrides enabled capture shortcuts");
+        check(groupKeyAction(keys,keyModifier::ctrl)==(keys.groupCaptureRightHotkey?GroupKeyAction::captureRight:GroupKeyAction::pass),"Menu-only opt-out preserves gameplay capture preferences");
+        for(const unsigned scan:{203u,205u}) {
+            const auto plain=selectorKeyAction(keys,scan,false),ctrl=selectorKeyAction(keys,scan,true);
+            check(plain.action==SelectorKeyAction::browse&&plain.delta==(scan==203?-1:1),"Plain arrows retain browsing with editing disabled");
+            check(ctrl.action==(keys.selectorReorderHotkey?SelectorKeyAction::reorder:SelectorKeyAction::pass),"Disabled Ctrl-arrow reordering passes through without browsing");
+            check(ctrl.delta==(keys.selectorReorderHotkey?plain.delta:0),"Disabled reordering cannot queue a movement");
+        }
+        check(selectorKeyAction(keys,14,false).action==(keys.selectorUnequipHotkey?SelectorKeyAction::unequip:SelectorKeyAction::pass),"Backspace editing is independently optional");
+        check(selectorKeyAction(keys,211,false).action==(keys.selectorRemoveHotkey?SelectorKeyAction::remove:SelectorKeyAction::pass),"Delete editing is independently optional");
+        check(selectorUsesCtrl(keys)==bool(mask&36),"Ctrl itself passes through when moving and reordering are disabled, even if capture remains enabled");
+        check(shortcutFlags(decodeOptions(encodeOptions(keys)))==expected,"All editing switches round-trip independently");
+        importAppearance(keys,Options{});
+        check(shortcutFlags(keys)==expected,"Appearance presets preserve every local editing switch");
+    }
+    Options all;setEditingShortcuts(all,false);
+    check(shortcutFlags(all)==std::array<bool,8>{},"Disable all includes every editing shortcut");
+    setEditingShortcuts(all,true);
+    check(shortcutFlags(all)==shortcutFlags(Options{}),"Enable all restores the existing default shortcuts");
+    auto oldSettings=Json::parse(encodeOptions(Options{}));
+    for(const auto field:{"groupCaptureRightHotkey","groupCaptureLeftHotkey","groupMoveHotkey","groupUnequipHotkey","groupRemoveHotkey","selectorReorderHotkey","selectorUnequipHotkey","selectorRemoveHotkey"})oldSettings.erase(field);
+    check(shortcutFlags(decodeOptions(oldSettings.dump()))==shortcutFlags(Options{}),"Older settings retain every existing editing shortcut");
     Options o;Arsenal a;auto& group=a.current();
     Entry sword;sword.form=1;sword.name="Sword";group.add(sword);
     Entry spell;spell.form=2;spell.kind=Kind::spell;spell.spell=true;spell.name="Flames";group.add(spell);

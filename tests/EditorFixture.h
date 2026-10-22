@@ -60,6 +60,7 @@ inline bool apply(EditorState& s,const EditCommand& c,EditHistory& history) {
             auto save=c;save.action=EditAction::saveShortcut;save.shortcut=*pair;
             if(!editStructure(s.draft,s.options,save)){history.finish(false,false,0);return false;}
         }else if(!editStructure(s.draft,s.options,c)&&!editGroup(s.draft,s.options,c)){history.finish(false,false,0);return false;}
+        if(c.action==EditAction::addGroup||c.action==EditAction::removeGroup)++s.restoreSerial;
         history.finish(c.action!=EditAction::select&&c.action!=EditAction::refresh,c.continuous,double(s.revision));
     }
     normalizeGroupModes(s.options,s.draft);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;rows(s);return true;

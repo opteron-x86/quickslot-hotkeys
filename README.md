@@ -23,6 +23,8 @@ Optional integrations include [SKSE Menu Framework](https://www.nexusmods.com/sk
 
 Add inventory items and spells in **Groups**. **New** creates combinations, smart potions, smart weapons, smart ammo, shields and empty-hand actions. Saved shortcuts appear in the searchable item list and can belong to several groups; editing one updates every linked group.
 
+**Remove group** resets the group's contents, name, bindings, behavior and auto-sort setting; Undo restores it. **Add group** creates a fresh group with the lowest unused key from **1–8**, skipping the editor shortcut, and available default controller/VR bindings. If no default binding is free, it stays unbound. Existing groups keep their bindings. **Clear group** removes only its items.
+
 **Sort A–Z** sorts the current group's items by name, ignoring case. **Auto-sort when adding** sorts it now and after future additions, including hotkey captures and moves into the group. Both preserve the remembered item and support Undo in the editor; automatic sorting starts disabled. You can still reorder items manually.
 
 A combination has a searchable picker for each hand. Choose inventory, spells or smart rules such as Best Sword + Best Mace or Best Axe + Best Shield. **Both hands** copies a spell; **Use equipped** captures the current pair.
@@ -61,6 +63,12 @@ To clear a group's keyboard hotkey, click **Clear**, or click its binding and pr
 Left/Right browsing and Ctrl + Left/Right reordering wrap at both ends. Activating a name or search field with a controller opens the on-screen keyboard. Selecting an inventory row focuses its Add button for the next confirmation.
 
 **Ctrl + group key** adds the equipped right hand or highlighted Inventory/Magic item; **Ctrl + Shift + group key** adds the left hand. **Shift + group key** unequips the remembered entry; **Alt + group key** removes its shortcut. While browsing, **Ctrl + destination group key** moves the highlighted shortcut to that group.
+
+Under **Controls → Keyboard → Editing shortcuts**, turn off any unused editing action or use **Disable all**. Right/left-hand capture, moving between groups, Shift-to-unequip, Alt-to-remove, Ctrl-arrow reordering, Backspace unequipping and Delete removal each have their own switch. Disabled actions pass their keys to the game or other mods; they do not trigger another Quickslot action. Browsing and Escape/right-click cancellation remain available. All editing shortcuts start enabled; **Enable all** restores them.
+
+The right/left capture switches apply during gameplay and in Inventory/Magic. To disable capture only in those menus, turn off **Controls → General → Add from Inventory / Magic**; enabled gameplay capture stays available. This lets another hotkey mod own those menu bindings.
+
+While browsing, Ctrl itself is reserved if either Ctrl-move or Ctrl-reorder is enabled. Disable both to release the modifier too; right/left capture can remain enabled independently.
 
 Controller modifiers are configured per binding. Hold the modifier first; release the group button to select. Releasing the modifier cancels browsing. Other assigned chords, such as B + D-pad, pass to their owner. **Modifier buttons** controls which held buttons suppress unmodified group bindings.
 

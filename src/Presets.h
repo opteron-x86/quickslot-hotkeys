@@ -20,6 +20,9 @@ inline void importAppearance(Options& target,const Options& source) {
     target.editorKey=previous.editorKey;target.editorModifiers=previous.editorModifiers;
     target.skipEmpty=previous.skipEmpty;
     target.menuCapture=previous.menuCapture;target.selectionSpeed=previous.selectionSpeed;
+    target.groupUnequipHotkey=previous.groupUnequipHotkey;target.groupRemoveHotkey=previous.groupRemoveHotkey;
+    target.groupCaptureRightHotkey=previous.groupCaptureRightHotkey;target.groupCaptureLeftHotkey=previous.groupCaptureLeftHotkey;target.groupMoveHotkey=previous.groupMoveHotkey;
+    target.selectorReorderHotkey=previous.selectorReorderHotkey;target.selectorUnequipHotkey=previous.selectorUnequipHotkey;target.selectorRemoveHotkey=previous.selectorRemoveHotkey;
     target.voiceHotkey=previous.voiceHotkey;target.shoutCharge=previous.shoutCharge;
     target.controllerEnabled=previous.controllerEnabled;target.controllerBumpers=previous.controllerBumpers;
     target.controllerModifiers=previous.controllerModifiers;

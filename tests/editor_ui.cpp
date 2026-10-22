@@ -216,6 +216,16 @@ int main(int argc,char** argv)try {
         click("Remove");check(state.draft.groups[0].entries.empty(),"New category shortcuts can be removed");
         click("Undo");check(state.draft.groups[0].entries.size()==1,"Undo restores the new shortcut category");
     }
+    state=fixture::editor();state.session=session++;state.options.names[3]="Bow";state.options.keys[3]=9;frame();frame();
+    click("+ Add group");check(state.options.names[state.draft.active]=="Group 4"&&state.options.keys[state.draft.active]==5,"Add group discards a hidden slot's old name and key");
+    click("##Group name");key(207);frame({{EditorInputType::character,unsigned('X')}});key(28);
+    check(state.options.names[state.draft.active]=="Group 4X","The name field refreshes immediately when a group is added");
+    click("Remove group");click("+ Add group");
+    check(state.options.names[state.draft.active]=="Group 4"&&state.options.keys[state.draft.active]==5,"Remove and add reuses the lowest free number with a fresh name");
+    click("Undo");click("Undo");
+    check(state.options.names[state.draft.active]=="Group 4X","Undo restores the customized removed group");
+    click("##Group name");key(207);frame({{EditorInputType::character,unsigned('Y')}});key(28);
+    check(state.options.names[state.draft.active]=="Group 4XY","The name field also refreshes after restoring a removed group");
     state=fixture::editor();state.session=session++;frame();frame();
     const auto initialKeys=state.options.keys;
     click("Remove group");check(state.options.groupCount==2&&state.draft.groups[0].entries.empty(),"Real editor removes a populated active group");
@@ -586,5 +596,22 @@ int main(int argc,char** argv)try {
     click("Controls");click("Keyboard");click("Clear##control binding",0);
     check(state.options.keys[0]==0,"The Controls page can also clear a group hotkey");
     click("Undo");check(state.options.keys[0]==2,"Clearing a key in Controls is undoable");
+    click("Shift + group key: unequip");
+    check(!state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey,"Shift unequip can be disabled independently through the editor");
+    click("Alt + group key: remove shortcut");
+    check(!state.options.groupUnequipHotkey&&!state.options.groupRemoveHotkey,"Alt removal can also be disabled through the editor");
+    click("Undo");check(!state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey,"Undo restores only the last optional shortcut switch");
+    click("Undo");check(state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey,"Both shortcut switches participate in editor history");
+    click("Disable all##editing shortcuts");
+    check(!selectorUsesCtrl(state.options)&&!state.options.groupCaptureRightHotkey&&!state.options.groupCaptureLeftHotkey&&!state.options.groupUnequipHotkey&&!state.options.groupRemoveHotkey&&!state.options.selectorUnequipHotkey&&!state.options.selectorRemoveHotkey,"Disable all switches off every keyboard editing action");
+    click("Ctrl + Shift + group key: add left hand");
+    check(state.options.groupCaptureLeftHotkey&&!state.options.groupCaptureRightHotkey&&!state.options.groupMoveHotkey,"A single capture action can be enabled after disabling all");
+    click("Undo");check(!state.options.groupCaptureLeftHotkey,"Undo restores the independently toggled capture action");
+    click("Undo");check(state.options.groupCaptureRightHotkey&&state.options.groupCaptureLeftHotkey&&state.options.groupMoveHotkey&&state.options.selectorReorderHotkey&&state.options.selectorUnequipHotkey&&state.options.selectorRemoveHotkey,"Disable all undoes as one editor operation");
+    io.DisplaySize={1280,720};state.options.groupCount=Arsenal::count;frame();frame();
+    click("Disable all##editing shortcuts");click("Backspace: unequip highlighted item");click("Delete: remove highlighted shortcut");
+    check(!selectorUsesCtrl(state.options)&&state.options.selectorUnequipHotkey&&state.options.selectorRemoveHotkey&&probe::one("Close").rect.Max.y<720,"Last editing switches remain reachable with all eight groups at 720p");
+    click("Enable all##editing shortcuts");
+    check(state.options.groupCaptureRightHotkey&&state.options.groupCaptureLeftHotkey&&state.options.groupMoveHotkey&&state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey&&state.options.selectorReorderHotkey&&state.options.selectorUnequipHotkey&&state.options.selectorRemoveHotkey,"Enable all restores the full editing set at 720p");
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

@@ -242,6 +242,9 @@ struct Options {
     std::array<GroupMode,Arsenal::count> groupModes{};
     std::array<bool,Arsenal::count> autoSort{};
     bool skipEmpty=false,menuCapture=true;
+    bool groupCaptureRightHotkey=true,groupCaptureLeftHotkey=true,groupMoveHotkey=true;
+    bool groupUnequipHotkey=true,groupRemoveHotkey=true;
+    bool selectorReorderHotkey=true,selectorUnequipHotkey=true,selectorRemoveHotkey=true;
     bool voiceHotkey=true;
     float shoutCharge=1.2f;
     bool controllerEnabled=true,controllerBumpers=true;
@@ -283,6 +286,41 @@ struct Options {
 inline bool editorShortcutMatches(const Options& o,unsigned scan,unsigned modifiers) {
     return o.editorKey&&scan==o.editorKey&&modifiers==o.editorModifiers;
 }
+inline void setEditingShortcuts(Options& o,bool enabled) {
+    o.groupCaptureRightHotkey=o.groupCaptureLeftHotkey=o.groupMoveHotkey=enabled;
+    o.groupUnequipHotkey=o.groupRemoveHotkey=enabled;
+    o.selectorReorderHotkey=o.selectorUnequipHotkey=o.selectorRemoveHotkey=enabled;
+}
+inline bool selectorUsesCtrl(const Options& o) {
+    return o.groupMoveHotkey||o.selectorReorderHotkey;
+}
+enum class GroupKeyAction {select,captureRight,captureLeft,move,unequip,remove,pass};
+inline GroupKeyAction groupKeyAction(const Options& o,unsigned modifiers,bool moving=false) {
+    if(modifiers&keyModifier::ctrl) {
+        if(moving)return o.groupMoveHotkey?GroupKeyAction::move:GroupKeyAction::pass;
+        if(modifiers&keyModifier::shift)return o.groupCaptureLeftHotkey?GroupKeyAction::captureLeft:GroupKeyAction::pass;
+        return o.groupCaptureRightHotkey?GroupKeyAction::captureRight:GroupKeyAction::pass;
+    }
+    if(modifiers&keyModifier::alt)return o.groupRemoveHotkey?GroupKeyAction::remove:GroupKeyAction::pass;
+    if(modifiers&keyModifier::shift)return o.groupUnequipHotkey?GroupKeyAction::unequip:GroupKeyAction::pass;
+    return GroupKeyAction::select;
+}
+inline std::optional<Hand> menuCaptureHand(const Options& o,unsigned modifiers) {
+    if(!o.menuCapture)return {};
+    const auto action=groupKeyAction(o,modifiers);
+    if(action==GroupKeyAction::captureRight)return Hand::right;
+    if(action==GroupKeyAction::captureLeft)return Hand::left;
+    return {};
+}
+enum class SelectorKeyAction {pass,browse,reorder,unequip,remove};
+struct SelectorKey {SelectorKeyAction action=SelectorKeyAction::pass;int delta=0;};
+inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,bool ctrl) {
+    if(scan==211&&o.selectorRemoveHotkey)return {SelectorKeyAction::remove};
+    if(scan==14&&o.selectorUnequipHotkey)return {SelectorKeyAction::unequip};
+    const auto arrow=selectorArrow(scan,ctrl);
+    if(!arrow.delta||(arrow.reorder&&!o.selectorReorderHotkey))return {};
+    return {arrow.reorder?SelectorKeyAction::reorder:SelectorKeyAction::browse,arrow.delta};
+}
 inline bool hasConsumables(const Group& group){return std::any_of(group.entries.begin(),group.entries.end(),isConsumable);}
 inline GroupMode groupMode(const Options& o,const Arsenal& a,std::size_t group) {
     return group<Arsenal::count&&!hasConsumables(a.groups[group])?o.groupModes[group]:GroupMode::browse;
@@ -322,18 +360,41 @@ inline bool groupVisible(const Options& o,std::size_t id){return std::find(o.gro
 inline void sortNewlyEnabledGroups(Arsenal& a,const Options& previous,const Options& next) {
     for(std::size_t id=0;id<Arsenal::count;++id)if(next.autoSort[id]&&!previous.autoSort[id])a.groups[id].sortByName();
 }
+inline void resetGroup(Arsenal& a,Options& o,std::size_t id) {
+    auto& g=a.groups[id];g.entries.clear();g.selected=0;++g.revision;
+    o.names[id]="Group "+std::to_string(id+1);
+    o.keys[id]=0;o.controllerGroups[id]={};o.vrGroups[id]={};
+    o.groupModes[id]=GroupMode::browse;o.autoSort[id]=false;
+    if(a.consumableGroup==id)a.consumableGroup=Arsenal::count;
+}
+template<class Binding> Binding nextGroupBinding(const Options& o,std::array<Binding,Arsenal::count>& bindings,
+                                                const std::array<Binding,Arsenal::count>& defaults,Binding editor) {
+    for(const auto candidate:defaults) {
+        if(candidate==Binding{}||candidate==editor)continue;
+        if(std::any_of(o.groupOrder.begin(),o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),[&](auto id){return bindings[id]==candidate;}))continue;
+        // Hidden slots do not reserve defaults; release any stale duplicate there.
+        for(auto& binding:bindings)if(binding==candidate)binding={};
+        return candidate;
+    }
+    return {};
+}
 inline bool removeGroup(Arsenal& a,Options& o,std::size_t id) {
     if(o.groupCount<=1||!groupVisible(o,id))return false;
     const auto it=std::find(o.groupOrder.begin(),o.groupOrder.end(),id);
     std::rotate(it,it+1,o.groupOrder.end());--o.groupCount;
-    auto& g=a.groups[id];g.entries.clear();g.selected=0;++g.revision;
-    o.groupModes[id]=GroupMode::browse;o.keys[id]=0;o.autoSort[id]=false;
+    resetGroup(a,o,id);
     if(a.active==id)a.active=o.groupOrder[0];
     return true;
 }
 inline bool addGroup(Arsenal& a,Options& o) {
     if(o.groupCount>=Arsenal::count)return false;
-    a.active=o.groupOrder[o.groupCount++];return true;
+    const auto id=o.groupOrder[o.groupCount];resetGroup(a,o,id);
+    const Options defaults;
+    o.keys[id]=nextGroupBinding(o,o.keys,defaults.keys,o.editorKey);
+    o.controllerGroups[id]=nextGroupBinding(o,o.controllerGroups,defaults.controllerGroups,o.controllerEditor);
+    o.vrGroups[id]=nextGroupBinding(o,o.vrGroups,defaults.vrGroups,o.vrEditor);
+    o.names[id]="Group "+std::to_string(o.keys[id]?o.keys[id]-1:o.groupCount+1);
+    ++o.groupCount;a.active=id;return true;
 }
 inline bool reorderGroup(Options& o,std::size_t id,int delta) {
     if(!groupVisible(o,id))return false;

@@ -278,6 +278,8 @@ int main(int argc,char** argv) {
     if(scene=="editor-library")previewClicks={"##filter","Shortcuts"};
     if(scene=="editor-library-edit")previewClicks={"##filter","Shortcuts","##candidate","Edit shortcut"};
     if(scene=="editor-controller")previewClicks={"Controls","Controller"};
+    if(scene=="editor-keyboard"||scene=="editor-keyboard-eight")previewClicks={"Controls","Keyboard"};
+    if(scene=="editor-keyboard-eight")editing.options.groupCount=Arsenal::count;
     if(scene=="editor-controller-keyboard")previewClicks={"Groups##main","Items"};
     if(scene=="editor-controller-position"){editing.options.placementGrid=true;previewClicks={"Appearance","Groups","Position"};}
     if(scene=="editor-layout")previewClicks={"Appearance"};

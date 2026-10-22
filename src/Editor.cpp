@@ -762,6 +762,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             label(tr("SELECTION"));
             changed|=UI::Checkbox("Skip unavailable items",&options.skipEmpty);
             changed|=UI::Checkbox("Add from Inventory / Magic",&options.menuCapture);
+            if(ImGui::IsItemHovered())UI::SetTooltip("Disable to leave Inventory / Magic capture to another mod. Capture also requires its right- or left-hand shortcut to be enabled under Keyboard.");
             label(tr("Game speed while selecting"));int timeMode=int(selectionClock(options.selectionSpeed));ImGui::SetNextItemWidth(px(300));
             if(UI::Combo("##selection clock",&timeMode,"Full speed\0Slow motion\0Pause\0")){options.selectionSpeed=timeMode==2?0.f:timeMode==1?.5f:1.f;changed=true;}
             if(timeMode==1&&!state.soulsSlowdown){ImGui::SetNextItemWidth(px(200));changed|=UI::SliderFloat("Game speed",&options.selectionSpeed,.1f,.95f,"%.2fx");}
@@ -773,13 +774,23 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             for(std::size_t i=0;i<options.groupCount;++i){const auto id=options.groupOrder[i];ImGui::PushID(int(id));bindButton(int(id),options.keys[id],"##control binding");ImGui::SameLine();ImGui::TextUnformatted(options.names[id].c_str());ImGui::PopID();}
             ImGui::Separator();label(tr("Editor"));bindButton(-2,options.editorKey,"##editor binding");
             ImGui::SameLine();if(UI::Button("Clear##editor binding")){options.editorKey=options.editorModifiers=0;binding_=-1;changed=true;hint_.clear();}
+            ImGui::Separator();label(tr("Editing shortcuts"));
+            if(UI::Button("Enable all##editing shortcuts")){setEditingShortcuts(options,true);changed=true;}ImGui::SameLine();
+            if(UI::Button("Disable all##editing shortcuts")){setEditingShortcuts(options,false);changed=true;}
+            UI::TextWrapped("Disabled editing shortcuts pass through to the game and other mods. Browsing and canceling stay available.");
+            changed|=UI::Checkbox("Ctrl + group key: add right hand / highlighted item",&options.groupCaptureRightHotkey);
+            changed|=UI::Checkbox("Ctrl + Shift + group key: add left hand",&options.groupCaptureLeftHotkey);
+            changed|=UI::Checkbox("Shift + group key: unequip",&options.groupUnequipHotkey);
+            changed|=UI::Checkbox("Alt + group key: remove shortcut",&options.groupRemoveHotkey);
+            label(tr("While holding a group key:"));
+            changed|=UI::Checkbox("Ctrl + destination group key: move item",&options.groupMoveHotkey);
+            changed|=UI::Checkbox("Ctrl + Left / Right: reorder",&options.selectorReorderHotkey);
+            if(ImGui::IsItemHovered())UI::SetTooltip("Turn off both Ctrl move and Ctrl reorder to release Ctrl itself while browsing.");
+            changed|=UI::Checkbox("Backspace: unequip highlighted item",&options.selectorUnequipHotkey);
+            changed|=UI::Checkbox("Delete: remove highlighted shortcut",&options.selectorRemoveHotkey);
             if(UI::CollapsingHeader("Shortcuts")) {
-            ImGui::TextUnformatted(tr("Hold + scroll: select"));ImGui::TextUnformatted(tr("Tap: group action"));
-            ImGui::TextUnformatted(tr("Shift + group key: unequip"));ImGui::TextUnformatted(tr("Ctrl + group key: add right hand / highlighted item"));
-            ImGui::TextUnformatted(tr("Ctrl + Shift + group key: add left hand"));
-            ImGui::TextUnformatted(tr("While holding a group key:"));
-            ImGui::TextUnformatted(tr("Left / Right: browse"));
-            ImGui::TextUnformatted(tr("Ctrl + Left / Right: reorder"));
+            ImGui::TextUnformatted(tr("Hold + scroll / Left / Right: select"));ImGui::TextUnformatted(tr("Tap: group action"));
+            ImGui::TextUnformatted(tr("Escape / right-click: cancel"));
             }
             }else{
             changed|=UI::Checkbox("Enable controller",&options.controllerEnabled);

@@ -4,8 +4,14 @@
 #include <string_view>
 
 namespace quickslot {
-enum class MenuPurpose {input,hud};
+enum class MenuPurpose {input,hud,editor};
 inline constexpr std::string_view quickLootMenuName="LootMenu";
+
+inline bool menuFlagsBlock(bool usesContext,bool usesCursor,bool pauses,bool modal,MenuPurpose purpose=MenuPurpose::input) {
+    // Text-entry helpers can request a cursor without taking over the editor.
+    // Gameplay input and the passive HUD still yield to all cursor menus.
+    return usesContext||pauses||(purpose==MenuPurpose::editor?modal:usesCursor);
+}
 
 inline constexpr std::array<std::string_view,23> gameplayBlockingMenus{
     "TweenMenu","InventoryMenu","MagicMenu","FavoritesMenu","MapMenu","StatsMenu","Journal Menu",

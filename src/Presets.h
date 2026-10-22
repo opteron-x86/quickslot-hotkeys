@@ -24,6 +24,7 @@ inline void importAppearance(Options& target,const Options& source) {
     target.controllerEnabled=previous.controllerEnabled;target.controllerBumpers=previous.controllerBumpers;
     target.controllerModifiers=previous.controllerModifiers;
     target.groupModes=previous.groupModes;
+    target.autoSort=previous.autoSort;
     target.controllerGroups=previous.controllerGroups;target.controllerEditor=previous.controllerEditor;
     target.controllerStick=previous.controllerStick;target.controllerDeadzone=previous.controllerDeadzone;target.controllerStyle=previous.controllerStyle;
     target.vrGroups=previous.vrGroups;target.vrEditor=previous.vrEditor;target.vrStick=previous.vrStick;

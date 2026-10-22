@@ -78,6 +78,7 @@ int main()try {
     visual.equipmentDim=true;visual.equipmentFadeDelay=2;visual.equipmentIdleOpacity=.2f;
     visual.equipmentStyle=2;visual.equipmentLayout=1;visual.equipmentTextPosition=0;
     visual.equipmentScale=1.7f;visual.equipmentTextScale=1.3f;visual.equipmentSpacing=2.5f;
+    o.autoSort[1]=true;
     auto imported=o;importAppearance(imported,visual);
     check(imported.showEquipment&&imported.equipmentX==.7f&&imported.equipmentY==.3f,"Appearance carries independent equipment position");
     check(imported.equipmentDim&&imported.equipmentStyle==2&&imported.equipmentLayout==1&&imported.equipmentTextPosition==0&&imported.equipmentFadeDelay==2&&imported.equipmentIdleOpacity==.2f,"Appearance imports equipment style and visibility");
@@ -91,7 +92,7 @@ int main()try {
     visual.equipmentScale=visual.equipmentTextScale=visual.equipmentSpacing=1;
     check(reloaded.equipmentDim&&reloaded.equipmentStyle==2&&reloaded.equipmentLayout==1&&reloaded.equipmentTextPosition==0&&reloaded.equipmentFadeDelay==2&&reloaded.equipmentIdleOpacity==.2f,"Equipment options survive settings reload");
     visual.equipmentStyle=0;
-    check(imported.groupModes==o.groupModes,"Appearance preserves play controls");
+    check(imported.groupModes==o.groupModes&&imported.autoSort==o.autoSort,"Appearance preserves play controls and per-group sorting");
     Options bad;bad.groupModes[0]=GroupMode(99);bad.inactiveGroups=99;bad.equipmentX=-1;bad.equipmentY=2;
     sanitizeOptions(bad);check(bad.groupModes[0]==GroupMode::browse&&bad.inactiveGroups==2&&bad.equipmentX==0&&bad.equipmentY==1,"Invalid settings bounded");
     bad.equipmentScale=10;bad.equipmentTextScale=-1;sanitizeOptions(bad);

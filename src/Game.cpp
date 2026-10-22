@@ -741,11 +741,12 @@ void Game::queueReorder(int delta) {
     });
 }
 void Game::queueMove(std::size_t target) {
+    if(target>=Arsenal::count)return;
     const auto source=arsenal_.active,index=selection_.index();cancel();const auto token=selection_.token();
     SKSE::GetTaskInterface()->AddTask([this,source,index,target,token] {
         std::scoped_lock lock(mutex_);
         if(token!=selection_.token()||!allowed())return;
-        if(arsenal_.move(source,index,target)) {
+        if(arsenal_.move(source,index,target,options_.autoSort[target])) {
             dirty_=true;refresh();publish();notice(tr("Moved to ")+options_.names[target]);
         } else notice(tr("Could not move entry — destination is full or entry is missing"));
     });
@@ -884,7 +885,7 @@ bool Game::consume(RE::InputEvent* event) {
         }
         return true;
     }
-    if(keyboard&&button->IsDown()&&options_.menuCapture&&captureMenuOpen()) {
+    if(keyboard&&code&&button->IsDown()&&options_.menuCapture&&captureMenuOpen()) {
         const auto it=std::find(options_.keys.begin(),options_.keys.end(),code);
         auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
         if(it!=options_.keys.end()&&groupVisible(options_,std::size_t(it-options_.keys.begin()))&&(pressed(device,29)||pressed(device,157))) {
@@ -900,7 +901,7 @@ bool Game::consume(RE::InputEvent* event) {
         }
     }
     const auto key=std::find(options_.keys.begin(),options_.keys.end(),code);
-    if(keyboard&&key!=options_.keys.end()&&groupVisible(options_,std::size_t(key-options_.keys.begin()))&&button->IsDown()) {
+    if(keyboard&&code&&key!=options_.keys.end()&&groupVisible(options_,std::size_t(key-options_.keys.begin()))&&button->IsDown()) {
         *owned=true;
         if(voice_.active()){notice(tr("Voice action in progress"));return true;}
         auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
@@ -1097,7 +1098,7 @@ void Game::menuCapture(std::size_t groupID,Hand hand) {
                 auto inventory=player->GetInventory([&](RE::TESBoundObject& obj){return obj.GetFormID()==formID;});
                 if(!resolve(e,player,inventory).available()){report("This item or ability is not available");return;}
             }
-            cancel();arsenal_.active=groupID;const bool added=arsenal_.groups[groupID].add(e);dirty_=true;
+            cancel();arsenal_.active=groupID;const bool added=arsenal_.groups[groupID].add(e,options_.autoSort[groupID]);dirty_=true;
             report((added?"Added to ":"Already in ")+options_.names[groupID]+" — "+e.name+" · "+handName(e));
             if(!magic)if(const auto menu=ui->GetMenu<RE::InventoryMenu>())menu->RefreshItemList();
         }catch(const std::exception& error){log::error("Menu capture failed: {}",error.what());report("Could not add this item — try the Quickslot editor");}
@@ -1189,7 +1190,7 @@ void Game::capture(Hand hand) {
     auto& group=arsenal_.current();
     const bool duplicate=std::any_of(group.entries.begin(),group.entries.end(),[&](const Entry& e){return e.same(entry);});
     if(!duplicate&&group.entries.size()>=Group::limit){notice(tr("This group is full (16 items); Alt + group key removes one"));return;}
-    const auto label=entryLabel(entry);group.add(std::move(entry));dirty_=true;
+    const auto label=entryLabel(entry);group.add(std::move(entry),options_.autoSort[arsenal_.active]);dirty_=true;
     notice((duplicate?tr("Already in "):tr("Added to "))+options_.names[arsenal_.active]+" — "+label);
 }
 void Game::refresh() {
@@ -1618,7 +1619,7 @@ bool Game::addCandidate(const EditCommand& c) {
         if(std::none_of(group.entries.begin(),group.entries.end(),[&](const auto& saved){return saved.same(entry);})) {editor_.message=tr("Group full (16 / 16)");return false;}
     }
     const auto entry=captureCandidate(c.candidate,c.hand);if(!entry)return false;
-    const bool added=group.add(*entry);editor_.draft.active=c.group;++editor_.revision;
+    const bool added=group.add(*entry,editor_.options.autoSort[c.group]);editor_.draft.active=c.group;++editor_.revision;
     editor_.message=added?"":tr("Already in group");
     log::info("Editor {} to {}: {} ({:08X}:{:04X})",added?"added":"selected",editor_.options.names[c.group],entryLabel(*entry),entry->owner,entry->unique);
     buildCatalog();refreshEditor();return true;
@@ -1708,12 +1709,13 @@ void Game::edit(const EditCommand& c) {
         if(c.action==EditAction::settings||(c.action==EditAction::close&&c.hasSettings)) {
             auto options=c.options;sanitizeOptions(options);revealSavedGroups(options,editor_.draft);
             changed=encodeOptions(options)!=encodeOptions(editor_.options);
+            sortNewlyEnabledGroups(editor_.draft,editor_.options,options);
             editor_.options=std::move(options);if(changed)++editor_.revision;
             editor_.message.clear();
         } else if(c.action==EditAction::add)changed=addCandidate(c);
         else if(c.action==EditAction::saveCombination)changed=saveCombination(c);
-        else if(editStructure(editor_.draft,editor_.options,c)||editGroup(editor_.draft,c)){changed=true;++editor_.revision;editor_.message.clear();}
-        else editor_.message=tr("Could not change item");
+        else if(editStructure(editor_.draft,editor_.options,c)||editGroup(editor_.draft,editor_.options,c)){changed=true;++editor_.revision;editor_.message.clear();}
+        else editor_.message=tr(c.action==EditAction::sortGroup?"Already sorted":"Could not change item");
         editHistory_.finish(changed&&c.action!=EditAction::select,c.continuous,clockNow());
         if(changed) {
             if(c.action==EditAction::removeGroup)editor_.message=tr("Group removed");

@@ -15,9 +15,8 @@ inline void sanitizeOptions(Options& o) {
     std::vector<unsigned> assigned;if(o.editorKey)assigned.push_back(o.editorKey);
     for(const auto id:o.groupOrder) {
         auto& key=o.keys[id];
-        if(!validGroupKey(key)||std::find(assigned.begin(),assigned.end(),key)!=assigned.end()) {
-            key=2;while(!validGroupKey(key)||std::find(assigned.begin(),assigned.end(),key)!=assigned.end())++key;
-        }assigned.push_back(key);
+        if(key&&(!validGroupKey(key)||std::find(assigned.begin(),assigned.end(),key)!=assigned.end()))key=0;
+        if(key)assigned.push_back(key);
     }
     o.selectionSpeed=std::isfinite(o.selectionSpeed)?(o.selectionSpeed==0?0:std::clamp(o.selectionSpeed,.1f,1.f)):1.f;
     o.controllerStyle=std::min(o.controllerStyle,1u);o.controllerStick=std::min(o.controllerStick,2u);
@@ -79,7 +78,7 @@ inline std::string encodeOptions(Options o) {
     return Json{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"themeAdjustments",tweaks},
         {"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},
         {"controllerEnabled",o.controllerEnabled},{"controllerBumpers",o.controllerBumpers},{"controllerStyle",o.controllerStyle},{"controllerStick",o.controllerStick},{"controllerDeadzone",o.controllerDeadzone},{"controllerGroups",padGroups},{"controllerEditor",binding(o.controllerEditor)},
-        {"groupModes",modes},{"controllerModifiers",o.controllerModifiers},{"vrGroups",vrGroups},{"vrEditor",binding(o.vrEditor)},{"vrStick",o.vrStick},
+        {"groupModes",modes},{"autoSort",o.autoSort},{"controllerModifiers",o.controllerModifiers},{"vrGroups",vrGroups},{"vrEditor",binding(o.vrEditor)},{"vrStick",o.vrStick},
         {"showEquipment",o.showEquipment},{"equipmentX",o.equipmentX},{"equipmentY",o.equipmentY},{"hideEmptyGroups",o.hideEmptyGroups},{"inactiveGroups",o.inactiveGroups},{"inactiveGroupOpacity",o.inactiveGroupOpacity},
         {"equipmentDim",o.equipmentDim},{"equipmentFadeDelay",o.equipmentFadeDelay},{"equipmentIdleOpacity",o.equipmentIdleOpacity},
         {"equipmentScale",o.equipmentScale},{"equipmentTextScale",o.equipmentTextScale},{"equipmentSpacing",o.equipmentSpacing},
@@ -103,6 +102,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.voiceHotkey=j.at("voiceHotkey").get<decltype(o.voiceHotkey)>();o.shoutCharge=j.at("shoutCharge").get<decltype(o.shoutCharge)>();
     o.controllerEnabled=j.at("controllerEnabled").get<decltype(o.controllerEnabled)>();o.controllerBumpers=j.at("controllerBumpers").get<decltype(o.controllerBumpers)>();
     o.controllerModifiers=j.value("controllerModifiers",allPadButtons);
+    o.autoSort=j.value("autoSort",o.autoSort);
     if(j.contains("groupModes")) {
         const auto modes=j.at("groupModes").get<std::array<unsigned,Arsenal::count>>();
         for(std::size_t i=0;i<Arsenal::count;++i)o.groupModes[i]=GroupMode(modes[i]);

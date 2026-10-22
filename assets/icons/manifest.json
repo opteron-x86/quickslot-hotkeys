@@ -962,22 +962,22 @@
       "cell": 38,
       "kind": "supplied",
       "source": "source/katana.png",
-      "source_sha256": "f66e1faecd457f20a57eac9f71bcdfe0a8bd33087adcef2db6127c6627c19263",
+      "source_sha256": "58b9ffbe015f9ad112f981bcbcd7986d4cb873923c08779546c125f727100455",
       "packedBounds": [
-        24,
         20,
-        232,
-        236
+        25,
+        236,
+        230
       ],
       "sourceSize": [
         960,
         960
       ],
       "sourceBounds": [
-        177,
-        160,
-        788,
-        795
+        111,
+        132,
+        855,
+        837
       ],
       "alpha": "source alpha"
     },
@@ -987,11 +987,11 @@
       "cell": 39,
       "kind": "supplied",
       "source": "source/nodachi.png",
-      "source_sha256": "371ef3f60b62c35d14ab3bcb214e67c48bc0ce7f5593e628a6d50a13af15c241",
+      "source_sha256": "7e29d56438f42fce2e900285625f7cd0337fcf7cc578e3777e7b4c7520c61235",
       "packedBounds": [
-        27,
+        21,
         20,
-        228,
+        235,
         236
       ],
       "sourceSize": [
@@ -999,10 +999,10 @@
         960
       ],
       "sourceBounds": [
-        134,
-        117,
-        827,
-        860
+        66,
+        67,
+        899,
+        908
       ],
       "alpha": "source alpha"
     },
@@ -1624,7 +1624,7 @@
       "alpha": "source alpha"
     }
   ],
-  "atlas_sha256": "26000c7e4500947cc65e19ee67d8b93f6dd4d2ccbd6312a9c268f7f56d7d5847",
+  "atlas_sha256": "10517f291c381d90309ea28a5a77ba781ffebce236dd528ce4ecca6b3eca4d51",
   "supplied": 64,
   "aliases": 1,
   "placeholders": 0

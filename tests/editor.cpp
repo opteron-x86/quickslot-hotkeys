@@ -43,6 +43,22 @@ int main(int argc,char** argv)try {
         check(!validCombinationDraft(s,c),"A shield cannot occupy the right-hand picker");
     }
     if(argc!=2)throw std::runtime_error("Expected current save fixture");
+    {
+        Arsenal sorted;Options options;options.autoSort[1]=true;
+        auto z=item(1);z.name="Zebra";auto b=item(2);b.name="beta";auto a=item(3);a.name="Alpha";
+        sorted.groups[0].add(a);sorted.groups[1].add(z);sorted.groups[1].add(b);
+        EditCommand move;move.action=EditAction::move;move.group=0;move.target=1;
+        check(editGroup(sorted,options,move)&&sorted.active==1&&sorted.groups[1].entries.front().same(a)&&sorted.groups[1].selected==0,"Moving into an auto-sorted group sorts its entries and follows the moved item");
+        EditCommand shortcut;shortcut.action=EditAction::saveShortcut;shortcut.group=1;shortcut.shortcut=unarmedEntry();
+        check(editStructure(sorted,options,shortcut)&&sorted.groups[1].entries[2].kind==Kind::unarmed&&sorted.groups[1].selected==2,"Creating a reusable shortcut honors automatic sorting");
+        const auto id=sorted.groups[1].entries[2].shortcut;
+        sorted.groups[2].add(z);options.autoSort[2]=true;shortcut.action=EditAction::addShortcut;shortcut.group=2;shortcut.libraryID=id;
+        check(editStructure(sorted,options,shortcut)&&sorted.groups[2].entries.front().shortcut==id,"Adding a library shortcut honors automatic sorting");
+        sorted.groups[2].reorder(0,1);const auto remembered=sorted.groups[2].entries[sorted.groups[2].selected].shortcut;
+        shortcut.action=EditAction::sortGroup;
+        check(editStructure(sorted,options,shortcut)&&sorted.groups[2].entries[sorted.groups[2].selected].shortcut==remembered,"Manual sort preserves shared-shortcut selection");
+        check(!editStructure(sorted,options,shortcut),"Sorting an already sorted group does not create a change");
+    }
     std::ifstream file(argv[1]);check(bool(file),"Open current save fixture");
     const std::string bytes((std::istreambuf_iterator<char>(file)),{});const auto saved=Json::parse(bytes);const auto persisted=decodeArsenal(bytes,identity);
     check(persisted.size()==23&&[&]{auto upgraded=Json::parse(encodeArsenal(persisted));upgraded.erase("shortcuts");for(auto& group:upgraded["groups"])for(auto& entry:group["entries"])entry.erase("shortcut");return upgraded==saved;}(),"Current save retains every entry, identity and selection");
@@ -58,7 +74,7 @@ int main(int argc,char** argv)try {
     check(encodeArsenal(visualOnly)==encodeArsenal(persisted),"Presentation metadata cannot change co-save identity or format");
     auto broken=o;broken.keys[0]=14;broken.keys[1]=broken.keys[2];broken.editorKey=broken.keys[3];broken.scale=NAN;broken.spacing=999;broken.groupCount=999;broken.layout=999;
     sanitizeOptions(broken);check(broken.keys[0]!=14&&broken.keys[1]!=broken.keys[2],"Reserved/duplicate group keys sanitized");
-    check(std::find(broken.keys.begin(),broken.keys.end(),broken.editorKey)==broken.keys.end(),"Editor key cannot collide with any group");
+    check(!broken.editorKey||std::find(broken.keys.begin(),broken.keys.end(),broken.editorKey)==broken.keys.end(),"Editor key cannot collide with any group");
     check(broken.scale==1&&broken.spacing==40&&broken.groupCount==8&&broken.layout==5,"Invalid layout settings bounded");
     const auto defaults=decodeOptions(encodeOptions(Options{}));
     check(defaults.editorKey==43&&defaults.editorModifiers==keyModifier::shift,"Shift + backslash is the default and survives reload");
@@ -82,7 +98,7 @@ int main(int argc,char** argv)try {
     }
     const auto complete=Json::parse(settings);
     for(const auto& [field,value]:complete.items()) {
-        if(field=="controllerModifiers"||field=="groupModes"||field=="language"||field=="itemIconSet"||field=="keepDrawnVisible"||field=="textScale"||field=="placementSpacing"||field=="placementFrame"||field=="placementGridSize"||
+        if(field=="controllerModifiers"||field=="groupModes"||field=="autoSort"||field=="language"||field=="itemIconSet"||field=="keepDrawnVisible"||field=="textScale"||field=="placementSpacing"||field=="placementFrame"||field=="placementGridSize"||
            field=="equipmentX"||field=="equipmentY"||field=="equipmentScale"||field=="equipmentTextScale"||field=="equipmentSpacing"||field=="showEquipment"||field=="hideEmptyGroups"||field=="inactiveGroups"||field=="inactiveGroupOpacity"||
            field=="equipmentDim"||field=="equipmentStyle"||field=="equipmentLayout"||field=="equipmentTextPosition"||field=="equipmentFadeDelay"||field=="equipmentIdleOpacity")continue;
         auto incomplete=complete;incomplete.erase(field);bool rejected=false;
@@ -108,11 +124,11 @@ int main(int argc,char** argv)try {
     EditCommand c;c.session=2;c.revision=7;check(matchingEdit(state,c),"Current editor command accepted");
     c.session=1;check(!matchingEdit(state,c),"Previous editor session cannot mutate a reopened editor");c.session=2;c.revision=6;check(!matchingEdit(state,c),"Stale render snapshot rejected");c.revision=7;state.open=false;check(!matchingEdit(state,c),"Closed editor rejects queued edits");state.open=true;
     const auto original=state.draft;auto draft=original;
-    c.action=EditAction::remove;c.index=0;check(editGroup(draft,c)&&draft.groups[0].entries[draft.groups[0].selected].unique==2,"Removing another shortcut preserves remembered item");
+    c.action=EditAction::remove;c.index=0;check(editGroup(draft,o,c)&&draft.groups[0].entries[draft.groups[0].selected].unique==2,"Removing another shortcut preserves remembered item");
     check(original.groups[0].entries.size()==2,"Draft edits do not mutate applied data");
-    c.action=EditAction::hand;c.hand=Hand::left;c.index=0;check(editGroup(draft,c)&&draft.groups[0].entries[0].hand==Hand::left,"Editor can change target hand without equipping");
-    draft.groups[0].add(item(2));c.index=1;check(!editGroup(draft,c),"Hand change cannot create a duplicate shortcut");
-    draft.groups[0].entries[1].twoHanded=true;check(!editGroup(draft,c),"Two-handed targets cannot change hand");
+    c.action=EditAction::hand;c.hand=Hand::left;c.index=0;check(editGroup(draft,o,c)&&draft.groups[0].entries[0].hand==Hand::left,"Editor can change target hand without equipping");
+    draft.groups[0].add(item(2));c.index=1;check(!editGroup(draft,o,c),"Hand change cannot create a duplicate shortcut");
+    draft.groups[0].entries[1].twoHanded=true;check(!editGroup(draft,o,c),"Two-handed targets cannot change hand");
     Entry shield=item(7);shield.kind=Kind::shield;check(normalizedHand(shield,Hand::right)==Hand::left,"Shield addition always targets left hand");
     Entry greatsword=item(8);greatsword.twoHanded=true;check(normalizedHand(greatsword,Hand::left)==Hand::right,"Two-handed addition uses both-hands canonical slot");
     CatalogItem catalog;catalog.entry=item(9);catalog.entry.name="Imperial Sword (Superior)";

@@ -20,7 +20,7 @@ int main()try {
     check(a.groups[0].entries[0].hand==Hand::left&&a.groups[1].entries[0].equipmentType==unsigned(WeaponFamily::sword),"Every group updates");
     check(history.undo(a,o)&&a.groups[0].entries[0].equipmentType==unsigned(WeaponFamily::mace)&&a.groups[1].entries[0].hand==Hand::right,"Undo restores all uses atomically");
     c={};c.action=EditAction::remove;c.group=0;c.index=0;
-    check(editGroup(a,c)&&libraryShortcut(a,id)&&a.groups[1].entries.size()==1,"Remove leaves definition and other group intact");
+    check(editGroup(a,o,c)&&libraryShortcut(a,id)&&a.groups[1].entries.size()==1,"Remove leaves definition and other group intact");
     c.action=EditAction::clearGroup;c.group=1;check(editStructure(a,o,c),"Clear final use");
     check(shortcutUses(a,id)==0&&a.shortcuts.size()==1,"Unused definition stays reusable");
     check(addShortcut(a,2,id),"Re-add orphan definition");

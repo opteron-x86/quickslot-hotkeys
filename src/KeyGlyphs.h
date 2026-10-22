@@ -29,6 +29,7 @@ inline std::string keyGlyphName(unsigned scan) {
     }
 }
 inline std::string keyLabel(unsigned scan) {
+    if(!scan)return "—";
     if(scan>=256&&scan<304)return padLabel(PadButton((scan-256)%16+1),(scan-256)/16);
     auto name=keyGlyphName(scan);return name.empty()?"Key "+std::to_string(scan):name;
 }

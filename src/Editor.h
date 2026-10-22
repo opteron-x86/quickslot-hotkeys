@@ -22,6 +22,14 @@ class Editor {
     std::array<bool,256> keys_{};
     std::uint64_t candidate_=0;
     std::size_t selected_=0;
+    // Commands execute on the game thread; follow entries when the reordered snapshot arrives.
+    struct OrderSelection {
+        std::uint64_t revision=0;
+        std::size_t group=0;
+        std::optional<Entry> selected,shortcut;
+        bool added=false;
+    };
+    std::optional<OrderSelection> orderSelection_;
     int filter_=0,binding_=-1,tab_=0,placementTarget_=0,controlsPage_=0;
     bool placement_=false,previewOpen_=true;
     int placementPanelTarget_=-1;

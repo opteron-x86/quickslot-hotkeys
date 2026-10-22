@@ -62,7 +62,12 @@ int main(int argc,char** argv)try {
     click("1##group binding");
     for(const auto scan:{59u,65u,66u}){key(scan);check(state.options.keys[0]==scan,"Group binding accepts F1, F7 and F8");click((keyLabel(scan)+"##group binding").c_str());}
     key(60);check(state.options.keys[0]==60,"Binding capture accepts an unreserved function key");
-    click("F2##group binding");key(3);check(state.options.keys[0]==60,"Duplicate binding is rejected");key(1);check(state.open,"Escape cancels key capture without closing editor");
+    click("F2##group binding");key(3);check(state.options.keys[0]==3&&state.options.keys[1]==60,"An occupied group key swaps both bindings");
+    click("Undo");check(state.options.keys[0]==60&&state.options.keys[1]==3,"Undo restores both swapped keys together");
+    click("F2##group binding");key(1);check(state.open&&state.options.keys[0]==0,"Escape clears the group hotkey without closing the editor");
+    check(decodeOptions(encodeOptions(state.options)).keys[0]==0,"The cleared binding survives settings save/load");
+    click("Undo");check(state.options.keys[0]==60,"Clearing a group key supports Undo");
+    click("Clear##group binding");check(state.options.keys[0]==0,"The group header also offers an explicit Clear button");click("Undo");
     click("+ Add group");check(state.options.groupCount==4,"Add group reveals a fourth group");
     click("F2   Combat\n     3 / 16");
     click("Appearance");click("Groups");click("##layout");click("Diamond");check(state.options.layout==2,"Layout picker applies diamond");
@@ -214,7 +219,8 @@ int main(int argc,char** argv)try {
     state=fixture::editor();state.session=session++;frame();frame();
     const auto initialKeys=state.options.keys;
     click("Remove group");check(state.options.groupCount==2&&state.draft.groups[0].entries.empty(),"Real editor removes a populated active group");
-    check(state.options.keys==initialKeys,"Group removal leaves other hotkeys intact");
+    auto afterRemoval=initialKeys;afterRemoval[0]=0;
+    check(state.options.keys==afterRemoval,"Group removal frees its hotkey and leaves other hotkeys intact");
     click("Undo");check(state.options.groupCount==3&&state.draft.active==0&&state.draft.groups[0].entries.size()==3,"Undo restores removed group's entries and focus");
     click("Group down");check(state.options.groupOrder[1]==0&&state.options.keys==initialKeys,"Group ordering changes independently of keys");
     click("Clear group");check(state.draft.groups[0].entries.empty()&&state.options.groupCount==3,"Clear keeps the group available");click("Undo");
@@ -557,5 +563,28 @@ int main(int argc,char** argv)try {
     click("Undo");check(!smartShield(state.draft.groups[0].entries.back().parts[1]),"Undo restores the previous smart component");
     click("New");click("Smart shield");check(probe::find("Hand").empty(),"Standalone shield has no invalid right-hand choice");
     click("Add smart shield");check(smartShield(state.draft.groups[0].entries.back()),"A smart shield can also be saved as its own shortcut");
+    state=fixture::editor();state.session=session++;state.draft.groups[0].reorder(0,2);fixture::rows(state);frame();frame();click("Groups##main");
+    const auto manualOrder=encodeArsenal(state.draft);
+    click("##entry",0);click("Sort A–Z");
+    check(state.draft.groups[0].entries[0].name=="Imperial Sword (Superior)"&&state.draft.groups[0].selected==0,"Sort A-Z changes order while keeping the remembered item");
+    click("Change hand");check(state.draft.groups[0].entries[1].name=="Iron Mace"&&state.draft.groups[0].entries[1].hand==Hand::left,"The highlighted editor row follows its item through sorting");
+    click("Undo");click("Undo");check(encodeArsenal(state.draft)==manualOrder,"Undo restores the original order and remembered selection");
+    click("Auto-sort when adding");check(state.options.autoSort[0]&&state.draft.groups[0].entries[0].name=="Imperial Sword (Superior)","Enabling automatic sorting also sorts existing items");
+    click("Undo");check(!state.options.autoSort[0]&&encodeArsenal(state.draft)==manualOrder,"Enabling auto-sort and sorting the group undo together");
+    click("Auto-sort when adding");
+    click("New");click("Smart weapon");click("Add smart weapon");
+    check(state.draft.groups[0].entries.front().kind==Kind::smartWeapon&&state.draft.groups[0].selected==0,"A new smart shortcut is inserted at its sorted position");
+    click("Change hand");check(state.draft.groups[0].entries.front().hand==Hand::left,"The editor selects the newly created shortcut after auto-sort");
+    click("##entry",0);click("Down");check(state.draft.groups[0].entries[1].kind==Kind::smartWeapon,"Manual reordering remains available with auto-sort enabled");
+    click("Sort A–Z");click("Change hand");
+    check(state.draft.groups[0].entries.front().kind==Kind::smartWeapon&&state.draft.groups[0].entries.front().hand==Hand::right,"The shortcut builder follows the same definition through reorder and sort");
+    click("##entry",3);click("Items");click("##search");
+    for(const auto ch:std::string("Chain Lightning"))frame({{EditorInputType::character,unsigned(ch)}});frame();click("##candidate");click("Add right");
+    check(state.draft.groups[0].entries[1].name=="Chain Lightning"&&state.draft.groups[0].selected==1,"Inventory and spell additions use the automatic order");
+    click("Remove");check(std::none_of(state.draft.groups[0].entries.begin(),state.draft.groups[0].entries.end(),[](const auto& e){return e.name=="Long Bow (Fine)";}),"Automatic sorting preserves the highlighted row for subsequent removal");
+    click("Undo");check(state.draft.groups[0].entries.size()==5,"Undo restores a removed item in the sorted list");
+    click("Controls");click("Keyboard");click("Clear##control binding",0);
+    check(state.options.keys[0]==0,"The Controls page can also clear a group hotkey");
+    click("Undo");check(state.options.keys[0]==2,"Clearing a key in Controls is undoable");
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

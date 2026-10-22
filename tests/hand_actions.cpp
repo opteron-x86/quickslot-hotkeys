@@ -57,7 +57,7 @@ int main()try {
     Arsenal arsenal;Options options;EditCommand command;command.action=EditAction::saveShortcut;command.shortcut=unarmed;
     check(editStructure(arsenal,options,command),"Editor adds a direct action");command.shortcut=right;check(editStructure(arsenal,options,command),"Editor adds an empty right hand");
     command.action=EditAction::hand;command.index=1;command.hand=Hand::left;
-    check(editGroup(arsenal,command)&&arsenal.groups[0].entries[1].name=="Empty left hand","Changing hand updates action and label together");
+    check(editGroup(arsenal,options,command)&&arsenal.groups[0].entries[1].name=="Empty left hand","Changing hand updates action and label together");
     command.action=EditAction::saveShortcut;command.shortcut=combo;check(editStructure(arsenal,options,command),"Editor adds gear plus empty hand");
     command.shortcut=corrupted;check(!editStructure(arsenal,options,command),"Editor refuses malformed action state");
     auto before=encodeArsenal(arsenal);EditHistory history;history.begin(arsenal,options);history.prepare(arsenal,options);

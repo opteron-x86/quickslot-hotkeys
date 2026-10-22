@@ -18,6 +18,27 @@ Entry item(unsigned id,Hand hand=Hand::right) {
 }
 int main()try {
     const auto identity=[](auto oldID,auto& newID){newID=oldID;return true;};
+    {
+        Group group;
+        const std::array<std::string,6> names{"zebra","alpha","ALPHA","Épée","e\xCC\x81pée","Beta"};
+        for(unsigned i=0;i<names.size();++i){auto entry=item(i);entry.name=names[i];if(i==3){entry.form=entry.owner=0;entry.unresolved=true;}group.add(entry);}
+        group.selected=3;const auto revision=group.revision;
+        Selection pending;const auto commit=pending.request(group,0,0);
+        check(group.sortByName()&&group.revision==revision+1,"Sorting changes group order and invalidates stale actions");
+        const std::array<unsigned,6> expected{1,2,5,0,3,4};
+        for(std::size_t i=0;i<expected.size();++i)check(group.entries[i].unique==expected[i],"A-Z ignores case, normalizes Unicode, and preserves equal-name order");
+        check(group.entries[group.selected].unique==3&&group.entries[group.selected].unresolved,"Sorting follows the remembered item even when unavailable");
+        check(!pending.accepts(*commit,group),"An action queued before sorting cannot target a different item");
+        check(!group.sortByName()&&group.revision==revision+1,"Already sorted order is a no-op");
+        auto added=item(9);added.name="aardvark";
+        check(group.add(added,true)&&group.selected==0&&group.entries[0].unique==9,"Auto-sorting an addition selects the newly added item");
+        check(!group.add(added,true)&&group.selected==0&&group.entries.size()==7,"Adding an existing item selects it without duplicating it");
+        auto restored=decode(encode(group),identity);
+        check(restored.selected==group.selected&&encode(restored)==encode(group),"Sorted order, exact identities and selection survive save/load");
+        group.reorder(0,group.entries.size()-1);added.unique=10;added.name="Axe";group.add(added);
+        check(group.entries.back().unique==10,"Auto-sort off retains manual order and appends additions");
+        Group empty;check(!empty.sortByName(),"Sorting an empty group is safe");
+    }
     Arsenal a;
     for(unsigned i=0;i<3;++i)for(unsigned j=0;j<3;++j)a.groups[i].add(item(i*10+j));
     a.groups[0].selected=0;a.groups[1].selected=1;a.groups[2].selected=2;
@@ -115,9 +136,24 @@ int main()try {
     check(equipmentProgress(P::unequipping,true,true,true,false,true)==R::timeout,"A blocked unequip is reported, not forced");
 
     Options bindings;bindings.keys[0]=3;bindings.keys[1]=3;bindings.keys[2]=4;sanitizeOptions(bindings);
-    check(bindings.keys[0]==3&&bindings.keys[1]==2&&bindings.keys[2]==4,"Resolve duplicate keys while preserving the first binding");
+    check(bindings.keys[0]==3&&bindings.keys[1]==0&&bindings.keys[2]==4,"Clear duplicate keys while preserving the first binding");
     bindings.keys[0]=14;bindings.keys[1]=211;bindings.keys[2]=1;sanitizeOptions(bindings);
-    for(auto key:bindings.keys)check(validGroupKey(key),"Editing and modifier keys cannot become group bindings");
+    for(auto key:bindings.keys)check(!key||validGroupKey(key),"Editing and modifier keys cannot become group bindings");
+    {
+        Options keys;
+        check(assignGroupKey(keys,0,3)&&keys.keys[0]==3&&keys.keys[1]==2,"Assigning an occupied group key swaps the bindings");
+        check(assignGroupKey(keys,0,0)&&decodeOptions(encodeOptions(keys)).keys[0]==0,"An explicitly cleared hotkey survives settings reload");
+        check(assignGroupKey(keys,0,2)&&keys.keys[1]==0,"An unbound group can take another group's key without a temporary binding");
+        check(assignGroupKey(keys,0,5)&&keys.keys[3]==0,"An inactive group's key is freed instead of blocking reassignment");
+        check(!assignGroupKey(keys,0,keys.editorKey)&&!assignGroupKey(keys,0,1),"Editor and reserved keys remain protected");
+        Arsenal groups;keys.autoSort[1]=true;
+        check(removeGroup(groups,keys,1)&&!keys.keys[1]&&!keys.autoSort[1],"Removing a group frees its key and resets its sorting preference");
+        keys.autoSort[0]=true;
+        const auto restored=decodeOptions(encodeOptions(keys));
+        check(restored.autoSort==keys.autoSort&&restored.keys==keys.keys,"Per-group sorting and unbound keys persist together");
+        auto oldSettings=Json::parse(encodeOptions(keys));oldSettings.erase("autoSort");
+        check(decodeOptions(oldSettings.dump()).autoSort==Options{}.autoSort,"Existing settings default to manual ordering");
+    }
     std::cout<<"PASS: "<<checks<<" checks (groups, storage, quick editing, unequip, hand-move cancellation).\n";
     return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

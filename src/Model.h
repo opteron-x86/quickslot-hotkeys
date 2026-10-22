@@ -94,11 +94,14 @@ struct Group {
     std::vector<Entry> entries;
     std::size_t selected=0;
     std::uint64_t revision=0;
-    bool add(Entry value) {
+    bool sortByName();
+    bool add(Entry value,bool autoSort=false) {
         const auto it=std::find_if(entries.begin(),entries.end(),[&](const Entry& e){return e.shortcut&&value.shortcut?e.shortcut==value.shortcut:e.same(value);});
         if(it!=entries.end()) { selected=std::size_t(it-entries.begin());++revision;return false; }
         if(entries.size()>=limit)return false;
-        entries.push_back(std::move(value));selected=entries.size()-1;++revision;return true;
+        entries.push_back(std::move(value));selected=entries.size()-1;++revision;
+        if(autoSort)sortByName();
+        return true;
     }
     bool remove() {
         if(entries.empty())return false;
@@ -126,12 +129,12 @@ struct Arsenal {
     Group& current(){return groups[active];}
     const Group& current()const{return groups[active];}
     std::size_t size()const{std::size_t total=0;for(const auto& group:groups)total+=group.entries.size();return total;}
-    bool move(std::size_t source,std::size_t index,std::size_t target) {
+    bool move(std::size_t source,std::size_t index,std::size_t target,bool autoSort=false) {
         if(source>=count||target>=count||source==target||index>=groups[source].entries.size())return false;
         auto& from=groups[source];auto& to=groups[target];const auto entry=from.entries[index];
         const bool exists=std::any_of(to.entries.begin(),to.entries.end(),[&](const Entry& e){return e.shortcut&&entry.shortcut?e.shortcut==entry.shortcut:e.same(entry);});
         if(!exists&&to.entries.size()>=Group::limit)return false;
-        to.add(entry);
+        to.add(entry,autoSort);
         const auto remembered=from.selected;from.selected=index;from.remove();
         if(remembered!=index)from.selected=remembered>index?remembered-1:remembered;
         active=target;return true;
@@ -237,6 +240,7 @@ struct Options {
     std::size_t groupCount=3;
     std::array<std::size_t,Arsenal::count> groupOrder{0,1,2,3,4,5,6,7};
     std::array<GroupMode,Arsenal::count> groupModes{};
+    std::array<bool,Arsenal::count> autoSort{};
     bool skipEmpty=false,menuCapture=true;
     bool voiceHotkey=true;
     float shoutCharge=1.2f;
@@ -315,12 +319,15 @@ inline SelectionAction selectionAction(const Entry& e,const Selection::Commit& c
 }
 inline bool selectsConsumable(const Entry& e,const Selection::Commit& c,const Options& o){return isConsumable(e)&&selectionAction(e,c,o)==SelectionAction::select;}
 inline bool groupVisible(const Options& o,std::size_t id){return std::find(o.groupOrder.begin(),o.groupOrder.begin()+std::min(o.groupCount,Arsenal::count),id)!=o.groupOrder.begin()+std::min(o.groupCount,Arsenal::count);}
+inline void sortNewlyEnabledGroups(Arsenal& a,const Options& previous,const Options& next) {
+    for(std::size_t id=0;id<Arsenal::count;++id)if(next.autoSort[id]&&!previous.autoSort[id])a.groups[id].sortByName();
+}
 inline bool removeGroup(Arsenal& a,Options& o,std::size_t id) {
     if(o.groupCount<=1||!groupVisible(o,id))return false;
     const auto it=std::find(o.groupOrder.begin(),o.groupOrder.end(),id);
     std::rotate(it,it+1,o.groupOrder.end());--o.groupCount;
     auto& g=a.groups[id];g.entries.clear();g.selected=0;++g.revision;
-    o.groupModes[id]=GroupMode::browse;
+    o.groupModes[id]=GroupMode::browse;o.keys[id]=0;o.autoSort[id]=false;
     if(a.active==id)a.active=o.groupOrder[0];
     return true;
 }
@@ -356,9 +363,26 @@ inline std::string rowStatus(const Row& row) {
     return text;
 }
 inline std::string displayName(const Entry& e){return isHandAction(e)||isSmartEquipment(e)||e.kind==Kind::smartPotion?std::string(tr(e.name.c_str())):e.name;}
+inline bool Group::sortByName() {
+    std::vector<std::size_t> order;std::vector<std::string> names;
+    for(std::size_t i=0;i<entries.size();++i){order.push_back(i);names.push_back(foldedText(displayName(entries[i])));}
+    std::stable_sort(order.begin(),order.end(),[&](auto a,auto b){return names[a]<names[b];});
+    bool changed=false;for(std::size_t i=0;i<order.size();++i)changed|=order[i]!=i;
+    if(!changed)return false;
+    std::vector<Entry> sorted;sorted.reserve(entries.size());
+    const auto remembered=selected;
+    for(std::size_t i=0;i<order.size();++i){if(order[i]==remembered)selected=i;sorted.push_back(std::move(entries[order[i]]));}
+    entries=std::move(sorted);++revision;return true;
+}
 inline std::string entryLabel(const Entry& e) { return handName(e)+": "+e.name; }
 inline bool validGroupKey(unsigned key) {
     return key>=2&&key<=255&&key!=14&&key!=29&&key!=42&&key!=54&&key!=56&&key!=157&&key!=184&&key!=203&&key!=205&&key!=211;
+}
+inline bool assignGroupKey(Options& o,std::size_t group,unsigned key) {
+    if(group>=Arsenal::count||(key&&(!validGroupKey(key)||key==o.editorKey)))return false;
+    if(key)for(std::size_t id=0;id<Arsenal::count;++id)if(id!=group&&o.keys[id]==key)
+        o.keys[id]=groupVisible(o,id)?o.keys[group]:0;
+    o.keys[group]=key;return true;
 }
 inline bool flexibleHand(const Entry& e){return !isConsumable(e)&&!isVoice(e)&&e.kind!=Kind::combo&&e.kind!=Kind::ammo&&e.kind!=Kind::smartAmmo&&e.kind!=Kind::unarmed&&!e.twoHanded&&e.kind!=Kind::shield&&e.kind!=Kind::torch&&!smartShield(e);}
 inline Hand normalizedHand(const Entry& e,Hand hand){return isConsumable(e)||isVoice(e)||e.kind==Kind::ammo||e.kind==Kind::smartAmmo||e.kind==Kind::unarmed||e.twoHanded?Hand::right:e.kind==Kind::shield||e.kind==Kind::torch||smartShield(e)?Hand::left:hand;}

@@ -47,19 +47,19 @@ inline bool apply(EditorState& s,const EditCommand& c,EditHistory& history) {
         if(!changed)return false;++s.restoreSerial;
     }else {
         history.prepare(s.draft,s.options);
-        if(c.action==EditAction::settings)s.options=c.options;
+        if(c.action==EditAction::settings){auto options=c.options;sanitizeOptions(options);sortNewlyEnabledGroups(s.draft,s.options,options);s.options=std::move(options);}
         else if(c.action==EditAction::refresh)++s.catalogVersion;
         else if(c.action==EditAction::add) {
             if(c.catalogVersion!=s.catalogVersion){history.finish(false,false,0);return false;}
             auto it=std::find_if(s.catalog.begin(),s.catalog.end(),[&](const auto& v){return v.id==c.candidate;});
             if(it==s.catalog.end()){history.finish(false,false,0);return false;}
-            auto e=it->entry;e.hand=normalizedHand(e,c.hand);s.draft.groups[c.group].add(e);
+            auto e=it->entry;e.hand=normalizedHand(e,c.hand);s.draft.groups[c.group].add(e,s.options.autoSort[c.group]);
         }else if(c.action==EditAction::saveCombination) {
             const auto pair=composeCombination(s,c,[&](std::uint64_t id,Hand hand)->std::optional<Entry>{const auto* item=catalogItem(s,id);if(!item)return {};auto e=item->entry;e.hand=hand;return e;});
             if(!pair){history.finish(false,false,0);return false;}
             auto save=c;save.action=EditAction::saveShortcut;save.shortcut=*pair;
             if(!editStructure(s.draft,s.options,save)){history.finish(false,false,0);return false;}
-        }else if(!editStructure(s.draft,s.options,c)&&!editGroup(s.draft,c)){history.finish(false,false,0);return false;}
+        }else if(!editStructure(s.draft,s.options,c)&&!editGroup(s.draft,s.options,c)){history.finish(false,false,0);return false;}
         history.finish(c.action!=EditAction::select&&c.action!=EditAction::refresh,c.continuous,double(s.revision));
     }
     normalizeGroupModes(s.options,s.draft);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;rows(s);return true;

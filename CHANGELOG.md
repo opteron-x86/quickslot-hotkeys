@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.1
+
+- Fixed DirectX shader-state cleanup that could crash when used alongside another menu mod.
+- Updated katana and nodachi icon artwork.
+- Clear a group hotkey with **Clear**, or click its binding and press **Esc**. Assigning a key used by another group swaps the two bindings; removed groups release their keys.
+- Added **Sort A–Z** and an optional **Auto-sort when adding** setting for each group. Sorting ignores case, preserves the remembered item and supports Undo.
+
+Updating: install the DLL and atlas together. Existing groups keep their order until sorting is requested; auto-sort starts disabled.
+
 ## 0.10.0
 
 This standard release brings together the features and refinements from the 0.9.0 release candidates.

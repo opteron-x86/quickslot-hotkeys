@@ -25,7 +25,7 @@ struct EditorState {
     std::string message;
     std::vector<std::string> presets;
 };
-enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut};
+enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup};
 struct EditCommand {
     EditAction action=EditAction::select;
     std::uint64_t session=0,revision=0,catalogVersion=0,candidate=0;
@@ -86,7 +86,8 @@ template<class Capture> std::optional<Entry> composeCombination(const EditorStat
     return entry;
 }
 inline bool editStructure(Arsenal& a,Options& o,const EditCommand& c) {
-    if(c.action==EditAction::addShortcut)return addShortcut(a,c.group,c.libraryID);
+    if(c.action==EditAction::addShortcut&&c.group<Arsenal::count)return addShortcut(a,c.group,c.libraryID,o.autoSort[c.group]);
+    if(c.action==EditAction::sortGroup&&c.group<Arsenal::count)return a.groups[c.group].sortByName();
     if(c.action==EditAction::deleteShortcut)return deleteShortcut(a,c.libraryID);
     if(c.action==EditAction::addGroup)return addGroup(a,o);
     if(c.action==EditAction::removeGroup)return removeGroup(a,o,c.group);
@@ -106,15 +107,15 @@ inline bool editStructure(Arsenal& a,Options& o,const EditCommand& c) {
         return id&&updateShortcut(a,id,e);
     }
     if(g.entries.size()>=Group::limit)return false;
-    const auto id=rememberShortcut(a,e);return id&&addShortcut(a,c.group,id);
+    const auto id=rememberShortcut(a,e);return id&&addShortcut(a,c.group,id,o.autoSort[c.group]);
 }
-inline bool editGroup(Arsenal& a,const EditCommand& c) {
+inline bool editGroup(Arsenal& a,const Options& o,const EditCommand& c) {
     if(c.group>=Arsenal::count)return false;
     auto& group=a.groups[c.group];
     if(c.action==EditAction::select){a.active=c.group;return true;}
     if(c.index>=group.entries.size())return false;
     if(c.action==EditAction::reorder)return group.reorder(c.index,c.target);
-    if(c.action==EditAction::move)return a.move(c.group,c.index,c.target);
+    if(c.action==EditAction::move&&c.target<Arsenal::count)return a.move(c.group,c.index,c.target,o.autoSort[c.target]);
     if(c.action==EditAction::remove) {
         const auto remembered=group.selected;group.selected=c.index;group.remove();
         if(remembered!=c.index)group.selected=remembered>c.index?remembered-1:remembered;

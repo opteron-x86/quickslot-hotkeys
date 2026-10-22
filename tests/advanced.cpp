@@ -28,9 +28,11 @@ int main(int argc,char** argv)try {
     check(encodeArsenal(decodeArsenal(encodeArsenal(a),identity))==encodeArsenal(a),"Current save round-trips exactly");
     a.active=4;Options o;o.groupCount=5;const auto keys=o.keys;EditHistory history;history.begin(a,o);history.prepare(a,o);
     check(removeGroup(a,o,4)&&o.groupCount==4&&a.active!=4,"Active empty fifth group can be removed");history.finish(true,false,0);
-    check(o.keys==keys,"Removing a group preserves every binding");check(history.undo(a,o)&&a.active==4&&o.groupCount==5,"Undo restores active group and layout");
+    auto removedKeys=keys;removedKeys[4]=0;
+    check(o.keys==removedKeys,"Removing a group frees only its own hotkey");check(history.undo(a,o)&&a.active==4&&o.groupCount==5&&o.keys==keys,"Undo restores active group, layout and hotkey");
     const auto populated=a.groups[2];history.prepare(a,o);check(removeGroup(a,o,2)&&a.groups[2].entries.empty()&&!groupVisible(o,2),"Any populated group can be removed");history.finish(true,false,1);
-    check(o.keys==keys&&o.groupOrder[2]==3,"Later groups compact their layout without changing IDs or hotkeys");
+    removedKeys=keys;removedKeys[2]=0;
+    check(o.keys==removedKeys&&o.groupOrder[2]==3,"Later groups compact their layout without changing their IDs or hotkeys");
     check(history.undo(a,o)&&encode(a.groups[2])==encode(populated),"Undo restores every removed consumable");
     check(reorderGroup(o,3,-1)&&o.groupOrder[2]==3&&o.keys==keys,"Reordering groups changes only display order");
     for(unsigned count=8;count>0;--count) {
@@ -43,7 +45,7 @@ int main(int argc,char** argv)try {
     }
     Options removed;Arsenal tiny;check(removeGroup(tiny,removed,1)&&removeGroup(tiny,removed,2)&&!removeGroup(tiny,removed,0),"Retain at least one group");
     check(addGroup(tiny,removed)&&removed.groupCount==2&&groupVisible(removed,tiny.active),"Add reuses a hidden group ID");
-    removed.keys[0]=removed.keys[1];sanitizeOptions(removed);check(removed.keys[0]==3&&removed.keys[1]!=3,"A removed group's hotkey can be reassigned without rejecting the user's binding");
+    removed.keys[0]=removed.keys[1]=3;sanitizeOptions(removed);check(removed.keys[0]==3&&removed.keys[1]==0,"A hidden group's hotkey can be reassigned without rejecting the user's binding");
     o.skipEmpty=true;o.selectionSpeed=.25f;o.menuCapture=false;
     check(encodeOptions(decodeOptions(encodeOptions(o)))==encodeOptions(o),"New behavior and group order persist");
 

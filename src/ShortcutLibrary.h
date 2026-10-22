@@ -44,14 +44,16 @@ inline bool updateShortcut(Arsenal& a,std::uint32_t id,Entry entry) {
     }
     return true;
 }
-inline bool addShortcut(Arsenal& a,std::size_t group,std::uint32_t id) {
+inline bool addShortcut(Arsenal& a,std::size_t group,std::uint32_t id,bool autoSort=false) {
     const auto* saved=libraryShortcut(a,id);if(!saved||group>=Arsenal::count)return false;
     auto& target=a.groups[group];
     const auto it=std::find_if(target.entries.begin(),target.entries.end(),[&](const auto& e){return e.shortcut==id;});
     if(it!=target.entries.end()){target.selected=std::size_t(it-target.entries.begin());++target.revision;return true;}
     if(target.entries.size()>=Group::limit)return false;
 
-    target.entries.push_back(*saved);target.selected=target.entries.size()-1;++target.revision;return true;
+    target.entries.push_back(*saved);target.selected=target.entries.size()-1;++target.revision;
+    if(autoSort)target.sortByName();
+    return true;
 }
 inline bool deleteShortcut(Arsenal& a,std::uint32_t id) {
     if(!libraryShortcut(a,id))return false;

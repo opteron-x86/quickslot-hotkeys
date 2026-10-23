@@ -5,6 +5,7 @@
 #include "Layout.h"
 #include "MenuAPI.h"
 #include "EditorLaunch.h"
+#include "EditorTextInput.h"
 #include "Presets.h"
 #include "VoiceAction.h"
 #include <iostream>
@@ -292,6 +293,55 @@ int main()try {
     EditorLaunch launch;launch.request(10);check(launch.poll(11,true,false)==EditorLaunch::Result::wait,"Wait for caller to release input");
     check(launch.poll(12,true,true)==EditorLaunch::Result::open,"Open after handoff");
     launch.request(20);check(launch.poll(23,true,false)==EditorLaunch::Result::cancel,"Blocked handoff expires");
+    {
+        EditorTextInput textInput;using Change=EditorTextInput::Change;
+        int count=0,acquires=0,releases=0;
+        const auto update=[&](bool editorOpen,bool menuOpen) {
+            const auto change=textInput.update(editorOpen,menuOpen,count);
+            if(change==Change::acquire||change==Change::restore){++count;++acquires;}
+            else if(change==Change::release){--count;++releases;}
+            return change;
+        };
+        for(unsigned frame=0;frame<10;++frame)
+            check(update(true,false)==Change::none&&count==0,"Queued editor opening cannot claim text input before its menu is on the stack");
+        check(update(false,false)==Change::none&&acquires==0&&releases==0,"Cancelled opening never acquires or releases text input");
+        check(update(false,true)==Change::none&&count==0,"Late menu show after cancellation cannot claim text input");
+        check(update(true,true)==Change::acquire&&count==1,"Visible editor claims text input once");
+        for(unsigned frame=0;frame<10;++frame)
+            check(update(true,true)==Change::none&&count==1&&acquires==1,"Repeated menu notifications and ticks do not grow the text-entry count");
+        count=0;
+        check(update(true,true)==Change::restore&&count==1,"External counter reset recovers typing without reopening the editor");
+        check(update(true,true)==Change::none&&count==1,"Recovery claims exactly one reference");
+        count=0;
+        check(update(true,true)==Change::restore&&count==1,"A second reset in the same session also recovers");
+        ++count;
+        check(update(true,true)==Change::none&&count==2,"Another text-input owner can coexist without triggering recovery");
+        check(update(false,true)==Change::release&&count==1,"Closing while hide is queued releases only the editor's reference");
+        for(const bool menuOpen:{true,false})
+            check(update(false,menuOpen)==Change::none&&count==1,"Duplicate close and delayed hide preserve another owner's reference");
+        check(update(true,true)==Change::acquire&&count==2,"Deferred acquisition adds its own reference when another owner is already active");
+        --count;
+        check(update(true,true)==Change::none&&count==1,"Another owner's balanced release leaves the editor claim intact");
+        check(update(true,false)==Change::release&&count==0,"Unexpected menu removal releases the editor's reference");
+        check(update(false,false)==Change::none&&count==0,"Closing after menu removal cannot release twice");
+        for(unsigned cycle=0;cycle<6;++cycle) {
+            check(update(true,false)==Change::none&&count==0,"Reopening waits for the menu again");
+            check(update(true,true)==Change::acquire&&count==1,"Each new session acquires one reference");
+            count=0;
+            check(update(false,true)==Change::none&&count==0,"Reset immediately before close cannot underflow the shared counter");
+        }
+        count=-1;
+        check(update(true,true)==Change::none&&count==-1,"An unavailable text-entry counter is left untouched");
+        count=0;
+        check(update(true,true)==Change::acquire&&count==1,"Text input can be acquired when the counter becomes available");
+        count=-1;
+        check(update(false,true)==Change::none&&count==-1,"Unavailable counter on shutdown does not receive a release");
+        count=std::numeric_limits<std::int8_t>::max();
+        check(update(true,true)==Change::none&&count==127,"A saturated engine counter cannot overflow during acquisition");
+        --count;
+        check(update(true,true)==Change::acquire&&count==127,"Acquisition retries after counter capacity becomes available");
+        check(update(false,true)==Change::release&&count==126,"Release at counter capacity still preserves other references");
+    }
     ControllerInput controller;Options controls;
     controller.button(PadButton::up,true,true,controls,true,false);
     auto result=controller.button(PadButton::start,true,true,controls,true,false,false,true,false);

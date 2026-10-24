@@ -1,8 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.10.3
 
-- The editor now claims text input after its menu opens and restores the claim if another plugin clears the shared text-entry counter. Closing after a cleared claim no longer requests an extra release. This addresses untypable fields with IME integrations (GitHub #3); in-game confirmation is pending.
+- Fixed editor text fields becoming untypable when an IME integration clears Skyrim's text-entry counter during opening. The editor now waits until its menu is open before claiming text input, and restores a cleared claim while the editor remains open ([#3](https://github.com/opteron-x86/quickslot-hotkeys/issues/3), [#4](https://github.com/opteron-x86/quickslot-hotkeys/pull/4)).
+- Guarded cleanup so closing after a cleared claim does not request an extra release. Recovery warnings are limited to once per editor session.
+- Documented the engine character-input queue used by the editor for IME integrations.
+
+In-game verification: the SimpleIME author confirmed nine ownership-test cycles with its Quickslot declaration disabled, plus three end-to-end Chinese-input cycles with its released routing declaration enabled. See the [verification notes](https://github.com/opteron-x86/quickslot-hotkeys/pull/4#issuecomment-6380918875).
+
+Updating: keep your settings and presets. SimpleIME's engine-input routing declaration is still needed for committed Chinese text to reach the editor.
 
 ## 0.10.2
 

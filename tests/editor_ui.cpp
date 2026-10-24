@@ -2,6 +2,7 @@
 #include "EditorFixture.h"
 #include "UiProbe.h"
 #include "Layout.h"
+#include "EditorTextInput.h"
 #include <iostream>
 #include <source_location>
 using namespace quickslot;
@@ -19,10 +20,18 @@ int main(int argc,char** argv)try {
     unsigned char* pixels;int width,height;io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height);
     Editor editor;auto state=fixture::editor();editor.beginSession(state);std::vector<EditCommand> commands;
     EditHistory history;std::uint64_t historySession=0;
+    EditorTextInput textInput;int textEntryCount=0;
+    const auto syncTextInput=[&](bool open) {
+        const auto change=textInput.update(open,open,textEntryCount);
+        if(change==EditorTextInput::Change::acquire||change==EditorTextInput::Change::restore)++textEntryCount;
+        else if(change==EditorTextInput::Change::release)--textEntryCount;
+        check(textEntryCount==0||textEntryCount==1,"Real editor frames keep one balanced text-input claim");
+    };
     const auto frame=[&](const std::vector<EditorInput>& events=std::vector<EditorInput>{}) {
-        if(historySession!=state.session){historySession=state.session;history.begin(state.draft,state.options);}
+        if(historySession!=state.session){syncTextInput(false);textInput.beginSession(state.session);historySession=state.session;history.begin(state.draft,state.options);}
         editor.beginSession(state);editor.input(events);probe::clear();ImGui::NewFrame();commands=editor.draw(state,hud,1);ImGui::Render();
         for(const auto& command:commands)check(fixture::apply(state,command,history),"UI produces applicable command");
+        textInput.focus(state.session,editor.wantsTextInput());syncTextInput(state.open);
     };
     const auto mouse=[&](ImVec2 point){frame({{EditorInputType::move,0,false,point.x-io.MousePos.x,point.y-io.MousePos.y}});};
     const auto click=[&](const std::string& label,std::size_t index=0,std::source_location at=std::source_location::current()){
@@ -46,6 +55,22 @@ int main(int argc,char** argv)try {
     };
     const auto key=[&](unsigned scan){frame({{EditorInputType::key,scan,true}});frame({{EditorInputType::key,scan,false}});};
     frame();frame();
+    check(!editor.wantsTextInput()&&textEntryCount==0,"Opening the editor leaves the IME disabled until a text field is active");
+    mouse(probe::one("##search").rect.GetCenter());frame({{EditorInputType::button,0,true}});
+    check(editor.wantsTextInput()&&textEntryCount==1,"Clicking search requests text input in the activation frame");
+    std::vector<EditorInput> firstCharacter{{EditorInputType::button,0,false}};
+    if(textEntryCount>0)firstCharacter.push_back({EditorInputType::character,'z'});
+    frame(firstCharacter);frame();
+    check(probe::find("##candidate").empty(),"The first character after focusing search arrives through a gated engine-input channel");
+    key(14);
+    key(15);
+    check(!editor.wantsTextInput()&&textEntryCount==0,"Tabbing from search to a non-text control releases the claim");
+    frame({{EditorInputType::key,42,true},{EditorInputType::key,15,true}});
+    frame({{EditorInputType::key,15,false},{EditorInputType::key,42,false}});frame();
+    check(editor.wantsTextInput()&&textEntryCount==1,"Shift-Tab back to search reacquires text input");
+    mouse(probe::one("Items").rect.GetCenter());frame({{EditorInputType::button,0,true}});
+    check(!editor.wantsTextInput()&&textEntryCount==0,"Clicking a non-text control releases text input in the same frame");
+    frame({{EditorInputType::button,0,false}});
     check(probe::one("Close").rect.Max.y<900,"Apply is visible at normal resolution");
     click("##filter");click("Spells");click("##search");for(const auto ch:std::string("healing"))frame({{EditorInputType::character,unsigned(ch)}});frame();
     check(probe::find("##candidate").size()==1,"Search filters the rendered catalog");
@@ -60,6 +85,7 @@ int main(int argc,char** argv)try {
     for(const auto ch:std::string("Combat"))frame({{EditorInputType::character,unsigned(ch)}});key(28);
     check(state.options.names[0]=="Combat","Typing renames a group through settings commands");
     click("1##group binding");
+    check(!editor.wantsTextInput()&&textEntryCount==0,"Key binding captures raw keys without an IME claim");
     for(const auto scan:{59u,65u,66u}){key(scan);check(state.options.keys[0]==scan,"Group binding accepts F1, F7 and F8");click((keyLabel(scan)+"##group binding").c_str());}
     key(60);check(state.options.keys[0]==60,"Binding capture accepts an unreserved function key");
     click("F2##group binding");key(3);check(state.options.keys[0]==3&&state.options.keys[1]==60,"An occupied group key swaps both bindings");
@@ -197,7 +223,11 @@ int main(int argc,char** argv)try {
     frame({{EditorInputType::key,42,true},{EditorInputType::key,43,true},{EditorInputType::character,'|'},
            {EditorInputType::key,43,false},{EditorInputType::key,42,false}});frame();
     check(state.open,"Typing a pipe into text input does not close the editor");
+    check(textEntryCount==1,"Text typing keeps the field's claim active");
+    state=fixture::editor();state.session=session++;frame();
+    check(!editor.wantsTextInput()&&textEntryCount==0,"A new session does not inherit the previous session's active text field");
     click("Close");
+    check(textEntryCount==0,"Closing the editor leaves no text-input reference");
     for(const auto& [filter,query,kind]:std::vector<std::tuple<const char*,const char*,Kind>>{
         {"Potions","Potion of Healing",Kind::potion},{"Food","Vegetable Soup",Kind::food},
         {"Poisons","Weak Poison",Kind::poison},{"Scrolls","Scroll of Fireball",Kind::scroll},
@@ -320,6 +350,7 @@ int main(int argc,char** argv)try {
         check(probe::find("Shortcuts").empty(),"Group editing has no separate shortcuts tab");
         click("##group mode");key(1);check(state.open&&ImGui::GetCurrentContext()->OpenPopupStack.empty(),"Escape dismisses a group popup without closing the editor");
         click("New");click("Combination");click("##right component");frame();check(io.WantTextInput,"Opening a hand picker focuses search");
+        check(editor.wantsTextInput()&&textEntryCount==1,"Auto-focused hand search requests engine text input");
         for(const auto ch:std::string("healing"))frame({{EditorInputType::character,unsigned(ch)}});
         check(probe::find("Flames").empty()&&!probe::find("Healing").empty(),"Hand picker searches known spells directly");
         click("Healing");click("Both hands");click("Add combination");
@@ -361,8 +392,10 @@ int main(int argc,char** argv)try {
     click("##pad modifier0");click("L1");check(state.options.controllerGroups[0].modifier==PadButton::lb,"Controller modifiers apply immediately");
     click("Groups##main");click("Items");padKey(PadButton::up);
     check(ImGui::GetCurrentContext()->NavId==probe::one("##Group name").id,"D-pad reaches the group name field");padKey(PadButton::a);
+    check(!editor.wantsTextInput()&&textEntryCount==0,"Controller on-screen keyboard buttons do not enable the OS IME");
     click("Clear text");click("a");click("b");click("c");click("Done");
     check(state.options.names[0]=="abc","On-screen keyboard renames the active group");
+    check(!editor.wantsTextInput()&&textEntryCount==0,"Returning controller navigation to a text field does not activate text input");
     check(probe::find("Edit text##1").empty()&&probe::find("Edit text##0").empty(),"Text fields have no separate edit buttons");
     click("Items");padKey(PadButton::down);
     check(ImGui::GetCurrentContext()->NavId==probe::one("##search").id,"D-pad enters inventory search directly");padKey(PadButton::a);

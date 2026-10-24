@@ -5,11 +5,18 @@
 namespace quickslot {
 
 class EditorTextInput {
-    bool owned_=false;
+    bool owned_=false,wanted_=false;
+    std::uint64_t session_=0;
 public:
     enum class Change {none,acquire,restore,release};
+    void beginSession(std::uint64_t session){session_=session;wanted_=false;}
+    bool focus(std::uint64_t session,bool wanted) {
+        if(!session_||session!=session_||wanted_==wanted)return false;
+        wanted_=wanted;return true;
+    }
     Change update(bool editorOpen,bool menuOpen,int count) {
-        if(!editorOpen||!menuOpen||count<0) {
+        if(!editorOpen){session_=0;wanted_=false;}
+        if(!editorOpen||!menuOpen||!wanted_||count<0) {
             const bool release=owned_&&count>0;
             owned_=false;
             return release?Change::release:Change::none;

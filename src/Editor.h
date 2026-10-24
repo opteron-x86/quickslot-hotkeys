@@ -53,6 +53,7 @@ public:
     void beginSession(const EditorState&);
     void input(const std::vector<EditorInput>&);
     bool controllerPointer() const{return pointerMode_;}
+    bool wantsTextInput() const;
     std::vector<EditCommand> draw(const EditorState&,Hud&,double now);
 };
 }

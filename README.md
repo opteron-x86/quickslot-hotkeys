@@ -105,6 +105,8 @@ Changes save automatically. **Undo** and **Revert session** restore editor state
 
 Choose a menu language under **Appearance → Style**. Translation files belong in `Data/Quickslot/translations`; the English reference and format guide are included. Fonts support UTF-8 names with Cyrillic, Greek and CJK fallbacks. Theme fonts, including Futura, take priority. Install extra fallback fonts in `Data/Quickslot/fonts/fallback` and restart.
 
+With an IME, editing a text field enables composition. Leaving the field releases text input so navigation and key binding can use normal editor keys.
+
 MO2 stores generated settings in Overwrite or the configured output mod. Keep these files when updating. Close Skyrim before replacing the DLL or atlas, then restart.
 
 ## Builds and support
@@ -115,6 +117,6 @@ For bug reports, include reproduction steps, the game version and `Quickslot.log
 
 The [menu API](src/API/README.md) supports editor opening, closing, state queries and shortcut control.
 
-For IME integrations, `QuickslotEditor` receives characters from the engine input queue (`RE::CharEvent`) and forwards them to ImGui. Text input is claimed for the editor window after its menu is on the stack, and restored if the shared counter is cleared while the editor remains open.
+For IME integrations, `QuickslotEditor` receives characters from the engine input queue (`RE::CharEvent`) and forwards them to ImGui. Text input is claimed only while an editable field is active and the editor menu is on the stack. A cleared counter is restored while that field remains active; leaving the field or closing the editor releases the claim. IME plugins must deliver committed text through this engine queue.
 
 Item artwork was supplied by the mod author. Frame/font credits and dependency notices are in [licenses](licenses). Dependency revisions are recorded in `vendor/dependencies.json`.

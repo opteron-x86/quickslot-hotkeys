@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- The editor now claims text input after its menu opens and restores the claim if another plugin clears the shared text-entry counter. Closing after a cleared claim no longer requests an extra release. This addresses untypable fields with IME integrations (GitHub #3); in-game confirmation is pending.
+- Fixed untypable editor fields when an IME plugin clears the shared text-entry counter during opening. Text input is acquired after the menu opens, a cleared claim can recover, and closing cannot release a zero counter again (GitHub #3). The SimpleIME author confirmed the ownership fix in-game.
+- Text input is now claimed only while an editable field is active, allowing IME users to navigate and bind keys without starting composition elsewhere in the editor. Field changes retain counter recovery and balanced release; reopening starts without an active text field (GitHub #5). In-game validation of field-focused claiming is pending.
 
 ## 0.10.2
 

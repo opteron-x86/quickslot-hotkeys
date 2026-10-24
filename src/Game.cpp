@@ -1446,8 +1446,13 @@ void Game::draw(bool editing) {
     {std::scoped_lock lock(mutex_);if(!initialized_||editing!=editor_.open)return;snapshot=snapshot_;options=options_;
         if(editing){editor=editor_;input.swap(editorInput_);}}
     if(snapshot.visible||editing||REL::Module::IsVR()) {
-        auto commands=renderHud(snapshot,options,editing?&editor:nullptr,input);
-        for(auto& command:commands)SKSE::GetTaskInterface()->AddTask([this,c=std::move(command)]{edit(c);});
+        auto frame=renderHud(snapshot,options,editing?&editor:nullptr,input);
+        for(auto& command:frame.commands)SKSE::GetTaskInterface()->AddTask([this,c=std::move(command)]{edit(c);});
+        if(editing) {
+            std::scoped_lock lock(mutex_);
+            if(editorTextInput_.focus(editor.session,frame.wantsTextInput)&&!tickQueued_.exchange(true))
+                SKSE::GetTaskInterface()->AddTask([this]{tickQueued_=false;tick();});
+        }
     }
 }
 void Game::drawVR() {
@@ -1488,6 +1493,7 @@ void Game::openEditor() {
     try {
         log::info("Editor opening: building equipment catalog");
         cancel();groupRecall_.reset();const auto session=editor_.session+1;editor_=EditorState{};editor_.session=session;editor_.open=true;
+        editorTextInput_.beginSession(session);
         editor_.vr=REL::Module::IsVR();editor_.controller=controllerLast_&&!editor_.vr;editor_.draft=arsenal_;editor_.options=options_;editor_.soulsSlowdown=GetModuleHandleW(L"SkyrimSoulsRE.dll")!=nullptr;revealSavedGroups(editor_.options,editor_.draft);
         collectShortcuts(editor_.draft);
         editHistory_.begin(editor_.draft,editor_.options);
@@ -1519,7 +1525,8 @@ void Game::updateEditorTextInput() {
     if(!controls||change==EditorTextInput::Change::none)return;
     controls->AllowTextInput(change!=EditorTextInput::Change::release);
     const int after=controls->GetRuntimeData().textEntryCount;
-    if(change==EditorTextInput::Change::acquire)log::info("Editor text input acquired after menu opened ({} -> {})",before,after);
+    if(change==EditorTextInput::Change::acquire)log::info("Editor text input acquired for focused field ({} -> {})",before,after);
+    else if(change==EditorTextInput::Change::release)log::info("Editor text input released ({} -> {})",before,after);
     else if(change==EditorTextInput::Change::restore&&!textInputRecoveryLogged_) {
         textInputRecoveryLogged_=true;
         log::warn("Editor text-entry count cleared externally; restored editor claim ({} -> {})",before,after);

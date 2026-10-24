@@ -78,8 +78,8 @@ bool renderHasFocus() {
     if(foreground)GetWindowThreadProcessId(foreground,&pid);
     return pid==GetCurrentProcessId();
 }
-std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& options,const EditorState* editor,const std::vector<EditorInput>& input) {
-    std::vector<EditCommand> commands;
+RenderResult renderHud(const Snapshot& snapshot,const Options& options,const EditorState* editor,const std::vector<EditorInput>& input) {
+    RenderResult result;
     if(!renderHasFocus()){if(editor)Game::get().rendererFailed();return {};}
     auto& r=renderer();const auto now=clockNow();if(now<r.retryAfter){if(editor)Game::get().rendererFailed();return {};}
     Guard guard;bool begun=false;ID3D11DeviceContext* activeContext=nullptr;
@@ -120,16 +120,17 @@ std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& optio
         const bool showEditor=vr?beginVROverlay(editor!=nullptr):editor!=nullptr;
         if(vr)io.MouseDrawCursor=false;
         ImGui_ImplDX11_NewFrame();ImGui::NewFrame();begun=true;
-        if(editor&&showEditor)commands=g.editor.draw(*editor,g.hud,now);
+        if(editor&&showEditor)result.commands=g.editor.draw(*editor,g.hud,now);
         else if(!editor&&snapshot.visible&&!vrOtherOverlayOpen())g.hud.draw(snapshot,options,now);
         ImGui::Render();begun=false;
         if(vr)finishVROverlay(context,showEditor);
         else {isolated.bindTarget();ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());}
+        result.wantsTextInput=editor&&showEditor&&g.editor.wantsTextInput();
     }catch(const std::exception& error) {
         if(begun)ImGui::EndFrame();clearVROverlay(activeContext);r.graphics.reset();r.retryAfter=now+5;
         SKSE::log::error("Quickslot rendering failed: {}",error.what());
         Game::get().rendererFailed();
     }
-    return commands;
+    return result;
 }
 }

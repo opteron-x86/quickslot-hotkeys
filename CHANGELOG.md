@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Text input is now claimed only while an editable field is active, allowing IME users to navigate and bind keys without starting composition elsewhere in the editor. Field changes retain counter recovery and balanced release; reopening starts without an active text field (GitHub #5). In-game validation of field-focused claiming is pending.
+
 ## 0.10.3
 
 - Fixed editor text fields becoming untypable when an IME integration clears Skyrim's text-entry counter during opening. The editor now waits until its menu is open before claiming text input, and restores a cleared claim while the editor remains open ([#3](https://github.com/opteron-x86/quickslot-hotkeys/issues/3), [#4](https://github.com/opteron-x86/quickslot-hotkeys/pull/4)).

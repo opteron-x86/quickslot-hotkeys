@@ -302,13 +302,18 @@ int main()try {
             else if(change==Change::release){--count;++releases;}
             return change;
         };
+        std::uint64_t session=1;textInput.beginSession(session);
+        check(update(true,true)==Change::none&&count==0,"Opening the editor without a focused text field does not enable text input");
+        check(textInput.focus(session,true),"The current editor session can request text input");
         for(unsigned frame=0;frame<10;++frame)
             check(update(true,false)==Change::none&&count==0,"Queued editor opening cannot claim text input before its menu is on the stack");
         check(update(false,false)==Change::none&&acquires==0&&releases==0,"Cancelled opening never acquires or releases text input");
+        check(!textInput.focus(session,true),"A delayed focus report cannot revive a cancelled editor");
         check(update(false,true)==Change::none&&count==0,"Late menu show after cancellation cannot claim text input");
+        textInput.beginSession(++session);textInput.focus(session,true);
         check(update(true,true)==Change::acquire&&count==1,"Visible editor claims text input once");
         for(unsigned frame=0;frame<10;++frame)
-            check(update(true,true)==Change::none&&count==1&&acquires==1,"Repeated menu notifications and ticks do not grow the text-entry count");
+            check(!textInput.focus(session,true)&&update(true,true)==Change::none&&count==1&&acquires==1,"Repeated focus reports, menu notifications and ticks do not grow the text-entry count");
         count=0;
         check(update(true,true)==Change::restore&&count==1,"External counter reset recovers typing without reopening the editor");
         check(update(true,true)==Change::none&&count==1,"Recovery claims exactly one reference");
@@ -319,28 +324,54 @@ int main()try {
         check(update(false,true)==Change::release&&count==1,"Closing while hide is queued releases only the editor's reference");
         for(const bool menuOpen:{true,false})
             check(update(false,menuOpen)==Change::none&&count==1,"Duplicate close and delayed hide preserve another owner's reference");
+        textInput.beginSession(++session);textInput.focus(session,true);
         check(update(true,true)==Change::acquire&&count==2,"Deferred acquisition adds its own reference when another owner is already active");
         --count;
         check(update(true,true)==Change::none&&count==1,"Another owner's balanced release leaves the editor claim intact");
         check(update(true,false)==Change::release&&count==0,"Unexpected menu removal releases the editor's reference");
         check(update(false,false)==Change::none&&count==0,"Closing after menu removal cannot release twice");
         for(unsigned cycle=0;cycle<6;++cycle) {
+            textInput.beginSession(++session);textInput.focus(session,true);
             check(update(true,false)==Change::none&&count==0,"Reopening waits for the menu again");
             check(update(true,true)==Change::acquire&&count==1,"Each new session acquires one reference");
             count=0;
             check(update(false,true)==Change::none&&count==0,"Reset immediately before close cannot underflow the shared counter");
         }
+        textInput.beginSession(++session);textInput.focus(session,true);
         count=-1;
         check(update(true,true)==Change::none&&count==-1,"An unavailable text-entry counter is left untouched");
         count=0;
         check(update(true,true)==Change::acquire&&count==1,"Text input can be acquired when the counter becomes available");
         count=-1;
         check(update(false,true)==Change::none&&count==-1,"Unavailable counter on shutdown does not receive a release");
+        textInput.beginSession(++session);textInput.focus(session,true);
         count=std::numeric_limits<std::int8_t>::max();
         check(update(true,true)==Change::none&&count==127,"A saturated engine counter cannot overflow during acquisition");
         --count;
         check(update(true,true)==Change::acquire&&count==127,"Acquisition retries after counter capacity becomes available");
         check(update(false,true)==Change::release&&count==126,"Release at counter capacity still preserves other references");
+        count=0;textInput.beginSession(++session);
+        check(!textInput.focus(session-1,true)&&update(true,true)==Change::none&&count==0,"A previous session's rendered text field cannot claim input after reopening");
+        textInput.focus(session,true);
+        check(update(true,true)==Change::acquire&&count==1,"A newly focused field acquires a claim");
+        check(!textInput.focus(session-1,false)&&update(true,true)==Change::none&&count==1,"An old render frame cannot blur the new session's field");
+        textInput.focus(session,false);textInput.focus(session,true);
+        check(update(true,true)==Change::none&&count==1,"Focus changes before the game update use the latest intent without churning the counter");
+        textInput.focus(session,false);
+        check(update(true,true)==Change::release&&count==0,"Leaving a text field releases the claim while the editor stays open");
+        for(unsigned frame=0;frame<10;++frame)
+            check(update(true,true)==Change::none&&count==0,"Unfocused editor never recovers a zero counter");
+        textInput.focus(session,true);update(true,true);count=0;textInput.focus(session,false);
+        check(update(true,true)==Change::none&&count==0,"Losing field focus after a counter reset neither reclaims nor releases input");
+        count=1;
+        check(update(true,true)==Change::none&&count==1,"Unfocused editor leaves another owner's counter alone");
+        textInput.focus(session,true);
+        check(update(true,true)==Change::acquire&&count==2,"Focused field takes its own reference alongside another owner");
+        textInput.focus(session,false);
+        check(update(true,true)==Change::release&&count==1,"Field blur preserves another owner's reference");
+        textInput.focus(session,true);update(true,true);
+        check(update(false,true)==Change::release&&count==1,"Closing a focused editor immediately releases its claim");
+        check(!textInput.focus(session,true)&&update(false,true)==Change::none&&count==1,"Late focus report after close cannot acquire or release again");
     }
     ControllerInput controller;Options controls;
     controller.button(PadButton::up,true,true,controls,true,false);

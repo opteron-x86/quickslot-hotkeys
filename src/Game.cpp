@@ -1036,6 +1036,7 @@ void Game::tick() {
         }
         if(editor_.open) {
             if(const auto reason=editorBlockReason();!reason.empty()){closeEditor(reason);publish();return;}
+            updateEditorTextInput();
             if(catalogDirty_)buildCatalog();
             if(dirty_)refreshEditor();
             return;
@@ -1496,7 +1497,7 @@ void Game::openEditor() {
         auto* keyboard=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
         for(const unsigned scan:{42u,54u,29u,157u,56u,184u})
             if(pressed(keyboard,scan))editorInput_.push_back({EditorInputType::key,scan,true});
-        RE::ControlMap::GetSingleton()->AllowTextInput(true);textInputOwned_=true;
+        textInputRecoveryLogged_=false;
         RE::UIMessageQueue::GetSingleton()->AddMessage(editorMenuName,RE::UI_MESSAGE_TYPE::kShow,nullptr);
         menuAPI().publish(ready_,true);log::info("Editor opened: {} choices, {} groups",editor_.catalog.size(),editor_.options.groupCount);
     }catch(const std::exception& e){closeEditor("opening failed");log::error("Editor opening failed: {}",e.what());notice(tr("Could not open editor"));}
@@ -1505,10 +1506,23 @@ void Game::closeEditor(std::string_view reason) {
     const bool wasOpen=editor_.open;
     if(wasOpen)flushSettings(true);
     editor_.open=false;menuAPI().publish(initialized_&&ready_,false);editorRequested_=false;editorLaunch_.cancel();++editor_.session;editorInput_.clear();candidates_.clear();
-    if(textInputOwned_){if(auto* controls=RE::ControlMap::GetSingleton())controls->AllowTextInput(false);textInputOwned_=false;}
+    updateEditorTextInput();
     if(wasOpen) {
         if(auto* queue=RE::UIMessageQueue::GetSingleton())queue->AddMessage(editorMenuName,RE::UI_MESSAGE_TYPE::kHide,nullptr);
         cancel();dirty_=true;if(!settingsError_.empty())notice(tr("Settings could not be saved"));log::info("Editor closed; live edits retained; reason: {}",reason);
+    }
+}
+void Game::updateEditorTextInput() {
+    auto* controls=RE::ControlMap::GetSingleton();auto* ui=RE::UI::GetSingleton();
+    const int before=controls?controls->GetRuntimeData().textEntryCount:-1;
+    const auto change=editorTextInput_.update(editor_.open,ui&&ui->IsMenuOpen(editorMenuName),before);
+    if(!controls||change==EditorTextInput::Change::none)return;
+    controls->AllowTextInput(change!=EditorTextInput::Change::release);
+    const int after=controls->GetRuntimeData().textEntryCount;
+    if(change==EditorTextInput::Change::acquire)log::info("Editor text input acquired after menu opened ({} -> {})",before,after);
+    else if(change==EditorTextInput::Change::restore&&!textInputRecoveryLogged_) {
+        textInputRecoveryLogged_=true;
+        log::warn("Editor text-entry count cleared externally; restored editor claim ({} -> {})",before,after);
     }
 }
 void Game::saveSettings(const Options& options) {
@@ -1822,7 +1836,10 @@ RE::BSEventNotifyControl Game::ProcessEvent(const RE::MenuOpenCloseEvent* e,RE::
             pauseRequested_=false;RE::UIMessageQueue::GetSingleton()->AddMessage(pauseMenuName,RE::UI_MESSAGE_TYPE::kHide,nullptr);
         }
         if(e->menuName==editorMenuName&&!e->opening&&editor_.open)closeEditor("editor menu removed from stack");
-        if(editor_.open)if(const auto reason=editorBlockReason();!reason.empty())closeEditor(reason);
+        if(editor_.open) {
+            if(const auto reason=editorBlockReason();!reason.empty())closeEditor(reason);
+            else updateEditorTextInput();
+        }
         if(e->opening&&e->menuName==RE::MainMenu::MENU_NAME){ready_=false;menuAPI().publish(false,false);cancel();use_.reset();stopAnimationWatch();}
         else if((e->opening&&gameplayMenuOpen([&](auto name){return e->menuName==name;}))||!allowed())cancel();
         dirty_=true;publish();

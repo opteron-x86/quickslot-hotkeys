@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The editor now claims text input after its menu opens and restores the claim if another plugin clears the shared text-entry counter. Closing after a cleared claim no longer requests an extra release. This addresses untypable fields with IME integrations (GitHub #3); in-game confirmation is pending.
+
 ## 0.10.2
 
 - Removing a group now resets its name, contents, remembered selection, keyboard/controller/VR bindings, behavior and auto-sort setting. Undo restores the complete group.

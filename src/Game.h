@@ -6,6 +6,7 @@
 #include "LiveEditor.h"
 #include "Transfer.h"
 #include "EditorLaunch.h"
+#include "EditorTextInput.h"
 #include "MenuFramework.h"
 #include "Controller.h"
 #include "GameplayMenus.h"
@@ -42,8 +43,9 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     struct NativeCandidate {RE::TESBoundObject* object=nullptr;RE::ExtraDataList* extra=nullptr;bool plain=false;Entry entry;};
     std::vector<NativeCandidate> candidates_;
     std::vector<EditorInput> editorInput_;
-    bool editorRequested_=false,textInputOwned_=false,catalogDirty_=false;
+    bool editorRequested_=false,catalogDirty_=false,textInputRecoveryLogged_=false;
     EditorLaunch editorLaunch_;
+    EditorTextInput editorTextInput_;
     std::string frameworkMessage_;
     std::array<bool,256> keyboardOwned_{};
     std::array<bool,16> mouseOwned_{};
@@ -105,6 +107,7 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     std::string editorBlockReason()const;
     void openEditor();
     void closeEditor(std::string_view reason="requested");
+    void updateEditorTextInput();
     void edit(const EditCommand&);
     void buildCatalog();
     void refreshEditor();

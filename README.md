@@ -115,4 +115,6 @@ For bug reports, include reproduction steps, the game version and `Quickslot.log
 
 The [menu API](src/API/README.md) supports editor opening, closing, state queries and shortcut control.
 
+For IME integrations, `QuickslotEditor` receives characters from the engine input queue (`RE::CharEvent`) and forwards them to ImGui. Text input is claimed for the editor window after its menu is on the stack, and restored if the shared counter is cleared while the editor remains open.
+
 Item artwork was supplied by the mod author. Frame/font credits and dependency notices are in [licenses](licenses). Dependency revisions are recorded in `vendor/dependencies.json`.

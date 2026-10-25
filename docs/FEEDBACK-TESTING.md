@@ -16,13 +16,19 @@ Install the runtime `Quickslot-0.10.3-dev.<commit>.zip` through the mod manager,
 ## First checks
 
 1. Test Smart Potions with Apothecary, CACO, and the known-working Alchemy Plus setup separately. Lower the relevant resource, add a restoration shortcut, and confirm it finds and drinks a matching potion. Check regeneration separately. For CACO, test the selected duration setting. Include a potion FormID and the chosen Smart Potion rule with any failure.
-2. In **Controls → Keyboard → Remap actions**, move or disable the remove modifier and enable **Allow group selection with unused modifiers**. Hold Alt-to-walk while selecting a group. On controller, use X as a group modifier and remap unequip under **Browsing actions**.
+2. In **Controls → Keyboard → Remap actions**, set **Remove group shortcut** to **None** or another modifier and enable **Allow group selection with unused modifiers**. The separate enable/disable checklist has been removed; **Clear** unbinds a selected-item key, rebinding enables it, and **Reset keyboard actions** restores the defaults. Check that previously disabled actions stay disabled after upgrading. Hold Alt-to-walk while selecting a group. On controller, use X as a group modifier and remap unequip under **Browsing actions**.
 3. In **Controls → General**, enable keyboard/mouse input with QuickLoot while leaving controller input disabled. Confirm the keyboard works and D-pad navigation stays with QuickLoot. Repeat with the opposite policy and interrupt a held or queued action by opening another menu.
-4. Poison one of two identical weapons. Only that copy should show the droplet. Fire arrows and bolts, switch ammunition, and check the count on bows/crossbows. Test the indicators together with Smart Weapons and Favorites groups.
+4. Poison one of two identical weapons. Only that copy should show the droplet, without a dark rectangular backing. Equip the ten arrows from the reported case and confirm the bow itself shows 10, then 9 after one shot. Check the group tile, browsing list and equipped display with the bow drawn and sheathed. Repeat with bolts and switching ammunition. Test the indicators together with Smart Weapons and Favorites groups.
 5. Enable the mouse or bumper hand preset. Hold a group, highlight a compatible item, then choose a hand. It should equip once, retain the saved default hand, and ignore the later group-key release. Repeat with a generated Favorites item beyond position 16 and while QuickLoot is open under each device policy.
 6. Change a group's source from **Manual** to a Favorites category. Favorite/unfavorite items in Skyrim, test more than 16 matches, exclude/reset an entry, then return to Manual. The original contents should return. Check save/load, stock depletion/restocking, enchanted copies and Undo. An indistinguishable weapon stack may ask you to equip one copy first.
 
 See [the complete gameplay checklist](TESTING.md) for interruption, identity, controller and VR checks. Automated results and actual in-game observations should be reported separately; record the package commit and Skyrim/SKSE versions with any report.
+
+## Gameplay feedback recorded on 2026-10-25
+
+The owner confirmed QuickLoot input (#3 above), hand selection (#5) and Favorites groups (#6) worked in `11f1b0d30609`. This is feature-level confirmation; the full device and edge-case matrix was not enumerated. Smart Potions still needs gameplay confirmation with the affected overhauls.
+
+The same report identified a dark poison-indicator rectangle and a bow showing zero despite ten equipped, fireable arrows. This revision removes the poison backing and corrects the engine lookup for equipped ammunition. Retest #2 and #4 above on the new package. Automated checks cannot confirm the actual in-game ammunition result.
 
 ## Publishing order
 

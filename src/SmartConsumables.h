@@ -9,6 +9,30 @@ struct PotionCandidate {
     int count=0;
     std::array<float,3> restore{},regeneration{};
 };
+// Engine values are kept explicit so captured MGEF records can exercise this
+// classifier without loading Skyrim. Game.cpp checks them against CommonLib.
+enum class PotionArchetype : unsigned {valueModifier=0,peakValueModifier=34};
+enum class PotionValue : unsigned {health=24,magicka=25,stamina=26,healthRate=155,magickaRate=156,staminaRate=157};
+struct PotionEffect {
+    PotionArchetype archetype;
+    PotionValue value;
+    float magnitude=0;
+    unsigned duration=0;
+    bool recover=false,detrimental=false,conditionsMet=true;
+};
+inline void addPotionEffect(PotionCandidate& bottle,const PotionEffect& effect) {
+    if(!effect.conditionsMet||effect.detrimental||!std::isfinite(effect.magnitude)||effect.magnitude<=0||
+       (effect.archetype!=PotionArchetype::valueModifier&&effect.archetype!=PotionArchetype::peakValueModifier))return;
+    const auto value=unsigned(effect.value);
+    if(value>=unsigned(PotionValue::health)&&value<=unsigned(PotionValue::stamina)&&!effect.recover) {
+        const float amount=effect.magnitude*float(std::max(1u,effect.duration));
+        auto& total=bottle.restore[value-unsigned(PotionValue::health)];
+        if(std::isfinite(amount)&&std::isfinite(total+amount))total+=amount;
+    }else if(value>=unsigned(PotionValue::healthRate)&&value<=unsigned(PotionValue::staminaRate)) {
+        auto& strength=bottle.regeneration[value-unsigned(PotionValue::healthRate)];
+        strength=std::max(strength,effect.magnitude);
+    }
+}
 inline std::string smartName(const Entry& e) {
     const std::array<const char*,3> resource{"Health","Magicka","Stamina"};
     const std::array<const char*,3> policy{"lowest","highest","best fit"};

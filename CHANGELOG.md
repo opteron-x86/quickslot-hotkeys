@@ -6,6 +6,8 @@
 
 - Added keyboard editing-modifier and browsing-key remapping, plus an opt-in to select groups with unused held modifiers such as Alt-to-walk. Controller cancel, unequip and previous/next actions can be rebound; explicit modifiers no longer also trigger a single-button browsing action. Existing settings keep their bindings and pass-through behavior. In-game keyboard/controller verification is pending.
 
+- Smart Potions now recognize restoration effects using Peak Value Modifier, including those in Apothecary and CACO. Conditional effects are evaluated for the player before ranking so alternative duration variants are not added together. Temporary attribute fortification remains excluded. Gameplay confirmation is pending.
+
 ## 0.10.3
 
 - Fixed editor text fields becoming untypable when an IME integration clears Skyrim's text-entry counter during opening. The editor now waits until its menu is open before claiming text input, and restores a cleared claim while the editor remains open ([#3](https://github.com/opteron-x86/quickslot-hotkeys/issues/3), [#4](https://github.com/opteron-x86/quickslot-hotkeys/pull/4)).

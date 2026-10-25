@@ -1,0 +1,28 @@
+{
+  "description": "Minimal ALCH EFIT and referenced MGEF DATA values read from local plugins. CACO conditionMode represents the mutually exclusive duration-global equality condition; Skyrim evaluates the actual conditions at runtime.",
+  "sources": {
+    "vanilla": {"plugin": "Skyrim.esm"},
+    "apothecary": {"plugin": "Apothecary.esp", "version": "1.3.9", "sha256": "63576eefb83b0285d3d7b0228e8495e504af2025d3f77729aca192b8aa754226"},
+    "caco": {"plugin": "complete alchemy & cooking overhaul.esp", "version": "3.0.0 (archive label)", "sha256": "b886fd221264665f1ccc09b203a2a235d346c175a4e3ddd03993ff9d6bbeb837"}
+  },
+  "cases": [
+    {"source": "vanilla", "potion": "Skyrim.esm:03EADD", "resource": 0, "expected": 25,
+     "effects": [{"form": "Skyrim.esm:03EB15", "archetype": 0, "actorValue": 24, "flags": "0x200a00", "magnitude": 25, "duration": 0}]},
+    {"source": "vanilla", "potion": "Skyrim.esm:03EAE0", "resource": 1, "expected": 25,
+     "effects": [{"form": "Skyrim.esm:03EB17", "archetype": 0, "actorValue": 25, "flags": "0x200a00", "magnitude": 25, "duration": 0}]},
+    {"source": "vanilla", "potion": "Skyrim.esm:03EAE5", "resource": 2, "expected": 25,
+     "effects": [{"form": "Skyrim.esm:03EB16", "archetype": 0, "actorValue": 26, "flags": "0x200a00", "magnitude": 25, "duration": 0}]},
+    {"source": "apothecary", "potion": "Skyrim.esm:03EADD", "resource": 0, "expected": 50,
+     "effects": [{"form": "Skyrim.esm:03EB15", "archetype": 34, "actorValue": 24, "flags": "0x200800", "magnitude": 5, "duration": 10}]},
+    {"source": "apothecary", "potion": "Skyrim.esm:03EAE0", "resource": 1, "expected": 50,
+     "effects": [{"form": "Skyrim.esm:03EB17", "archetype": 34, "actorValue": 25, "flags": "0x200800", "magnitude": 5, "duration": 10}]},
+    {"source": "apothecary", "potion": "Skyrim.esm:03EAE5", "resource": 2, "expected": 50,
+     "effects": [{"form": "Skyrim.esm:03EB16", "archetype": 34, "actorValue": 26, "flags": "0x200800", "magnitude": 5, "duration": 10}]},
+    {"source": "caco", "potion": "Skyrim.esm:03EADD", "resource": 0, "expected": 25,
+     "effects": [
+       {"form": "complete alchemy & cooking overhaul.esp:1AA0B6", "archetype": 34, "actorValue": 24, "flags": "0x200800", "magnitude": 25, "duration": 1, "conditionMode": 0},
+       {"form": "complete alchemy & cooking overhaul.esp:1AA0B7", "archetype": 34, "actorValue": 24, "flags": "0x208800", "magnitude": 5, "duration": 5, "conditionMode": 1},
+       {"form": "complete alchemy & cooking overhaul.esp:1AA0B8", "archetype": 34, "actorValue": 24, "flags": "0x208800", "magnitude": 2.5, "duration": 10, "conditionMode": 2}
+     ]}
+  ]
+}

@@ -16,8 +16,54 @@ void check(bool value,const char* why,std::source_location at=std::source_locati
 Entry item(Kind kind) {
     Entry e;e.form=0x1234+unsigned(kind);e.kind=kind;e.name="Test item";e.spell=kind==Kind::spell||kind==Kind::power||kind==Kind::lesserPower;return e;
 }
+void potionEffects(const std::filesystem::path& root) {
+    std::ifstream stream(root/"tests/fixtures/potion_effects.json");
+    const auto fixtures=Json::parse(stream);
+    for(const auto& fixture:fixtures.at("cases"))for(int mode=0;mode<3;++mode) {
+        PotionCandidate bottle;bottle.entry=item(Kind::potion);bottle.count=2;
+        for(const auto& value:fixture.at("effects")) {
+            const auto flags=std::stoul(value.at("flags").get<std::string>(),nullptr,0);
+            const auto condition=value.value("conditionMode",mode)==mode;
+            addPotionEffect(bottle,{PotionArchetype(value.at("archetype").get<unsigned>()),PotionValue(value.at("actorValue").get<unsigned>()),
+                value.at("magnitude").get<float>(),value.at("duration").get<unsigned>(),bool(flags&2),bool(flags&4),condition});
+        }
+        const auto resource=fixture.at("resource").get<unsigned>();
+        check(bottle.restore[resource]==fixture.at("expected").get<float>(),"Captured vanilla/Apothecary/CACO restoration has the expected total");
+        for(unsigned i=0;i<3;++i)check(bottle.regeneration[i]==0&&(i==resource||bottle.restore[i]==0),"Restoration never aliases regeneration or a different resource");
+        std::vector<PotionCandidate> stock{bottle};
+        for(unsigned policy=0;policy<3;++policy)check(choosePotion(smartEntry(resource,0,policy),stock,60)==&stock[0],"Every smart restoration policy recognizes captured potion records");
+        stock[0].entry.name="Renamed potion";check(choosePotion(smartEntry(resource,0,2),stock,60)==&stock[0],"Names do not determine potion eligibility");
+        auto excluded=smartEntry(resource,0,2);excluded.exclusions={{stock[0].entry.form,0}};
+        check(!choosePotion(excluded,stock,60),"Recognizing modded effects preserves explicit exclusions");
+        stock[0].count=0;check(!choosePotion(smartEntry(resource,0,2),stock,60),"An empty recognized potion is not usable");
+    }
+    const PotionEffect restore{PotionArchetype::peakValueModifier,PotionValue::health,5,10};
+    for(unsigned variant=0;variant<8;++variant) {
+        auto effect=restore;
+        switch(variant) {
+        case 0:effect.recover=true;break;
+        case 1:effect.detrimental=true;break;
+        case 2:effect.conditionsMet=false;break;
+        case 3:effect.archetype=PotionArchetype(999);break;
+        case 4:effect.magnitude=-1;break;
+        case 5:effect.magnitude=NAN;break;
+        case 6:effect.magnitude=INFINITY;break;
+        case 7:effect.magnitude=std::numeric_limits<float>::max();break;
+        }
+        PotionCandidate bottle;addPotionEffect(bottle,effect);
+        check(bottle.restore==std::array<float,3>{},"Fortification, detrimental/inactive/unsupported effects and invalid strengths cannot become restoration");
+    }
+    for(unsigned resource=0;resource<3;++resource)for(auto archetype:{PotionArchetype::valueModifier,PotionArchetype::peakValueModifier}) {
+        PotionCandidate bottle;PotionEffect effect{archetype,PotionValue(unsigned(PotionValue::healthRate)+resource),50,300,true};
+        addPotionEffect(bottle,effect);effect.magnitude=25;addPotionEffect(bottle,effect);
+        check(bottle.regeneration[resource]==50&&bottle.restore==std::array<float,3>{},"Regeneration retains its strongest magnitude and remains separate from restoration");
+        effect.magnitude=100;effect.conditionsMet=false;addPotionEffect(bottle,effect);
+        check(bottle.regeneration[resource]==50,"Inactive regeneration variants do not affect ranking");
+    }
+}
 int main(int argc,char** argv)try {
     if(argc!=2)return 2;
+    potionEffects(argv[1]);
     const auto identity=[](auto before,auto& after){after=before;return true;};
     std::ifstream file(std::filesystem::path(argv[1])/"tests/fixtures/arsenal.json");
     const std::string bytes((std::istreambuf_iterator<char>(file)),{});const auto saved=Json::parse(bytes);

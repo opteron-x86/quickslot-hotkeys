@@ -286,6 +286,11 @@ std::vector<PotionCandidate> potionCandidates(const RE::TESObjectREFR::Inventory
     }
     std::sort(result.begin(),result.end(),[](const auto& a,const auto& b){return a.entry.name<b.entry.name;});return result;
 }
+// The pinned Actor wrapper dispatches the decal-group slot. The REFR wrapper
+// uses the actual ammo getter for each runtime.
+RE::TESAmmo* equippedAmmo(const RE::Actor* actor) {
+    return actor?actor->RE::TESObjectREFR::GetCurrentAmmo():nullptr;
+}
 struct NativeEquipment {EquipmentCandidate choice;RE::TESBoundObject* object=nullptr;RE::ExtraDataList* extra=nullptr;};
 std::vector<NativeEquipment> equipmentCandidates(RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
     std::vector<NativeEquipment> result;
@@ -311,7 +316,7 @@ std::vector<NativeEquipment> equipmentCandidates(RE::PlayerCharacter* player,con
                 c.rightEquipped=worn(extra,right)&&player->GetEquippedObject(false)==object;
                 c.leftEquipped=worn(extra,left)&&player->GetEquippedObject(true)==object;
             }
-            if(ammo){c.damage=ammo->GetRuntimeData().data.damage;c.rightEquipped=player->GetCurrentAmmo()==object;}
+            if(ammo){c.damage=ammo->GetRuntimeData().data.damage;c.rightEquipped=equippedAmmo(player)==object;}
             else {RE::InventoryEntryData item(object,1);if(extra)item.AddExtraList(extra);c.damage=shield?player->GetArmorValue(&item):player->GetDamage(&item);}
             if(std::isfinite(c.damage)&&c.damage>0)result.push_back({std::move(c),object,extra});
         };
@@ -379,7 +384,7 @@ Resolved resolve(const Entry& entry,RE::PlayerCharacter* player,const RE::TESObj
         Resolved result;
         if(it==inventory.end()||it->second.first<=0)return result;
         result.object=object;result.quantity=it->second.first;
-        if(entry.kind==Kind::ammo)result.equipped=player->GetCurrentAmmo()==object;
+        if(entry.kind==Kind::ammo)result.equipped=equippedAmmo(player)==object;
         if(entry.kind==Kind::torch) {
             result.equipped=player->GetEquippedObject(true)==form;
 
@@ -414,7 +419,7 @@ WeaponStatus readWeaponStatus(RE::TESBoundObject* object,RE::ExtraDataList* extr
     auto* weapon=object?object->As<RE::TESObjectWEAP>():nullptr;if(!weapon)return status;
     if(extra)if(const auto* poison=extra->GetByType<RE::ExtraPoison>())status.poisoned=poison->poison&&poison->count>0;
     if(weapon->IsBow()||weapon->IsCrossbow()) {
-        auto* ammo=player->GetCurrentAmmo();int count=0;
+        auto* ammo=equippedAmmo(player);int count=0;
         if(ammo)if(const auto it=inventory.find(ammo);it!=inventory.end())count=it->second.first;
         status.ammunition=compatibleAmmoCount(weapon->IsCrossbow(),ammo?std::optional{ammo->IsBolt()}:std::nullopt,count);
     }
@@ -482,7 +487,7 @@ RE::TESObjectREFR::InventoryItemMap inventoryFor(const Arsenal& arsenal,RE::Play
         if(isInventory(e)&&!e.unresolved)forms.insert(e.form);
     });
     for(bool left:{false,true})if(auto* form=player->GetEquippedObject(left))forms.insert(form->GetFormID());
-    if(auto* current=player->GetCurrentAmmo())forms.insert(current->GetFormID());
+    if(auto* current=equippedAmmo(player))forms.insert(current->GetFormID());
     if(forms.empty()&&!smart&&!weapons&&!ammo)return {};
     return player->GetInventory([&](RE::TESBoundObject& object){return forms.contains(object.GetFormID())||(smart&&object.As<RE::AlchemyItem>())||
         (weapons&&(object.As<RE::TESObjectWEAP>()||(object.As<RE::TESObjectARMO>()&&object.As<RE::TESObjectARMO>()->IsShield())))||(ammo&&object.As<RE::TESAmmo>());});
@@ -1558,7 +1563,7 @@ void Game::buildCatalog() {
         base.name=gameName(object->GetName());int plain=data.first;
         if(isStack(base)) {
             candidates_.push_back({object,nullptr,false,base});
-            editor_.catalog.push_back({base,candidates_.size(),data.first,base.kind==Kind::ammo&&player->GetCurrentAmmo()==object,true,{}});
+            editor_.catalog.push_back({base,candidates_.size(),data.first,base.kind==Kind::ammo&&equippedAmmo(player)==object,true,{}});
             if(base.kind==Kind::torch&&player->GetEquippedObject(true)==object) {
                 editor_.catalog.back().equipped=true;editor_.equippedCandidates[1]=candidates_.size();
             }

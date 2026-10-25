@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Corrected the equipped-ammunition engine lookup so bow counts, ammo highlights and smart-ammo checks read the equipped arrows/bolts. Poison droplets use a thin outline without a rectangular backing.
+
 - Added a green poison marker for the resolved weapon copy and equipped compatible arrow/bolt counts for bows and crossbows. Indicators appear in browsing lists, group tiles and the equipped display, including smart weapon choices, and can be switched off under Appearance → Style. Text-only equipment displays include the same information. Physical gameplay validation is pending.
 
 ## 0.10.3

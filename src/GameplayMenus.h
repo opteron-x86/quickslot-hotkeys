@@ -6,6 +6,9 @@
 namespace quickslot {
 enum class MenuPurpose {input,hud,editor};
 inline constexpr std::string_view quickLootMenuName="LootMenu";
+inline bool ignoreQuickLoot(MenuPurpose purpose,bool allowInput=false) {
+    return purpose==MenuPurpose::hud||(purpose==MenuPurpose::input&&allowInput);
+}
 
 inline bool menuFlagsBlock(bool usesContext,bool usesCursor,bool pauses,bool modal,MenuPurpose purpose=MenuPurpose::input) {
     // Text-entry helpers can request a cursor without taking over the editor.
@@ -20,10 +23,10 @@ inline constexpr std::array<std::string_view,23> gameplayBlockingMenus{
     "Console","LevelUp Menu","RaceSex Menu",
     quickLootMenuName
 };
-template<class Open> bool gameplayMenuOpen(const Open& open,MenuPurpose purpose=MenuPurpose::input) {
+template<class Open> bool gameplayMenuOpen(const Open& open,MenuPurpose purpose=MenuPurpose::input,bool allowQuickLoot=false) {
 
     return std::any_of(gameplayBlockingMenus.begin(),gameplayBlockingMenus.end(),[&](auto name){
-        return !(purpose==MenuPurpose::hud&&name==quickLootMenuName)&&open(name);
+        return !(ignoreQuickLoot(purpose,allowQuickLoot)&&name==quickLootMenuName)&&open(name);
     });
 }
 }

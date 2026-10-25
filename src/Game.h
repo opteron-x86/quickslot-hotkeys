@@ -87,7 +87,8 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     SelectionTime selectionTime_;
     bool soulsRequested_=false,pauseRequested_=false;
     std::uint64_t menuCaptureEpoch_=0;
-    bool allowed(MenuPurpose purpose=MenuPurpose::input)const;
+    bool quickLootAllowed(std::optional<bool> controller={})const;
+    bool allowed(MenuPurpose purpose=MenuPurpose::input,std::optional<bool> controller={})const;
     bool consume(RE::InputEvent*);
     void capture(Hand);
     void equip(const Selection::Commit&,bool unequip=false);
@@ -95,7 +96,7 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     void progressUse();
     bool accepts(const Selection::Commit&)const;
     void activate(std::size_t group);
-    void queueUnequip(std::optional<std::size_t> index={});
+    void queueUnequip(std::optional<std::size_t> index={},bool controller=false);
     void queueReorder(int delta);
     void queueMove(std::size_t target);
     void refresh();

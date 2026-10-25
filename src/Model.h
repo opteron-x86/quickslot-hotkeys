@@ -246,6 +246,7 @@ struct Options {
     bool groupUnequipHotkey=true,groupRemoveHotkey=true;
     bool selectorReorderHotkey=true,selectorUnequipHotkey=true,selectorRemoveHotkey=true;
     bool voiceHotkey=true;
+    bool quickLootKeyboard=false,quickLootController=false;
     float shoutCharge=1.2f;
     bool controllerEnabled=true,controllerBumpers=true;
     unsigned controllerModifiers=allPadButtons;

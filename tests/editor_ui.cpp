@@ -613,5 +613,11 @@ int main(int argc,char** argv)try {
     check(!selectorUsesCtrl(state.options)&&state.options.selectorUnequipHotkey&&state.options.selectorRemoveHotkey&&probe::one("Close").rect.Max.y<720,"Last editing switches remain reachable with all eight groups at 720p");
     click("Enable all##editing shortcuts");
     check(state.options.groupCaptureRightHotkey&&state.options.groupCaptureLeftHotkey&&state.options.groupMoveHotkey&&state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey&&state.options.selectorReorderHotkey&&state.options.selectorUnequipHotkey&&state.options.selectorRemoveHotkey,"Enable all restores the full editing set at 720p");
+    click("General");io.DisplaySize={1280,720};frame();frame();
+    click("Allow keyboard / mouse while QuickLoot is open");
+    check(state.options.quickLootKeyboard&&!state.options.quickLootController,"QuickLoot keyboard allowance leaves controller navigation alone");
+    click("Allow controller while QuickLoot is open");
+    check(state.options.quickLootKeyboard&&state.options.quickLootController,"QuickLoot controller allowance is separately configurable at 720p");
+    click("Undo");check(state.options.quickLootKeyboard&&!state.options.quickLootController,"QuickLoot changes support Undo");
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

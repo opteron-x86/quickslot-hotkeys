@@ -25,6 +25,7 @@ inline void importAppearance(Options& target,const Options& source) {
     target.selectorReorderHotkey=previous.selectorReorderHotkey;target.selectorUnequipHotkey=previous.selectorUnequipHotkey;target.selectorRemoveHotkey=previous.selectorRemoveHotkey;
     target.voiceHotkey=previous.voiceHotkey;target.shoutCharge=previous.shoutCharge;
     target.controllerEnabled=previous.controllerEnabled;target.controllerBumpers=previous.controllerBumpers;
+    target.quickLootKeyboard=previous.quickLootKeyboard;target.quickLootController=previous.quickLootController;
     target.controllerModifiers=previous.controllerModifiers;
     target.groupModes=previous.groupModes;
     target.autoSort=previous.autoSort;

@@ -77,6 +77,7 @@ inline std::string encodeOptions(Options o) {
     Json modes=Json::array();for(const auto mode:o.groupModes)modes.push_back(unsigned(mode));
     return Json{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"themeAdjustments",tweaks},
         {"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
+        {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},
         {"groupCaptureRightHotkey",o.groupCaptureRightHotkey},{"groupCaptureLeftHotkey",o.groupCaptureLeftHotkey},{"groupMoveHotkey",o.groupMoveHotkey},
         {"selectorReorderHotkey",o.selectorReorderHotkey},{"selectorUnequipHotkey",o.selectorUnequipHotkey},{"selectorRemoveHotkey",o.selectorRemoveHotkey},
         {"controllerEnabled",o.controllerEnabled},{"controllerBumpers",o.controllerBumpers},{"controllerStyle",o.controllerStyle},{"controllerStick",o.controllerStick},{"controllerDeadzone",o.controllerDeadzone},{"controllerGroups",padGroups},{"controllerEditor",binding(o.controllerEditor)},
@@ -106,6 +107,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.controllerModifiers=j.value("controllerModifiers",allPadButtons);
     o.autoSort=j.value("autoSort",o.autoSort);
     o.groupUnequipHotkey=j.value("groupUnequipHotkey",true);o.groupRemoveHotkey=j.value("groupRemoveHotkey",true);
+    o.quickLootKeyboard=j.value("quickLootKeyboard",false);o.quickLootController=j.value("quickLootController",false);
     o.groupCaptureRightHotkey=j.value("groupCaptureRightHotkey",true);o.groupCaptureLeftHotkey=j.value("groupCaptureLeftHotkey",true);o.groupMoveHotkey=j.value("groupMoveHotkey",true);
     o.selectorReorderHotkey=j.value("selectorReorderHotkey",true);o.selectorUnequipHotkey=j.value("selectorUnequipHotkey",true);o.selectorRemoveHotkey=j.value("selectorRemoveHotkey",true);
     if(j.contains("groupModes")) {

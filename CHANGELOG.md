@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added separate keyboard/mouse and controller opt-ins under Controls → General for using Quickslot while QuickLoot is open. Defaults still leave navigation to QuickLoot. Held and queued actions follow their originating device; other menus retain their blocking behavior. Gameplay validation with QuickLoot variants is pending.
+
 ## 0.10.3
 
 - Fixed editor text fields becoming untypable when an IME integration clears Skyrim's text-entry counter during opening. The editor now waits until its menu is open before claiming text input, and restores a cleared claim while the editor remains open ([#3](https://github.com/opteron-x86/quickslot-hotkeys/issues/3), [#4](https://github.com/opteron-x86/quickslot-hotkeys/pull/4)).

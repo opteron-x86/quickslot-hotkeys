@@ -176,6 +176,41 @@ int main()try {
         auto cycled=choosing.requestCycle(items,0,0);choosing.cancel();
         check(!choosing.accepts(*cycled,items),"QuickLoot opening invalidates a queued tap-cycle equip");
     }
+    for(bool keyboard:{false,true})for(bool controller:{false,true}) {
+        Options policy;policy.quickLootKeyboard=keyboard;policy.quickLootController=controller;
+        const auto restoredPolicy=decodeOptions(encodeOptions(policy));
+        check(restoredPolicy.quickLootKeyboard==keyboard&&restoredPolicy.quickLootController==controller,"QuickLoot opt-ins persist independently");
+        auto legacy=Json::parse(encodeOptions(policy));legacy.erase("quickLootKeyboard");legacy.erase("quickLootController");
+        const auto migrated=decodeOptions(legacy.dump());
+        check(!migrated.quickLootKeyboard&&!migrated.quickLootController,"Existing settings keep QuickLoot interception disabled");
+        Options local;importAppearance(local,policy);
+        check(!local.quickLootKeyboard&&!local.quickLootController,"Appearance imports preserve local QuickLoot policy");
+        for(bool sourceController:{false,true}) {
+            const bool enabled=sourceController?policy.quickLootController:policy.quickLootKeyboard;
+            const auto blocked=[&](std::string_view extra={}) {return gameplayMenuOpen([&](auto name){return name==quickLootMenuName||name==extra;},MenuPurpose::input,enabled);};
+            check(blocked()!=enabled,"Keyboard and controller use their own QuickLoot opt-in");
+            for(const auto menu:gameplayBlockingMenus)if(menu!=quickLootMenuName)check(blocked(menu),"Opt-in cannot override another menu");
+            check(gameplayMenuOpen([](auto name){return name==quickLootMenuName;},MenuPurpose::editor,enabled),"QuickLoot still blocks opening the editor");
+            Selection choosing;Group items;Entry item;item.form=17;items.add(item);
+            choosing.press(1,items);if(blocked())choosing.cancel();
+            auto released=choosing.release(items);
+            check(bool(released)==enabled,"Opening QuickLoot keeps only opted-in held selections");
+            auto queued=choosing.requestCycle(items,0,0);queued->controller=sourceController;
+            // Hovering with the other device must not change this queued action's origin.
+            const bool queueAllowed=queued->controller?policy.quickLootController:policy.quickLootKeyboard;
+            if(!queueAllowed)choosing.cancel();
+            check(choosing.accepts(*queued,items)==enabled,"Released and cycle commits retain their original device policy");
+            bool stickOwned=false;
+            check(captureGameplayStick(stickOwned,false,enabled,blocked())==enabled,"QuickLoot receives blocked navigation and never shares captured stick input");
+            if(enabled)check(captureGameplayStick(stickOwned,true,false,false)&&!stickOwned,"An opted-in selection balances stick capture on neutral");
+        }
+        ControllerInput navigation;
+        const bool allowed=!gameplayMenuOpen([](auto name){return name==quickLootMenuName;},MenuPurpose::input,controller);
+        const auto press=navigation.button(PadButton::up,true,true,policy,allowed,false);
+        const auto release=navigation.button(PadButton::up,false,false,policy,allowed,controller);
+        check(press.consumed==controller&&release.consumed==controller&&
+            press.action==(controller?PadAction::press:PadAction::none)&&release.action==(controller?PadAction::release:PadAction::none),"Opted-in controller group presses and releases are exclusively owned");
+    }
     {
         bool owned=false;
         check(captureGameplayStick(owned,false,true,false)&&owned,"Browsing captures a deflected stick");

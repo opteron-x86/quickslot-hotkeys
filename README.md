@@ -68,13 +68,13 @@ Left/Right browsing and Ctrl + Left/Right reordering wrap at both ends. Activati
 
 **Ctrl + group key** adds the equipped right hand or highlighted Inventory/Magic item; **Ctrl + Shift + group key** adds the left hand. **Shift + group key** unequips the remembered entry; **Alt + group key** removes its shortcut. While browsing, **Ctrl + destination group key** moves the highlighted shortcut to that group.
 
-Under **Controls → Keyboard → Editing shortcuts**, turn off any unused editing action or use **Disable all**. Right/left-hand capture, moving between groups, Shift-to-unequip, Alt-to-remove, Ctrl-arrow reordering, Backspace unequipping and Delete removal each have their own switch. Disabled actions pass their keys to the game or other mods; they do not trigger another Quickslot action. Browsing and Escape/right-click cancellation remain available. All editing shortcuts start enabled; **Enable all** restores them.
+All keyboard actions are configured under **Controls → Keyboard → Remap actions…**. For a group editing action, choose a modifier combination or **None** to disable it. For browsing, selected-item and cancel keys, click the binding to assign it, or use **Clear** (Escape during capture also clears). Assigning an occupied binding swaps the actions. **Reset keyboard actions** restores bindings and enabled defaults together. Older disabled shortcuts remain disabled when upgrading.
 
-**Remap actions…** changes those editing modifiers and the browsing, unequip, remove and cancel keys. Selecting an existing assignment swaps the two actions. To use Left Alt for walking, disable **Alt + group key: remove shortcut** (or move it to another modifier combination), then enable **Allow group selection with unused modifiers** in that popup. With this option enabled, a disabled group-editing chord selects the group normally. The default keeps the previous pass-through behavior. **Reset keyboard actions** restores the default bindings and modifier policy.
+To use Left Alt for walking, set **Remove group shortcut** to **None** or another modifier, then enable **Allow group selection with unused modifiers**. This separate policy allows normal group selection while a modifier has no enabled editing action. It defaults off to preserve existing pass-through behavior.
 
-The right/left capture switches apply during gameplay and in Inventory/Magic. To disable capture only in those menus, turn off **Controls → General → Add from Inventory / Magic**; enabled gameplay capture stays available. This lets another hotkey mod own those menu bindings.
+The right/left capture bindings apply during gameplay and in Inventory/Magic. To disable capture only in those menus, turn off **Controls → General → Add from Inventory / Magic**; gameplay capture stays available.
 
-While browsing, the modifiers assigned to moving and reordering are reserved when those actions are enabled. Disable both actions to release their modifiers too; right/left capture can remain enabled independently.
+While browsing, moving and reordering reserve their assigned modifiers. Set both actions to **None** to release those modifiers; capture bindings can remain configured independently.
 
 Controller modifiers are configured per binding. Hold the modifier first; release the group button to select. Releasing the modifier cancels browsing. Other assigned chords, such as B + D-pad, pass to their owner. **Modifier buttons** controls which held buttons suppress unmodified group bindings.
 
@@ -82,7 +82,7 @@ Under **Controls → Controller → Browsing actions**, remap cancel, unequip, p
 
 XInput and native PS4 input are supported. Steam Input can supply XInput. Skyrim must recognize the controller first.
 
-#While holding a group, optional **Equip in right/left hand** actions equip the highlighted item immediately for this use. Configure keys and mouse buttons in **Controls → Keyboard → Remap actions…**, or controller actions in **Controls → Controller → Browsing actions**. **Use mouse buttons for hands** assigns left mouse to the right hand and right mouse to the left hand, leaving keyboard cancellation available. **Use bumpers for hands** assigns RB/LB and replaces bumper browsing; the stick still browses. Shields and torches remain left-only, and two-handed equipment uses both hands. Consumables, voice actions and saved combinations do not accept a hand override.
+While holding a group, optional **Equip in right/left hand** actions equip the highlighted item immediately for this use. Configure keys and mouse buttons in **Controls → Keyboard → Remap actions…**, or controller actions in **Controls → Controller → Browsing actions**. **Use mouse buttons for hands** assigns left mouse to the right hand and right mouse to the left hand, leaving keyboard cancellation available. **Use bumpers for hands** assigns RB/LB and replaces bumper browsing; the stick still browses. Shields and torches remain left-only, and two-handed equipment uses both hands. Consumables, voice actions and saved combinations do not accept a hand override.
 
 ## VR controls
 

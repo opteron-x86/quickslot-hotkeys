@@ -83,7 +83,7 @@ static std::string modifierName(unsigned modifiers) {
     if(modifiers&keyModifier::shift)name+="Shift + ";
     if(modifiers&keyModifier::alt)name+="Alt + ";
     if(!name.empty())name.resize(name.size()-3);
-    return name;
+    return name.empty()?tr("None"):name;
 }
 static std::string shortcutName(unsigned scan,unsigned modifiers) {
     if(!scan)return "None";
@@ -818,31 +818,32 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             for(std::size_t i=0;i<options.groupCount;++i){const auto id=options.groupOrder[i];ImGui::PushID(int(id));bindButton(int(id),options.keys[id],"##control binding");ImGui::SameLine();ImGui::TextUnformatted(options.names[id].c_str());ImGui::PopID();}
             ImGui::Separator();label(tr("Editor"));bindButton(-2,options.editorKey,"##editor binding");
             ImGui::SameLine();if(UI::Button("Clear##editor binding")){options.editorKey=options.editorModifiers=0;binding_=-1;changed=true;hint_.clear();}
-            ImGui::Separator();label(tr("Editing shortcuts"));
-            if(UI::Button("Enable all##editing shortcuts")){setEditingShortcuts(options,true);changed=true;}ImGui::SameLine();
-            if(UI::Button("Disable all##editing shortcuts")){setEditingShortcuts(options,false);changed=true;}ImGui::SameLine();
+            ImGui::Separator();label(tr("Actions"));
+            UI::TextWrapped("Configure each action in one place. Choose None or clear a binding to disable it.");
             if(UI::Button("Remap actions…"))ImGui::OpenPopup("Keyboard action bindings");
             ImGui::SetNextWindowSize({std::min(px(560),screen.x-40),std::min(px(540),screen.y-40)},ImGuiCond_Appearing);
             ImGui::SetNextWindowSizeConstraints({0,0},{screen.x-40,screen.y-40});
             if(ImGui::BeginPopup("Keyboard action bindings")) {
                 const char* groupNames[]{"Add right hand / highlighted item","Add left hand","Move to another group","Unequip group item","Remove group shortcut","Reorder while browsing"};
-                UI::TextWrapped("Choose the modifier held with a group or navigation key. Assigning an existing editing modifier swaps it with that action.");
+                UI::TextWrapped("Choose the modifier held with a group or navigation key. None disables that action. Assigning an existing binding swaps the two actions.");
                 for(unsigned i=0;i<options.groupModifiers.size();++i) {
                     ImGui::PushID(int(i));ImGui::SetNextItemWidth(px(185));
-                    if(ImGui::BeginCombo("##action modifier",modifierName(options.groupModifiers[i]).c_str())) {
-                        for(unsigned mask=1;mask<=keyModifier::all;++mask)if(ImGui::Selectable(modifierName(mask).c_str(),mask==options.groupModifiers[i])){assignGroupModifier(options,GroupModifier(i),mask);changed=true;}
+                    const auto selected=groupActionEnabled(options,GroupModifier(i))?options.groupModifiers[i]:0u;
+                    if(ImGui::BeginCombo("##action modifier",modifierName(selected).c_str())) {
+                        for(unsigned mask=0;mask<=keyModifier::all;++mask)if(ImGui::Selectable(modifierName(mask).c_str(),mask==selected)){assignGroupModifier(options,GroupModifier(i),mask);changed=true;}
                         ImGui::EndCombo();
                     }
                     ImGui::SameLine();ImGui::TextUnformatted(tr(groupNames[i]));ImGui::PopID();
                 }
                 changed|=UI::Checkbox("Allow group selection with unused modifiers",&options.allowUnusedModifiers);
-                UI::TextWrapped("Enable to use group keys while holding a walking or other unused modifier. Disable the conflicting editing action or move it to another modifier first.");
+                UI::TextWrapped("Enable to use group keys while holding a walking or other unused modifier. Set the conflicting action to None or choose another modifier first.");
                 ImGui::Separator();
                 const char* actionNames[]{"Previous item","Next item","Unequip highlighted item","Remove highlighted shortcut","Cancel selection","Equip in right hand","Equip in left hand"};
                 for(unsigned i=0;i<options.selectorBindings.size();++i) {
-                    const auto binding=options.selectorBindings[i];ImGui::PushID(int(100+i));
+                    const auto binding=selectorBinding(options,KeyboardAction(i));ImGui::PushID(int(100+i));
                     const auto text=binding_==int(100+i)?std::string(tr("Press a key…")):shortcutName(binding.key,binding.modifiers);
                     if(UI::Button((text+"##action key").c_str(),{px(185),0})){binding_=int(100+i);hint_=tr("Press a key · Esc clears");}
+                    ImGui::SameLine();if(UI::Button("Clear##action key")){assignSelectorBinding(options,KeyboardAction(i),{});if(binding_==int(100+i))binding_=-1;changed=true;}
                     ImGui::SameLine();ImGui::TextUnformatted(tr(actionNames[i]));ImGui::PopID();
                 }
                 ImGui::Separator();UI::TextWrapped("Hand actions equip the highlighted item immediately for this use. Saved hands and combinations stay as configured.");
@@ -860,23 +861,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(!options.selectorBindings[unsigned(KeyboardAction::cancel)].key)assignSelectorBinding(options,KeyboardAction::cancel,{1});
                     changed=true;
                 }
-                if(UI::Button("Reset keyboard actions")){options.groupModifiers=defaultGroupModifiers;options.selectorBindings=defaultSelectorBindings;options.mouseActions=defaultMouseActions;options.allowUnusedModifiers=false;binding_=-1;changed=true;}
+                if(UI::Button("Reset keyboard actions")){setEditingShortcuts(options,true);options.groupModifiers=defaultGroupModifiers;options.selectorBindings=defaultSelectorBindings;options.mouseActions=defaultMouseActions;options.allowUnusedModifiers=false;binding_=-1;changed=true;}
                 if(!hint_.empty())ImGui::TextWrapped("%s",hint_.c_str());
                 ImGui::EndPopup();
             }
-            UI::TextWrapped(options.allowUnusedModifiers?"Disabled group editing actions select normally with their modifier. Other disabled editing keys pass through.":"Disabled editing shortcuts pass through to the game and other mods. Browsing and canceling stay available.");
-            const auto groupToggle=[&](GroupModifier action,const char* suffix,bool& enabled){return UI::Checkbox((modifierName(options.groupModifiers[unsigned(action)])+suffix).c_str(),&enabled);};
-            changed|=groupToggle(GroupModifier::captureRight," + group key: add right hand / highlighted item",options.groupCaptureRightHotkey);
-            changed|=groupToggle(GroupModifier::captureLeft," + group key: add left hand",options.groupCaptureLeftHotkey);
-            changed|=groupToggle(GroupModifier::unequip," + group key: unequip",options.groupUnequipHotkey);
-            changed|=groupToggle(GroupModifier::remove," + group key: remove shortcut",options.groupRemoveHotkey);
-            label(tr("While holding a group key:"));
-            changed|=groupToggle(GroupModifier::move," + destination group key: move item",options.groupMoveHotkey);
-            changed|=UI::Checkbox((modifierName(options.groupModifiers[unsigned(GroupModifier::reorder)])+" + "+scanName(options.selectorBindings[0].key)+" / "+scanName(options.selectorBindings[1].key)+": reorder").c_str(),&options.selectorReorderHotkey);
-            if(ImGui::IsItemHovered())UI::SetTooltip("Turn off moving and reordering to release their modifiers while browsing.");
-            const auto actionToggle=[&](KeyboardAction action,const char* suffix,bool& enabled){const auto b=options.selectorBindings[unsigned(action)];return UI::Checkbox((shortcutName(b.key,b.modifiers)+suffix).c_str(),&enabled);};
-            changed|=actionToggle(KeyboardAction::unequip,": unequip highlighted item",options.selectorUnequipHotkey);
-            changed|=actionToggle(KeyboardAction::remove,": remove highlighted shortcut",options.selectorRemoveHotkey);
             if(UI::CollapsingHeader("Shortcuts")) {
             ImGui::TextUnformatted(tr("Hold + scroll / navigation keys: select"));ImGui::TextUnformatted(tr("Tap: group action"));
             const auto cancel=options.selectorBindings[unsigned(KeyboardAction::cancel)];ImGui::Text("%s / %s: %s",shortcutName(cancel.key,cancel.modifiers).c_str(),tr(mouseButtonName(options.mouseActions[0])),tr("Cancel selection"));

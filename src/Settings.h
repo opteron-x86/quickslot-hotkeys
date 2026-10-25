@@ -29,7 +29,8 @@ inline void sanitizeOptions(Options& o) {
         groupModifiers.push_back(mask);
     }
     std::vector<unsigned> selectorAssigned;
-    for(auto& binding:o.selectorBindings) {
+    for(unsigned i=0;i<o.selectorBindings.size();++i) {
+        auto& binding=o.selectorBindings[i];if(!selectorActionEnabled(o,KeyboardAction(i)))binding={};
         binding.modifiers&=keyModifier::all;
         if(binding.key>255||modifierForScan(binding.key)||std::find(assigned.begin(),assigned.end(),binding.key)!=assigned.end()||
             std::find(selectorAssigned.begin(),selectorAssigned.end(),binding.key)!=selectorAssigned.end())binding={};

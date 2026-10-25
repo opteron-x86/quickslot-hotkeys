@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added optional hand actions while browsing. Choose a compatible weapon or spell, then equip in either hand without changing the saved shortcut. Keyboard, mouse and controller bindings are configurable; mouse-button and bumper presets resolve their existing cancel/browse conflicts. Hand choices finish selection once, and reject consumables, voice actions and combinations. Gameplay validation is pending.
+- Consolidated keyboard actions into one bindings panel: None disables group editing actions and Clear unbinds selected-item keys. Removed the duplicate enable/disable checklist. Rebinding enables the action, Reset restores the defaults, and older disabled shortcuts remain disabled.
 
 - Added keyboard editing-modifier and browsing-key remapping, plus an opt-in to select groups with unused held modifiers such as Alt-to-walk. Controller cancel, unequip and previous/next actions can be rebound; explicit modifiers no longer also trigger a single-button browsing action. Existing settings keep their bindings and pass-through behavior. In-game keyboard/controller verification is pending.
 

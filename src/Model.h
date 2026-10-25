@@ -303,13 +303,36 @@ inline bool selectorUsesModifier(const Options& o,unsigned modifier) {
         (o.selectorReorderHotkey&&(o.groupModifiers[unsigned(GroupModifier::reorder)]&modifier));
 }
 inline bool selectorUsesCtrl(const Options& o){return selectorUsesModifier(o,keyModifier::ctrl);}
+template<class O> auto& groupActionEnabled(O& o,GroupModifier action) {
+    switch(action) {
+    case GroupModifier::captureRight:return o.groupCaptureRightHotkey;
+    case GroupModifier::captureLeft:return o.groupCaptureLeftHotkey;
+    case GroupModifier::move:return o.groupMoveHotkey;
+    case GroupModifier::unequip:return o.groupUnequipHotkey;
+    case GroupModifier::remove:return o.groupRemoveHotkey;
+    default:return o.selectorReorderHotkey;
+    }
+}
+inline bool selectorActionEnabled(const Options& o,KeyboardAction action) {
+    return action==KeyboardAction::unequip?o.selectorUnequipHotkey:action==KeyboardAction::remove?o.selectorRemoveHotkey:true;
+}
+inline void setSelectorActionEnabled(Options& o,KeyboardAction action,bool enabled) {
+    if(action==KeyboardAction::unequip)o.selectorUnequipHotkey=enabled;
+    if(action==KeyboardAction::remove)o.selectorRemoveHotkey=enabled;
+}
+inline KeyBinding selectorBinding(const Options& o,KeyboardAction action){return selectorActionEnabled(o,action)?o.selectorBindings[unsigned(action)]:KeyBinding{};}
 inline void assignGroupModifier(Options& o,GroupModifier action,unsigned modifiers) {
-    if(!modifiers||(modifiers&~keyModifier::all)||action>=GroupModifier::count)return;
+    if((modifiers&~keyModifier::all)||action>=GroupModifier::count)return;
+    auto& enabled=groupActionEnabled(o,action);
+    if(!modifiers){enabled=false;return;}
     const auto index=unsigned(action),previous=o.groupModifiers[index];
     if(action!=GroupModifier::move&&action!=GroupModifier::reorder)
         for(const auto other:{GroupModifier::captureRight,GroupModifier::captureLeft,GroupModifier::unequip,GroupModifier::remove})
-            if(other!=action&&o.groupModifiers[unsigned(other)]==modifiers)o.groupModifiers[unsigned(other)]=previous;
-    o.groupModifiers[index]=modifiers;
+            if(other!=action&&o.groupModifiers[unsigned(other)]==modifiers) {
+                o.groupModifiers[unsigned(other)]=previous;
+                if(groupActionEnabled(o,other))groupActionEnabled(o,other)=enabled;
+            }
+    o.groupModifiers[index]=modifiers;enabled=true;
 }
 enum class GroupKeyAction {select,captureRight,captureLeft,move,unequip,remove,pass};
 inline GroupKeyAction groupKeyAction(const Options& o,unsigned modifiers,bool moving=false) {
@@ -351,14 +374,17 @@ inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,unsigned mod
     return {};
 }
 inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,bool ctrl){return selectorKeyAction(o,scan,ctrl?keyModifier::ctrl:0u);}
-inline bool selectorKeyReserved(const Options& o,unsigned key){return key&&std::any_of(o.selectorBindings.begin(),o.selectorBindings.end(),[&](const auto& b){return b.key==key;});}
+inline bool selectorKeyReserved(const Options& o,unsigned key){for(unsigned i=0;key&&i<o.selectorBindings.size();++i)if(selectorBinding(o,KeyboardAction(i)).key==key)return true;return false;}
 inline bool assignSelectorBinding(Options& o,KeyboardAction action,KeyBinding binding) {
     if(action>=KeyboardAction::count||binding.key>255||modifierForScan(binding.key)||(binding.modifiers&~keyModifier::all))return false;
     if(binding.key&&(binding.key==o.editorKey||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
     if(!binding.key)binding.modifiers=0;
     const auto index=unsigned(action);
-    if(binding.key)for(unsigned i=0;i<o.selectorBindings.size();++i)if(i!=index&&o.selectorBindings[i].key==binding.key)o.selectorBindings[i]=o.selectorBindings[index];
-    o.selectorBindings[index]=binding;return true;
+    for(unsigned i=0;i<o.selectorBindings.size();++i)if(!selectorActionEnabled(o,KeyboardAction(i)))o.selectorBindings[i]={};
+    if(binding.key)for(unsigned i=0;i<o.selectorBindings.size();++i)if(i!=index&&o.selectorBindings[i].key==binding.key) {
+        o.selectorBindings[i]=o.selectorBindings[index];setSelectorActionEnabled(o,KeyboardAction(i),o.selectorBindings[i].key!=0);
+    }
+    o.selectorBindings[index]=binding;setSelectorActionEnabled(o,action,binding.key!=0);return true;
 }
 inline bool hasConsumables(const Group& group){return std::any_of(group.entries.begin(),group.entries.end(),isConsumable);}
 inline bool assignMouseAction(Options& o,MouseAction action,int button) {

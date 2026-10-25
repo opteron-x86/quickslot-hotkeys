@@ -43,6 +43,20 @@ int main()try {
         auto legacy=Json::parse(encodeOptions(Options{}));for(const auto key:{"groupModifiers","selectorBindings","controllerActions","allowUnusedModifiers"})legacy.erase(key);
         const auto migrated=decodeOptions(legacy.dump());
         check(migrated.groupModifiers==defaultGroupModifiers&&migrated.selectorBindings==defaultSelectorBindings&&migrated.controllerActions==defaultControllerActions&&!migrated.allowUnusedModifiers,"Old settings retain all original controls and pass-through behavior");
+        legacy["groupRemoveHotkey"]=false;legacy["selectorUnequipHotkey"]=false;
+        auto disabled=decodeOptions(legacy.dump());
+        check(!groupActionEnabled(disabled,GroupModifier::remove)&&selectorBinding(disabled,KeyboardAction::unequip)==KeyBinding{},"Older disabled shortcuts appear as None after migration");
+        check(!selectorKeyReserved(disabled,14)&&selectorKeyAction(disabled,14,false).action==SelectorKeyAction::pass,"A disabled legacy key is free for another binding and passes through");
+        check(assignSelectorBinding(disabled,KeyboardAction::unequip,{14})&&selectorKeyAction(disabled,14,false).action==SelectorKeyAction::unequip,"Rebinding a migrated disabled action enables it without a hidden toggle");
+        assignGroupModifier(disabled,GroupModifier::remove,keyModifier::shift);
+        check(disabled.groupRemoveHotkey&&!disabled.groupUnequipHotkey&&groupKeyAction(disabled,keyModifier::shift)==GroupKeyAction::remove,"Assigning an occupied modifier from None moves the previous action to None");
+        assignGroupModifier(disabled,GroupModifier::remove,0);disabled.allowUnusedModifiers=true;
+        check(groupKeyAction(disabled,keyModifier::shift)==GroupKeyAction::select,"A cleared group modifier permits normal selection with the unused-modifier opt-in");
+        assignSelectorBinding(disabled,KeyboardAction::remove,{});
+        assignSelectorBinding(disabled,KeyboardAction::unequip,{211});
+        check(selectorKeyAction(disabled,211,false).action==SelectorKeyAction::unequip&&!disabled.selectorRemoveHotkey,"A cleared action key can be reassigned without reviving the old action");
+        const auto disabledSaved=decodeOptions(encodeOptions(disabled));
+        check(!disabledSaved.groupRemoveHotkey&&!disabledSaved.selectorRemoveHotkey&&selectorBinding(disabledSaved,KeyboardAction::unequip).key==211,"None and reassigned bindings survive save/load together");
         auto invalid=keys;invalid.selectorBindings[0]={999,999};invalid.controllerActions[0]={PadButton(999)};sanitizeOptions(invalid);
         check(invalid.selectorBindings[0]==KeyBinding{}&&invalid.controllerActions[0]==PadBinding{},"Invalid saved action bindings are disabled safely");
     }

@@ -20,6 +20,7 @@ Run these in a loaded game. Record the package version, Skyrim/SKSE version and 
 | Item identity | Drop, retrieve, sell, buy, store and restock items. Weapons/shields follow their captured copies; torches follow stock of their saved type. |
 | Shared shortcuts | Edit a shortcut used by several groups. Check all linked groups, Undo, save/load and preset import/export. |
 | Menus | Inventory, Tween, QuickLoot and message boxes receive their controls. Opening a menu cancels pending Quickslot actions. QuickLoot leaves normal HUD visibility active. |
+| QuickLoot opt-ins | Test keyboard-only, controller-only, both and neither. Open/close QuickLoot while holding a group and after releasing a queued equip or use; switch devices and check the original policy remains in force. Verify captured wheel/stick/D-pad navigation never reaches both interfaces, blocked releases cannot equip later, and Inventory/Tween/text entry/focus loss still cancel. Check the installed QuickLoot variant, settings migration and Undo. |
 | Controller | Check modifier chords, D-pad navigation, right-stick pointer, drag, text entry, reconnect and focus changes. |
 | Equipment display | Right hand first; two-handed items occupy one entry. Check quantity badges, shout timers, spent-power dimming and text-only layouts. |
 | Appearance | Check every style, text position, scale and spacing. Spacing changes gaps while icon size stays fixed. Test 720p, 1080p, ultrawide and 4K. |

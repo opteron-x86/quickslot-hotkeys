@@ -778,6 +778,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             ImGui::Separator();label(tr("DEFAULT ACTIVATION"));
             changed|=UI::Checkbox("Activate with group hotkey",&options.voiceHotkey);
             ImGui::SetNextItemWidth(px(240));changed|=UI::SliderFloat("Shout charge",&options.shoutCharge,.05f,2.5f,"%.2f s");
+            ImGui::Separator();label(tr("QUICKLOOT"));
+            changed|=UI::Checkbox("Allow keyboard / mouse while QuickLoot is open",&options.quickLootKeyboard);
+            changed|=UI::Checkbox("Allow controller while QuickLoot is open",&options.quickLootController);
+            UI::TextWrapped("While browsing a Quickslot group, its navigation inputs go to Quickslot. Other inputs still reach QuickLoot. The editor and other game menus keep their normal restrictions.");
             }else if(controlsPage_==1){
             label(tr("KEYS"));
             for(std::size_t i=0;i<options.groupCount;++i){const auto id=options.groupOrder[i];ImGui::PushID(int(id));bindButton(int(id),options.keys[id],"##control binding");ImGui::SameLine();ImGui::TextUnformatted(options.names[id].c_str());ImGui::PopID();}

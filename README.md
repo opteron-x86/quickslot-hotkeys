@@ -40,6 +40,10 @@ Smart weapons rank by physical damage, including tempering and player modifiers.
 
 Weapons, armor and shields follow the captured copy. Torches and consumables follow inventory stock of their saved type. Unavailable entries remain in the group for retrieval or restocking.
 
+In the group editor, change **Manual** to a Favorites category to populate the group from Skyrim Favorites. Categories include weapons, spells, potions, poisons, food, ammo, scrolls, powers/shouts, shields/torches, or all supported favorites. Generated groups show all matching entries in alphabetical order and use a configurable default hand, subject to normal equipment restrictions. Manual groups retain their 16-item limit.
+
+**Exclude** hides a favorite from this group without unfavoriting it in Skyrim; each group supports 128 exclusions and **Reset exclusions** restores them. Switching back to **Manual** restores the original contents and selected item. Source settings, exclusions and the remembered favorite are saved with the character and complete presets. Depleted or unfavorited entries disappear; restocking a still-favorited item brings it back. The list refreshes on inventory/menu changes and approximately once per second, cancelling a pending selection if membership changes. If several identical weapons share one favorited stack, equip one in Skyrim first so Quickslot can identify that copy.
+
 ## Controls
 
 Bindings are configurable under **Controls**. Up to eight groups are available; keyboard groups start with **1**, **2** and **3**, and controller groups start with the four D-pad directions.

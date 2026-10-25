@@ -12,6 +12,9 @@
 
 - Added a green poison marker for the resolved weapon copy and equipped compatible arrow/bolt counts for bows and crossbows. Indicators appear in browsing lists, group tiles and the equipped display, including smart weapon choices, and can be switched off under Appearance → Style. Text-only equipment displays include the same information. Physical gameplay validation is pending.
 
+- Added optional Favorites-linked groups with item-type categories and a default hand. Groups show all matching favorites in name order, retain selection by identity and refresh from Skyrim inventory/magic favorites. Manual contents remain saved separately and return when switching back to Manual. Exclusions, source preferences and the remembered favorite survive save/load and complete presets.
+- Generated groups can exceed the manual 16-item limit; the HUD pager stays bounded. Inventory changes cancel stale selections instead of reusing an old index. Ambiguous favorite weapon stacks show “Equip one copy first” until Skyrim separates a copy. Gameplay validation is pending.
+
 ## 0.10.3
 
 - Fixed editor text fields becoming untypable when an IME integration clears Skyrim's text-entry counter during opening. The editor now waits until its menu is open before claiming text input, and restores a cleared claim while the editor remains open ([#3](https://github.com/opteron-x86/quickslot-hotkeys/issues/3), [#4](https://github.com/opteron-x86/quickslot-hotkeys/pull/4)).

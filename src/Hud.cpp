@@ -349,8 +349,9 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             p.label(center,layout.nameY,displayName(active->entry),o.selector==2?20.f:23.f,active->available?ivory:muted,true,nameWidth,true);
             p.label(center,layout.statusY,rowStatus(*active),13,active->available?silver:IM_COL32(209,134,122,255),false,layout.width-24,true);
             if(n>1) {
-                const float start=center-float(n-1)*4;
-                for(std::size_t i=0;i<n;++i)p.diamond(start+float(i)*8,layout.pagerY,i==index?2.7f:1.6f,i==index?ivory:IM_COL32(155,151,141,140),i==index);
+                const auto dots=std::min(n,std::size_t(16)),first=std::min(index>dots/2?index-dots/2:0,n-dots);
+                const float start=center-float(dots-1)*4;
+                for(std::size_t i=0;i<dots;++i)p.diamond(start+float(i)*8,layout.pagerY,i+first==index?2.7f:1.6f,i+first==index?ivory:IM_COL32(155,151,141,140),i+first==index);
                 p.label(center,layout.pagerY+6,std::to_string(index+1)+" / "+std::to_string(n),12,silver,false,100,true);
             }
             if(o.showHints) {

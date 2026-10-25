@@ -248,6 +248,11 @@ int main(int argc,char** argv) {
         if(scene.find("ring")!=std::string::npos){options.selector=2;options.shape=1;}
         if(scene.find("small")!=std::string::npos){options.scale=.55f;options.textScale=1.5f;}
     }
+    if(scene=="favorites-many") {
+        options.selector=4;snapshot.rows.clear();snapshot.activeGroup=0;snapshot.selected=snapshot.preview=27;
+        for(unsigned i=0;i<45;++i){auto e=editing.catalog[0].entry;e.name="Favorite weapon "+std::to_string(i+1);snapshot.rows.push_back({e,true,false});}
+        snapshot.groups[0]={snapshot.rows[27].entry,45,true,false};
+    }
     std::vector<std::string> previewClicks;
     if(scene.starts_with("equipped-")) {
         options.themeId="oathvein";layoutPreset(options,2);options.groupCount=4;options.showEquipment=true;options.inactiveGroups=1;
@@ -288,6 +293,7 @@ int main(int argc,char** argv) {
     if(scene=="editor-cycle")previewClicks={"##group mode"};
     if(scene=="editor-library")previewClicks={"##filter","Shortcuts"};
     if(scene=="editor-library-edit")previewClicks={"##filter","Shortcuts","##candidate","Edit shortcut"};
+    if(scene=="editor-favorites")previewClicks={"##group source","Favorite weapons"};
     if(scene=="editor-controller")previewClicks={"Controls","Controller"};
     if(scene=="editor-controller-actions")previewClicks={"Controls","Controller","Browsing actions","Reset controller actions"};
     if(scene=="editor-keyboard-actions")previewClicks={"Controls","Keyboard","Remap actions…"};
@@ -356,10 +362,10 @@ int main(int argc,char** argv) {
                 if(phase==2)io.AddMouseButtonEvent(0,true);
                 if(phase==3)io.AddMouseButtonEvent(0,false);
                 if(advance)++previewStep;
-            }else if(scene=="editor-controller-keyboard"&&keyboardStep<10) {
+            }else if(scene=="editor-controller-keyboard"&&keyboardStep<14) {
                 std::vector<EditorInput> events;
-                if(keyboardStep==0||keyboardStep==1)events.push_back({EditorInputType::pad,unsigned(PadButton::up),keyboardStep==0});
-                if(keyboardStep==4||keyboardStep==5)events.push_back({EditorInputType::pad,unsigned(PadButton::a),keyboardStep==4});
+                if(keyboardStep==0||keyboardStep==1||keyboardStep==4||keyboardStep==5)events.push_back({EditorInputType::pad,unsigned(PadButton::up),keyboardStep%4==0});
+                if(keyboardStep==8||keyboardStep==9)events.push_back({EditorInputType::pad,unsigned(PadButton::a),keyboardStep==8});
                 editor.input(events);++keyboardStep;
             }else ++settled;
         }

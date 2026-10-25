@@ -488,5 +488,23 @@ int main()try {
             check(favoriteMatches(FavoriteSource(i),e)==expected,"Each Favorites category uses item type rather than display name");
         }
     }
+    {
+        Group favorites;setFavoriteSource(favorites,FavoriteSource::weapons,Hand::right);
+        std::vector<Entry> weapons;
+        for(unsigned i=0;i<40;++i){Entry e;e.form=500+i;e.owner=0x14;e.unique=std::uint16_t(i);e.name="Weapon "+std::to_string(100+i);weapons.push_back(e);}
+        refreshFavorites(favorites,weapons);favorites.selected=31;
+        Options options;options.quickLootKeyboard=true;
+        for(bool controller:{false,true}) {
+            Selection select;select.press(0,favorites);
+            const auto saved=favorites.entries[31];const auto commit=releaseToHand(select,favorites,0,Hand::left,controller);
+            check(commit&&commit->index==31&&commit->hand==Hand::left&&select.accepts(*commit,favorites),"Hand actions select Favorites beyond the manual group limit");
+            check(favorites.entries[31].same(saved)&&favorites.favoriteHand==Hand::right,"A per-use hand choice leaves Favorites defaults and membership unchanged");
+            const bool allow=commit->controller?options.quickLootController:options.quickLootKeyboard;
+            check(gameplayMenuOpen([](auto name){return name==quickLootMenuName;},MenuPurpose::input,allow)==controller,"The hand commit retains its device's QuickLoot policy");
+            auto changed=weapons;changed.erase(changed.begin());refreshFavorites(favorites,changed);
+            check(!select.accepts(*commit,favorites)&&sameFavorite(favorites.entries[favorites.selected],saved),"A Favorites refresh preserves the chosen identity while cancelling the old hand commit");
+            refreshFavorites(favorites,weapons);
+        }
+    }
     std::cout<<"PASS: "<<checks<<" browse/cycle, compact equipped HUD, settings and menu API checks\n";
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}

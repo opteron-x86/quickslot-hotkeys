@@ -2,7 +2,7 @@
 #include "Model.h"
 
 namespace quickslot {
-enum class PadAction {none,press,release,cancel,previous,next,unequip,editor};
+enum class PadAction {none,press,release,cancel,previous,next,unequip,editor,rightHand,leftHand};
 struct PadResult {bool consumed=false;PadAction action=PadAction::none;std::size_t group=0;};
 class ControllerInput {
     std::array<bool,unsigned(PadButton::count)> down_{},owned_{};
@@ -93,6 +93,7 @@ public:
                     const auto action=ControllerAction(i);
                     if((action==ControllerAction::previous||action==ControllerAction::next)&&(!browse||!o.controllerBumpers))continue;
                     owned_[n]=true;
+                    if(action==ControllerAction::rightHand||action==ControllerAction::leftHand)return {true,action==ControllerAction::rightHand?PadAction::rightHand:PadAction::leftHand};
                     if(action==ControllerAction::cancel||action==ControllerAction::unequip){cancel();return {true,action==ControllerAction::cancel?PadAction::cancel:PadAction::unequip};}
                     return {true,action==ControllerAction::previous?PadAction::previous:PadAction::next};
                 }

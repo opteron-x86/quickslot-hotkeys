@@ -35,6 +35,11 @@ inline void sanitizeOptions(Options& o) {
             std::find(selectorAssigned.begin(),selectorAssigned.end(),binding.key)!=selectorAssigned.end())binding={};
         if(!binding.key)binding.modifiers=0;else selectorAssigned.push_back(binding.key);
     }
+    std::vector<int> mouseAssigned;
+    for(auto& button:o.mouseActions) {
+        if(button< -1||button>4||std::find(mouseAssigned.begin(),mouseAssigned.end(),button)!=mouseAssigned.end())button=-1;
+        if(button>=0)mouseAssigned.push_back(button);
+    }
     o.selectionSpeed=std::isfinite(o.selectionSpeed)?(o.selectionSpeed==0?0:std::clamp(o.selectionSpeed,.1f,1.f)):1.f;
     o.controllerStyle=std::min(o.controllerStyle,1u);o.controllerStick=std::min(o.controllerStick,2u);
     o.controllerModifiers&=allPadButtons;
@@ -103,7 +108,7 @@ inline std::string encodeOptions(Options o) {
         {"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
         {"groupCaptureRightHotkey",o.groupCaptureRightHotkey},{"groupCaptureLeftHotkey",o.groupCaptureLeftHotkey},{"groupMoveHotkey",o.groupMoveHotkey},
         {"selectorReorderHotkey",o.selectorReorderHotkey},{"selectorUnequipHotkey",o.selectorUnequipHotkey},{"selectorRemoveHotkey",o.selectorRemoveHotkey},
-        {"groupModifiers",o.groupModifiers},{"selectorBindings",selectorBindings},{"allowUnusedModifiers",o.allowUnusedModifiers},{"controllerActions",controllerActions},
+        {"mouseActions",o.mouseActions},{"groupModifiers",o.groupModifiers},{"selectorBindings",selectorBindings},{"allowUnusedModifiers",o.allowUnusedModifiers},{"controllerActions",controllerActions},
         {"controllerEnabled",o.controllerEnabled},{"controllerBumpers",o.controllerBumpers},{"controllerStyle",o.controllerStyle},{"controllerStick",o.controllerStick},{"controllerDeadzone",o.controllerDeadzone},{"controllerGroups",padGroups},{"controllerEditor",binding(o.controllerEditor)},
         {"groupModes",modes},{"autoSort",o.autoSort},{"controllerModifiers",o.controllerModifiers},{"vrGroups",vrGroups},{"vrEditor",binding(o.vrEditor)},{"vrStick",o.vrStick},
         {"showEquipment",o.showEquipment},{"equipmentX",o.equipmentX},{"equipmentY",o.equipmentY},{"hideEmptyGroups",o.hideEmptyGroups},{"inactiveGroups",o.inactiveGroups},{"inactiveGroupOpacity",o.inactiveGroupOpacity},
@@ -134,9 +139,11 @@ inline Options decodeOptions(const std::string& bytes) {
     o.groupCaptureRightHotkey=j.value("groupCaptureRightHotkey",true);o.groupCaptureLeftHotkey=j.value("groupCaptureLeftHotkey",true);o.groupMoveHotkey=j.value("groupMoveHotkey",true);
     o.selectorReorderHotkey=j.value("selectorReorderHotkey",true);o.selectorUnequipHotkey=j.value("selectorUnequipHotkey",true);o.selectorRemoveHotkey=j.value("selectorRemoveHotkey",true);
     o.groupModifiers=j.value("groupModifiers",o.groupModifiers);o.allowUnusedModifiers=j.value("allowUnusedModifiers",false);
+    o.mouseActions=j.value("mouseActions",o.mouseActions);
     if(j.contains("selectorBindings")) {
-        const auto bindings=j.at("selectorBindings").get<std::array<std::array<unsigned,2>,unsigned(KeyboardAction::count)>>();
-        for(unsigned i=0;i<bindings.size();++i)o.selectorBindings[i]={bindings[i][0],bindings[i][1]};
+        const auto& bindings=j.at("selectorBindings");
+        if(!bindings.is_array()||(bindings.size()!=5&&bindings.size()!=o.selectorBindings.size()))throw std::runtime_error("Invalid keyboard actions");
+        for(unsigned i=0;i<bindings.size();++i){const auto b=bindings[i].get<std::array<unsigned,2>>();o.selectorBindings[i]={b[0],b[1]};}
     }
     if(j.contains("groupModes")) {
         const auto modes=j.at("groupModes").get<std::array<unsigned,Arsenal::count>>();
@@ -153,7 +160,7 @@ inline Options decodeOptions(const std::string& bytes) {
     const auto binding=[](const Json& value){const auto b=value.get<std::array<unsigned,2>>();return PadBinding{PadButton(b[0]),PadButton(b[1])};};
     if(j.contains("controllerActions")) {
         const auto& actions=j.at("controllerActions");
-        if(!actions.is_array()||actions.size()!=o.controllerActions.size())throw std::runtime_error("Invalid controller actions");
+        if(!actions.is_array()||(actions.size()!=4&&actions.size()!=o.controllerActions.size()))throw std::runtime_error("Invalid controller actions");
         for(unsigned i=0;i<actions.size();++i)o.controllerActions[i]=binding(actions[i]);
     }
     {const auto& groups=j.at("controllerGroups");if(!groups.is_array()||groups.size()!=Arsenal::count)throw std::runtime_error("Invalid controller bindings");for(std::size_t i=0;i<Arsenal::count;++i)o.controllerGroups[i]=binding(groups[i]);}

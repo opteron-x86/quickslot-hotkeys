@@ -280,6 +280,8 @@ int main(int argc,char** argv) {
     if(scene=="editor-controller")previewClicks={"Controls","Controller"};
     if(scene=="editor-controller-actions")previewClicks={"Controls","Controller","Browsing actions","Reset controller actions"};
     if(scene=="editor-keyboard-actions")previewClicks={"Controls","Keyboard","Remap actions…"};
+    if(scene=="editor-mouse-hands")previewClicks={"Controls","Keyboard","Remap actions…","Use mouse buttons for hands"};
+    if(scene=="editor-controller-hands")previewClicks={"Controls","Controller","Browsing actions","Use bumpers for hands"};
     if(scene=="editor-keyboard"||scene=="editor-keyboard-eight")previewClicks={"Controls","Keyboard"};
     if(scene=="editor-keyboard-eight")editing.options.groupCount=Arsenal::count;
     if(scene=="editor-controller-keyboard")previewClicks={"Groups##main","Items"};

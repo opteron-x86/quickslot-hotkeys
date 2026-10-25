@@ -351,10 +351,14 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     else if(o.controllerActions[0].button!=PadButton::none)cancel=padLabel(o.controllerActions[0],o.controllerStyle)+"  "+tr("cancel");
                 }else {
                     const auto binding=o.selectorBindings[unsigned(KeyboardAction::cancel)];
-                    if(binding.modifiers&keyModifier::ctrl)cancel+="Ctrl + ";
-                    if(binding.modifiers&keyModifier::shift)cancel+="Shift + ";
-                    if(binding.modifiers&keyModifier::alt)cancel+="Alt + ";
-                    cancel+=(binding.key?keyLabel(binding.key):std::string(tr("Right-click")))+"  "+tr("cancel");
+                    if(binding.key) {
+                        if(binding.modifiers&keyModifier::ctrl)cancel+="Ctrl + ";
+                        if(binding.modifiers&keyModifier::shift)cancel+="Shift + ";
+                        if(binding.modifiers&keyModifier::alt)cancel+="Alt + ";
+                        cancel+=keyLabel(binding.key);
+                    }
+                    if(cancel.empty()&&o.mouseActions[0]>=0)cancel=tr(mouseButtonName(o.mouseActions[0]));
+                    if(!cancel.empty())cancel+="  "+std::string(tr("cancel"));
                 }
                 const std::string browse=state.controller?(state.vr?tr("Stick / pad  choose"):tr("Stick / buttons  choose")):tr("Scroll  choose");
                 p.label(center,layout.hintY,browse+(cancel.empty()?std::string{}:"   ·   "+cancel),13,silver,false,layout.width-24,true);

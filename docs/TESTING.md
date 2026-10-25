@@ -18,6 +18,7 @@ Run these in a loaded game. Record the package version, Skyrim/SKSE version and 
 | Shared shortcuts | Edit a shortcut used by several groups. Check all linked groups, Undo, save/load and preset import/export. |
 | Menus | Inventory, Tween, QuickLoot and message boxes receive their controls. Opening a menu cancels pending Quickslot actions. QuickLoot leaves normal HUD visibility active. |
 | Controller | Check modifier chords, D-pad navigation, right-stick pointer, drag, text entry, reconnect and focus changes. |
+| Weapon status | Poison one of two identical weapons and confirm only that copy shows the green droplet, including smart selections and combinations. Apply/spend poison, fire arrows/bolts, switch ammunition, transfer/drop stock and save/load. Check zero and incompatible ammo, all selector/equipment layouts, text-only mode, display switches and small scales. |
 | Equipment display | Right hand first; two-handed items occupy one entry. Check quantity badges, shout timers, spent-power dimming and text-only layouts. |
 | Appearance | Check every style, text position, scale and spacing. Spacing changes gaps while icon size stays fixed. Test 720p, 1080p, ultrawide and 4K. |
 | Position | Drag each widget, adjust X/Y, snap edges/centers and use Shift for free placement. Check screen edges and independent positions. |

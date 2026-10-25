@@ -95,6 +95,8 @@ Group layouts include rows, columns, crosses, diamonds and circles. Selectors su
 
 **Appearance → Equipment** shows the right hand, left hand, selected consumable and power/shout. Two-handed equipment uses one entry. Choose list, circle, diamond, square or text layouts, with independent scale, spacing and placement. Quantities and shout timers appear on icons; spent powers dim.
 
+Weapon entries show a green droplet while their resolved copy carries poison. Bows and crossbows show the count of currently equipped compatible arrows or bolts; zero means no compatible ammunition is equipped. Smart weapon shortcuts follow the chosen copy. Both indicators can be disabled under **Appearance → Style**.
+
 Groups and equipment have independent visibility settings. Choose always visible, idle fading or hiding where available, and configure combat/drawn-weapon visibility. QuickLoot receives input while the HUD follows its normal visibility settings. Full menus take input and hide the HUD.
 
 See [Theme and icon packs](THEMES.md) for customization files.

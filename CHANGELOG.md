@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added a green poison marker for the resolved weapon copy and equipped compatible arrow/bolt counts for bows and crossbows. Indicators appear in browsing lists, group tiles and the equipped display, including smart weapon choices, and can be switched off under Appearance → Style. Text-only equipment displays include the same information. Physical gameplay validation is pending.
+
 ## 0.10.3
 
 - Fixed editor text fields becoming untypable when an IME integration clears Skyrim's text-entry counter during opening. The editor now waits until its menu is open before claiming text input, and restores a cleared claim while the editor remains open ([#3](https://github.com/opteron-x86/quickslot-hotkeys/issues/3), [#4](https://github.com/opteron-x86/quickslot-hotkeys/pull/4)).

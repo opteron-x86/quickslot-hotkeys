@@ -237,6 +237,17 @@ int main(int argc,char** argv) {
         if(scene.find("ring")!=std::string::npos)options.selector=2;
         if(scene.find("list")!=std::string::npos)options.selector=4;
     }
+    if(scene.starts_with("weapon-status")) {
+        options.selector=4;options.showEquipment=true;options.groupCount=3;options.names={"Weapons","Bow","Supplies"};
+        snapshot.rows[0].weapon.poisoned=true;snapshot.rows[2].weapon={true,147};
+        snapshot.rows[1].entry=snapshot.rows[2].entry;snapshot.rows[1].entry.name="Dwarven Crossbow";snapshot.rows[1].entry.icon=Icon::crossbow;snapshot.rows[1].weapon.ammunition=0;
+        snapshot.activeGroup=0;snapshot.preview=snapshot.selected=2;
+        for(unsigned i=0;i<3;++i){snapshot.groups[i]={snapshot.rows[i].entry,3,true,i==2};snapshot.groups[i].weapon=snapshot.rows[i].weapon;}
+        snapshot.equipment.hands[0]=snapshot.rows[2];snapshot.equipment.hands[1]=snapshot.rows[2];
+        if(scene.find("text")!=std::string::npos)options.equipmentStyle=4;
+        if(scene.find("ring")!=std::string::npos){options.selector=2;options.shape=1;}
+        if(scene.find("small")!=std::string::npos){options.scale=.55f;options.textScale=1.5f;}
+    }
     std::vector<std::string> previewClicks;
     if(scene.starts_with("equipped-")) {
         options.themeId="oathvein";layoutPreset(options,2);options.groupCount=4;options.showEquipment=true;options.inactiveGroups=1;

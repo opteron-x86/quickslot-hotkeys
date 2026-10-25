@@ -91,6 +91,7 @@ inline std::string encodeOptions(Options o) {
         {"layout",o.layout},{"shape",o.shape},{"selector",o.selector},{"scale",o.scale},{"textScale",o.textScale},{"opacity",o.opacity},
         {"placementSpacing",o.placementSpacing},{"placementFrame",o.placementFrame},{"placementGridSize",o.placementGridSize},
         {"spacing",o.spacing},{"positionX",o.positionX},{"positionY",o.positionY},{"showIdle",o.showIdle},{"showHints",o.showHints},
+        {"showPoison",o.showPoison},{"showAmmo",o.showAmmo},
         {"selectorShape",o.selectorShape},{"selectorSpacing",o.selectorSpacing},{"showLabels",o.showLabels},{"showCardNames",o.showCardNames},{"showKeys",o.showKeys},{"placementGrid",o.placementGrid},{"placementSnap",o.placementSnap},{"keyIcons",o.keyIcons},{"coloredMagic",o.coloredMagic}}.dump(2);
 }
 inline Options decodeOptions(const std::string& bytes) {
@@ -134,6 +135,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.positionX=j.at("positionX").get<float>();o.positionY=j.at("positionY").get<float>();
     o.showIdle=j.at("showIdle").get<bool>();
     o.showHints=j.at("showHints").get<decltype(o.showHints)>();
+    o.showPoison=j.value("showPoison",true);o.showAmmo=j.value("showAmmo",true);
     o.selectorShape=j.at("selectorShape").get<decltype(o.selectorShape)>();o.selectorSpacing=j.at("selectorSpacing").get<decltype(o.selectorSpacing)>();
     o.showKeys=j.at("showKeys").get<decltype(o.showKeys)>();o.placementGrid=j.at("placementGrid").get<decltype(o.placementGrid)>();o.placementSnap=j.at("placementSnap").get<decltype(o.placementSnap)>();
     o.showLabels=j.at("showLabels").get<decltype(o.showLabels)>();o.showCardNames=j.at("showCardNames").get<decltype(o.showCardNames)>();o.keyIcons=j.at("keyIcons").get<decltype(o.keyIcons)>();o.coloredMagic=j.at("coloredMagic").get<decltype(o.coloredMagic)>();

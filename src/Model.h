@@ -194,8 +194,9 @@ public:
     bool accepts(const Commit& c,const Group& g,std::size_t group=0) const { return c.group==group&&c.token==token_&&c.revision==g.revision&&c.index<g.entries.size(); }
     void cancel() { held_=false;browsing_=false;++token_; }
 };
-struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback; };
-struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=false,equipped=false;int quantity=0;float cooldown=0;bool voice=false,consumable=false;};
+struct WeaponStatus {bool poisoned=false;int ammunition=-1;};
+struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon; };
+struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=false,equipped=false;int quantity=0;float cooldown=0;bool voice=false,consumable=false;WeaponStatus weapon;};
 struct EquippedDisplay {
     std::array<std::optional<Row>,2> hands;
     std::optional<Row> consumable,voice;
@@ -270,6 +271,7 @@ struct Options {
     float fadeDelay=4,idleOpacity=.35f;
     float scale=1,textScale=1,opacity=.92f;
     bool showIdle=true,showHints=false,showLabels=true,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
+    bool showPoison=true,showAmmo=true;
     unsigned itemIconColor=1;
     std::string itemIconSet="quickslot";
     bool placementGrid=false,placementSnap=false;

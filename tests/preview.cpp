@@ -247,6 +247,7 @@ int main(int argc,char** argv) {
         if(scene.find("text")!=std::string::npos)options.equipmentStyle=4;
         if(scene.find("ring")!=std::string::npos){options.selector=2;options.shape=1;}
         if(scene.find("small")!=std::string::npos){options.scale=.55f;options.textScale=1.5f;}
+        if(scene.find("diamonds")!=std::string::npos){options.themeId="oathvein";options.shape=3;options.selectorShape=3;options.selector=1;options.layout=2;options.groupCount=4;options.spacing=4;options.selectorSpacing=8;options.scale=1.5f;options.equipmentStyle=1;options.positionX=.5f;options.positionY=1;options.showLabels=false;}
     }
     if(scene=="favorites-many") {
         options.selector=4;snapshot.rows.clear();snapshot.activeGroup=0;snapshot.selected=snapshot.preview=27;

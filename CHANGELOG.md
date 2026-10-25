@@ -9,6 +9,7 @@
 - Smart Potions now recognize restoration effects using Peak Value Modifier, including those in Apothecary and CACO. Conditional effects are evaluated for the player before ranking so alternative duration variants are not added together. Temporary attribute fortification remains excluded. Gameplay confirmation is pending.
 
 - Added separate keyboard/mouse and controller opt-ins under Controls → General for using Quickslot while QuickLoot is open. Defaults still leave navigation to QuickLoot. Held and queued actions follow their originating device; other menus retain their blocking behavior. Gameplay validation with QuickLoot variants is pending.
+- Corrected the equipped-ammunition engine lookup so bow counts, ammo highlights and smart-ammo checks read the equipped arrows/bolts. Poison droplets use a thin outline without a rectangular backing.
 
 - Added a green poison marker for the resolved weapon copy and equipped compatible arrow/bolt counts for bows and crossbows. Indicators appear in browsing lists, group tiles and the equipped display, including smart weapon choices, and can be switched off under Appearance → Style. Text-only equipment displays include the same information. Physical gameplay validation is pending.
 

@@ -25,21 +25,21 @@ inline std::uint32_t rememberShortcut(Arsenal& a,Entry entry) {
 }
 
 inline void collectShortcuts(Arsenal& a) {
-    for(auto& group:a.groups)for(auto& entry:group.entries)if(isReusable(entry)) {
+    for(auto& group:a.groups)for(auto& entry:group.savedEntries())if(isReusable(entry)) {
         if(!entry.shortcut)entry.shortcut=rememberShortcut(a,entry);
         if(const auto* saved=libraryShortcut(a,entry.shortcut))entry=*saved;
     }
 }
 inline std::size_t shortcutUses(const Arsenal& a,std::uint32_t id) {
     if(!id)return 0;
-    std::size_t count=0;for(const auto& g:a.groups)count+=std::any_of(g.entries.begin(),g.entries.end(),[&](const auto& e){return e.shortcut==id;});return count;
+    std::size_t count=0;for(const auto& g:a.groups)count+=std::any_of(g.savedEntries().begin(),g.savedEntries().end(),[&](const auto& e){return e.shortcut==id;});return count;
 }
 inline bool updateShortcut(Arsenal& a,std::uint32_t id,Entry entry) {
     auto* saved=libraryShortcut(a,id);if(!saved||!isReusable(entry)||(entry.kind!=saved->kind&&!(isHandAction(entry)&&isHandAction(*saved))))return false;
     entry.shortcut=id;for(auto& part:entry.parts)part.shortcut=0;
     *saved=entry;
     for(auto& group:a.groups) {
-        bool changed=false;for(auto& value:group.entries)if(value.shortcut==id){value=entry;changed=true;}
+        bool changed=false;for(auto& value:group.savedEntries())if(value.shortcut==id){value=entry;changed=true;}
         if(changed)++group.revision;
     }
     return true;
@@ -47,6 +47,7 @@ inline bool updateShortcut(Arsenal& a,std::uint32_t id,Entry entry) {
 inline bool addShortcut(Arsenal& a,std::size_t group,std::uint32_t id,bool autoSort=false) {
     const auto* saved=libraryShortcut(a,id);if(!saved||group>=Arsenal::count)return false;
     auto& target=a.groups[group];
+    if(target.automatic())return false;
     const auto it=std::find_if(target.entries.begin(),target.entries.end(),[&](const auto& e){return e.shortcut==id;});
     if(it!=target.entries.end()){target.selected=std::size_t(it-target.entries.begin());++target.revision;return true;}
     if(target.entries.size()>=Group::limit)return false;
@@ -57,9 +58,12 @@ inline bool addShortcut(Arsenal& a,std::size_t group,std::uint32_t id,bool autoS
 }
 inline bool deleteShortcut(Arsenal& a,std::uint32_t id) {
     if(!libraryShortcut(a,id))return false;
-    for(auto& g:a.groups)for(std::size_t i=g.entries.size();i-->0;)if(g.entries[i].shortcut==id) {
-        const auto selected=g.selected;g.selected=i;g.remove();
-        if(selected!=i)g.selected=selected>i?selected-1:selected;
+    for(auto& g:a.groups) {
+        auto& entries=g.savedEntries();auto& selected=g.automatic()?g.manualSelected:g.selected;
+        for(std::size_t i=entries.size();i-->0;)if(entries[i].shortcut==id) {
+            entries.erase(entries.begin()+std::ptrdiff_t(i));if(selected>i)--selected;
+            selected=entries.empty()?0:std::min(selected,entries.size()-1);++g.revision;
+        }
     }
     std::erase_if(a.shortcuts,[&](const auto& e){return e.shortcut==id;});return true;
 }

@@ -463,15 +463,43 @@ ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* playe
 }
 RE::TESObjectREFR::InventoryItemMap inventoryFor(const Arsenal& arsenal,RE::PlayerCharacter* player) {
     std::unordered_set<RE::FormID> forms;
-    bool smart=false,weapons=false,ammo=false;
+    bool smart=false,weapons=false,ammo=false;const bool favorites=hasFavoriteGroups(arsenal);
     for(const auto& group:arsenal.groups)for(const auto& saved:group.entries)eachLeaf(saved,[&](const Entry& e){
         smart|=e.kind==Kind::smartPotion;weapons|=e.kind==Kind::smartWeapon;ammo|=e.kind==Kind::smartAmmo;
         if(isInventory(e)&&!e.unresolved)forms.insert(e.form);
     });
     for(bool left:{false,true})if(auto* form=player->GetEquippedObject(left))forms.insert(form->GetFormID());
-    if(forms.empty()&&!smart&&!weapons&&!ammo)return {};
-    return player->GetInventory([&](RE::TESBoundObject& object){return forms.contains(object.GetFormID())||(smart&&object.As<RE::AlchemyItem>())||
+    if(forms.empty()&&!smart&&!weapons&&!ammo&&!favorites)return {};
+    return player->GetInventory([&](RE::TESBoundObject& object){return favorites||forms.contains(object.GetFormID())||(smart&&object.As<RE::AlchemyItem>())||
         (weapons&&(object.As<RE::TESObjectWEAP>()||(object.As<RE::TESObjectARMO>()&&object.As<RE::TESObjectARMO>()->IsShield())))||(ammo&&object.As<RE::TESAmmo>());});
+}
+bool syncFavoriteGroups(Arsenal& arsenal,RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
+    if(!hasFavoriteGroups(arsenal))return false;
+    std::vector<Entry> favorites;
+    const auto needed=[&](const Entry& entry){return std::any_of(arsenal.groups.begin(),arsenal.groups.end(),[&](const auto& group){return favoriteMatches(group.source,entry);});};
+    for(const auto& [object,data]:inventory) {
+        if(data.first<=0||!data.second||!data.second->IsFavorited())continue;
+        Entry base;base.form=object->GetFormID();if(!identify(object,base)||!needed(base))continue;base.name=gameName(object->GetName());
+        if(isStack(base)){favorites.push_back(base);continue;}
+        if(data.second->extraLists)for(auto* extra:*data.second->extraLists)if(extra&&extra->HasType<RE::ExtraHotkey>()&&extra->GetCount()>0) {
+            auto entry=base;
+            if(const char* name=extra->GetDisplayName(object);name&&*name)entry.name=gameName(name);
+            // A favorite stack may contain several indistinguishable weapons. Wait for
+            // Skyrim to split one copy on equip before assigning it an exact identity.
+            if(extra->GetCount()==1&&ensureIdentity(player,extra,arsenal)) {
+                const auto* id=extra->GetByType<RE::ExtraUniqueID>();entry.owner=id->baseID;entry.unique=id->uniqueID;
+            }
+            favorites.push_back(std::move(entry));
+        }
+    }
+    if(auto* magic=RE::MagicFavorites::GetSingleton())for(auto* form:magic->spells) {
+        if(!form)continue;Entry entry;entry.form=form->GetFormID();if(!identify(form,entry))continue;
+        if(auto* spell=form->As<RE::SpellItem>();spell&&!player->HasSpell(spell))continue;
+        if(auto* shout=form->As<RE::TESShout>();shout&&!player->HasShout(shout))continue;
+        if(!entry.spell&&!isVoice(entry))continue;
+        entry.name=gameName(form->GetName());favorites.push_back(std::move(entry));
+    }
+    bool changed=false;for(auto& group:arsenal.groups)changed|=refreshFavorites(group,favorites);return changed;
 }
 // Read the equipped hands and voice slot for the equipment display.
 EquippedDisplay readEquipment(RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
@@ -715,7 +743,7 @@ void Game::queueEdit(int action,std::optional<std::size_t> index) {
             auto& group=arsenal_.current();
             if(action==2) {
                 if(index&&*index<group.entries.size())group.selected=*index;
-                if(group.remove())notice(tr("Removed from ")+options_.names[groupID]);else notice(tr("This group is empty"));dirty_=true;
+                if(group.remove())notice((group.automatic()?tr("Excluded from "):tr("Removed from "))+options_.names[groupID]);else notice(group.automatic()?tr("No item removed; check the Favorites exclusion limit"):tr("This group is empty"));dirty_=true;
             }
             else capture(action?Hand::left:Hand::right);
             refresh();publish();
@@ -789,7 +817,7 @@ void Game::finishSelection() {
 }
 void Game::cycleSelection(int delta) {
     if(!selection_.canBrowse())return;
-    if(options_.skipEmpty){if(dirty_)refresh();std::vector<bool> available;for(const auto& row:snapshot_.rows)available.push_back(row.available);selection_.cycleAvailable(delta,arsenal_.current(),available);}
+    if(options_.skipEmpty){if(dirty_)refresh();if(!selection_.canBrowse())return;std::vector<bool> available;for(const auto& row:snapshot_.rows)available.push_back(row.available);selection_.cycleAvailable(delta,arsenal_.current(),available);}
     else selection_.cycle(delta,arsenal_.current());
     selectionTime(true);
 }
@@ -1034,6 +1062,10 @@ void Game::tick() {
             else if(launch==EditorLaunch::Result::cancel){frameworkMessage_=tr("Editor opening cancelled. Return to gameplay and try again.");notice(frameworkMessage_);}
             if(launch!=EditorLaunch::Result::idle)return;
         }
+        if(clockNow()>=nextFavorites_) {
+            nextFavorites_=clockNow()+1;
+            if(hasFavoriteGroups(editor_.open?editor_.draft:arsenal_))dirty_=true;
+        }
         if(editor_.open) {
             if(const auto reason=editorBlockReason();!reason.empty()){closeEditor(reason);publish();return;}
             updateEditorTextInput();
@@ -1074,6 +1106,7 @@ bool Game::captureMenuOpen()const {
 }
 void Game::menuCapture(std::size_t groupID,Hand hand) {
     if(!captureMenuOpen()||!groupVisible(options_,groupID))return;
+    if(arsenal_.groups[groupID].automatic()){notice(tr("This group follows Favorites; favorite the item in Skyrim"));return;}
     auto* ui=RE::UI::GetSingleton();
     RE::TESForm* form=nullptr;RE::InventoryEntryData* descriptor=nullptr;
     const bool magic=ui->IsMenuOpen(RE::MagicMenu::MENU_NAME);
@@ -1154,6 +1187,7 @@ RE::BSEventNotifyControl Game::ProcessEvent(const RE::BSAnimationGraphEvent* eve
     return RE::BSEventNotifyControl::kContinue;
 }
 void Game::capture(Hand hand) {
+    if(arsenal_.current().automatic()){notice(tr("This group follows Favorites; favorite the item in Skyrim"));return;}
     auto* player=RE::PlayerCharacter::GetSingleton();auto* form=player->GetEquippedObject(hand==Hand::left);
     if(!form){notice(hand==Hand::left?tr("Left hand is empty — equip a one-handed weapon or spell there first"):tr("Equip a weapon or spell first"));return;}
     Entry entry;entry.hand=hand;entry.form=form->GetFormID();
@@ -1218,9 +1252,13 @@ void Game::capture(Hand hand) {
 }
 void Game::refresh() {
     auto* player=RE::PlayerCharacter::GetSingleton();if(!player)return;
+    auto inventory=inventoryFor(arsenal_,player);
+    const auto revision=arsenal_.current().revision;
+    syncFavoriteGroups(arsenal_,player,inventory);
+    if(revision!=arsenal_.current().revision)cancel();
     const auto modes=options_.groupModes;normalizeGroupModes(options_,arsenal_);
     if(modes!=options_.groupModes)autosave_.change(clockNow());
-    auto inventory=inventoryFor(arsenal_,player);const auto potions=potionCandidates(inventory);const auto deficits=actorDeficits(player);snapshot_.rows.clear();snapshot_.equipment=readEquipment(player,inventory);
+    const auto potions=potionCandidates(inventory);const auto deficits=actorDeficits(player);snapshot_.rows.clear();snapshot_.equipment=readEquipment(player,inventory);
     const auto consumableGroup=selectedConsumableGroup(arsenal_);
     const bool smart=std::any_of(arsenal_.groups.begin(),arsenal_.groups.end(),[](const auto& g){return std::any_of(g.entries.begin(),g.entries.end(),hasSmartEquipment);});
     const auto equipment=smart?equipmentCandidates(player,inventory):std::vector<NativeEquipment>{};
@@ -1231,7 +1269,10 @@ void Game::refresh() {
             entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo)entry.parts=resolved.row.entry.parts;
             const bool available=resolved.row.available;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
-            if(i==arsenal_.active)snapshot_.rows.push_back(resolved.row);
+            if(i==arsenal_.active) {
+                snapshot_.rows.push_back(resolved.row);
+                if(group.automatic()&&tracksInstance(entry)&&!entry.owner)snapshot_.rows.back().detail=tr("Equip one copy first");
+            }
             if(j==group.selected){
                 tile.entry=resolved.row.entry;tile.available=available;tile.equipped=resolved.row.equipped;tile.quantity=resolved.row.quantity;tile.cooldown=resolved.row.cooldown;
                 tile.voice=isVoice(entry)&&tile.equipped;
@@ -1603,7 +1644,9 @@ void Game::buildCatalog() {
     catalogDirty_=false;
 }
 void Game::refreshEditor() {
-    auto* player=RE::PlayerCharacter::GetSingleton();auto inventory=inventoryFor(editor_.draft,player);const auto potions=potionCandidates(inventory);editor_.deficits=actorDeficits(player);
+    auto* player=RE::PlayerCharacter::GetSingleton();auto inventory=inventoryFor(editor_.draft,player);
+    if(syncFavoriteGroups(editor_.draft,player,inventory)){++editor_.revision;arsenal_=editor_.draft;}
+    const auto potions=potionCandidates(inventory);editor_.deficits=actorDeficits(player);
     const auto equipment=equipmentCandidates(player,inventory);editor_.equippedDisplay=readEquipment(player,inventory);
     const auto consumableGroup=selectedConsumableGroup(editor_.draft);
     for(std::size_t i=0;i<Arsenal::count;++i) {
@@ -1613,6 +1656,7 @@ void Game::refreshEditor() {
             entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo)entry.parts=resolved.row.entry.parts;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             rows.push_back(resolved.row);
+            if(editor_.draft.groups[i].automatic()&&tracksInstance(entry)&&!entry.owner)rows.back().detail=tr("Equip one copy first");
             if(i==consumableGroup&&rows.size()-1==editor_.draft.groups[i].selected){editor_.equippedDisplay.consumable=resolved.row;if(resolved.item.available())editor_.equippedDisplay.consumable->entry=resolved.action;}
         }
     }
@@ -1655,6 +1699,7 @@ std::optional<Entry> Game::captureCandidate(std::uint64_t candidate,Hand hand) {
 bool Game::addCandidate(const EditCommand& c) {
     if(c.catalogVersion!=editor_.catalogVersion||catalogDirty_){editor_.message=tr("Select the item again");return false;}
     auto& group=editor_.draft.groups[c.group];
+    if(group.automatic()){editor_.message=tr("This group follows Favorites; favorite the item in Skyrim");return false;}
     if(group.entries.size()>=Group::limit) {
         const auto* choice=catalogItem(editor_,c.candidate);
         if(!choice){editor_.message=tr("Select the item again");return false;}
@@ -1668,6 +1713,7 @@ bool Game::addCandidate(const EditCommand& c) {
     buildCatalog();refreshEditor();return true;
 }
 bool Game::saveCombination(const EditCommand& c) {
+    if(!c.libraryID&&editor_.draft.groups[c.group].automatic())return false;
     if(catalogDirty_){buildCatalog();editor_.message=tr("Select the items again");return false;}
     if(!c.replace&&!c.libraryID&&editor_.draft.groups[c.group].entries.size()>=Group::limit){editor_.message=tr("Group full (16 / 16)");return false;}
     const auto pair=composeCombination(editor_,c,[&](std::uint64_t id,Hand hand){return captureCandidate(id,hand);});
@@ -1761,7 +1807,7 @@ void Game::edit(const EditCommand& c) {
         else editor_.message=tr(c.action==EditAction::sortGroup?"Already sorted":"Could not change item");
         editHistory_.finish(changed&&c.action!=EditAction::select,c.continuous,clockNow());
         if(changed) {
-            if(c.action==EditAction::addGroup||c.action==EditAction::removeGroup)++editor_.restoreSerial;
+            if(c.action==EditAction::addGroup||c.action==EditAction::removeGroup||c.action==EditAction::favoriteSource)++editor_.restoreSerial;
             if(c.action==EditAction::removeGroup)editor_.message=tr("Group removed");
             if(c.action==EditAction::clearGroup)editor_.message=tr("Group cleared");
             if(unsigned(c.action)>=unsigned(EditAction::addGroup))log::info("Editor structure action {}, group {}, visible {}, saved entries {}",unsigned(c.action),c.group+1,editor_.options.groupCount,editor_.draft.size());

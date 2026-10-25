@@ -25,12 +25,13 @@ struct EditorState {
     std::string message;
     std::vector<std::string> presets;
 };
-enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup};
+enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup,favoriteSource,resetFavoriteExclusions};
 struct EditCommand {
     EditAction action=EditAction::select;
     std::uint64_t session=0,revision=0,catalogVersion=0,candidate=0;
     std::size_t group=0,index=0,target=0;
     Hand hand=Hand::right;
+    FavoriteSource source=FavoriteSource::manual;
     Options options;
     bool hasSettings=false,continuous=false;
     Entry shortcut;
@@ -86,13 +87,17 @@ template<class Capture> std::optional<Entry> composeCombination(const EditorStat
     return entry;
 }
 inline bool editStructure(Arsenal& a,Options& o,const EditCommand& c) {
+    if(c.action==EditAction::favoriteSource&&c.group<Arsenal::count)return setFavoriteSource(a.groups[c.group],c.source,c.hand);
+    if(c.action==EditAction::resetFavoriteExclusions&&c.group<Arsenal::count) {
+        auto& g=a.groups[c.group];if(g.excludedFavorites.empty())return false;g.excludedFavorites.clear();++g.revision;return true;
+    }
     if(c.action==EditAction::addShortcut&&c.group<Arsenal::count)return addShortcut(a,c.group,c.libraryID,o.autoSort[c.group]);
     if(c.action==EditAction::sortGroup&&c.group<Arsenal::count)return a.groups[c.group].sortByName();
     if(c.action==EditAction::deleteShortcut)return deleteShortcut(a,c.libraryID);
     if(c.action==EditAction::addGroup)return addGroup(a,o);
     if(c.action==EditAction::removeGroup)return removeGroup(a,o,c.group);
     if(c.action==EditAction::groupUp||c.action==EditAction::groupDown)return reorderGroup(o,c.group,c.action==EditAction::groupUp?-1:1);
-    if(c.action==EditAction::clearGroup&&c.group<Arsenal::count){auto& g=a.groups[c.group];if(g.entries.empty())return false;g.entries.clear();g.selected=0;++g.revision;return true;}
+    if(c.action==EditAction::clearGroup&&c.group<Arsenal::count){auto& g=a.groups[c.group];if(g.automatic()||g.entries.empty())return false;g.entries.clear();g.selected=0;++g.revision;return true;}
     if(c.action!=EditAction::saveShortcut||c.group>=Arsenal::count)return false;
     const auto& e=c.shortcut;
     if(isSmartEquipment(e)){if(!validSmartEquipment(e))return false;}
@@ -101,6 +106,7 @@ inline bool editStructure(Arsenal& a,Options& o,const EditCommand& c) {
     else if(e.kind!=Kind::combo||e.parts.size()!=2||!validPair(e.parts[0],e.parts[1]))return false;
     auto& g=a.groups[c.group];
     if(c.libraryID)return updateShortcut(a,c.libraryID,e);
+    if(g.automatic())return false;
     if(c.replace){
         if(c.index>=g.entries.size())return false;
         collectShortcuts(a);const auto id=g.entries[c.index].shortcut;
@@ -117,11 +123,13 @@ inline bool editGroup(Arsenal& a,const Options& o,const EditCommand& c) {
     if(c.action==EditAction::reorder)return group.reorder(c.index,c.target);
     if(c.action==EditAction::move&&c.target<Arsenal::count)return a.move(c.group,c.index,c.target,o.autoSort[c.target]);
     if(c.action==EditAction::remove) {
-        const auto remembered=group.selected;group.selected=c.index;group.remove();
+        const auto remembered=group.selected;group.selected=c.index;
+        if(!group.remove()){group.selected=remembered;return false;}
         if(remembered!=c.index)group.selected=remembered>c.index?remembered-1:remembered;
         return true;
     }
     if(c.action==EditAction::hand) {
+        if(group.automatic())return false;
         auto& entry=group.entries[c.index];if(!flexibleHand(entry))return false;
         auto changed=entry;changed.hand=c.hand;
         for(std::size_t i=0;i<group.entries.size();++i)if(i!=c.index&&group.entries[i].same(changed))return false;

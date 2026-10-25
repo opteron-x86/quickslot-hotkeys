@@ -150,7 +150,7 @@ inline Options decodeOptions(const std::string& bytes) {
 }
 inline void revealSavedGroups(Options& o,const Arsenal& a) {
     sanitizeOptions(o);normalizeGroupModes(o,a);
-    for(std::size_t id=0;id<Arsenal::count;++id)if((!a.groups[id].entries.empty()||id==a.active)&&!groupVisible(o,id)) {
+    for(std::size_t id=0;id<Arsenal::count;++id)if((!a.groups[id].entries.empty()||a.groups[id].automatic()||id==a.active)&&!groupVisible(o,id)) {
         const auto it=std::find(o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),o.groupOrder.end(),id);
         std::rotate(o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),it,it+1);++o.groupCount;
     }

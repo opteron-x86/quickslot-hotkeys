@@ -7,6 +7,7 @@
 #include "EditorLaunch.h"
 #include "EditorTextInput.h"
 #include "Presets.h"
+#include "LiveEditor.h"
 #include "VoiceAction.h"
 #include <iostream>
 #include <source_location>
@@ -355,5 +356,78 @@ int main()try {
     used.powerUsed=false;used.cooldown=17.2f;
     check(equipmentDimmed(used)&&equipmentTextName(used,false)=="Battle Cry · 18s"&&equipmentTextName(used,true)=="Battle Cry","Recharge timer sits on the icon or beside text-only names");
     used.cooldown=0;check(!equipmentDimmed(used),"Finished recharge restores normal brightness");
+    {
+        const auto identity=[](std::uint32_t id,std::uint32_t& mapped){mapped=id;return true;};
+        Arsenal favorites;Options settings;auto& linked=favorites.groups[0];
+        Entry manual;manual.form=17;manual.owner=0x14;manual.unique=1;manual.name="Manual sword";linked.add(manual);
+        Entry other=manual;other.form=18;other.unique=2;other.name="Manual axe";linked.add(other);
+        const auto manualData=encode(linked);
+        std::vector<Entry> choices;
+        for(unsigned i=0;i<40;++i){auto e=manual;e.form=100+i;e.unique=std::uint16_t(10+i);e.name="Favorite "+std::to_string(100+i);choices.push_back(e);}
+        Entry spell;spell.form=200;spell.kind=Kind::spell;spell.spell=true;spell.name="Healing";choices.push_back(spell);
+        Entry potion;potion.form=201;potion.kind=Kind::potion;potion.name="Potion";choices.push_back(potion);
+        choices.push_back(choices[0]);
+        check(setFavoriteSource(linked,FavoriteSource::weapons,Hand::left)&&linked.manualEntries.size()==2,"Linking Favorites preserves the manual group separately");
+        check(refreshFavorites(linked,choices)&&linked.entries.size()==40&&linked.entries.front().hand==Hand::left,"Category groups include all matches beyond the manual 16-item limit and remove duplicate identities");
+        check(!linked.add(manual)&&!linked.reorder(0,1)&&!linked.sortByName()&&!favorites.move(0,0,1),"Generated membership cannot be manually added, reordered or moved");
+        linked.selected=28;const auto remembered=linked.entries[28];const auto revision=linked.revision;
+        std::reverse(choices.begin(),choices.end());check(!refreshFavorites(linked,choices)&&linked.revision==revision&&linked.entries[linked.selected].same(remembered),"Inventory enumeration order cannot reorder Favorites or change selection");
+        Selection browse;browse.press(1,linked);const auto queued=browse.release(linked);
+        auto added=manual;added.form=300;added.unique=100;added.name="A first favorite";choices.push_back(added);
+        check(refreshFavorites(linked,choices)&&linked.entries[linked.selected].same(remembered)&&!browse.accepts(*queued,linked),"Inserting a favorite retains the selected identity and invalidates a queued index");
+        linked.selected=1;const auto excluded=linked.entries[1];check(linked.remove()&&linked.excludedFavorites.size()==1,"Removing a generated row creates an exclusion");
+        refreshFavorites(linked,choices);check(std::none_of(linked.entries.begin(),linked.entries.end(),[&](const auto& e){return sameFavorite(e,excluded);}),"Excluded favorites stay absent on refresh");
+        setFavoriteSource(linked,FavoriteSource::all,Hand::right);refreshFavorites(linked,choices);
+        check(linked.entries.size()==42&&std::none_of(linked.entries.begin(),linked.entries.end(),[&](const auto& e){return sameFavorite(e,excluded);}),"Changing category or default hand retains exclusions");
+        const auto encoded=encodeArsenal(favorites);const auto json=Json::parse(encoded);
+        check(json["groups"][0]["entries"].size()==2&&json["groups"][0]["favorites"]["excluded"].size()==1,"Save data contains manual entries and source preferences, not generated membership");
+        auto loaded=decodeArsenal(encoded,identity);auto& restored=loaded.groups[0];
+        check(restored.automatic()&&restored.entries.empty()&&restored.manualEntries.size()==2&&restored.excludedFavorites.size()==1,"Loading restores source and manual backup before reading current Favorites");
+        refreshFavorites(restored,choices);check(restored.entries.size()==linked.entries.size(),"Current Favorites rebuild the linked group after load");
+        setFavoriteSource(restored,FavoriteSource::manual,Hand::right);
+        auto oldManual=Json::parse(manualData),restoredManual=Json::parse(encode(restored));restoredManual.erase("favorites");
+        check(restoredManual==oldManual,"Switching back to Manual restores the original contents and remembered item");
+        auto oldSave=Json::parse(encoded);oldSave["groups"][0].erase("favorites");
+        check(!decodeArsenal(oldSave.dump(),identity).groups[0].automatic(),"Older settings remain manual without losing entries");
+        auto invalid=json;invalid["groups"][0]["favorites"]["source"]=999u;bool rejected=false;
+        try{decodeArsenal(invalid.dump(),identity);}catch(...){rejected=true;}check(rejected,"Invalid source values are rejected");
+        const auto portable=exportPreset(favorites,settings,false,[](auto id){return Json{{"file","Favorites.esp"},{"local",id}};});
+        favorites.presetIdentity="same";const auto samePreset=exportPreset(favorites,settings,false,[](auto id){return Json{{"file","Favorites.esp"},{"local",id}};});
+        const auto imported=importPreset(samePreset,favorites,settings,false,[](const auto&,auto id){return id;});
+        check(imported.arsenal.groups[0].automatic()&&imported.arsenal.groups[0].manualEntries[0].same(manual)&&imported.arsenal.groups[0].excludedFavorites.size()==1,"Complete presets round-trip hidden manual references and exclusions");
+        const auto foreign=importPreset(portable,favorites,settings,false,[](const auto&,auto id){return id;});
+        const auto& foreignGroup=foreign.arsenal.groups[0];
+        check(foreignGroup.automatic()&&foreignGroup.manualEntries[0].unresolved&&!foreignGroup.manualEntries[0].owner&&foreignGroup.excludedFavorites[0].unresolved&&foreignGroup.rememberedFavorite->unresolved,"Another character's preset retains category settings without borrowing exact inventory identities");
+        EditHistory history;history.begin(favorites,settings);history.prepare(favorites,settings);
+        setFavoriteSource(linked,FavoriteSource::manual,Hand::right);history.finish(true,false,1);
+        check(history.undo(favorites,settings)&&favorites.groups[0].automatic(),"Undo restores the source and generated selection together");
+        auto& g=favorites.groups[0];setFavoriteSource(g,FavoriteSource::spells,Hand::left);refreshFavorites(g,choices);
+        check(g.entries.size()==1&&g.entries[0].spell&&g.entries[0].hand==Hand::left,"Spell categories honor their default hand");
+        setFavoriteSource(g,FavoriteSource::potions,Hand::left);refreshFavorites(g,choices);
+        check(g.entries.size()==1&&g.entries[0].kind==Kind::potion&&g.entries[0].hand==Hand::right,"Potion categories retain consumable hand rules");
+        refreshFavorites(g,{});check(g.entries.empty(),"Unfavorited or depleted items leave generated membership");
+        refreshFavorites(g,choices);check(g.entries.size()==1,"Restocked favorites return without manual additions");
+        const auto changed=followIdentityChange(g,{manual.form,manual.owner,0x24,manual.unique,31});
+        check(changed&&g.manualEntries[0].owner==0x24&&g.manualEntries[0].unique==31,"Hidden manual items follow inventory identity changes");
+        resetGroup(favorites,settings,0);check(!favorites.groups[0].automatic()&&favorites.groups[0].manualEntries.empty()&&favorites.groups[0].excludedFavorites.empty(),"Removing a group clears its source, exclusions and hidden backup");
+        Entry smart;smart.kind=Kind::smartPotion;smart.name="Restore health";
+        const auto shortcut=rememberShortcut(favorites,smart);addShortcut(favorites,0,shortcut);favorites.groups[0].add(manual);
+        setFavoriteSource(favorites.groups[0],FavoriteSource::potions,Hand::right);refreshFavorites(favorites.groups[0],choices);
+        smart.name="Renamed health";
+        check(shortcutUses(favorites,shortcut)==1&&updateShortcut(favorites,shortcut,smart)&&favorites.groups[0].manualEntries[0].name==smart.name,"Shared shortcut edits reach the saved manual contents of a Favorites group");
+        check(deleteShortcut(favorites,shortcut)&&favorites.groups[0].manualEntries.size()==1&&favorites.groups[0].manualSelected==0&&favorites.groups[0].entries.size()==1,"Deleting a shared shortcut preserves generated membership and the remaining manual selection");
+        setFavoriteSource(favorites.groups[0],FavoriteSource::manual,Hand::right);
+        check(favorites.groups[0].entries[0].same(manual),"Restoring Manual cannot resurrect a deleted shared shortcut");
+        Group capped;setFavoriteSource(capped,FavoriteSource::all,Hand::right);refreshFavorites(capped,choices);
+        for(unsigned i=0;i<Group::exclusionLimit;++i){auto e=potion;e.form=1000+i;capped.excludedFavorites.push_back(e);}
+        const auto before=capped.entries.size();check(!capped.remove()&&capped.entries.size()==before,"A full exclusion list leaves membership intact instead of losing an unpersisted exclusion");
+        auto oversized=Json::parse(encode(capped));oversized["favorites"]["excluded"].push_back(encodeEntry(potion));rejected=false;
+        try{decode(oversized.dump(),identity);}catch(...){rejected=true;}check(rejected,"Loading rejects an exclusion list beyond its supported limit");
+        for(unsigned i=1;i<unsigned(FavoriteSource::count);++i)for(const auto kind:{Kind::sword,Kind::spell,Kind::potion,Kind::poison,Kind::food,Kind::ammo,Kind::scroll,Kind::shout,Kind::shield}) {
+            Entry e;e.form=1;e.kind=kind;
+            const bool expected=i==1||(i==2&&kind==Kind::sword)||(i==3&&kind==Kind::spell)||(i==4&&kind==Kind::potion)||(i==5&&kind==Kind::poison)||(i==6&&kind==Kind::food)||(i==7&&kind==Kind::ammo)||(i==8&&kind==Kind::scroll)||(i==9&&kind==Kind::shout)||(i==10&&kind==Kind::shield);
+            check(favoriteMatches(FavoriteSource(i),e)==expected,"Each Favorites category uses item type rather than display name");
+        }
+    }
     std::cout<<"PASS: "<<checks<<" browse/cycle, compact equipped HUD, settings and menu API checks\n";
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}

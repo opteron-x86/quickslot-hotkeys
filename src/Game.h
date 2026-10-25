@@ -72,7 +72,7 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     std::optional<Released> released_;
     ConsumableUse use_;
     Entry usedEntry_;
-    double nextStatus_=0,nextUsePoll_=0;
+    double nextStatus_=0,nextUsePoll_=0,nextFavorites_=0;
     RE::BSTSmartPointer<RE::BShkbAnimationGraph> animationGraph_;
     struct AnimationSignal {double time;std::string tag,payload;};
     std::mutex animationMutex_;

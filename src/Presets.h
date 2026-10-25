@@ -69,7 +69,7 @@ inline PresetImport importPreset(const std::string& bytes,const Arsenal& current
     result.arsenal.presetIdentity=current.presetIdentity;
 
     const auto detach=[&](Entry& e){if(!sameCharacter&&tracksInstance(e)){e.unresolved=true;e.form=e.owner=e.unique=0;}};
-    for(auto& group:result.arsenal.groups)for(auto& entry:group.entries)eachLeaf(entry,[&](Entry& e){detach(e);if(e.unresolved)++result.unresolved;});
+    for(auto& group:result.arsenal.groups)eachGroupEntry(group,[&](auto& entry){eachLeaf(entry,[&](Entry& e){detach(e);if(e.unresolved)++result.unresolved;});});
     for(auto& entry:result.arsenal.shortcuts)eachLeaf(entry,detach);
     result.options=imported;revealSavedGroups(result.options,result.arsenal);return result;
 }

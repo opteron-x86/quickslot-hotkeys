@@ -15,6 +15,7 @@ Run these in a loaded game. Record the package version, Skyrim/SKSE version and 
 | Equipment | Check left/right hands, shields, torches, two-handed weapons, spells and empty-hand actions. Highlights reflect the complete equipped entry. |
 | Smart combinations | Check Best Sword + Best Mace, Best Axe + Best Shield, fixed + smart, spell + smart and two identical rules. Verify separate copies, tempering, missing items and restocking. |
 | Item identity | Drop, retrieve, sell, buy, store and restock items. Weapons/shields follow their captured copies; torches follow stock of their saved type. |
+| Favorites groups | Link each category and favorite/unfavorite inventory items, spells and shouts. Test more than 16 matches, identical/enchanted weapon copies, default hands, zero stock/restocking, exclusions/reset, manual restoration, hidden manual shared shortcuts, Undo, save/load and cross-character presets. Add/remove a favorite while a group selection or equip is pending; it must cancel rather than retarget. Check ambiguous weapon-stack guidance, controller/VR scrolling and long lists at small resolutions. |
 | Shared shortcuts | Edit a shortcut used by several groups. Check all linked groups, Undo, save/load and preset import/export. |
 | Menus | Inventory, Tween, QuickLoot and message boxes receive their controls. Opening a menu cancels pending Quickslot actions. QuickLoot leaves normal HUD visibility active. |
 | Controller | Check modifier chords, D-pad navigation, right-stick pointer, drag, text entry, reconnect and focus changes. |

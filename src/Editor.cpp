@@ -263,6 +263,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         out.push_back(std::move(c));
     };
     const auto accept=[&](std::optional<std::size_t> index,std::size_t destination) {
+        if(state.draft.groups[destination].automatic())return;
         if(ImGui::BeginDragDropTarget()) {
             if(const auto* payload=ImGui::AcceptDragDropPayload("QUICKSLOT_ENTRY")) {
                 if(payload->DataSize==sizeof(Drag)) {
@@ -434,7 +435,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         label(tr("GROUPS"));
         for(std::size_t position=0;position<options.groupCount;++position) {
             const auto i=options.groupOrder[position];ImGui::PushID(int(i));
-            const auto text=scanName(options.keys[i])+"   "+options.names[i]+"\n     "+std::to_string(state.draft.groups[i].entries.size())+" / 16";
+            const auto text=scanName(options.keys[i])+"   "+options.names[i]+"\n     "+std::to_string(state.draft.groups[i].entries.size())+(state.draft.groups[i].automatic()?" favorites":" / 16");
             if(ImGui::Selectable(text.c_str(),i==state.draft.active,0,{0,px(48)})){selected_=0;emit(command(EditAction::select,i));}
             accept({},i);ImGui::PopID();
         }
@@ -442,7 +443,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         ImGui::Separator();
         if(UI::Button("Group up",{-1,0}))emit(command(EditAction::groupUp,state.draft.active));
         if(UI::Button("Group down",{-1,0}))emit(command(EditAction::groupDown,state.draft.active));
-        ImGui::BeginDisabled(state.draft.current().entries.empty());
+        ImGui::BeginDisabled(state.draft.current().automatic()||state.draft.current().entries.empty());
         if(UI::Button("Clear group",{-1,0}))emit(command(EditAction::clearGroup,state.draft.active));ImGui::EndDisabled();
         ImGui::BeginDisabled(options.groupCount<=1);
         if(UI::Button("Remove group",{-1,0}))emit(command(EditAction::removeGroup,state.draft.active));ImGui::EndDisabled();
@@ -454,6 +455,17 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             ImGui::SetNextItemWidth(std::max(px(100),ImGui::GetContentRegionAvail().x-px(250)));
             if(textField("##Group name","",names_[groupID])){options.names[groupID]=names_[groupID].data();changed=true;}
             ImGui::SameLine();UI::TextDisabled("Key");ImGui::SameLine();bindButton(int(groupID),options.keys[groupID],"##group binding");
+            ImGui::SetNextItemWidth(px(235));
+            if(ImGui::BeginCombo("##group source",tr(favoriteSourceName(group.source)))) {
+                for(unsigned i=0;i<unsigned(FavoriteSource::count);++i)if(ImGui::Selectable(tr(favoriteSourceName(FavoriteSource(i))),i==unsigned(group.source))) {
+                    auto c=command(EditAction::favoriteSource,groupID);c.source=FavoriteSource(i);c.hand=group.favoriteHand;emit(c);
+                }
+                ImGui::EndCombo();
+            }
+            if(group.automatic()) {
+                ImGui::SameLine();ImGui::SetNextItemWidth(px(140));int hand=int(group.favoriteHand);
+                if(UI::Combo("Default hand",&hand,"Right\0Left\0")){auto c=command(EditAction::favoriteSource,groupID);c.source=group.source;c.hand=Hand(hand);emit(c);}
+            }
             const auto loadDefinition=[&](const Entry& entry) {
                 shortcut_=entry;comboCandidates_={};
                 builder_=shortcut_.kind==Kind::combo?1:shortcut_.kind==Kind::smartPotion?2:isSmartEquipment(shortcut_)?4:3;
@@ -481,6 +493,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(type==1){shortcut_=Entry{};shortcut_.kind=Kind::combo;shortcut_.parts.resize(2);}
                 else shortcut_=type==2?smartEntry(0,0,0):type>=4?smartEquipmentEntry(type==5,type==6?unsigned(WeaponFamily::shield):0u):unarmedEntry();
             };
+            ImGui::BeginDisabled(group.automatic());
             if(UI::Button("Items")){builder_=0;shortcutIndex_.reset();editingLibrary_=0;}
             ImGui::SameLine();if(UI::Button("New"))ImGui::OpenPopup("new entry");
             if(ImGui::BeginPopup("new entry")) {
@@ -492,6 +505,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(UI::MenuItem("Hand action"))newShortcut(3);
                 ImGui::EndPopup();
             }
+            ImGui::EndDisabled();
             ImGui::SameLine();ImGui::SetNextItemWidth(px(180));
             const bool consumables=hasConsumables(group);int mode=int(groupMode(options,state.draft,groupID));
             ImGui::BeginDisabled(consumables);
@@ -509,6 +523,18 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             };
             const float column=(ImGui::GetContentRegionAvail().x-px(12))*.5f;
             beginPanel("catalog",{column,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
+            if(group.automatic()) {
+                label(tr("FAVORITES"));
+                UI::TextWrapped("Favorite items in Skyrim's Inventory or Magic menu to add them here. This group shows every matching favorite in name order.");
+                UI::TextWrapped("Switch back to Manual to restore the original group contents. Exclude hides an entry from this group without changing Skyrim Favorites.");
+                UI::TextDisabled("%u manual entries saved",unsigned(group.manualEntries.size()));
+                UI::TextDisabled("%u / 128 exclusions",unsigned(group.excludedFavorites.size()));
+                ImGui::BeginDisabled(group.excludedFavorites.empty());
+                if(UI::Button("Reset exclusions"))emit(command(EditAction::resetFavoriteExclusions,groupID));
+                ImGui::EndDisabled();
+                for(const auto& entry:group.excludedFavorites)ImGui::TextWrapped("%s",entry.name.c_str());
+            }else {
+
             if(builder_==0) {
             label(tr("ITEMS & SHORTCUTS"));
             ImGui::SetNextItemWidth(-1);textField("##search","Search…",search_,127);
@@ -705,19 +731,23 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(uses>1){ImGui::Spacing();UI::TextDisabled("Used in %u groups",unsigned(uses));}
             if(editingLibrary_&&UI::Button("Add to group",{-1,0})){auto c=command(EditAction::addShortcut,groupID);c.libraryID=editingLibrary_;emit(c);}
             }
+            }
             endPanel();ImGui::SameLine();
             beginPanel("entries",{0,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
             label(tr("GROUP ITEMS"));
-            ImGui::SameLine();ImGui::BeginDisabled(group.entries.size()<2);
+            ImGui::SameLine();ImGui::BeginDisabled(group.automatic()||group.entries.size()<2);
             if(UI::Button("Sort A–Z"))emit(command(EditAction::sortGroup,groupID));
             ImGui::EndDisabled();
             if(ImGui::IsItemHovered())UI::SetTooltip("Sort by name, ignoring case. Equal names keep their order.");
+            ImGui::BeginDisabled(group.automatic());
             changed|=UI::Checkbox("Auto-sort when adding",&options.autoSort[groupID]);
+            ImGui::EndDisabled();
             if(ImGui::IsItemHovered())UI::SetTooltip("Sort A–Z now and whenever an item is added to this group.");
             beginPanel("group list",{0,std::max(px(70),ImGui::GetContentRegionAvail().y-px(123))},ImGuiChildFlags_NavFlattened);
             navigationList();
             if(group.entries.empty()) {
-                UI::Button("Drop equipment here",{-1,px(100)});accept({},groupID);
+                if(group.automatic())UI::TextWrapped("No matching Favorites. Favorite an item in Skyrim to populate this group.");
+                else {UI::Button("Drop equipment here",{-1,px(100)});accept({},groupID);}
             }
             for(std::size_t i=0;i<group.entries.size();++i) {
                 ImGui::PushID(int(i));const auto& e=group.entries[i];const auto pos=ImGui::GetCursorScreenPos();
@@ -736,25 +766,26 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 d->AddText(nullptr,px(14),{pos.x+px(6),pos.y+px(27)},ImGui::GetColorU32(brass),status.c_str());d->PopClipRect();
                 const auto statusWidth=ImGui::GetFont()->CalcTextSizeA(px(14),FLT_MAX,0,status.c_str()).x;
                 if(std::max(nameSize.x,statusWidth)>end.x-pos.x-px(12)&&ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))UI::SetTooltip("%s\n%s",e.name.c_str(),status.c_str());
-                if(ImGui::BeginDragDropSource()) {
+                if(!group.automatic()&&ImGui::BeginDragDropSource()) {
                     Drag drag{state.session,state.revision,state.catalogVersion,0,groupID,i};ImGui::SetDragDropPayload("QUICKSLOT_ENTRY",&drag,sizeof(drag));
                     ImGui::TextUnformatted(displayName(e).c_str());ImGui::EndDragDropSource();
                 }
                 accept(i,groupID);ImGui::PopID();
             }
             endPanel();
-            const bool has=selected_<group.entries.size();ImGui::BeginDisabled(!has);
-            if(UI::Button("Remove")){emit(command(EditAction::remove,groupID,selected_));shortcutIndex_.reset();editingLibrary_=0;builder_=0;}ImGui::SameLine();
-            ImGui::BeginDisabled(!has||selected_==0);if(UI::Button("Up"))emit(command(EditAction::reorder,groupID,selected_,selected_-1));ImGui::EndDisabled();ImGui::SameLine();
-            ImGui::BeginDisabled(!has||selected_+1>=group.entries.size());if(UI::Button("Down"))emit(command(EditAction::reorder,groupID,selected_,selected_+1));ImGui::EndDisabled();
-            ImGui::BeginDisabled(!has||!flexibleHand(group.entries[has?selected_:0]));
+            const bool has=selected_<group.entries.size();ImGui::BeginDisabled(!has||(group.automatic()&&group.excludedFavorites.size()>=Group::exclusionLimit));
+            if(UI::Button(group.automatic()?"Exclude":"Remove")){emit(command(EditAction::remove,groupID,selected_));shortcutIndex_.reset();editingLibrary_=0;builder_=0;}ImGui::SameLine();
+            ImGui::BeginDisabled(group.automatic()||!has||selected_==0);if(UI::Button("Up"))emit(command(EditAction::reorder,groupID,selected_,selected_-1));ImGui::EndDisabled();ImGui::SameLine();
+            ImGui::BeginDisabled(group.automatic()||!has||selected_+1>=group.entries.size());if(UI::Button("Down"))emit(command(EditAction::reorder,groupID,selected_,selected_+1));ImGui::EndDisabled();
+            ImGui::BeginDisabled(group.automatic()||!has||!flexibleHand(group.entries[has?selected_:0]));
             if(UI::Button("Change hand",{-1,0})&&has){auto c=command(EditAction::hand,groupID,selected_);c.hand=group.entries[selected_].hand==Hand::left?Hand::right:Hand::left;emit(c);}ImGui::EndDisabled();
             ImGui::SetNextItemWidth(-1);
+            ImGui::BeginDisabled(group.automatic());
             if(ImGui::BeginCombo("##move","Move to another group…")) {
-                for(std::size_t position=0;position<options.groupCount;++position){const auto i=options.groupOrder[position];if(i!=groupID&&ImGui::Selectable(options.names[i].c_str()))emit(command(EditAction::move,groupID,selected_,i));}
+                for(std::size_t position=0;position<options.groupCount;++position){const auto i=options.groupOrder[position];if(i!=groupID&&!state.draft.groups[i].automatic()&&ImGui::Selectable(options.names[i].c_str()))emit(command(EditAction::move,groupID,selected_,i));}
                 ImGui::EndCombo();
             }
-            ImGui::EndDisabled();endPanel();
+            ImGui::EndDisabled();ImGui::EndDisabled();endPanel();
         } else if(tab_==2) {
             for(int i=0;i<3;++i){if(i)ImGui::SameLine();if(UI::Button(i==0?"General":i==1?"Keyboard":"Controller",{px(125),0}))controlsPage_=i;}
             ImGui::Separator();

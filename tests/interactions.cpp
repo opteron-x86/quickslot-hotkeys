@@ -18,6 +18,34 @@ void check(bool value,const char* why,std::source_location at=std::source_locati
     ++checks;
 }
 int main()try {
+    {
+        Options keys;keys.groupRemoveHotkey=false;
+        check(groupKeyAction(keys,keyModifier::alt)==GroupKeyAction::pass,"Existing disabled Alt editing still passes through by default");
+        keys.allowUnusedModifiers=true;
+        check(groupKeyAction(keys,keyModifier::alt)==GroupKeyAction::select,"Opt-in lets an Alt-walking user select groups without removing entries");
+        keys.groupRemoveHotkey=true;assignGroupModifier(keys,GroupModifier::remove,keyModifier::ctrl|keyModifier::alt);
+        check(groupKeyAction(keys,keyModifier::alt)==GroupKeyAction::select&&groupKeyAction(keys,keyModifier::ctrl|keyModifier::alt)==GroupKeyAction::remove,"Remapping remove frees Alt while the explicit editing chord still works");
+        check(groupKeyAction(keys,keyModifier::ctrl)==GroupKeyAction::captureRight,"An unrelated remapping preserves capture");
+        assignGroupModifier(keys,GroupModifier::remove,keyModifier::shift);
+        check(keys.groupModifiers[unsigned(GroupModifier::unequip)]==(keyModifier::ctrl|keyModifier::alt),"Reusing an editing modifier swaps the existing action");
+        check(assignSelectorBinding(keys,KeyboardAction::previous,{16,keyModifier::alt}),"Navigation can use a custom keyboard chord");
+        check(selectorKeyAction(keys,16,keyModifier::alt).action==SelectorKeyAction::browse&&selectorKeyAction(keys,16,keyModifier::ctrl|keyModifier::alt).action==SelectorKeyAction::reorder,"Custom navigation supports normal browsing and the reorder modifier");
+        check(selectorKeyAction(keys,16,0u).action==SelectorKeyAction::pass,"The unmodified custom key remains available to gameplay");
+        check(!assignSelectorBinding(keys,KeyboardAction::cancel,{2})&&!assignSelectorBinding(keys,KeyboardAction::cancel,{56}),"Action bindings cannot steal a group key or bind a modifier alone");
+        check(!assignGroupKey(keys,0,16),"Group bindings cannot steal a custom action key");
+        check(assignSelectorBinding(keys,KeyboardAction::cancel,{16})&&keys.selectorBindings[unsigned(KeyboardAction::previous)].key==1,"An unmodified action cannot shadow another action's chord on the same key");
+        check(assignSelectorBinding(keys,KeyboardAction::remove,{14})&&keys.selectorBindings[unsigned(KeyboardAction::unequip)].key==211,"Duplicate action chords swap instead of leaving an unreachable action");
+        keys.controllerActions[unsigned(ControllerAction::unequip)]={PadButton::y,PadButton::x};
+        const auto saved=decodeOptions(encodeOptions(keys));
+        check(saved.groupModifiers==keys.groupModifiers&&saved.selectorBindings==keys.selectorBindings&&saved.controllerActions==keys.controllerActions&&saved.allowUnusedModifiers,"New bindings and modifier policy survive settings reload");
+        importAppearance(keys,Options{});
+        check(keys.selectorBindings==saved.selectorBindings&&keys.groupModifiers==saved.groupModifiers&&keys.controllerActions==saved.controllerActions&&keys.allowUnusedModifiers,"Appearance presets preserve remapped actions");
+        auto legacy=Json::parse(encodeOptions(Options{}));for(const auto key:{"groupModifiers","selectorBindings","controllerActions","allowUnusedModifiers"})legacy.erase(key);
+        const auto migrated=decodeOptions(legacy.dump());
+        check(migrated.groupModifiers==defaultGroupModifiers&&migrated.selectorBindings==defaultSelectorBindings&&migrated.controllerActions==defaultControllerActions&&!migrated.allowUnusedModifiers,"Old settings retain all original controls and pass-through behavior");
+        auto invalid=keys;invalid.selectorBindings[0]={999,999};invalid.controllerActions[0]={PadButton(999)};sanitizeOptions(invalid);
+        check(invalid.selectorBindings[0]==KeyBinding{}&&invalid.controllerActions[0]==PadBinding{},"Invalid saved action bindings are disabled safely");
+    }
     const auto shortcutFlags=[](const Options& o){return std::array{
         o.groupCaptureRightHotkey,o.groupCaptureLeftHotkey,o.groupMoveHotkey,o.groupUnequipHotkey,
         o.groupRemoveHotkey,o.selectorReorderHotkey,o.selectorUnequipHotkey,o.selectorRemoveHotkey};};

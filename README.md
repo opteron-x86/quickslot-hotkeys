@@ -66,11 +66,15 @@ Left/Right browsing and Ctrl + Left/Right reordering wrap at both ends. Activati
 
 Under **Controls → Keyboard → Editing shortcuts**, turn off any unused editing action or use **Disable all**. Right/left-hand capture, moving between groups, Shift-to-unequip, Alt-to-remove, Ctrl-arrow reordering, Backspace unequipping and Delete removal each have their own switch. Disabled actions pass their keys to the game or other mods; they do not trigger another Quickslot action. Browsing and Escape/right-click cancellation remain available. All editing shortcuts start enabled; **Enable all** restores them.
 
+**Remap actions…** changes those editing modifiers and the browsing, unequip, remove and cancel keys. Selecting an existing assignment swaps the two actions. To use Left Alt for walking, disable **Alt + group key: remove shortcut** (or move it to another modifier combination), then enable **Allow group selection with unused modifiers** in that popup. With this option enabled, a disabled group-editing chord selects the group normally. The default keeps the previous pass-through behavior. **Reset keyboard actions** restores the default bindings and modifier policy.
+
 The right/left capture switches apply during gameplay and in Inventory/Magic. To disable capture only in those menus, turn off **Controls → General → Add from Inventory / Magic**; enabled gameplay capture stays available. This lets another hotkey mod own those menu bindings.
 
-While browsing, Ctrl itself is reserved if either Ctrl-move or Ctrl-reorder is enabled. Disable both to release the modifier too; right/left capture can remain enabled independently.
+While browsing, the modifiers assigned to moving and reordering are reserved when those actions are enabled. Disable both actions to release their modifiers too; right/left capture can remain enabled independently.
 
 Controller modifiers are configured per binding. Hold the modifier first; release the group button to select. Releasing the modifier cancels browsing. Other assigned chords, such as B + D-pad, pass to their owner. **Modifier buttons** controls which held buttons suppress unmodified group bindings.
+
+Under **Controls → Controller → Browsing actions**, remap cancel, unequip, previous and next, including optional modifier chords. **Enable previous / next buttons** controls the last two actions. An explicit group/editor/action modifier does not also trigger a single-button browsing action: X can be a modifier, with unequip moved to Y or another binding. Desktop action remapping preserves the existing VR controls.
 
 XInput and native PS4 input are supported. Steam Input can supply XInput. Skyrim must recognize the controller first.
 

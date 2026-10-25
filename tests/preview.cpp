@@ -278,6 +278,8 @@ int main(int argc,char** argv) {
     if(scene=="editor-library")previewClicks={"##filter","Shortcuts"};
     if(scene=="editor-library-edit")previewClicks={"##filter","Shortcuts","##candidate","Edit shortcut"};
     if(scene=="editor-controller")previewClicks={"Controls","Controller"};
+    if(scene=="editor-controller-actions")previewClicks={"Controls","Controller","Browsing actions","Reset controller actions"};
+    if(scene=="editor-keyboard-actions")previewClicks={"Controls","Keyboard","Remap actions…"};
     if(scene=="editor-keyboard"||scene=="editor-keyboard-eight")previewClicks={"Controls","Keyboard"};
     if(scene=="editor-keyboard-eight")editing.options.groupCount=Arsenal::count;
     if(scene=="editor-controller-keyboard")previewClicks={"Groups##main","Items"};
@@ -330,7 +332,13 @@ int main(int argc,char** argv) {
                         auto& popups=ImGui::GetCurrentContext()->OpenPopupStack;
                         if(popups.empty()||!popups.back().Window||++scrollAttempts>24)throw std::runtime_error("Preview target unavailable: "+target);
                         auto* popup=popups.back().Window;ImGui::SetScrollY(popup,popup->Scroll.y+popup->InnerClipRect.GetHeight()*.4f);advance=false;
-                    }else {tabPoint=probe::one(target).rect.GetCenter();io.AddMousePosEvent(tabPoint.x,tabPoint.y);scrollAttempts=0;}
+                    }else {
+                        const auto item=probe::one(target);auto* owner=ImGui::FindWindowByName(item.window.c_str());
+                        if(owner&&!owner->InnerClipRect.Contains(item.rect)) {
+                            if(++scrollAttempts>24)throw std::runtime_error("Cannot scroll to preview target: "+target);
+                            ImGui::SetScrollY(owner,owner->Scroll.y+item.rect.GetCenter().y-owner->InnerClipRect.GetCenter().y);advance=false;
+                        }else {tabPoint=item.rect.GetCenter();io.AddMousePosEvent(tabPoint.x,tabPoint.y);scrollAttempts=0;}
+                    }
                 }
                 if(phase==2)io.AddMouseButtonEvent(0,true);
                 if(phase==3)io.AddMouseButtonEvent(0,false);

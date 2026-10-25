@@ -351,7 +351,7 @@ int main(int argc,char** argv)try {
     check(probe::find("Activate powers / shouts on release").empty(),"Release always readies powers safely");
     click("Controller");click("Button icons");click("PlayStation");check(state.options.controllerStyle==1,"Controller glyph family changes live");
     click("Browse with");click("Left stick");check(state.options.controllerStick==0,"Browse stick is configurable");
-    click("Browse with bumpers");check(!state.options.controllerBumpers,"Combat bumper capture can be disabled");
+    click("Enable previous / next buttons");check(!state.options.controllerBumpers,"Combat browsing-button capture can be disabled");
     click("Modifier buttons");click("L2");check(!(state.options.controllerModifiers&padButtonMask(PadButton::lt)),"Held trigger can be exempted from controller modifier matching");
     click("Undo");check(state.options.controllerModifiers&padButtonMask(PadButton::lt),"Modifier protection supports Undo");
     click("Enable controller");check(!state.options.controllerEnabled,"Controller gameplay bindings can be disabled");click("Undo");
@@ -613,5 +613,21 @@ int main(int argc,char** argv)try {
     check(!selectorUsesCtrl(state.options)&&state.options.selectorUnequipHotkey&&state.options.selectorRemoveHotkey&&probe::one("Close").rect.Max.y<720,"Last editing switches remain reachable with all eight groups at 720p");
     click("Enable all##editing shortcuts");
     check(state.options.groupCaptureRightHotkey&&state.options.groupCaptureLeftHotkey&&state.options.groupMoveHotkey&&state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey&&state.options.selectorReorderHotkey&&state.options.selectorUnequipHotkey&&state.options.selectorRemoveHotkey,"Enable all restores the full editing set at 720p");
+    click("Remap actions…");click("Allow group selection with unused modifiers");
+    check(state.options.allowUnusedModifiers,"Walking-modifier policy can be enabled through the editor");
+    click("Left##action key");key(16);
+    check(state.options.selectorBindings[unsigned(KeyboardAction::previous)].key==16,"Browsing keys can be captured from the action popup");
+    click("Q##action key");key(2);
+    check(state.options.selectorBindings[unsigned(KeyboardAction::previous)].key==16,"Action capture rejects an occupied group key");
+    key(1);check(state.open&&!state.options.selectorBindings[unsigned(KeyboardAction::previous)].key,"Escape clears action capture without closing the editor");
+    check(ImGui::GetCurrentContext()->OpenPopupStack.empty(),"Escape also dismisses the action popup");click("Remap actions…");
+    click("Reset keyboard actions");
+    check(state.options.selectorBindings==defaultSelectorBindings&&!state.options.allowUnusedModifiers,"Keyboard action defaults can be restored without changing groups");
+    key(1);check(state.open,"Escape dismisses the action popup without closing the editor");
+    io.DisplaySize={1600,900};state.options.groupCount=3;frame();frame();
+    click("Controller");click("##pad modifier0");click(padLabel(PadButton::x,state.options.controllerStyle).c_str());
+    check(state.options.controllerGroups[0].modifier==PadButton::x,"X can be selected as a group modifier");
+    click("Browsing actions");click("##pad button101");click(padLabel(PadButton::y,state.options.controllerStyle).c_str());
+    check(state.options.controllerActions[unsigned(ControllerAction::unequip)].button==PadButton::y,"Controller unequip can be remapped in the editor");
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

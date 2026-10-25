@@ -345,8 +345,19 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 p.label(center,layout.pagerY+6,std::to_string(index+1)+" / "+std::to_string(n),12,silver,false,100,true);
             }
             if(o.showHints) {
-                const std::string cancel=state.controller?(state.vr?tr("Main B/Y  cancel"):o.controllerStyle?tr("Circle  cancel"):tr("B  cancel")):tr("Esc  cancel");
-                p.label(center,layout.hintY,(state.controller?(state.vr?tr("Stick / pad  choose   ·   "):tr("Stick / bumpers  choose   ·   ")):tr("Scroll  choose   ·   "))+cancel,13,silver,false,layout.width-24,true);
+                std::string cancel;
+                if(state.controller) {
+                    if(state.vr)cancel=tr("Main B/Y  cancel");
+                    else if(o.controllerActions[0].button!=PadButton::none)cancel=padLabel(o.controllerActions[0],o.controllerStyle)+"  "+tr("cancel");
+                }else {
+                    const auto binding=o.selectorBindings[unsigned(KeyboardAction::cancel)];
+                    if(binding.modifiers&keyModifier::ctrl)cancel+="Ctrl + ";
+                    if(binding.modifiers&keyModifier::shift)cancel+="Shift + ";
+                    if(binding.modifiers&keyModifier::alt)cancel+="Alt + ";
+                    cancel+=(binding.key?keyLabel(binding.key):std::string(tr("Right-click")))+"  "+tr("cancel");
+                }
+                const std::string browse=state.controller?(state.vr?tr("Stick / pad  choose"):tr("Stick / buttons  choose")):tr("Scroll  choose");
+                p.label(center,layout.hintY,browse+(cancel.empty()?std::string{}:"   ·   "+cancel),13,silver,false,layout.width-24,true);
             }
         } else {
             const float y=std::min(layout.centerY,75.f);

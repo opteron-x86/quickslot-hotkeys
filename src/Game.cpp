@@ -930,12 +930,12 @@ bool Game::consume(RE::InputEvent* event) {
         return true;
     }
     if(selection_.held()) {
-
-        if(keyboard&&(code==29||code==157)&&button->IsDown()&&selectorUsesCtrl(options_)){*owned=true;return true;}
-        if(((keyboard&&code==1)||(mouse&&code==1))&&button->IsDown()) {*owned=true;cancel();notice(tr("Selection cancelled"),false);return true;}
+        auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
+        const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
+        if(keyboard&&modifierForScan(code)&&button->IsDown()&&selectorUsesModifier(options_,modifierForScan(code))){*owned=true;return true;}
+        if(((keyboard&&keyBindingMatches(options_.selectorBindings[unsigned(KeyboardAction::cancel)],code,modifiers))||(mouse&&code==1))&&button->IsDown()) {*owned=true;cancel();notice(tr("Selection cancelled"),false);return true;}
         if(keyboard&&button->IsDown()) {
-            auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
-            const auto key=selectorKeyAction(options_,code,pressed(device,29)||pressed(device,157));
+            const auto key=selectorKeyAction(options_,code,modifiers);
             if(key.action!=SelectorKeyAction::pass) {
                 *owned=true;
                 switch(key.action) {

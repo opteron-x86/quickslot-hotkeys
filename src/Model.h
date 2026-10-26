@@ -154,7 +154,7 @@ class Selection {
     std::uint64_t token_=0,revision_=0;
 public:
     double holdSeconds=.18;
-    struct Commit { std::size_t index;std::uint64_t token,revision;std::size_t group=0;bool browsed=false,controller=false,cycling=false; };
+    struct Commit { std::size_t index;std::uint64_t token,revision;std::size_t group=0;bool browsed=false,controller=false,cycling=false;std::optional<Hand> hand; };
     bool held() const { return held_; }
     bool browsing() const { return browsing_; }
     bool canBrowse() const { return held_; }
@@ -249,6 +249,7 @@ struct Options {
     bool selectorReorderHotkey=true,selectorUnequipHotkey=true,selectorRemoveHotkey=true;
     std::array<unsigned,unsigned(GroupModifier::count)> groupModifiers=defaultGroupModifiers;
     std::array<KeyBinding,unsigned(KeyboardAction::count)> selectorBindings=defaultSelectorBindings;
+    std::array<int,unsigned(MouseAction::count)> mouseActions=defaultMouseActions;
     bool allowUnusedModifiers=false;
     bool voiceHotkey=true;
     float shoutCharge=1.2f;
@@ -355,9 +356,11 @@ inline std::optional<Hand> menuCaptureHand(const Options& o,unsigned modifiers) 
     if(action==GroupKeyAction::captureLeft)return Hand::left;
     return {};
 }
-enum class SelectorKeyAction {pass,browse,reorder,unequip,remove};
+enum class SelectorKeyAction {pass,browse,reorder,unequip,remove,rightHand,leftHand};
 struct SelectorKey {SelectorKeyAction action=SelectorKeyAction::pass;int delta=0;};
 inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,unsigned modifiers) {
+    for(const auto action:{KeyboardAction::rightHand,KeyboardAction::leftHand})
+        if(keyBindingMatches(o.selectorBindings[unsigned(action)],scan,modifiers))return {action==KeyboardAction::rightHand?SelectorKeyAction::rightHand:SelectorKeyAction::leftHand};
     if(keyBindingMatches(o.selectorBindings[unsigned(KeyboardAction::remove)],scan,modifiers)&&o.selectorRemoveHotkey)return {SelectorKeyAction::remove};
     if(keyBindingMatches(o.selectorBindings[unsigned(KeyboardAction::unequip)],scan,modifiers)&&o.selectorUnequipHotkey)return {SelectorKeyAction::unequip};
     const auto reorder=o.groupModifiers[unsigned(GroupModifier::reorder)];
@@ -384,6 +387,21 @@ inline bool assignSelectorBinding(Options& o,KeyboardAction action,KeyBinding bi
     o.selectorBindings[index]=binding;setSelectorActionEnabled(o,action,binding.key!=0);return true;
 }
 inline bool hasConsumables(const Group& group){return std::any_of(group.entries.begin(),group.entries.end(),isConsumable);}
+inline bool assignMouseAction(Options& o,MouseAction action,int button) {
+    if(action>=MouseAction::count||button< -1||button>4)return false;
+    const auto index=unsigned(action);
+    if(button>=0)for(unsigned i=0;i<o.mouseActions.size();++i)if(i!=index&&o.mouseActions[i]==button)o.mouseActions[i]=o.mouseActions[index];
+    o.mouseActions[index]=button;return true;
+}
+inline bool useBumpersForHands(Options& o) {
+    const auto conflict=[](PadBinding b){return b.button==PadButton::lb||b.button==PadButton::rb||b.modifier==PadButton::lb||b.modifier==PadButton::rb;};
+    if(conflict(o.controllerEditor))return false;
+    for(std::size_t i=0;i<o.groupCount;++i)if(conflict(o.controllerGroups[o.groupOrder[i]]))return false;
+    for(const auto b:o.controllerActions)if(b.modifier==PadButton::lb||b.modifier==PadButton::rb)return false;
+    for(auto& b:o.controllerActions)if(b==PadBinding{PadButton::lb}||b==PadBinding{PadButton::rb})b={};
+    o.controllerActions[unsigned(ControllerAction::rightHand)]={PadButton::rb};
+    o.controllerActions[unsigned(ControllerAction::leftHand)]={PadButton::lb};return true;
+}
 inline GroupMode groupMode(const Options& o,const Arsenal& a,std::size_t group) {
     return group<Arsenal::count&&!hasConsumables(a.groups[group])?o.groupModes[group]:GroupMode::browse;
 }
@@ -509,4 +527,16 @@ inline bool assignGroupKey(Options& o,std::size_t group,unsigned key) {
 }
 inline bool flexibleHand(const Entry& e){return !isConsumable(e)&&!isVoice(e)&&e.kind!=Kind::combo&&e.kind!=Kind::ammo&&e.kind!=Kind::smartAmmo&&e.kind!=Kind::unarmed&&!e.twoHanded&&e.kind!=Kind::shield&&e.kind!=Kind::torch&&!smartShield(e);}
 inline Hand normalizedHand(const Entry& e,Hand hand){return isConsumable(e)||isVoice(e)||e.kind==Kind::ammo||e.kind==Kind::smartAmmo||e.kind==Kind::unarmed||e.twoHanded?Hand::right:e.kind==Kind::shield||e.kind==Kind::torch||smartShield(e)?Hand::left:hand;}
+inline std::optional<Entry> entryForHand(const Entry& entry,Hand hand) {
+    if(unsigned(hand)>1||isConsumable(entry)||isVoice(entry)||isHandAction(entry)||entry.kind==Kind::combo||entry.kind==Kind::ammo||entry.kind==Kind::smartAmmo)return {};
+    if(hand==Hand::right&&(entry.kind==Kind::shield||entry.kind==Kind::torch||smartShield(entry)))return {};
+    auto action=entry;action.hand=normalizedHand(entry,hand);return action;
+}
+inline std::optional<Selection::Commit> releaseToHand(Selection& selection,const Group& group,std::size_t groupID,Hand hand,bool controller) {
+    if(!selection.held())return {};
+    if(selection.index()>=group.entries.size()||!entryForHand(group.entries[selection.index()],hand)){selection.cancel();return {};}
+    auto commit=selection.release(group,groupID);
+    if(commit){commit->hand=hand;commit->browsed=true;commit->controller=controller;}
+    return commit;
+}
 }

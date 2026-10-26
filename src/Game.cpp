@@ -737,6 +737,15 @@ void Game::queueUnequip(std::optional<std::size_t> index) {
         released_=Released{*commit,true};
     else notice(tr("This group is empty"));
 }
+void Game::queueHand(Hand hand,bool controller) {
+    if(!selection_.held()||selection_.index()>=arsenal_.current().entries.size())return;
+    const auto index=selection_.index();
+    if(!entryForHand(arsenal_.current().entries[index],hand)){cancel();notice(tr("This item cannot use that hand"));return;}
+    selectionTime(false);controller_.cancel();pending_.reset();released_.reset();
+    if(auto commit=releaseToHand(selection_,arsenal_.current(),arsenal_.active,hand,controller)) {
+        selectionController_=controller;released_=Released{*commit};snapshot_.revealUntil=clockNow()+2;
+    }
+}
 void Game::queueReorder(int delta) {
     const auto token=selection_.token(),revision=arsenal_.current().revision;
     const auto groupID=arsenal_.active,index=selection_.index();
@@ -848,6 +857,8 @@ bool Game::consumeController(RE::InputEvent* event) {
     case PadAction::previous:cycleSelection(-1);break;
     case PadAction::next:cycleSelection(1);break;
     case PadAction::unequip:queueUnequip(selection_.index());break;
+    case PadAction::rightHand:queueHand(Hand::right,true);break;
+    case PadAction::leftHand:queueHand(Hand::left,true);break;
     case PadAction::editor:cancel();editorRequested_=true;SKSE::GetTaskInterface()->AddTask([this]{openEditor();});break;
     default:break;
     }
@@ -933,13 +944,17 @@ bool Game::consume(RE::InputEvent* event) {
         auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
         const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
         if(keyboard&&modifierForScan(code)&&button->IsDown()&&selectorUsesModifier(options_,modifierForScan(code))){*owned=true;return true;}
-        if(((keyboard&&keyBindingMatches(options_.selectorBindings[unsigned(KeyboardAction::cancel)],code,modifiers))||(mouse&&code==1))&&button->IsDown()) {*owned=true;cancel();notice(tr("Selection cancelled"),false);return true;}
+        if(mouse&&button->IsDown())for(const auto action:{MouseAction::rightHand,MouseAction::leftHand})
+            if(options_.mouseActions[unsigned(action)]==int(code)){*owned=true;queueHand(action==MouseAction::rightHand?Hand::right:Hand::left,false);return true;}
+        if(((keyboard&&keyBindingMatches(options_.selectorBindings[unsigned(KeyboardAction::cancel)],code,modifiers))||(mouse&&int(code)==options_.mouseActions[unsigned(MouseAction::cancel)]))&&button->IsDown()) {*owned=true;cancel();notice(tr("Selection cancelled"),false);return true;}
         if(keyboard&&button->IsDown()) {
             const auto key=selectorKeyAction(options_,code,modifiers);
             if(key.action!=SelectorKeyAction::pass) {
                 *owned=true;
                 switch(key.action) {
                 case SelectorKeyAction::browse:cycleSelection(key.delta);break;
+                case SelectorKeyAction::rightHand:queueHand(Hand::right,false);break;
+                case SelectorKeyAction::leftHand:queueHand(Hand::left,false);break;
                 case SelectorKeyAction::reorder:queueReorder(key.delta);break;
                 case SelectorKeyAction::unequip:queueUnequip(selection_.index());break;
                 case SelectorKeyAction::remove:queueEdit(2,selection_.index());break;
@@ -1287,7 +1302,11 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
     if(!accepts(commit)||!allowed())return;
     try {
         auto* player=RE::PlayerCharacter::GetSingleton();
-        const auto saved=arsenal_.current().entries[commit.index];
+        auto saved=arsenal_.current().entries[commit.index];
+        if(commit.hand) {
+            const auto chosen=entryForHand(saved,*commit.hand);if(!chosen||unequip)return;
+            saved=*chosen;
+        }
         const auto action=selectionAction(saved,commit,options_);
         if(!unequip&&action==SelectionAction::none)return;
         if(!unequip&&action==SelectionAction::select) {

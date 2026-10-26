@@ -96,6 +96,7 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     bool accepts(const Selection::Commit&)const;
     void activate(std::size_t group);
     void queueUnequip(std::optional<std::size_t> index={});
+    void queueHand(Hand,bool controller);
     void queueReorder(int delta);
     void queueMove(std::size_t target);
     void refresh();

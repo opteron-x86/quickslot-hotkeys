@@ -98,7 +98,7 @@ int main(int argc,char** argv)try {
     }
     const auto complete=Json::parse(settings);
     for(const auto& [field,value]:complete.items()) {
-        if(field=="groupModifiers"||field=="selectorBindings"||field=="allowUnusedModifiers"||field=="controllerActions")continue;
+        if(field=="mouseActions"||field=="groupModifiers"||field=="selectorBindings"||field=="allowUnusedModifiers"||field=="controllerActions")continue;
         if(field=="controllerModifiers"||field=="groupModes"||field=="autoSort"||field=="groupUnequipHotkey"||field=="groupRemoveHotkey"||field=="groupCaptureRightHotkey"||field=="groupCaptureLeftHotkey"||field=="groupMoveHotkey"||field=="selectorReorderHotkey"||field=="selectorUnequipHotkey"||field=="selectorRemoveHotkey"||field=="language"||field=="itemIconSet"||field=="keepDrawnVisible"||field=="textScale"||field=="placementSpacing"||field=="placementFrame"||field=="placementGridSize"||
            field=="equipmentX"||field=="equipmentY"||field=="equipmentScale"||field=="equipmentTextScale"||field=="equipmentSpacing"||field=="showEquipment"||field=="hideEmptyGroups"||field=="inactiveGroups"||field=="inactiveGroupOpacity"||
            field=="equipmentDim"||field=="equipmentStyle"||field=="equipmentLayout"||field=="equipmentTextPosition"||field=="equipmentFadeDelay"||field=="equipmentIdleOpacity")continue;

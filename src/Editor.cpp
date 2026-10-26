@@ -803,7 +803,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 changed|=UI::Checkbox("Allow group selection with unused modifiers",&options.allowUnusedModifiers);
                 UI::TextWrapped("Enable to use group keys while holding a walking or other unused modifier. Set the conflicting action to None or choose another modifier first.");
                 ImGui::Separator();
-                const char* actionNames[]{"Previous item","Next item","Unequip highlighted item","Remove highlighted shortcut","Cancel selection"};
+                const char* actionNames[]{"Previous item","Next item","Unequip highlighted item","Remove highlighted shortcut","Cancel selection","Equip in right hand","Equip in left hand"};
                 for(unsigned i=0;i<options.selectorBindings.size();++i) {
                     const auto binding=selectorBinding(options,KeyboardAction(i));ImGui::PushID(int(100+i));
                     const auto text=binding_==int(100+i)?std::string(tr("Press a key…")):shortcutName(binding.key,binding.modifiers);
@@ -811,13 +811,28 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     ImGui::SameLine();if(UI::Button("Clear##action key")){assignSelectorBinding(options,KeyboardAction(i),{});if(binding_==int(100+i))binding_=-1;changed=true;}
                     ImGui::SameLine();ImGui::TextUnformatted(tr(actionNames[i]));ImGui::PopID();
                 }
-                if(UI::Button("Reset keyboard actions")){setEditingShortcuts(options,true);options.groupModifiers=defaultGroupModifiers;options.selectorBindings=defaultSelectorBindings;options.allowUnusedModifiers=false;binding_=-1;changed=true;}
+                ImGui::Separator();UI::TextWrapped("Hand actions equip the highlighted item immediately for this use. Saved hands and combinations stay as configured.");
+                const char* mouseNames[]{"Cancel selection","Equip in right hand","Equip in left hand"};
+                for(unsigned i=0;i<options.mouseActions.size();++i) {
+                    ImGui::PushID(int(200+i));ImGui::SetNextItemWidth(px(185));
+                    if(ImGui::BeginCombo("##mouse action",tr(mouseButtonName(options.mouseActions[i])))) {
+                        for(int button=-1;button<5;++button)if(ImGui::Selectable(tr(mouseButtonName(button)),button==options.mouseActions[i])){assignMouseAction(options,MouseAction(i),button);changed=true;}
+                        ImGui::EndCombo();
+                    }
+                    ImGui::SameLine();ImGui::TextUnformatted(tr(mouseNames[i]));ImGui::PopID();
+                }
+                if(UI::Button("Use mouse buttons for hands")) {
+                    options.mouseActions={-1,0,1};
+                    if(!options.selectorBindings[unsigned(KeyboardAction::cancel)].key)assignSelectorBinding(options,KeyboardAction::cancel,{1});
+                    changed=true;
+                }
+                if(UI::Button("Reset keyboard actions")){setEditingShortcuts(options,true);options.groupModifiers=defaultGroupModifiers;options.selectorBindings=defaultSelectorBindings;options.mouseActions=defaultMouseActions;options.allowUnusedModifiers=false;binding_=-1;changed=true;}
                 if(!hint_.empty())ImGui::TextWrapped("%s",hint_.c_str());
                 ImGui::EndPopup();
             }
             if(UI::CollapsingHeader("Shortcuts")) {
             ImGui::TextUnformatted(tr("Hold + scroll / navigation keys: select"));ImGui::TextUnformatted(tr("Tap: group action"));
-            const auto cancel=options.selectorBindings[unsigned(KeyboardAction::cancel)];ImGui::Text("%s / %s",shortcutName(cancel.key,cancel.modifiers).c_str(),tr("right-click: cancel"));
+            const auto cancel=options.selectorBindings[unsigned(KeyboardAction::cancel)];ImGui::Text("%s / %s: %s",shortcutName(cancel.key,cancel.modifiers).c_str(),tr(mouseButtonName(options.mouseActions[0])),tr("Cancel selection"));
             }
             }else{
             changed|=UI::Checkbox("Enable controller",&options.controllerEnabled);
@@ -851,9 +866,14 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             ImGui::SetNextItemWidth(px(220));changed|=UI::SliderFloat("Stick deadzone",&options.controllerDeadzone,.2f,.9f,"%.2f");
             if(!state.vr){int buttonStyle=int(options.controllerStyle);ImGui::SetNextItemWidth(px(220));if(UI::Combo("Button icons",&buttonStyle,"Xbox\0PlayStation\0")){options.controllerStyle=unsigned(buttonStyle);changed=true;}}
             if(!state.vr&&UI::CollapsingHeader("Browsing actions")) {
-                const char* names[]{"Cancel selection","Unequip highlighted item","Previous item","Next item"};
+                const char* names[]{"Cancel selection","Unequip highlighted item","Previous item","Next item","Equip in right hand","Equip in left hand"};
                 for(unsigned i=0;i<options.controllerActions.size();++i)padBinding(options.controllerActions[i],tr(names[i]),100+i);
                 UI::TextWrapped("A button used as an explicit modifier does not also trigger a single-button browsing action. Rebind that action or use a chord.");
+                if(UI::Button("Use bumpers for hands")) {
+                    if(useBumpersForHands(options)){changed=true;hint_.clear();}
+                    else hint_=tr("Bumpers are used by a group, editor or modifier binding. Choose different hand buttons or rebind those first.");
+                }
+                UI::TextWrapped("Hand actions equip immediately for this use. The bumper preset replaces bumper browsing; the stick can still browse.");
                 if(UI::Button("Reset controller actions")){options.controllerActions=defaultControllerActions;changed=true;}
             }
             if(!state.vr&&UI::CollapsingHeader("Modifier buttons")) {

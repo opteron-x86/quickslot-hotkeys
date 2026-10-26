@@ -627,5 +627,10 @@ int main(int argc,char** argv)try {
     check(state.options.controllerGroups[0].modifier==PadButton::x,"X can be selected as a group modifier");
     click("Browsing actions");click("##pad button101");click(padLabel(PadButton::y,state.options.controllerStyle).c_str());
     check(state.options.controllerActions[unsigned(ControllerAction::unequip)].button==PadButton::y,"Controller unequip can be remapped in the editor");
+    click("Use bumpers for hands");
+    check(state.options.controllerActions[unsigned(ControllerAction::leftHand)].button==PadButton::lb&&state.options.controllerActions[unsigned(ControllerAction::rightHand)].button==PadButton::rb,"Controller hand preset is available through the editor");
+    click("Keyboard");click("Remap actions…");click("Use mouse buttons for hands");
+    check(state.options.mouseActions==std::array<int,3>{-1,0,1},"Mouse hand preset resolves right-click cancellation in the editor");
+    click("Reset keyboard actions");check(state.options.mouseActions==defaultMouseActions,"Reset restores legacy mouse cancellation");key(1);
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

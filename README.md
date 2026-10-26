@@ -78,7 +78,9 @@ Under **Controls → Controller → Browsing actions**, remap cancel, unequip, p
 
 XInput and native PS4 input are supported. Steam Input can supply XInput. Skyrim must recognize the controller first.
 
-### VR controls
+While holding a group, optional **Equip in right/left hand** actions equip the highlighted item immediately for this use. Configure keys and mouse buttons in **Controls → Keyboard → Remap actions…**, or controller actions in **Controls → Controller → Browsing actions**. **Use mouse buttons for hands** assigns left mouse to the right hand and right mouse to the left hand, leaving keyboard cancellation available. **Use bumpers for hands** assigns RB/LB and replaces bumper browsing; the stick still browses. Shields and torches remain left-only, and two-handed equipment uses both hands. Consumables, voice actions and saved combinations do not accept a hand override.
+
+## VR controls
 
 **Main** and **Off** follow Skyrim VR's handedness setting. Bindings are configurable under **Controls → Controller**.
 

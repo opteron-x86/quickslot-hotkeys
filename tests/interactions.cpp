@@ -397,5 +397,18 @@ int main()try {
     used.powerUsed=false;used.cooldown=17.2f;
     check(equipmentDimmed(used)&&equipmentTextName(used,false)=="Battle Cry · 18s"&&equipmentTextName(used,true)=="Battle Cry","Recharge timer sits on the icon or beside text-only names");
     used.cooldown=0;check(!equipmentDimmed(used),"Finished recharge restores normal brightness");
+    {
+        Options hands;check(hands.mouseActions==defaultMouseActions&&!hands.selectorBindings[unsigned(KeyboardAction::rightHand)].key,"Existing configurations keep right-click cancel and no hand actions");
+        assignMouseAction(hands,MouseAction::leftHand,1);
+        check(hands.mouseActions[0]==-1&&hands.mouseActions[2]==1,"Assigning right-click to a hand removes its cancellation conflict");
+        assignMouseAction(hands,MouseAction::rightHand,0);
+        check(!assignMouseAction(hands,MouseAction::rightHand,8),"Mouse wheel cannot masquerade as a hand button");
+        check(assignSelectorBinding(hands,KeyboardAction::rightHand,{16})&&selectorKeyAction(hands,16,0u).action==SelectorKeyAction::rightHand,"Keyboard hand actions use configurable captured bindings");
+        const auto saved=decodeOptions(encodeOptions(hands));
+        check(saved.mouseActions==hands.mouseActions&&saved.selectorBindings==hands.selectorBindings,"Hand bindings persist");
+        auto old=Json::parse(encodeOptions(hands));old.erase("mouseActions");old["selectorBindings"].erase(old["selectorBindings"].begin()+5,old["selectorBindings"].end());old["controllerActions"].erase(old["controllerActions"].begin()+4,old["controllerActions"].end());
+        const auto migrated=decodeOptions(old.dump());check(migrated.mouseActions==defaultMouseActions&&!migrated.selectorBindings[5].key&&migrated.controllerActions[4].button==PadButton::none,"Earlier action arrays migrate without enabling hand actions");
+        Options local;importAppearance(local,hands);check(local.mouseActions==defaultMouseActions,"Appearance imports preserve mouse controls");
+    }
     std::cout<<"PASS: "<<checks<<" browse/cycle, compact equipped HUD, settings and menu API checks\n";
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}

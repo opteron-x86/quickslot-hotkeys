@@ -964,6 +964,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 combo("Icon color","##item icon color",options.itemIconColor,"Original\0Theme\0White\0");
                 if(options.itemIconColor==1)changed|=UI::Checkbox("Tint magic icons",&options.coloredMagic);
                 changed|=UI::Checkbox("Key icons",&options.keyIcons);
+                changed|=UI::Checkbox("Show poisoned weapons",&options.showPoison);
+                changed|=UI::Checkbox("Show bow ammunition",&options.showAmmo);
                 if(UI::Button("Reset theme",{-1,0})){options.themeAdjustments.erase(options.themeId);changed=true;}
             } else if(appearancePage_==1) {
                 label(tr("Layout presets"));

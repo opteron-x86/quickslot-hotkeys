@@ -410,5 +410,23 @@ int main()try {
         const auto migrated=decodeOptions(old.dump());check(migrated.mouseActions==defaultMouseActions&&!migrated.selectorBindings[5].key&&migrated.controllerActions[4].button==PadButton::none,"Earlier action arrays migrate without enabling hand actions");
         Options local;importAppearance(local,hands);check(local.mouseActions==defaultMouseActions,"Appearance imports preserve mouse controls");
     }
+    {
+        Options look;Entry bow;bow.kind=Kind::bow;bow.name="Hunting Bow";Row row{bow,true,true};row.weapon={true,42};
+        check(equipmentTextName(row,false,look)=="Hunting Bow ×42 · Poisoned"&&equipmentTextName(row,true,look)=="Hunting Bow","Text-only equipment retains ammo and poison status without duplicating icon badges");
+        check(badgeQuantity(bow,1,row.weapon,look)==42,"Bows show ammunition rather than weapon copies");
+        look.showAmmo=false;check(badgeQuantity(bow,1,row.weapon,look)==-1&&equipmentTextName(row,false,look)=="Hunting Bow · Poisoned","Ammo display can be disabled without hiding poison");
+        look.showAmmo=true;look.showPoison=false;check(equipmentTextName(row,false,look)=="Hunting Bow ×42","Poison display can be disabled independently");
+        row.weapon={};check(badgeQuantity(bow,1,row.weapon,look)==-1&&equipmentTextName(row,false,look)=="Hunting Bow","Unresolved weapons do not invent ammo or poison status");
+        look.showPoison=true;row.weapon={true,0};check(equipmentTextName(row,false,look)=="Hunting Bow ×0 · Poisoned","Zero compatible ammunition remains explicit");
+        check(badgeQuantity(bottle,4,row.weapon,look)==4,"Existing consumable quantities keep priority");
+        for(bool crossbow:{false,true})for(bool bolt:{false,true})for(int quantity:{-1,0,27,1500})
+            check(compatibleAmmoCount(crossbow,bolt,quantity)==(crossbow==bolt?std::max(0,quantity):0),"Bows count arrows and crossbows count bolts without mixing incompatible stock");
+        check(compatibleAmmoCount(false,{},100)==0,"Unequipped ammunition reports zero");
+        look.showPoison=false;look.showAmmo=false;const auto saved=decodeOptions(encodeOptions(look));
+        check(!saved.showPoison&&!saved.showAmmo,"Status settings persist");
+        auto legacy=Json::parse(encodeOptions(look));legacy.erase("showPoison");legacy.erase("showAmmo");const auto migrated=decodeOptions(legacy.dump());
+        check(migrated.showPoison&&migrated.showAmmo,"Existing settings gain both status indicators");
+        Options appearance;importAppearance(appearance,saved);check(!appearance.showPoison&&!appearance.showAmmo,"Appearance imports include status display preferences");
+    }
     std::cout<<"PASS: "<<checks<<" browse/cycle, compact equipped HUD, settings and menu API checks\n";
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}

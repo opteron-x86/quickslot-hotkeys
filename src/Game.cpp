@@ -286,6 +286,11 @@ std::vector<PotionCandidate> potionCandidates(const RE::TESObjectREFR::Inventory
     }
     std::sort(result.begin(),result.end(),[](const auto& a,const auto& b){return a.entry.name<b.entry.name;});return result;
 }
+// The pinned Actor wrapper dispatches the decal-group slot. The REFR wrapper
+// uses the actual ammo getter for each runtime.
+RE::TESAmmo* equippedAmmo(const RE::Actor* actor) {
+    return actor?actor->RE::TESObjectREFR::GetCurrentAmmo():nullptr;
+}
 struct NativeEquipment {EquipmentCandidate choice;RE::TESBoundObject* object=nullptr;RE::ExtraDataList* extra=nullptr;};
 std::vector<NativeEquipment> equipmentCandidates(RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
     std::vector<NativeEquipment> result;
@@ -311,7 +316,7 @@ std::vector<NativeEquipment> equipmentCandidates(RE::PlayerCharacter* player,con
                 c.rightEquipped=worn(extra,right)&&player->GetEquippedObject(false)==object;
                 c.leftEquipped=worn(extra,left)&&player->GetEquippedObject(true)==object;
             }
-            if(ammo){c.damage=ammo->GetRuntimeData().data.damage;c.rightEquipped=player->GetCurrentAmmo()==object;}
+            if(ammo){c.damage=ammo->GetRuntimeData().data.damage;c.rightEquipped=equippedAmmo(player)==object;}
             else {RE::InventoryEntryData item(object,1);if(extra)item.AddExtraList(extra);c.damage=shield?player->GetArmorValue(&item):player->GetDamage(&item);}
             if(std::isfinite(c.damage)&&c.damage>0)result.push_back({std::move(c),object,extra});
         };
@@ -379,7 +384,7 @@ Resolved resolve(const Entry& entry,RE::PlayerCharacter* player,const RE::TESObj
         Resolved result;
         if(it==inventory.end()||it->second.first<=0)return result;
         result.object=object;result.quantity=it->second.first;
-        if(entry.kind==Kind::ammo)result.equipped=player->GetCurrentAmmo()==object;
+        if(entry.kind==Kind::ammo)result.equipped=equippedAmmo(player)==object;
         if(entry.kind==Kind::torch) {
             result.equipped=player->GetEquippedObject(true)==form;
 
@@ -408,6 +413,17 @@ Resolved resolve(const Entry& entry,RE::PlayerCharacter* player,const RE::TESObj
     const bool inHand=entry.twoHanded?player->GetEquippedObject(true)==form||player->GetEquippedObject(false)==form:
         player->GetEquippedObject(entry.hand==Hand::left)==form;
     return {object,found,nullptr,worn(found,entry)&&inHand,inOther};
+}
+WeaponStatus readWeaponStatus(RE::TESBoundObject* object,RE::ExtraDataList* extra,RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
+    WeaponStatus status;
+    auto* weapon=object?object->As<RE::TESObjectWEAP>():nullptr;if(!weapon)return status;
+    if(extra)if(const auto* poison=extra->GetByType<RE::ExtraPoison>())status.poisoned=poison->poison&&poison->count>0;
+    if(weapon->IsBow()||weapon->IsCrossbow()) {
+        auto* ammo=equippedAmmo(player);int count=0;
+        if(ammo)if(const auto it=inventory.find(ammo);it!=inventory.end())count=it->second.first;
+        status.ammunition=compatibleAmmoCount(weapon->IsCrossbow(),ammo?std::optional{ammo->IsBolt()}:std::nullopt,count);
+    }
+    return status;
 }
 ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory,
                                     const std::vector<PotionCandidate>& potions,const std::array<float,3>& deficits,const std::vector<NativeEquipment>* equipment=nullptr) {
@@ -445,6 +461,7 @@ ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* playe
                 }
             }else {part.icon=visualIcon(part.unresolved?nullptr:RE::TESForm::LookupByID(part.form));item=resolve(part,player,inventory);}
             result.row.available&=item.available();result.row.equipped&=item.equipped;
+            result.row.weapon.poisoned|=readWeaponStatus(item.object,item.extra,player,inventory).poisoned;
             if(!item.available())result.row.detail=tr("Missing ")+handName(part)+": "+displayName(part);
         }
         if(entry.parts.size()==2&&entry.parts[0].kind==Kind::scroll&&entry.parts[1].kind==Kind::scroll&&entry.parts[0].form==entry.parts[1].form&&resolve(entry.parts[0],player,inventory).quantity<2){result.row.available=false;result.row.detail=tr("Two scrolls needed for both hands");}
@@ -453,6 +470,7 @@ ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* playe
         result.row.equipped&=result.row.available;
         if(!entry.parts.empty())result.row.entry.icon=baseIcon(result.row.entry.parts[0]);
     } else {result.item=resolve(entry,player,inventory);result.row=makeRow(entry,result.item);result.row.entry.icon=visualIcon(entry.unresolved?nullptr:RE::TESForm::LookupByID(entry.form));}
+    if(entry.kind!=Kind::combo)result.row.weapon=readWeaponStatus(result.item.object,result.item.extra,player,inventory);
     if(!isSmartEquipment(entry)&&entry.kind!=Kind::smartPotion&&entry.kind!=Kind::combo&&!isHandAction(entry)) {
         if(auto* form=RE::TESForm::LookupByID(entry.form)) {
             const char* name=result.item.extra?result.item.extra->GetDisplayName(result.item.object):form->GetName();
@@ -469,6 +487,7 @@ RE::TESObjectREFR::InventoryItemMap inventoryFor(const Arsenal& arsenal,RE::Play
         if(isInventory(e)&&!e.unresolved)forms.insert(e.form);
     });
     for(bool left:{false,true})if(auto* form=player->GetEquippedObject(left))forms.insert(form->GetFormID());
+    if(auto* current=equippedAmmo(player))forms.insert(current->GetFormID());
     if(forms.empty()&&!smart&&!weapons&&!ammo)return {};
     return player->GetInventory([&](RE::TESBoundObject& object){return forms.contains(object.GetFormID())||(smart&&object.As<RE::AlchemyItem>())||
         (weapons&&(object.As<RE::TESObjectWEAP>()||(object.As<RE::TESObjectARMO>()&&object.As<RE::TESObjectARMO>()->IsShield())))||(ammo&&object.As<RE::TESAmmo>());});
@@ -481,15 +500,17 @@ EquippedDisplay readEquipment(RE::PlayerCharacter* player,const RE::TESObjectREF
         Entry e;e.form=form->GetFormID();e.hand=hand;e.name=gameName(form->GetName()?form->GetName():"");
 
         if(!identify(form,e)){e.icon=visualIcon(form);if(auto* w=form->As<RE::TESObjectWEAP>())e.twoHanded=w->IsTwoHandedSword()||w->IsTwoHandedAxe()||w->IsBow()||w->IsCrossbow();}
-        Row row{e,true,true};
+        Row row{e,true,true};RE::ExtraDataList* wornExtra=nullptr;
         if(auto* object=form->As<RE::TESBoundObject>();object)if(auto it=inventory.find(object);it!=inventory.end()&&it->second.second) {
             row.quantity=it->second.first;
             if(auto* lists=it->second.second->extraLists)for(auto* extra:*lists)if(extra&&worn(extra,e)) {
+                wornExtra=extra;
                 if(const char* name=extra->GetDisplayName(object);name&&*name)row.entry.name=gameName(name);
                 if(tracksInstance(e))if(auto* id=extra->GetByType<RE::ExtraUniqueID>()){row.entry.owner=id->baseID;row.entry.unique=id->uniqueID;}
                 break;
             }
         }
+        row.weapon=readWeaponStatus(form->As<RE::TESBoundObject>(),wornExtra,player,inventory);
         if(e.kind==Kind::shout)row.cooldown=std::max(0.f,player->GetVoiceRecoveryTime());
         if(e.kind==Kind::power)if(auto* spell=form->As<RE::SpellItem>())row.powerUsed=player->IsInCastPowerList(spell);
         return row;
@@ -1080,7 +1101,7 @@ void Game::tick() {
 
         if(clockNow()>=nextStatus_) {
             nextStatus_=clockNow()+.25;if(options_.showEquipment||options_.inactiveGroups)dirty_=true;
-            for(const auto& group:arsenal_.groups)if(std::any_of(group.entries.begin(),group.entries.end(),[](const Entry& e){return isVoice(e)||e.kind==Kind::smartPotion||isSmartEquipment(e);})){dirty_=true;break;}
+            for(const auto& group:arsenal_.groups)if(std::any_of(group.entries.begin(),group.entries.end(),[&](const Entry& e){return isVoice(e)||e.kind==Kind::smartPotion||isSmartEquipment(e)||((options_.showPoison||options_.showAmmo)&&(e.kind<=Kind::staff||e.kind==Kind::combo));})){dirty_=true;break;}
         }
         if(dirty_||pending_)refresh();
         if(inputAllowed&&pending_)progressEquipment();
@@ -1254,7 +1275,7 @@ void Game::refresh() {
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             if(i==arsenal_.active)snapshot_.rows.push_back(resolved.row);
             if(j==group.selected){
-                tile.entry=resolved.row.entry;tile.available=available;tile.equipped=resolved.row.equipped;tile.quantity=resolved.row.quantity;tile.cooldown=resolved.row.cooldown;
+                tile.entry=resolved.row.entry;tile.available=available;tile.equipped=resolved.row.equipped;tile.quantity=resolved.row.quantity;tile.cooldown=resolved.row.cooldown;tile.weapon=resolved.row.weapon;
                 tile.voice=isVoice(entry)&&tile.equipped;
                 tile.consumable=i==consumableGroup;
                 if(tile.consumable){snapshot_.equipment.consumable=resolved.row;if(resolved.item.available())snapshot_.equipment.consumable->entry=resolved.action;}
@@ -1567,7 +1588,7 @@ void Game::buildCatalog() {
         base.name=gameName(object->GetName());int plain=data.first;
         if(isStack(base)) {
             candidates_.push_back({object,nullptr,false,base});
-            editor_.catalog.push_back({base,candidates_.size(),data.first,base.kind==Kind::ammo&&player->GetCurrentAmmo()==object,true,{}});
+            editor_.catalog.push_back({base,candidates_.size(),data.first,base.kind==Kind::ammo&&equippedAmmo(player)==object,true,{}});
             if(base.kind==Kind::torch&&player->GetEquippedObject(true)==object) {
                 editor_.catalog.back().equipped=true;editor_.equippedCandidates[1]=candidates_.size();
             }

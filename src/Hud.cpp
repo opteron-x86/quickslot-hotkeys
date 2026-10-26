@@ -216,13 +216,23 @@ struct Paint {
         const float left=width(mod),right=width(button),start=x-(left+right+12)*.5f;
         key(start+left*.5f,y,mod,selected,h);text(start+left+6,y,"+",11,silver,false,0,true);key(start+left+12+right*.5f,y,button,selected,h);
     }
-    void badge(float x,float y,const Entry& entry,int quantity,float cooldown,float size=13,bool rightAligned=false) {
-        if(!isStack(entry)&&cooldown<=0)return;
-        const auto label=isStack(entry)?(quantity>999?std::string("999+"):std::to_string(std::max(0,quantity))):std::to_string(int(std::ceil(cooldown)))+"s";
-        const auto w=sans->CalcTextSizeA(size*scale,FLT_MAX,0,label.c_str()).x/scale+8;
+    void badge(float x,float y,const Entry& entry,int quantity,float cooldown,float size=13,bool rightAligned=false,WeaponStatus weapon={}) {
+        const int count=badgeQuantity(entry,quantity,weapon,options);
+        const bool poisoned=options.showPoison&&weapon.poisoned;
+        if(count<0&&cooldown<=0&&!poisoned)return;
+        const auto label=count>=0?(count>999?std::string("999+"):std::to_string(count)):cooldown>0?std::to_string(int(std::ceil(cooldown)))+"s":std::string{};
+        const auto textWidth=sans->CalcTextSizeA(size*scale,FLT_MAX,0,label.c_str()).x/scale;
+        const float poisonWidth=poisoned?size+3:0,w=textWidth+poisonWidth+8;
         if(rightAligned)x-=w*.5f;
-        d->AddRectFilled(p(x-w*.5f,y-1),p(x+w*.5f,y+size+2),color(IM_COL32(12,13,14,215)),2*scale);
-        text(x,y,label,size,isStack(entry)&&quantity<=0?IM_COL32(219,143,132,255):ivory,false,0,true);
+        const float left=x-w*.5f;
+        if(!label.empty())d->AddRectFilled(p(left+poisonWidth,y-1),p(left+w,y+size+2),color(IM_COL32(12,13,14,215)),2*scale);
+        if(poisoned) {
+            const auto green=color(IM_COL32(174,209,122,255));const float cx=left+4+size*.5f,cy=y+size*.65f,r=size*.26f;
+            const auto droplet=[&]{d->PathLineTo(p(cx,cy-size*.65f));d->PathArcTo(p(cx,cy),r*scale,-pi*.2f,pi*1.2f,12);};
+            droplet();d->PathFillConvex(green);
+            droplet();d->PathStroke(color(IM_COL32(12,18,10,210)),ImDrawFlags_Closed,std::max(1.f,scale*.7f));
+        }
+        if(!label.empty())text(left+4+poisonWidth+textWidth*.5f,y,label,size,count==0?IM_COL32(219,143,132,255):ivory,false,0,true);
     }
 };
 }
@@ -290,10 +300,10 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             auto nodePaint=p;nodePaint.alpha*=opacity;
             nodePaint.tile(x,y,r,selected,shape);
             nodePaint.icon(x,y,r*1.48f,row.entry,row.available?nodePaint.itemColor(row.entry):muted);
-            const float marker=x+(isStack(row.entry)||row.cooldown>0?-1.f:1.f)*r*.7f;
+            const float marker=x+(isStack(row.entry)||row.cooldown>0||(o.showAmmo&&row.weapon.ammunition>=0)||(o.showPoison&&row.weapon.poisoned)?-1.f:1.f)*r*.7f;
             if(!row.available&&!isStack(row.entry)){nodePaint.circle(marker,y+r*.7f,6,IM_COL32(22,18,18,240),true);nodePaint.line(marker-3,y+r*.7f+3,marker+3,y+r*.7f-3,blood,1.6f);}
             else if(row.equipped)nodePaint.diamond(marker,y+r*.7f,3.5f,ivory);
-            nodePaint.badge(x+r*.58f,y+r*.5f,row.entry,row.quantity,row.cooldown,selected?15:12);
+            nodePaint.badge(x+r*.58f,y+r*.5f,row.entry,row.quantity,row.cooldown,selected?15:12,false,row.weapon);
         };
         const auto layout=selectorGeometry(o);
         if(active) {
@@ -322,7 +332,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                         q.label(66,y-8*text,displayName(row.entry),16,row.available?ivory:muted,true,layout.width-92);
                         if(row.equipped)q.diamond(53,y+15,2.5f,ivory);
                         else if(!row.available&&!isStack(row.entry)){q.circle(53,y+15,4,IM_COL32(22,18,18,240),true);q.line(50,y+18,56,y+12,blood,1.4f);}
-                        q.badge(35,y+8,row.entry,row.quantity,row.cooldown,11);
+                        q.badge(35,y+8,row.entry,row.quantity,row.cooldown,11,false,row.weapon);
                     } else {
                         const float r=distance<1?40-12*distance:std::max(18.f,28-7*(distance-1));
                         const float step=distance<=1?distance*(68+o.selectorSpacing):68+o.selectorSpacing+(distance-1)*(49+o.selectorSpacing);
@@ -385,6 +395,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         const bool available=selected&&active?active->available:tile.available;
         const int quantity=selected&&active?active->quantity:tile.quantity;
         const float cooldown=selected&&active?active->cooldown:tile.cooldown;
+        const auto weapon=selected&&active?active->weapon:tile.weapon;
         const auto pos=geometry.groups.tiles[i];const float x=pos.x,y=pos.y;
         auto q=groups;q.alpha*=groupAlpha;
         const bool previewing=selected&&state.browsing;
@@ -403,13 +414,13 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             if(o.showCardNames)q.label(x+51,top+(o.showLabels?12*text+4:0),entry?displayName(*entry):tr("Empty"),14,entry&&!available?muted:ivory,true,width-59);
             q.groupKey(x+width-20,y-3,id,previewing,state.controller,state.vr);
             if(previewing)q.diamond(x+width*.5f,y-3,2.5f,q.accent());
-            if(hands)q.text(iconX-18,cy+14,handMarker(hands),10,ivory);
+            if(hands)q.text(iconX-18,cy+((o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned)?-22.f:14.f),handMarker(hands),10,ivory);
             else if(equipped||ready)q.diamond(iconX+18,cy+15,2.5f,ivory);
-            if(entry)q.badge(iconX+2,cy+9,*entry,quantity,cooldown,11);
+            if(entry)q.badge(iconX+2,cy+9,*entry,quantity,cooldown,11,false,weapon);
         } else {
             const float cx=x+geometry.groups.tileWidth*.5f;
             const float cy=y+(o.shape==1?37.f:o.shape==2?50.f:44.f);
-            const float markerX=cx+(entry&&(isStack(*entry)||cooldown>0)?-1.f:1.f)*(o.shape==1?21.f:o.shape==2?28.f:0.f);
+            const float markerX=cx+(entry&&(isStack(*entry)||cooldown>0||(o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned))?-1.f:1.f)*(o.shape==1?21.f:o.shape==2?28.f:0.f);
             const float markerY=cy+(o.shape==1?21.f:o.shape==2?25.f:30.f);
             if(o.shape==1)q.medallion(cx,cy,29,emphasized);
             else if(o.shape==2)q.frame(cx-41,y,82,100,emphasized,o.layout==5?(i==0?0u:i==2?1u:2u):1u);
@@ -422,7 +433,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             if(hands)q.text(cx-27,cy+18,handMarker(hands),10,ivory);
             else if(equipped||ready)q.diamond(markerX,markerY,3,ivory);
             else if(entry&&!available&&!isStack(*entry)){q.circle(markerX,markerY,5,IM_COL32(22,18,18,230),true);q.line(markerX-3,markerY+3,markerX+3,markerY-3,blood,1.5f);}
-            if(entry)q.badge(cx+(o.shape==3?18.f:22.f),cy+(o.shape==3?14.f:18.f),*entry,quantity,cooldown);
+            if(entry)q.badge(cx+(o.shape==3?18.f:22.f),cy+(o.shape==3?14.f:18.f),*entry,quantity,cooldown,13,false,weapon);
         }
         if(bounds){Bounds box;collect(tileStart,box);bounds->tiles.push_back(box);}
     }
@@ -456,14 +467,14 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 if(row) {
                     item.icon(x,y,box.iconSize,row->entry,item.itemColor(row->entry));
                     const float size=11*std::clamp(t,.8f,1.25f),radius=o.equipmentStyle==0?box.iconSize*.5f:28.f;
-                    panel.badge(x+radius*(o.equipmentStyle==2?.7f:1.f),y+(o.equipmentStyle==0?radius-size:radius*.5f),row->entry,row->quantity,row->cooldown,size,true);
+                    panel.badge(x+radius*(o.equipmentStyle==2?.7f:1.f),y+(o.equipmentStyle==0?radius-size:radius*.5f),row->entry,row->quantity,row->cooldown,size,true,row->weapon);
                 }
                 else panel.text(x,y-8*t,"—",16*t,muted,false,0,true);
             }
             const bool right=o.equipmentStyle>0&&o.equipmentStyle<4&&o.equipmentTextPosition==2;
             const float tx=cell.x+box.text.x+(right?box.textWidth:0),ty=cell.y+box.text.y;
             panel.text(tx,ty,tr(role),11.5f*t,silver,false,box.textWidth,box.centered,right);
-            item.text(tx,ty+16*t,equipmentTextName(row,box.iconSize>0),17*t,ivory,false,box.textWidth,box.centered,right);
+            item.text(tx,ty+16*t,equipmentTextName(row,box.iconSize>0,o),17*t,ivory,false,box.textWidth,box.centered,right);
         };
         if(twoHandedDisplay(state.equipment))drawRow("Both hands",state.equipment.hands[0]);
         else {drawRow("Right hand",state.equipment.hands[0]);drawRow("Left hand",state.equipment.hands[1]);}

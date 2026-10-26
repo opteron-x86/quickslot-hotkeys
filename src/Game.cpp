@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "I4Icons.h"
 #include "InputFilter.h"
 #include "GameplayMenus.h"
 #include "Storage.h"
@@ -750,11 +751,12 @@ void Game::publish(){
         snapshot_.inCombat=player->IsInCombat();snapshot_.weaponsDrawn=player->AsActorState()->IsWeaponDrawn();
     }
 }
-void Game::loaded(){std::scoped_lock lock(mutex_);closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
+void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
     if(arsenal_.presetIdentity.empty()){GUID id{};if(SUCCEEDED(CoCreateGuid(&id))){char key[40];std::snprintf(key,sizeof(key),"%08lx%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",id.Data1,id.Data2,id.Data3,id.Data4[0],id.Data4[1],id.Data4[2],id.Data4[3],id.Data4[4],id.Data4[5],id.Data4[6],id.Data4[7]);arsenal_.presetIdentity=key;}}
     if(auto* devices=RE::BSInputDeviceManager::GetSingleton())controllerLast_=controllerConnected_=REL::Module::IsVR()||devices->IsGamepadEnabled();
     revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);dirty_=true;menuRequested_=false;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);}
 void Game::reset(bool clear) {
+    invalidateI4Icons();
     std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;menuRequested_=false;
     if(clear)arsenal_=Arsenal{};
     snapshot_=Snapshot{};groupRecall_.reset();keyboardOwned_.fill(false);mouseOwned_.fill(false);controller_.reset();stickOwned_.fill(false);nativeVoiceDown_=false;

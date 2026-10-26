@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Display icons from installed Inventory Interface Information Injector (I4) packs. Select I4 under **Appearance → Style → Icon set** and choose Original, Theme or White coloring.
+
 ## 0.11.0
 
 - Configure keyboard editing modifiers, browsing keys and controller actions under **Controls**. Choose **None** or **Clear** to disable a binding. Enable **Allow group selection with unused modifiers** to use group keys while holding a walking modifier ([#14](https://github.com/opteron-x86/quickslot-hotkeys/pull/14)).

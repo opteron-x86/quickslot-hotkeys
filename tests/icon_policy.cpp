@@ -1,4 +1,5 @@
 #include "IconPolicy.h"
+#include "I4Policy.h"
 #include "WeaponIcons.h"
 #include "Settings.h"
 #include "Presets.h"
@@ -55,10 +56,13 @@ int main() {
     options.itemIconColor=2;assert(decodeOptions(encodeOptions(options)).itemIconColor==2);
     options.itemIconColor=999;sanitizeOptions(options);assert(options.itemIconColor==2);
     options.itemIconSet="sample-icons";assert(decodeOptions(encodeOptions(options)).itemIconSet=="sample-icons");
-    auto previous=Json::parse(encodeOptions(options));previous.erase("itemIconSet");assert(decodeOptions(previous.dump()).itemIconSet=="quickslot");
+    auto previous=Json::parse(encodeOptions(options));previous.erase("itemIconSet");assert(decodeOptions(previous.dump()).itemIconSet=="i4");
+    options.itemIconSet="quickslot";assert(decodeOptions(encodeOptions(options)).itemIconSet=="quickslot");
+    options.itemIconSet="i4";assert(decodeOptions(encodeOptions(options)).itemIconSet=="i4");
+    options.itemIconSet="sample-icons";
     Arsenal arsenal;const auto preset=exportPreset(arsenal,options,true,[](auto){return Json{};});
     assert(importPreset(preset,arsenal,Options{},true,[](const auto&,auto){return 0u;}).options.itemIconSet=="sample-icons");
-    options.itemIconSet="../other";sanitizeOptions(options);assert(options.itemIconSet=="quickslot");
+    options.itemIconSet="../other";sanitizeOptions(options);assert(options.itemIconSet=="i4");
     const auto folder=std::filesystem::temp_directory_path()/("quickslot-icon-packs-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     struct Cleanup {std::filesystem::path folder;~Cleanup(){std::error_code e;std::filesystem::remove_all(folder,e);}} cleanup{folder};
     assert(loadIconPacks(folder).size()==1);
@@ -72,10 +76,23 @@ int main() {
     write("06-duplicate",pack);
     write("07-invalid-json",pack);std::ofstream(folder/"packs/07-invalid-json/pack.json")<<"{";
     malformed=pack;malformed["id"]="old-layout";malformed["rows"]=8;malformed["icons"]=63;write("08-old-layout",malformed);
+    malformed=pack;malformed["id"]="i4";write("09-reserved-provider",malformed);
     const auto packs=loadIconPacks(folder);assert(packs.size()==2&&packs[1].id=="sample-icons"&&packs[1].atlas==folder/"packs/01-valid/items.png");
     std::filesystem::remove_all(folder/"packs");std::ofstream(folder/"packs")<<"not a directory";
     assert(loadIconPacks(folder).size()==1);
     Entry original;original.form=0x1234;original.name="Sword";auto appearance=original;appearance.icon=Icon::greatsword;
     assert(original.same(appearance)&&encodeEntry(original)==encodeEntry(appearance));
+    assert(i4SourcePath("")=="Interface/skyui/icons_item_psychosteve.swf");
+    assert(i4SourcePath("I4IconAddon/icons.swf")=="Interface/I4IconAddon/icons.swf");
+    assert(i4SourcePath("Interface\\Example\\Icons.SWF")=="Interface/Example/Icons.SWF");
+    for(const auto* path:{"../icons.swf","Interface/../icons.swf","file:///icons.swf","/icons.swf","C:/icons.swf","pack//icons.swf","pack/./icons.swf","https://host/icons.swf","icons.png"})assert(!i4SourcePath(path));
+    assert(!i4SourcePath(std::string("icons\0.swf",10)));
+    const auto centered=fitI4Icon(-20,-10,20,10,256);assert(centered&&centered->x==128&&centered->y==128&&centered->scale==5.4);
+    const auto offset=fitI4Icon(10,20,30,60,256);assert(offset&&std::abs((10+30)*.5*offset->scale+offset->x-128)<1e-9);
+    assert(!fitI4Icon(0,0,0,1,256)&&!fitI4Icon(0,0,1,INFINITY,256));
+    std::vector<std::uint8_t> pixels{64,32,0,128,9,8,7,0,12,34,56,255};
+    assert(straightenI4Pixels(pixels));
+    assert((pixels==std::vector<std::uint8_t>{128,64,0,128,0,0,0,0,12,34,56,255}));
+    pixels.assign(4,0);assert(!straightenI4Pixels(pixels));
     std::cout<<"PASS: 65 atlas cells, distinct power icons, weapon keywords, hand actions, tint, optional pack validation, settings/presets and equipment identity isolation\n";
 }

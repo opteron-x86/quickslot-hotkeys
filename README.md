@@ -101,6 +101,8 @@ While holding a group, optional **Equip in right/left hand** actions equip the h
 
 Choose a theme, then customize colors, frames, icon size, text size and spacing. Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Item icon sets and installed ImGui keycaps are selected independently.
 
+**Appearance → Style → Icon set → I4** uses the icons assigned by your installed [Inventory Interface Information Injector](https://www.nexusmods.com/skyrimspecialedition/mods/85702) packs. **Original** displays their colors; **Theme** and **White** apply the selected tint. New settings default to I4; existing settings retain your chosen icon set. Quickslot supplies fallback icons for unavailable artwork and shortcut actions.
+
 Group layouts include rows, columns, crosses, diamonds and circles. Selectors support horizontal/vertical strips, arcs, rings and lists. **Position** lets you drag outlined elements, adjust X/Y and snap to a grid. Hold Shift for free movement.
 
 **Appearance → Equipment** shows the right hand, left hand, selected consumable and power/shout. Two-handed equipment uses one entry. Choose list, circle, diamond, square or text layouts, with independent scale, spacing and placement. Quantities and shout timers appear on icons; spent powers dim.

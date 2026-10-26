@@ -24,7 +24,7 @@ inline std::vector<IconPack> loadIconPacks(const std::filesystem::path& director
         std::error_code entryError;
         if(it->is_directory(entryError)&&!it->is_symlink(entryError)&&!entryError&&files.size()<64)files.push_back(it->path()/"pack.json");
     }
-    std::sort(files.begin(),files.end());std::set<std::string> seen{"quickslot"};
+    std::sort(files.begin(),files.end());std::set<std::string> seen{"quickslot","i4"};
     for(const auto& file:files)try {
         if(!std::filesystem::is_regular_file(file)||std::filesystem::is_symlink(file)||std::filesystem::file_size(file)>16384)continue;
         std::ifstream stream(file);const auto j=nlohmann::json::parse(stream);

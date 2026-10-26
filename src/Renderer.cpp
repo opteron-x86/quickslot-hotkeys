@@ -4,6 +4,7 @@
 #include "DXIsolation.h"
 #include "Assets.h"
 #include "IconPacks.h"
+#include "I4Icons.h"
 #include "VROverlay.h"
 #include <imgui_impl_dx11.h>
 #include <windows.h>
@@ -19,6 +20,7 @@ std::atomic<HWND> gameWindow{nullptr};
 struct Graphics {
     ImGuiContext* imgui=nullptr;ID3D11Device* device=nullptr;
     std::unique_ptr<preview::DXIsolation> isolation;
+    std::unique_ptr<I4Icons> i4;
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> keyTexture;
     std::map<std::string,Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> iconTextures;
     std::map<std::string,Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> themeTextures;
@@ -34,6 +36,8 @@ struct Graphics {
         if(FAILED(swap->GetDesc(&desc))||!desc.OutputWindow)throw std::runtime_error("Cannot locate game window");
         gameWindow=desc.OutputWindow;device=d;
         isolation=std::make_unique<preview::DXIsolation>(d,c);
+        i4=std::make_unique<I4Icons>(d,c);
+        hud.setItemIconProvider([this](const Entry& entry){return i4->find(entry);});
         IMGUI_CHECKVERSION();imgui=ImGui::CreateContext();ImGui::SetCurrentContext(imgui);
         auto& io=ImGui::GetIO();io.IniFilename=nullptr;io.LogFilename=nullptr;
         io.ConfigFlags|=ImGuiConfigFlags_NoMouseCursorChange;io.MouseDrawCursor=false;
@@ -94,6 +98,7 @@ std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& optio
         if(r.graphics&&r.graphics->device!=device)r.graphics.reset();
         if(!r.graphics){r.graphics=std::make_unique<Graphics>();r.graphics->initialize(device,context,swap);}
         auto& g=*r.graphics;ImGui::SetCurrentContext(g.imgui);
+        g.i4->beginFrame();
         localization().select(options.language);
         const bool vr=REL::Module::IsVR();
         preview::DXIsolation::Frame isolated(*g.isolation,!vr);

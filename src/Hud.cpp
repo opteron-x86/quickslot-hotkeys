@@ -33,7 +33,7 @@ ImU32 iconColor(const Entry& e) {
     }
 }
 struct Paint {
-    ImDrawList* d;ImVec2 origin;float scale,alpha;ImFont* medium;ImFont* sans;ImTextureID icons,themeTexture,keyTexture;const KeyGlyphs& keyGlyphs;const Options& options;const Theme& theme;ThemeAdjustments tweaks;
+    ImDrawList* d;ImVec2 origin;float scale,alpha;ImFont* medium;ImFont* sans;ImTextureID icons,themeTexture,keyTexture;const KeyGlyphs& keyGlyphs;const Options& options;const Theme& theme;ThemeAdjustments tweaks;const ItemIconProvider& itemIcons;
     ImU32 accent()const{return themeAccent(theme,options);}
     ImU32 itemColor(const Entry& e)const{return options.coloredMagic?iconColor(e):ivory;}
     ImVec2 p(float x,float y)const{return {origin.x+x*scale,origin.y+y*scale};}
@@ -130,6 +130,13 @@ struct Paint {
     void icon(float x,float y,float size,const Entry& e,ImU32 c) {
         if(e.kind==Kind::combo&&e.parts.size()==2){icon(x-size*.21f,y,size*.62f,e.parts[0],c==muted?c:itemColor(e.parts[0]));icon(x+size*.21f,y,size*.62f,e.parts[1],c==muted?c:itemColor(e.parts[1]));return;}
         size*=tweaks.iconScale;
+        if(options.itemIconSet=="i4"&&itemIcons)if(const auto supplied=itemIcons(e)) {
+            const bool unavailable=c==muted;
+            const auto tint=itemIconTint(*supplied,color(c),options.itemIconColor,unavailable);
+            d->AddImage(supplied->mask,p(x-size*.5f+1,y-size*.5f+2),p(x+size*.5f+1,y+size*.5f+2),{0,0},{1,1},color(IM_COL32(0,0,0,150)));
+            d->AddImage(itemIconTexture(*supplied,options.itemIconColor,unavailable),p(x-size*.5f,y-size*.5f),p(x+size*.5f,y+size*.5f),{0,0},{1,1},tint);
+            return;
+        }
         if(c!=muted&&options.itemIconColor!=1)c=IM_COL32_WHITE;
         const auto region=atlasRegion(iconFor(e));
         const bool useAtlas=icons&&region.has_value();
@@ -286,7 +293,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     const auto& theme=themes_.get(o.themeId);const auto& skin=skins_.at(theme.id);
     Paint p{list?list:ImGui::GetBackgroundDrawList(),
         {origin.x+geometry.origin.x+geometry.selectorOrigin.x*scale,origin.y+geometry.origin.y+geometry.selectorOrigin.y*scale},
-        scale,o.opacity*visibility,skin.title,skin.body,iconTexture(o),skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o)};
+        scale,o.opacity*visibility,skin.title,skin.body,iconTexture(o),skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o),itemIcons_};
     const auto collect=[&](int start,Bounds& box){for(int i=start;i<p.d->VtxBuffer.Size;++i){const auto v=p.d->VtxBuffer[i].pos;box.include({v.x,v.y});}};
     const int selectorStart=p.d->VtxBuffer.Size;const float text=hudTextFactor(o);
     const float center=geometry.selectorWidth*.5f;

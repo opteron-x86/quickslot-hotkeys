@@ -28,9 +28,17 @@ Place a theme in `Data/Quickslot/themes/<folder>/theme.json`. Restart after inst
 
 Optional TTF files supply body and title fonts. The default font is Jost. Theme overrides for accent, frame opacity and icon size are saved by theme ID. **Reset theme** restores that pack's defaults.
 
-Item icons use their own atlas and Theme/White tint settings. Keycaps come from the active `Data/Interface/ImGuiIcons/Icons` files; select their style through the mod manager and restart.
+Item icons support I4 packs and Quickslot atlas packs, with Original, Theme and White color settings. Keycaps come from the active `Data/Interface/ImGuiIcons/Icons` files; select their style through the mod manager and restart.
 
 Frame and font credits are in `licenses/Theme-pack-credits.txt`. Source hashes are in `assets/themes/packs-manifest.json`.
+
+## I4 icons
+
+Install [Inventory Interface Information Injector](https://www.nexusmods.com/skyrimspecialedition/mods/85702) and your preferred I4 packs, then choose **I4** under **Appearance → Style → Icon set**. Quickslot uses each item's assigned SWF artwork, frame label and color. Skyrim's resource loading supplies the active files, including resources in archives.
+
+**Original** preserves the artwork's colors and I4 color assignments. **Theme** applies theme colors, including the **Tint magic icons** setting. **White** displays white artwork. Opacity and unavailable-item dimming apply to each mode.
+
+The bundled Quickslot icons provide artwork for synthetic shortcuts and a fallback when I4 or an icon is unavailable. Select **Quickslot** or an installed atlas pack in **Icon set** to use that pack throughout the HUD.
 
 ## Item atlas
 

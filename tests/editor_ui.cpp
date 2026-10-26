@@ -17,6 +17,27 @@ int main(int argc,char** argv)try {
         for(const unsigned code:{0x00e9u,0x0416u,0x03a9u,0x5251u,0x5263u,0xac80u})check(hud.bodyFont(option)->IsGlyphInFont(ImWchar(code)),"Theme fallback supplies Latin, Greek, Cyrillic, Chinese, Japanese and Korean glyphs");
     }
     unsigned char* pixels;int width,height;io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height);
+    io.Fonts->SetTexID(999);
+    {
+        ItemIcon supplied{201,202,0x123456};
+        check(itemIconTint(supplied,0x80abcdef,0,false)==0x80563412,"I4 RGB assignments preserve opacity");
+        check(itemIconTexture(supplied,0,false)==202,"I4 color assignments use the alpha mask");
+        supplied.rgb.reset();check(itemIconTexture(supplied,0,false)==201,"Original mode preserves multicolor artwork");
+        check(itemIconTexture(supplied,1,false)==202&&itemIconTexture(supplied,2,false)==202,"Theme and White use the alpha mask");
+        check(itemIconTint(supplied,0x80808080,0,true)==0x80808080,"Unavailable I4 icons keep the dimming tint");
+        Entry item;item.form=1;item.name="I4 test";
+        Snapshot sample;sample.visible=true;sample.editorPreview=true;sample.groups[0]={item,1,true};
+        Options appearance;appearance.itemIconColor=0;
+        hud.setIcons("quickslot","Quickslot",101);
+        unsigned requests=0;hud.setItemIconProvider([&](const Entry& e)->std::optional<ItemIcon>{++requests;return e.form==1?std::optional(supplied):std::nullopt;});
+        const auto draws=[&](ImTextureID texture){for(const auto& command:ImGui::GetBackgroundDrawList()->CmdBuffer)if(command.ElemCount&&command.GetTexID()==texture)return true;return false;};
+        ImGui::NewFrame();hud.draw(sample,appearance,1);ImGui::Render();
+        check(requests>0&&draws(201)&&draws(202)&&!draws(101),"HUD draws supplied artwork and its shadow");
+        hud.setItemIconProvider({});
+        ImGui::NewFrame();hud.draw(sample,appearance,1);ImGui::Render();
+        check(draws(101),"HUD uses fallback artwork when the provider is unavailable");
+        hud.setIcons("quickslot","Quickslot",0);
+    }
     Editor editor;auto state=fixture::editor();editor.beginSession(state);std::vector<EditCommand> commands;
     EditHistory history;std::uint64_t historySession=0;
     const auto frame=[&](const std::vector<EditorInput>& events=std::vector<EditorInput>{}) {
@@ -464,7 +485,9 @@ int main(int argc,char** argv)try {
     click("Undo");check(libraryShortcut(state.draft,sharedID)&&state.draft.groups[0].entries.size()==2,"Undo restores shared definition and memberships");
     hud.setIcons("sample-icons","Sample icons",123);click("Appearance");click("Style");click("##item icon set");click("Sample icons");
     check(state.options.itemIconSet=="sample-icons"&&hud.iconTexture(state.options)==123,"Icon pack selection changes the live HUD texture");
-    click("Undo");check(state.options.itemIconSet=="quickslot","Icon pack selection supports Undo");
+    click("Undo");check(state.options.itemIconSet=="i4","Icon pack selection supports Undo");
+    click("##item icon set");click("Quickslot",1);check(state.options.itemIconSet=="quickslot","Bundled icons can be selected explicitly");
+    click("##item icon set");click("I4");check(state.options.itemIconSet=="i4","I4 can be selected in the editor");
     click("Equipment");click("##equipment visibility");click("Show always");check(state.options.showEquipment&&!state.options.equipmentDim,"Equipment can stay visible independently");
     click("##equipment visibility");click("Dim when idle");check(state.options.equipmentDim,"Equipment dim mode applies immediately");
     click("Undo");check(!state.options.equipmentDim&&state.options.showEquipment,"Equipment visibility supports Undo");

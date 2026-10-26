@@ -69,7 +69,7 @@ inline void sanitizeOptions(Options& o) {
     o.layout=std::min(o.layout,5u);o.shape=std::min(o.shape,3u);o.selector=std::min(o.selector,4u);
     o.selectorDock=std::min(o.selectorDock,4u);o.selectorShape=std::min(o.selectorShape,3u);
     o.itemIconColor=std::min(o.itemIconColor,2u);
-    if(!validIconPackID(o.itemIconSet))o.itemIconSet="quickslot";
+    if(!validIconPackID(o.itemIconSet))o.itemIconSet="i4";
     const auto finite=[](float v,float fallback,float min,float max){return std::isfinite(v)?std::clamp(v,min,max):fallback;};
     o.inactiveGroups=std::min(o.inactiveGroups,2u);
     o.inactiveGroupOpacity=finite(o.inactiveGroupOpacity,.3f,.05f,.9f);
@@ -173,7 +173,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.vrEditor=binding(j.at("vrEditor"));
     o.vrStick=j.at("vrStick").get<decltype(o.vrStick)>();
     o.itemIconColor=j.at("itemIconColor").get<decltype(o.itemIconColor)>();
-    o.itemIconSet=j.value("itemIconSet",std::string("quickslot"));
+    o.itemIconSet=j.value("itemIconSet",std::string("i4"));
     o.layout=j.at("layout").get<unsigned>();o.shape=j.at("shape").get<unsigned>();o.selector=j.at("selector").get<unsigned>();
     o.scale=j.at("scale").get<float>();o.opacity=j.at("opacity").get<float>();o.spacing=j.at("spacing").get<float>();
     o.textScale=j.value("textScale",1.f);o.placementSpacing=j.value("placementSpacing",1u);o.placementFrame=j.value("placementFrame",0u);o.placementGridSize=j.value("placementGridSize",16.f);

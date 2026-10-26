@@ -305,7 +305,7 @@ struct Options {
     bool showIdle=true,showHints=false,showLabels=true,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
     bool showPoison=true,showAmmo=true;
     unsigned itemIconColor=1;
-    std::string itemIconSet="quickslot";
+    std::string itemIconSet="i4";
     bool placementGrid=false,placementSnap=false;
     bool showEquipment=false,equipmentDim=false,hideEmptyGroups=false;
     float equipmentX=.02f,equipmentY=.8f;

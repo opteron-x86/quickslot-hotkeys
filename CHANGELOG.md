@@ -1,20 +1,18 @@
 # Changelog
 
-## Unreleased
+## 0.11.0
 
-- Added optional hand actions while browsing. Choose a compatible weapon or spell, then equip in either hand without changing the saved shortcut. Keyboard, mouse and controller bindings are configurable; mouse-button and bumper presets resolve their existing cancel/browse conflicts. Hand choices finish selection once, and reject consumables, voice actions and combinations. The owner confirmed hand selection works in the combined development build.
-- Consolidated keyboard actions into one bindings panel: None disables group editing actions and Clear unbinds selected-item keys. Removed the duplicate enable/disable checklist. Rebinding enables the action, Reset restores the defaults, and older disabled shortcuts remain disabled.
+- Remap keyboard editing modifiers, browsing keys and controller actions. Keyboard actions now use one panel: choose **None** or **Clear** to disable a binding, rebind to enable it, and reset to restore defaults. An optional setting allows group selection while holding unused modifiers such as Alt-to-walk. Controller modifier buttons no longer also trigger their plain browsing action ([#14](https://github.com/opteron-x86/quickslot-hotkeys/pull/14)).
+- Allow Quickslot input while QuickLoot is displayed, with separate keyboard/mouse and controller options under **Controls → General**. Both default off ([#15](https://github.com/opteron-x86/quickslot-hotkeys/pull/15)).
+- Show poison droplets on weapon entries and equipped arrow/bolt counts on bows and crossbows in browsing lists, group tiles and the equipment display. Poison follows the selected weapon copy and has no rectangular backing. Corrected the equipped-ammo lookup used by counts, highlights and smart-ammo checks. Both indicators can be disabled under **Appearance → Style** ([#16](https://github.com/opteron-x86/quickslot-hotkeys/pull/16)).
+- Choose a hand for the highlighted weapon or spell while browsing, using configurable keyboard, mouse or controller actions. The choice equips once without changing the saved default hand. Mouse-button and bumper presets are included ([#17](https://github.com/opteron-x86/quickslot-hotkeys/pull/17)).
+- Link a group to a Favorites category so matching Skyrim Favorites appear automatically. Generated groups show all matches, beyond the manual 16-item limit. Exclusions and the remembered selection persist, and switching back to Manual restores the original group contents ([#18](https://github.com/opteron-x86/quickslot-hotkeys/pull/18)).
 
-- Added keyboard editing-modifier and browsing-key remapping, plus an opt-in to select groups with unused held modifiers such as Alt-to-walk. Controller cancel, unequip and previous/next actions can be rebound; explicit modifiers no longer also trigger a single-button browsing action. Existing settings keep their bindings and pass-through behavior. In-game keyboard/controller verification is pending.
+Gameplay verification: the owner confirmed feedback checks #2–#6 passed on 2026-10-25 after testing the revised combined build. See the [verification record](docs/FEEDBACK-TESTING.md).
 
+Updating: keep existing settings and presets. Previously disabled keyboard actions remain disabled. QuickLoot input and hand-selection bindings are opt-in; manual groups keep their current contents.
 
-- Added separate keyboard/mouse and controller opt-ins under Controls → General for using Quickslot while QuickLoot is open. Defaults still leave navigation to QuickLoot. Held and queued actions follow their originating device; other menus retain their blocking behavior. The owner confirmed QuickLoot input works in the combined development build; coverage across variants is not yet recorded.
-- Corrected the equipped-ammunition engine lookup so bow counts, ammo highlights and smart-ammo checks read the equipped arrows/bolts. Poison droplets use a thin outline without a rectangular backing.
-
-- Added a green poison marker for the resolved weapon copy and equipped compatible arrow/bolt counts for bows and crossbows. Indicators appear in browsing lists, group tiles and the equipped display, including smart weapon choices, and can be switched off under Appearance → Style. Text-only equipment displays include the same information. Physical gameplay validation is pending.
-
-- Added optional Favorites-linked groups with item-type categories and a default hand. Groups show all matching favorites in name order, retain selection by identity and refresh from Skyrim inventory/magic favorites. Manual contents remain saved separately and return when switching back to Manual. Exclusions, source preferences and the remembered favorite survive save/load and complete presets.
-- Generated groups can exceed the manual 16-item limit; the HUD pager stays bounded. Inventory changes cancel stale selections instead of reusing an old index. Ambiguous favorite weapon stacks show “Equip one copy first” until Skyrim separates a copy. The owner confirmed Favorites groups work in the combined development build.
+The Apothecary/CACO Smart Potion fix remains in testing in [#13](https://github.com/opteron-x86/quickslot-hotkeys/pull/13) and is not included in this release.
 
 ## 0.10.3
 

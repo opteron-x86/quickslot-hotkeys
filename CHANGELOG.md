@@ -8,7 +8,7 @@
 - Choose a hand for the highlighted weapon or spell while browsing, using configurable keyboard, mouse or controller actions. The choice equips once without changing the saved default hand. Mouse-button and bumper presets are included ([#17](https://github.com/opteron-x86/quickslot-hotkeys/pull/17)).
 - Link a group to a Favorites category so matching Skyrim Favorites appear automatically. Generated groups show all matches, beyond the manual 16-item limit. Exclusions and the remembered selection persist, and switching back to Manual restores the original group contents ([#18](https://github.com/opteron-x86/quickslot-hotkeys/pull/18)).
 
-Gameplay verification: the owner confirmed feedback checks #2–#6 passed on 2026-10-25 after testing the revised combined build. See the [verification record](docs/FEEDBACK-TESTING.md).
+Gameplay verification: the owner confirmed feedback checks #2–#6 passed on 2026-10-25 after testing the revised combined build. See the [verification record](https://github.com/opteron-x86/quickslot-hotkeys/blob/v0.11.0/docs/FEEDBACK-TESTING.md).
 
 Updating: keep existing settings and presets. Previously disabled keyboard actions remain disabled. QuickLoot input and hand-selection bindings are opt-in; manual groups keep their current contents.
 

@@ -232,7 +232,6 @@ struct Paint {
         const float poisonWidth=poisoned?size+3:0,w=textWidth+poisonWidth+8;
         if(rightAligned)x-=w*.5f;
         const float left=x-w*.5f;
-        if(!label.empty())d->AddRectFilled(p(left+poisonWidth,y-1),p(left+w,y+size+2),color(IM_COL32(12,13,14,215)),2*scale);
         if(poisoned) {
             const auto green=color(IM_COL32(174,209,122,255));const float cx=left+4+size*.5f,cy=y+size*.65f,r=size*.26f;
             const auto droplet=[&]{d->PathLineTo(p(cx,cy-size*.65f));d->PathArcTo(p(cx,cy),r*scale,-pi*.2f,pi*1.2f,12);};

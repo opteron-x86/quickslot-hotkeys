@@ -91,13 +91,25 @@ struct SelectorArrow {int delta=0;bool reorder=false;};
 inline SelectorArrow selectorArrow(unsigned scan,bool ctrl) {
     return {scan==203?-1:scan==205?1:0,ctrl};
 }
+enum class FavoriteSource : unsigned {manual,all,weapons,spells,potions,poisons,food,ammo,scrolls,voice,offhand,count};
+inline bool sameFavorite(const Entry& a,const Entry& b){auto other=b;other.hand=a.hand;return a.same(other);}
 struct Group {
     static constexpr std::size_t limit=16;
+    static constexpr std::size_t exclusionLimit=128;
     std::vector<Entry> entries;
     std::size_t selected=0;
     std::uint64_t revision=0;
+    FavoriteSource source=FavoriteSource::manual;
+    Hand favoriteHand=Hand::right;
+    std::vector<Entry> manualEntries,excludedFavorites;
+    std::size_t manualSelected=0;
+    std::optional<Entry> rememberedFavorite;
+    bool automatic()const{return source!=FavoriteSource::manual;}
+    auto& savedEntries(){return automatic()?manualEntries:entries;}
+    const auto& savedEntries()const{return automatic()?manualEntries:entries;}
     bool sortByName();
     bool add(Entry value,bool autoSort=false) {
+        if(automatic())return false;
         const auto it=std::find_if(entries.begin(),entries.end(),[&](const Entry& e){return e.shortcut&&value.shortcut?e.shortcut==value.shortcut:e.same(value);});
         if(it!=entries.end()) { selected=std::size_t(it-entries.begin());++revision;return false; }
         if(entries.size()>=limit)return false;
@@ -107,9 +119,14 @@ struct Group {
     }
     bool remove() {
         if(entries.empty())return false;
+        if(automatic()) {
+            if(excludedFavorites.size()>=exclusionLimit)return false;
+            if(std::none_of(excludedFavorites.begin(),excludedFavorites.end(),[&](const auto& e){return sameFavorite(e,entries[selected]);}))excludedFavorites.push_back(entries[selected]);
+        }
         entries.erase(entries.begin()+std::ptrdiff_t(selected));selected=std::min(selected,entries.empty()?0:entries.size()-1);++revision;return true;
     }
     bool reorder(std::size_t from,std::size_t to) {
+        if(automatic())return false;
         if(from>=entries.size()||to>=entries.size()||from==to)return false;
         auto entry=std::move(entries[from]);
         entries.erase(entries.begin()+std::ptrdiff_t(from));
@@ -133,6 +150,7 @@ struct Arsenal {
     std::size_t size()const{std::size_t total=0;for(const auto& group:groups)total+=group.entries.size();return total;}
     bool move(std::size_t source,std::size_t index,std::size_t target,bool autoSort=false) {
         if(source>=count||target>=count||source==target||index>=groups[source].entries.size())return false;
+        if(groups[source].automatic()||groups[target].automatic())return false;
         auto& from=groups[source];auto& to=groups[target];const auto entry=from.entries[index];
         const bool exists=std::any_of(to.entries.begin(),to.entries.end(),[&](const Entry& e){return e.shortcut&&entry.shortcut?e.shortcut==entry.shortcut:e.same(entry);});
         if(!exists&&to.entries.size()>=Group::limit)return false;
@@ -142,8 +160,14 @@ struct Arsenal {
         active=target;return true;
     }
 };
+template<class G,class F> void eachGroupEntry(G& group,const F& f) {
+    for(auto& entry:group.entries)f(entry);
+    for(auto& entry:group.manualEntries)f(entry);
+    for(auto& entry:group.excludedFavorites)f(entry);
+    if(group.rememberedFavorite)f(*group.rememberedFavorite);
+}
 template<class A,class F> void eachSavedEntry(A& arsenal,const F& f) {
-    for(auto& group:arsenal.groups)for(auto& entry:group.entries)f(entry);
+    for(auto& group:arsenal.groups)eachGroupEntry(group,f);
     for(auto& entry:arsenal.shortcuts)f(entry);
 }
 
@@ -444,7 +468,7 @@ inline void sortNewlyEnabledGroups(Arsenal& a,const Options& previous,const Opti
     for(std::size_t id=0;id<Arsenal::count;++id)if(next.autoSort[id]&&!previous.autoSort[id])a.groups[id].sortByName();
 }
 inline void resetGroup(Arsenal& a,Options& o,std::size_t id) {
-    auto& g=a.groups[id];g.entries.clear();g.selected=0;++g.revision;
+    auto& g=a.groups[id];const auto revision=g.revision+1;g={};g.revision=revision;
     o.names[id]="Group "+std::to_string(id+1);
     o.keys[id]=0;o.controllerGroups[id]={};o.vrGroups[id]={};
     o.groupModes[id]=GroupMode::browse;o.autoSort[id]=false;
@@ -508,6 +532,7 @@ inline std::string rowStatus(const Row& row) {
 }
 inline std::string displayName(const Entry& e){return isHandAction(e)||isSmartEquipment(e)||e.kind==Kind::smartPotion?std::string(tr(e.name.c_str())):e.name;}
 inline bool Group::sortByName() {
+    if(automatic())return false;
     std::vector<std::size_t> order;std::vector<std::string> names;
     for(std::size_t i=0;i<entries.size();++i){order.push_back(i);names.push_back(foldedText(displayName(entries[i])));}
     std::stable_sort(order.begin(),order.end(),[&](auto a,auto b){return names[a]<names[b];});

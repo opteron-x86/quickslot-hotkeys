@@ -26,14 +26,14 @@ inline std::size_t followIdentityChange(Group& group,const IdentityChange& chang
     if(!change.form||!change.oldOwner||
        (change.oldOwner==change.newOwner&&change.oldID==change.newID))return 0;
     std::size_t count=0;
-    for(auto& saved:group.entries)eachLeaf(saved,[&](auto& entry) {
+    eachGroupEntry(group,[&](auto& saved){eachLeaf(saved,[&](auto& entry) {
         if(!tracksInstance(entry)||entry.unresolved||entry.form!=change.form||
            entry.owner!=change.oldOwner||entry.unique!=change.oldID)return;
         entry.owner=change.newOwner;entry.unique=change.newID;
 
         if(!change.newOwner)entry.unresolved=true;
         ++count;
-    });
+    });});
     if(count)++group.revision;
     return count;
 }

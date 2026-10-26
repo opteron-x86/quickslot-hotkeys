@@ -360,6 +360,7 @@ int main(int argc,char** argv)try {
     check(state.options.keys[0]==2,"Controller binding preserves keyboard binding");
     click("##pad modifier0");click("L1");check(state.options.controllerGroups[0].modifier==PadButton::lb,"Controller modifiers apply immediately");
     click("Groups##main");click("Items");padKey(PadButton::up);
+    check(ImGui::GetCurrentContext()->NavId==probe::one("##group source").id,"D-pad reaches the group source control");padKey(PadButton::up);
     check(ImGui::GetCurrentContext()->NavId==probe::one("##Group name").id,"D-pad reaches the group name field");padKey(PadButton::a);
     click("Clear text");click("a");click("b");click("c");click("Done");
     check(state.options.names[0]=="abc","On-screen keyboard renames the active group");
@@ -632,11 +633,23 @@ int main(int argc,char** argv)try {
     click("Keyboard");click("Remap actions…");click("Use mouse buttons for hands");
     check(state.options.mouseActions==std::array<int,3>{-1,0,1},"Mouse hand preset resolves right-click cancellation in the editor");
     click("Reset keyboard actions");check(state.options.mouseActions==defaultMouseActions,"Reset restores legacy mouse cancellation");key(1);
+
     click("General");io.DisplaySize={1280,720};frame();frame();
     click("Allow keyboard / mouse while QuickLoot is open");
     check(state.options.quickLootKeyboard&&!state.options.quickLootController,"QuickLoot keyboard allowance leaves controller navigation alone");
     click("Allow controller while QuickLoot is open");
     check(state.options.quickLootKeyboard&&state.options.quickLootController,"QuickLoot controller allowance is separately configurable at 720p");
     click("Undo");check(state.options.quickLootKeyboard&&!state.options.quickLootController,"QuickLoot changes support Undo");
+
+    click("Groups##main");const auto manualBefore=encode(state.draft.current());
+    click("##group source");click("Favorite weapons");
+    check(state.draft.current().automatic()&&!state.draft.current().entries.empty(),"Editor links a group to favorite weapons");
+    check(probe::one("Sort A–Z").disabled&&probe::one("Change hand").disabled&&probe::one("Clear group").disabled,"Manual editing is visibly disabled for generated groups");
+    click("##entry",0);click("Exclude");check(state.draft.current().excludedFavorites.size()==1,"Generated rows can be excluded through the editor");
+    click("Reset exclusions");check(state.draft.current().excludedFavorites.empty(),"Exclusions can be restored through the editor");
+    click("##group source");click("Manual");
+    auto manualAfter=Json::parse(encode(state.draft.current()));manualAfter.erase("favorites");
+    check(manualAfter==Json::parse(manualBefore),"Returning to Manual restores the pre-link group");
+    click("Undo");check(state.draft.current().automatic(),"Source changes support editor Undo");
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

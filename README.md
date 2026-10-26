@@ -15,7 +15,7 @@ Requirements:
 - [SkyUI](https://www.nexusmods.com/skyrimspecialedition/mods/12604).
 - Microsoft Visual C++ Redistributable, x64.
 
-VR uses SKSEVR, [VR Address Library](https://github.com/alandtse/skyrim_vr_address_library), [SkyUI VR](https://github.com/Odie/skyui-vr), and [ImGui VR Helper 1.9.4+](https://www.nexusmods.com/skyrimspecialedition/mods/183466). VR support is experimental; physical headset validation is pending.
+VR uses SKSEVR, [VR Address Library](https://github.com/alandtse/skyrim_vr_address_library), [SkyUI VR](https://github.com/Odie/skyui-vr), and [ImGui VR Helper 1.9.4+](https://www.nexusmods.com/skyrimspecialedition/mods/183466). VR support is experimental.
 
 Optional integrations include [SKSE Menu Framework](https://www.nexusmods.com/skyrimspecialedition/mods/120352) for its editor entry, ImGui Icons for keycaps, and Skyrim Souls RE for selection slowdown. Physical controller/headset checks are listed in [Testing](docs/TESTING.md).
 
@@ -42,7 +42,7 @@ Weapons, armor and shields follow the captured copy. Torches and consumables fol
 
 In the group editor, change **Manual** to a Favorites category to populate the group from Skyrim Favorites. Categories include weapons, spells, potions, poisons, food, ammo, scrolls, powers/shouts, shields/torches, or all supported favorites. Generated groups show all matching entries in alphabetical order and use a configurable default hand, subject to normal equipment restrictions. Manual groups retain their 16-item limit.
 
-**Exclude** hides a favorite from this group without unfavoriting it in Skyrim; each group supports 128 exclusions and **Reset exclusions** restores them. Switching back to **Manual** restores the original contents and selected item. Source settings, exclusions and the remembered favorite are saved with the character and complete presets. Depleted or unfavorited entries disappear; restocking a still-favorited item brings it back. The list refreshes on inventory/menu changes and approximately once per second, cancelling a pending selection if membership changes. If several identical weapons share one favorited stack, equip one in Skyrim first so Quickslot can identify that copy.
+**Exclude** controls a favorite’s visibility in this group. Each group supports 128 exclusions; **Reset exclusions** shows them again. Switch to **Manual** to return to your manually added shortcuts and remembered selection. Source settings, exclusions and the remembered favorite are saved with the character and complete presets. Depleted or unfavorited entries disappear; restocking a still-favorited item brings it back. The list refreshes on inventory/menu changes and approximately once per second, cancelling a pending selection if membership changes. If several identical weapons share one favorited stack, equip one in Skyrim first so Quickslot can identify that copy.
 
 ## Controls
 
@@ -68,21 +68,21 @@ Left/Right browsing and Ctrl + Left/Right reordering wrap at both ends. Activati
 
 **Ctrl + group key** adds the equipped right hand or highlighted Inventory/Magic item; **Ctrl + Shift + group key** adds the left hand. **Shift + group key** unequips the remembered entry; **Alt + group key** removes its shortcut. While browsing, **Ctrl + destination group key** moves the highlighted shortcut to that group.
 
-All keyboard actions are configured under **Controls → Keyboard → Remap actions…**. For a group editing action, choose a modifier combination or **None** to disable it. For browsing, selected-item and cancel keys, click the binding to assign it, or use **Clear** (Escape during capture also clears). Assigning an occupied binding swaps the actions. **Reset keyboard actions** restores bindings and enabled defaults together. Older disabled shortcuts remain disabled when upgrading.
+All keyboard actions are configured under **Controls → Keyboard → Remap actions…**. For a group editing action, choose a modifier combination or **None** to disable it. For browsing, selected-item and cancel keys, click the binding to assign it, or use **Clear** (Escape during capture also clears). Assigning an occupied binding swaps the actions. **Reset keyboard actions** restores the default bindings. Upgrades preserve your bindings and disabled actions.
 
-To use Left Alt for walking, set **Remove group shortcut** to **None** or another modifier, then enable **Allow group selection with unused modifiers**. This separate policy allows normal group selection while a modifier has no enabled editing action. It defaults off to preserve existing pass-through behavior.
+To use Left Alt for walking, set **Remove group shortcut** to **None** or another modifier, then enable **Allow group selection with unused modifiers**. This setting lets unused modifier chords select groups. It starts disabled.
 
 The right/left capture bindings apply during gameplay and in Inventory/Magic. To disable capture only in those menus, turn off **Controls → General → Add from Inventory / Magic**; gameplay capture stays available.
 
-While browsing, moving and reordering reserve their assigned modifiers. Set both actions to **None** to release those modifiers; capture bindings can remain configured independently.
+While browsing, moving and reordering reserve their assigned modifiers. Set both actions to **None** to release those modifiers; capture bindings have independent settings.
 
-Controller modifiers are configured per binding. Hold the modifier first; release the group button to select. Releasing the modifier cancels browsing. Other assigned chords, such as B + D-pad, pass to their owner. **Modifier buttons** controls which held buttons suppress unmodified group bindings.
+Controller modifiers are configured per binding. Hold the modifier first; release the group button to select. Releasing the modifier cancels browsing. Other assigned chords, such as B + D-pad, stay available to other mods. **Modifier buttons** controls which held buttons suppress unmodified group bindings.
 
-Under **Controls → Controller → Browsing actions**, remap cancel, unequip, previous and next, including optional modifier chords. **Enable previous / next buttons** controls the last two actions. An explicit group/editor/action modifier does not also trigger a single-button browsing action: X can be a modifier, with unequip moved to Y or another binding. Desktop action remapping preserves the existing VR controls.
+Under **Controls → Controller → Browsing actions**, remap cancel, unequip, previous and next, including optional modifier chords. **Enable previous / next buttons** controls the last two actions. For example, assign X as a group modifier and Y to **Unequip highlighted entry**.
 
 XInput and native PS4 input are supported. Steam Input can supply XInput. Skyrim must recognize the controller first.
 
-While holding a group, optional **Equip in right/left hand** actions equip the highlighted item immediately for this use. Configure keys and mouse buttons in **Controls → Keyboard → Remap actions…**, or controller actions in **Controls → Controller → Browsing actions**. **Use mouse buttons for hands** assigns left mouse to the right hand and right mouse to the left hand, leaving keyboard cancellation available. **Use bumpers for hands** assigns RB/LB and replaces bumper browsing; the stick still browses. Shields and torches remain left-only, and two-handed equipment uses both hands. Consumables, voice actions and saved combinations do not accept a hand override.
+While holding a group, optional **Equip in right/left hand** actions equip the highlighted item immediately for this use. Configure keys and mouse buttons in **Controls → Keyboard → Remap actions…**, or controller actions in **Controls → Controller → Browsing actions**. **Use mouse buttons for hands** assigns left mouse to the right hand and right mouse to the left hand, leaving keyboard cancellation available. **Use bumpers for hands** assigns RB/LB and replaces bumper browsing; the stick still browses. Shields and torches use the left hand; two-handed equipment uses both hands. Saved combinations equip their configured hands.
 
 ## VR controls
 
@@ -105,7 +105,7 @@ Group layouts include rows, columns, crosses, diamonds and circles. Selectors su
 
 **Appearance → Equipment** shows the right hand, left hand, selected consumable and power/shout. Two-handed equipment uses one entry. Choose list, circle, diamond, square or text layouts, with independent scale, spacing and placement. Quantities and shout timers appear on icons; spent powers dim.
 
-Weapon entries show a green droplet while their resolved copy carries poison. Bows and crossbows show the count of currently equipped compatible arrows or bolts; zero means no compatible ammunition is equipped. Smart weapon shortcuts follow the chosen copy. Both indicators can be disabled under **Appearance → Style**.
+Poisoned weapons display a green droplet. Bows and crossbows display the equipped arrow or bolt count. These indicators also appear on smart weapon shortcuts. Both indicators can be disabled under **Appearance → Style**.
 
 Groups and equipment have independent visibility settings. Choose always visible, idle fading or hiding where available, and configure combat/drawn-weapon visibility. QuickLoot receives input while the HUD follows its normal visibility settings. Full menus take input and hide the HUD.
 
@@ -129,6 +129,6 @@ For bug reports, include reproduction steps, the game version and `Quickslot.log
 
 The [menu API](src/API/README.md) supports editor opening, closing, state queries and shortcut control.
 
-For IME integrations, `QuickslotEditor` receives characters from the engine input queue (`RE::CharEvent`) and forwards them to ImGui. Text input is claimed for the editor window after its menu is on the stack, and restored if the shared counter is cleared while the editor remains open.
+IME authors can find text-routing instructions in the [integration guide](src/API/README.md#ime-text-input).
 
 Item artwork was supplied by the mod author. Frame/font credits and dependency notices are in [licenses](licenses). Dependency revisions are recorded in `vendor/dependencies.json`.

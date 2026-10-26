@@ -14,20 +14,20 @@
    git push origin v0.10.0
    ```
 
-The tag run builds that commit and publishes after both test jobs pass. Alpha, beta and RC tags create prereleases. A version without a suffix creates a regular release. Published versions are fixed; changes receive a new version.
+The tag run builds that commit and publishes after both test jobs pass. Alpha, beta and RC tags create prereleases. A plain version tag, such as `v0.11.0`, creates a regular release. Publish subsequent changes under a new version.
 
 Each release contains the mod, complete source, symbols, menu API, build information and SHA-256 checksums. The build information identifies the commit and Windows test results. GitHub Releases retain these files. Nexus uploads use the separate manual workflow below.
 
 ## Upload a published release to Nexus Mods
 
-The **Upload release to Nexus** GitHub Actions workflow is manually triggered. It downloads the runtime ZIP from a published standard GitHub release, verifies the tag, successful build/test run, checksums and tested DLL, then uses the [official Nexus upload action](https://github.com/Nexus-Mods/upload-action) to add a version to the existing main file. It updates the mod version and changelog, sets the main mod-manager download, and archives the previous file version. The main page description and screenshots remain manually maintained.
+The **Upload release to Nexus** GitHub Actions workflow is manually triggered. It downloads the runtime ZIP from a published standard GitHub release, verifies the tag, successful build/test run, checksums and tested DLL, then uses the [official Nexus upload action](https://github.com/Nexus-Mods/upload-action) to add a version to the existing main file. It updates the mod version and changelog, sets the main mod-manager download, and archives the previous file version. Edit the main page description and screenshots on Nexus Mods.
 
 One-time setup in **Settings → Environments → nexus**:
 
 - Add the secret `NEXUSMODS_API_KEY` using your Nexus Mods API key. Keep the key out of repository files, issues and chat.
 - Add variables `NEXUSMODS_FILE_ID` and `NEXUSMODS_MOD_ID`. Use the API IDs shown by **Advanced** in the public mod page's Files tab or the edit menu in Manage Files; these identify the existing main file and mod page.
 
-After the GitHub release build finishes, open **Actions → Upload release to Nexus → Run workflow**, select `master`, and enter the release tag, such as `v0.10.0`. Development builds, release candidates, drafts and failed builds are rejected. If an upload fails partway through, check the Nexus Files and Changelog tabs before retrying to avoid a duplicate version.
+After the GitHub release build finishes, open **Actions → Upload release to Nexus → Run workflow**, select `master`, and enter the release tag, such as `v0.10.0`. Choose a published standard release with a successful build/test run. If an upload fails partway through, check the Nexus Files and Changelog tabs before retrying.
 
 ## Version numbers
 

@@ -632,5 +632,11 @@ int main(int argc,char** argv)try {
     click("Keyboard");click("Remap actions…");click("Use mouse buttons for hands");
     check(state.options.mouseActions==std::array<int,3>{-1,0,1},"Mouse hand preset resolves right-click cancellation in the editor");
     click("Reset keyboard actions");check(state.options.mouseActions==defaultMouseActions,"Reset restores legacy mouse cancellation");key(1);
+    click("General");io.DisplaySize={1280,720};frame();frame();
+    click("Allow keyboard / mouse while QuickLoot is open");
+    check(state.options.quickLootKeyboard&&!state.options.quickLootController,"QuickLoot keyboard allowance leaves controller navigation alone");
+    click("Allow controller while QuickLoot is open");
+    check(state.options.quickLootKeyboard&&state.options.quickLootController,"QuickLoot controller allowance is separately configurable at 720p");
+    click("Undo");check(state.options.quickLootKeyboard&&!state.options.quickLootController,"QuickLoot changes support Undo");
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

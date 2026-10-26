@@ -105,6 +105,8 @@ Groups and equipment have independent visibility settings. Choose always visible
 
 See [Theme and icon packs](THEMES.md) for customization files.
 
+QuickLoot input is optional under **Controls → General**. Enable keyboard/mouse, controller, or both; both start disabled. While browsing a Quickslot group, captured navigation goes to Quickslot and other input still reaches QuickLoot. Other menus and the editor retain their normal restrictions.
+
 ## Settings and languages
 
 Changes save automatically. **Undo** and **Revert session** restore editor states; **Presets** saves appearance or a complete setup. The editor remembers its current tab during the game session.

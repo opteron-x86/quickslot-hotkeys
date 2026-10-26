@@ -252,6 +252,7 @@ struct Options {
     std::array<int,unsigned(MouseAction::count)> mouseActions=defaultMouseActions;
     bool allowUnusedModifiers=false;
     bool voiceHotkey=true;
+    bool quickLootKeyboard=false,quickLootController=false;
     float shoutCharge=1.2f;
     bool controllerEnabled=true,controllerBumpers=true;
     unsigned controllerModifiers=allPadButtons;

@@ -50,6 +50,7 @@ public:
         if(!vr) {
             modifiers|=padButtonMask(o.controllerEditor.modifier);
             for(std::size_t p=0;p<o.groupCount;++p)modifiers|=padButtonMask(o.controllerGroups[o.groupOrder[p]].modifier);
+            for(const auto binding:o.controllerActions)modifiers|=padButtonMask(binding.modifier);
         }
         const auto matches=[&](PadBinding bind){
             if(bind.button==PadButton::none||bind.button!=b||(bind.modifier!=PadButton::none&&!down(bind.modifier)))return false;
@@ -70,10 +71,31 @@ public:
 
         if(const auto group=groupBinding(true))return *group;
         if(selecting) {
-            if(b==PadButton::b){owned_[n]=true;cancel();return {true,PadAction::cancel};}
-            if(b==PadButton::x){owned_[n]=true;cancel();return {true,PadAction::unequip};}
-            if(browse&&!vr&&o.controllerBumpers&&(!active_||b!=active_->modifier)&&(b==PadButton::lb||b==PadButton::rb)) {
-                owned_[n]=true;return {true,b==PadButton::lb?PadAction::previous:PadAction::next};
+            if(vr) {
+                if(b==PadButton::b){owned_[n]=true;cancel();return {true,PadAction::cancel};}
+                if(b==PadButton::x){owned_[n]=true;cancel();return {true,PadAction::unequip};}
+            }else {
+                const auto actionMatches=[&](PadBinding binding) {
+                    if(binding.button==PadButton::none||binding.button!=b||(binding.modifier!=PadButton::none&&!down(binding.modifier)))return false;
+                    if(active_&&(b==active_->button||b==active_->modifier))return false;
+                    if(binding.modifier==PadButton::none) {
+                        if(o.controllerEditor.modifier==b)return false;
+                        for(std::size_t p=0;p<o.groupCount;++p)if(o.controllerGroups[o.groupOrder[p]].modifier==b)return false;
+                        for(const auto other:o.controllerActions)if(other.modifier==b)return false;
+                    }
+                    for(unsigned i=1;i<down_.size();++i)if(down_[i]&&(modifiers&(1u<<i))&&PadButton(i)!=b&&PadButton(i)!=binding.modifier&&
+                        (!active_||(PadButton(i)!=active_->button&&PadButton(i)!=active_->modifier)))return false;
+                    return true;
+                };
+                for(bool chord:{true,false})for(unsigned i=0;i<o.controllerActions.size();++i) {
+                    const auto binding=o.controllerActions[i];
+                    if((binding.modifier!=PadButton::none)!=chord||!actionMatches(binding))continue;
+                    const auto action=ControllerAction(i);
+                    if((action==ControllerAction::previous||action==ControllerAction::next)&&(!browse||!o.controllerBumpers))continue;
+                    owned_[n]=true;
+                    if(action==ControllerAction::cancel||action==ControllerAction::unequip){cancel();return {true,action==ControllerAction::cancel?PadAction::cancel:PadAction::unequip};}
+                    return {true,action==ControllerAction::previous?PadAction::previous:PadAction::next};
+                }
             }
         }
         if(const auto group=groupBinding(false))return *group;

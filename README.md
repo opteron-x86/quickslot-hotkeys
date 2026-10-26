@@ -64,13 +64,17 @@ Left/Right browsing and Ctrl + Left/Right reordering wrap at both ends. Activati
 
 **Ctrl + group key** adds the equipped right hand or highlighted Inventory/Magic item; **Ctrl + Shift + group key** adds the left hand. **Shift + group key** unequips the remembered entry; **Alt + group key** removes its shortcut. While browsing, **Ctrl + destination group key** moves the highlighted shortcut to that group.
 
-Under **Controls → Keyboard → Editing shortcuts**, turn off any unused editing action or use **Disable all**. Right/left-hand capture, moving between groups, Shift-to-unequip, Alt-to-remove, Ctrl-arrow reordering, Backspace unequipping and Delete removal each have their own switch. Disabled actions pass their keys to the game or other mods; they do not trigger another Quickslot action. Browsing and Escape/right-click cancellation remain available. All editing shortcuts start enabled; **Enable all** restores them.
+All keyboard actions are configured under **Controls → Keyboard → Remap actions…**. For a group editing action, choose a modifier combination or **None** to disable it. For browsing, selected-item and cancel keys, click the binding to assign it, or use **Clear** (Escape during capture also clears). Assigning an occupied binding swaps the actions. **Reset keyboard actions** restores bindings and enabled defaults together. Older disabled shortcuts remain disabled when upgrading.
 
-The right/left capture switches apply during gameplay and in Inventory/Magic. To disable capture only in those menus, turn off **Controls → General → Add from Inventory / Magic**; enabled gameplay capture stays available. This lets another hotkey mod own those menu bindings.
+To use Left Alt for walking, set **Remove group shortcut** to **None** or another modifier, then enable **Allow group selection with unused modifiers**. This separate policy allows normal group selection while a modifier has no enabled editing action. It defaults off to preserve existing pass-through behavior.
 
-While browsing, Ctrl itself is reserved if either Ctrl-move or Ctrl-reorder is enabled. Disable both to release the modifier too; right/left capture can remain enabled independently.
+The right/left capture bindings apply during gameplay and in Inventory/Magic. To disable capture only in those menus, turn off **Controls → General → Add from Inventory / Magic**; gameplay capture stays available.
+
+While browsing, moving and reordering reserve their assigned modifiers. Set both actions to **None** to release those modifiers; capture bindings can remain configured independently.
 
 Controller modifiers are configured per binding. Hold the modifier first; release the group button to select. Releasing the modifier cancels browsing. Other assigned chords, such as B + D-pad, pass to their owner. **Modifier buttons** controls which held buttons suppress unmodified group bindings.
+
+Under **Controls → Controller → Browsing actions**, remap cancel, unequip, previous and next, including optional modifier chords. **Enable previous / next buttons** controls the last two actions. An explicit group/editor/action modifier does not also trigger a single-button browsing action: X can be a modifier, with unequip moved to Y or another binding. Desktop action remapping preserves the existing VR controls.
 
 XInput and native PS4 input are supported. Steam Input can supply XInput. Skyrim must recognize the controller first.
 

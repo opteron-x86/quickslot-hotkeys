@@ -12,6 +12,29 @@ void check(bool ok,const char* why,std::source_location at=std::source_location:
     if(!ok)throw std::runtime_error(std::string(why)+" at "+std::to_string(at.line()));++checks;
 }
 int main()try {
+    {
+        Options controls;ControllerInput input;
+        controls.controllerGroups[0]={PadButton::up,PadButton::x};
+        input.button(PadButton::right,true,true,controls,true,false);
+        check(input.button(PadButton::x,true,true,controls,true,true).action==PadAction::none,"Pressing an explicit X modifier while browsing does not unequip");
+        input.reset();input.button(PadButton::x,true,true,controls,true,false);
+        check(input.button(PadButton::up,true,true,controls,true,false).action==PadAction::press,"X plus a group key starts the intended group");
+        check(input.button(PadButton::x,false,false,controls,true,true).action==PadAction::cancel,"Releasing X first cancels its chord");
+        check(input.button(PadButton::up,false,false,controls,true,false).action==PadAction::none,"A late group release cannot equip after modifier cancellation");
+        input.reset();controls.controllerActions[unsigned(ControllerAction::unequip)]={PadButton::y};
+        input.button(PadButton::x,true,true,controls,true,false);input.button(PadButton::up,true,true,controls,true,false);
+        check(input.button(PadButton::y,true,true,controls,true,true).action==PadAction::unequip,"Remapped unequip works while a group modifier remains held");
+        check(input.button(PadButton::y,false,false,controls,true,false).consumed&&input.button(PadButton::up,false,false,controls,true,false).action==PadAction::none,"Remapped unequip balances its release without also equipping");
+        input.reset();controls.controllerActions[unsigned(ControllerAction::cancel)]={PadButton::y,PadButton::lb};
+        input.button(PadButton::right,true,true,controls,true,false);
+        check(input.button(PadButton::lb,true,true,controls,true,true).action==PadAction::none,"A browsing-action modifier does not trigger the old bumper action");
+        check(input.button(PadButton::y,true,true,controls,true,true).action==PadAction::cancel,"A configured cancellation chord takes precedence over a plain Y action");
+        input.reset();controls.controllerActions[unsigned(ControllerAction::unequip)]={};
+        input.button(PadButton::right,true,true,controls,true,false);
+        check(!input.button(PadButton::y,true,true,controls,true,true).consumed,"An unbound browsing action passes through");
+        input.reset();input.button(PadButton::right,true,true,controls,true,false);
+        check(input.button(PadButton::b,true,true,controls,true,true,true).action==PadAction::cancel,"Desktop remapping does not change VR cancel defaults");
+    }
     Options o;ControllerInput pad;Selection selection;Group group;
     {
         Options controls;Selection::Commit c{0,1,0};Entry item;

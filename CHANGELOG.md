@@ -1,12 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.12.0
 
-- Item icons use Inventory Interface Information Injector (I4) 1.1.0+, now a required dependency. Choose Original, Theme or White coloring in Appearance → Style.
+- Item icons use Inventory Interface Information Injector (I4) 1.1.0+, a required dependency. Choose Original, Theme or White coloring in Appearance → Style.
 - Smart shortcuts show the item they currently select, combinations show both items, and empty-hand actions use a gauntlet icon.
 - Add equipped arrows or bolts and their count to the equipment widget with **Appearance → Equipment → Show equipped ammunition**.
 - Item quantities, ammunition counts and cooldown timers use outlined text.
 - Hotkeys appear as plain text on frames when key artwork is disabled or unavailable.
+
+Updating: install I4 1.1.0+ for your Skyrim version. Keep your settings and presets.
 
 ## 0.11.0
 

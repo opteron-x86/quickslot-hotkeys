@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Improved I4 dependency detection, with in-game messages identifying missing plugins or icon APIs.
+
 ## 0.12.0
 
 - Item icons use Inventory Interface Information Injector (I4) 1.1.0+, a required dependency. Choose Original, Theme or White coloring in Appearance → Style.

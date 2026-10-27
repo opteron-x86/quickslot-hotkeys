@@ -122,6 +122,7 @@ struct I4Icons::Impl {
     std::map<std::string,RE::GPtr<RE::GFxMovieDef>> movies;
     std::deque<Entry> pending;
     std::uint64_t generation=0,frame=0;
+    std::optional<unsigned> reportedAPI;
     bool available=false,reported=false;
     Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c),isolation(d,c){
         if(!isolation.available())throw std::runtime_error("I4 icons require D3D11 context-state support");
@@ -213,13 +214,21 @@ struct I4Icons::Impl {
         auto* ui=RE::UI::GetSingleton();if(!ui)return;
         const auto hud=ui->GetMenu<RE::HUDMenu>();if(!hud||!hud->uiMovie)return;
         auto& movie=*hud->uiMovie;
-        available=movie.IsAvailable(processEntry)&&movie.IsAvailable("skse.ExtendForm");
-        if(!reported) {
+        const bool processAvailable=movie.IsAvailable(processEntry),extendAvailable=movie.IsAvailable("skse.ExtendForm");
+        available=processAvailable&&extendAvailable;
+        const unsigned api=unsigned(processAvailable)|(unsigned(extendAvailable)<<1);
+        if(reportedAPI!=api) {
+            reportedAPI=api;
+            SKSE::log::info("I4 icon APIs: ProcessEntry={}, SKSE ExtendForm={}",processAvailable,extendAvailable);
             if(available)SKSE::log::info("I4 icon provider ready");
-            else {
-                SKSE::log::error("Quickslot requires I4 1.1.0 or newer: ProcessEntry API unavailable");
-                SKSE::GetTaskInterface()->AddTask([]{RE::DebugMessageBox("Quickslot requires Inventory Interface Information Injector (I4) 1.1.0 or newer. Install I4 for your Skyrim version and restart the game.");});
-            }
+        }
+        if(!available&&!reported) {
+            const char* message=!processAvailable&&!extendAvailable?
+                "Quickslot could not access the SKSE and I4 icon APIs. Check that SKSE and I4 1.1.0 or newer loaded successfully. See Quickslot.log for details.":
+                !processAvailable?"Quickslot could not access I4's ProcessEntry icon API. Install I4 1.1.0 or newer for your Skyrim version and check InventoryInjector.log.":
+                "Quickslot could not access SKSE's ExtendForm API. Check that SKSE matches your Skyrim executable and review your SKSE log.";
+            SKSE::log::error("{}",message);
+            SKSE::GetTaskInterface()->AddTask([message]{RE::DebugMessageBox(message);});
             reported=true;
         }
         if(!available){pending.clear();return;}

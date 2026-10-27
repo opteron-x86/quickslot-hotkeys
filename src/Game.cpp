@@ -69,7 +69,7 @@ bool foreignMenu(RE::UI* ui,MenuPurpose purpose=MenuPurpose::input,MenuBlocker* 
         RE::TweenMenu::MENU_NAME,RE::InventoryMenu::MENU_NAME,RE::MagicMenu::MENU_NAME,RE::FavoritesMenu::MENU_NAME,RE::MapMenu::MENU_NAME,RE::StatsMenu::MENU_NAME,RE::JournalMenu::MENU_NAME,
         RE::BookMenu::MENU_NAME,RE::ContainerMenu::MENU_NAME,RE::BarterMenu::MENU_NAME,RE::GiftMenu::MENU_NAME,RE::CraftingMenu::MENU_NAME,RE::SleepWaitMenu::MENU_NAME,
         RE::LockpickingMenu::MENU_NAME,RE::TrainingMenu::MENU_NAME,RE::MessageBoxMenu::MENU_NAME,RE::MainMenu::MENU_NAME,RE::LoadingMenu::MENU_NAME,RE::DialogueMenu::MENU_NAME,
-        RE::Console::MENU_NAME,RE::LevelUpMenu::MENU_NAME,RE::RaceSexMenu::MENU_NAME,std::string_view{"LootMenu"}});
+        RE::Console::MENU_NAME,RE::LevelUpMenu::MENU_NAME,RE::RaceSexMenu::MENU_NAME,std::string_view{"CustomMenu"},std::string_view{"LootMenu"}});
     if(gameplayMenuOpen([&](auto name){
         if(!ui->IsMenuOpen(name))return false;
         if(blocker){blocker->name=name;if(const auto menu=ui->GetMenu(name))blocker->flags=menu->menuFlags.underlying();}
@@ -79,8 +79,10 @@ bool foreignMenu(RE::UI* ui,MenuPurpose purpose=MenuPurpose::input,MenuBlocker* 
     const auto selectionPause=ui->GetMenu(pauseMenuName);
     const auto own=ui->GetMenu(menuName),hud=ui->GetMenu(RE::HUDMenu::MENU_NAME),cursor=ui->GetMenu(RE::CursorMenu::MENU_NAME);
     const auto loot=ignoreQuickLoot(purpose,allowQuickLoot)?ui->GetMenu(quickLootMenuName):nullptr;
+    const auto inventory=ignoreMenu(RE::InventoryMenu::MENU_NAME,purpose)?ui->GetMenu(RE::InventoryMenu::MENU_NAME):nullptr;
+    const auto magic=ignoreMenu(RE::MagicMenu::MENU_NAME,purpose)?ui->GetMenu(RE::MagicMenu::MENU_NAME):nullptr;
     for(const auto& menu:ui->menuStack)
-        if(menu&&menu.get()!=own.get()&&menu.get()!=editor.get()&&menu.get()!=selectionPause.get()&&menu.get()!=hud.get()&&menu.get()!=cursor.get()&&menu.get()!=loot.get()&&
+        if(menu&&menu.get()!=own.get()&&menu.get()!=editor.get()&&menu.get()!=selectionPause.get()&&menu.get()!=hud.get()&&menu.get()!=cursor.get()&&menu.get()!=loot.get()&&menu.get()!=inventory.get()&&menu.get()!=magic.get()&&
            menuFlagsBlock(menu->UsesMenuContext(),menu->UsesCursor(),menu->PausesGame(),menu->Modal(),purpose)) {
             if(blocker) {
                 blocker->name="unregistered";blocker->flags=menu->menuFlags.underlying();
@@ -1153,8 +1155,7 @@ void Game::tick() {
 bool Game::captureMenuOpen()const {
     auto* ui=RE::UI::GetSingleton();auto* player=RE::PlayerCharacter::GetSingleton();auto* controls=RE::ControlMap::GetSingleton();
     if(!ready_||editor_.open||!ui||!player||!controls||player->IsDead()||!renderHasFocus()||frameworkCapturingInput()||controls->GetRuntimeData().textEntryCount>0)return false;
-    if(ui->IsMenuOpen(RE::Console::MENU_NAME)||ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME)||ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME))return false;
-    return ui->IsMenuOpen(RE::InventoryMenu::MENU_NAME)||ui->IsMenuOpen(RE::MagicMenu::MENU_NAME);
+    return (ui->IsMenuOpen(RE::InventoryMenu::MENU_NAME)||ui->IsMenuOpen(RE::MagicMenu::MENU_NAME))&&!foreignMenu(ui,MenuPurpose::capture);
 }
 void Game::menuCapture(std::size_t groupID,Hand hand) {
     if(!captureMenuOpen()||!groupVisible(options_,groupID))return;

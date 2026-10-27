@@ -92,12 +92,12 @@ inline SelectorGeometry selectorGeometry(const Options& o) {
 }
 struct EquipmentGeometry {
     Point origin,icon,text;
-    std::array<Point,4> cells{};
+    std::array<Point,5> cells{};
     float width=340,height=184,rowHeight=44,scale=1,cellWidth=340,cellHeight=44,iconSize=30,textWidth=281;
     bool centered=false;
 };
 inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float screenY,unsigned rows=4) {
-    EquipmentGeometry g;rows=std::clamp(rows,1u,4u);
+    EquipmentGeometry g;rows=std::clamp(rows,1u,5u);
     const float t=o.textScale*o.equipmentTextScale,f=std::max(1.f,t),textHeight=36*t;
     float fitWidth=0,fitHeight=0;
     if(o.equipmentStyle==0) {

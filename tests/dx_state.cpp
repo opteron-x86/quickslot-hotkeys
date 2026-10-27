@@ -1,4 +1,5 @@
 #include "DXIsolation.h"
+#include "DXContextState.h"
 #include <imgui_impl_dx11.h>
 #include <d3dcompiler.h>
 #include <iostream>
@@ -66,6 +67,21 @@ int main()try {
     ID3D11RenderTargetView* rt[]{target.Get(),second.Get()};ID3D11UnorderedAccessView* uv=uav.Get();UINT initial=5;
     context->OMSetRenderTargetsAndUnorderedAccessViews(2,rt,nullptr,2,1,&uv,&initial);context->CSSetShader(shader.Get(),nullptr,0);
     D3D11_VIEWPORT viewport{3,4,300,170,.1f,.9f};context->RSSetViewports(1,&viewport);
+    quickslot::DXContextState movieState(device.Get(),context.Get());
+    check(movieState.available(),"Create isolated Scaleform pipeline state");
+    {
+        quickslot::DXContextState::Frame movieFrame(movieState);
+        context->ClearState();
+        ID3D11RenderTargetView* changed[]{second.Get()};context->OMSetRenderTargets(1,changed,nullptr);
+    }
+    ComPtr<ID3D11ComputeShader> restoredShader;context->CSGetShader(&restoredShader,nullptr,nullptr);
+    check(restoredShader.Get()==shader.Get(),"Movie rendering restores the compute stage");
+    ID3D11RenderTargetView* restoredTargets[2]{};context->OMGetRenderTargets(2,restoredTargets,nullptr);
+    check(restoredTargets[0]==target.Get()&&restoredTargets[1]==second.Get(),"Movie rendering restores every render target");
+    for(auto* restored:restoredTargets)if(restored)restored->Release();
+    UINT viewportCount=1;D3D11_VIEWPORT restoredViewport{};context->RSGetViewports(&viewportCount,&restoredViewport);
+    check(viewportCount==1&&std::memcmp(&restoredViewport,&viewport,sizeof(viewport))==0,"Movie rendering restores the viewport");
+    std::cout<<"PASS: Scaleform context isolation restores the graphics pipeline after ClearState\n";
     ImGui::CreateContext();auto& io=ImGui::GetIO();io.IniFilename=nullptr;io.DisplaySize={320,180};io.DeltaTime=1.f/60;
     check(ImGui_ImplDX11_Init(device.Get(),context.Get()),"Initialize renderer backend");
     preview::DXIsolation isolation(device.Get(),context.Get());

@@ -17,6 +17,43 @@ int main(int argc,char** argv)try {
         for(const unsigned code:{0x00e9u,0x0416u,0x03a9u,0x5251u,0x5263u,0xac80u})check(hud.bodyFont(option)->IsGlyphInFont(ImWchar(code)),"Theme fallback supplies Latin, Greek, Cyrillic, Chinese, Japanese and Korean glyphs");
     }
     unsigned char* pixels;int width,height;io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height);
+    io.Fonts->SetTexID(999);
+    {
+        ItemIcon supplied{201,202,0x123456};
+        check(itemIconTint(supplied,0x80abcdef,0,false)==0x80563412,"I4 RGB assignments preserve opacity");
+        check(itemIconTexture(supplied,0,false)==202,"I4 color assignments use the alpha mask");
+        supplied.rgb.reset();check(itemIconTexture(supplied,0,false)==201,"Original mode preserves multicolor artwork");
+        check(itemIconTexture(supplied,1,false)==202&&itemIconTexture(supplied,2,false)==202,"Theme and White use the alpha mask");
+        check(itemIconTint(supplied,0x80808080,0,true)==0x80808080,"Unavailable I4 icons keep the dimming tint");
+        Entry item;item.form=1;item.name="I4 test";
+        Snapshot sample;sample.visible=true;sample.editorPreview=true;sample.groups[0]={item,1,true};
+        Options appearance;appearance.itemIconColor=0;
+        unsigned requests=0;hud.setItemIconProvider([&](const Entry& e)->std::optional<ItemIcon>{++requests;return e.form==1?std::optional(supplied):std::nullopt;});
+        const auto draws=[&](ImTextureID texture){for(const auto& command:ImGui::GetBackgroundDrawList()->CmdBuffer)if(command.ElemCount&&command.GetTexID()==texture)return true;return false;};
+        ImGui::NewFrame();hud.draw(sample,appearance,1);ImGui::Render();
+        check(requests>0&&draws(201)&&draws(202),"HUD draws supplied artwork and its shadow");
+        Entry rule;rule.kind=Kind::smartWeapon;rule.equipmentType=unsigned(WeaponFamily::sword);
+        Entry dagger=item;dagger.form=2;dagger.kind=Kind::dagger;
+        Entry pair;pair.kind=Kind::combo;pair.parts={rule,rule};pair.parts[1].equipmentType=unsigned(WeaponFamily::dagger);
+        const auto savedRule=encodeEntry(pair);Entry resolved=pair;resolved.parts={item,dagger};
+        sample.groups[0]={pair,1,true};sample.groups[0].iconEntry=resolved;
+        Row selected{pair,true};selected.iconEntry=resolved;sample.rows={selected};
+        sample.equipment.consumable=selected;appearance.showEquipment=true;
+        std::vector<unsigned> requested;
+        hud.setItemIconProvider([&](const Entry& e)->std::optional<ItemIcon>{requested.push_back(e.form);return supplied;});
+        for(bool browsing:{false,true}) {
+            sample.browsing=browsing;requested.clear();ImGui::NewFrame();hud.draw(sample,appearance,1);ImGui::Render();
+            check(std::find(requested.begin(),requested.end(),1)!=requested.end()&&std::find(requested.begin(),requested.end(),2)!=requested.end(),"Group and selector combinations request both resolved item icons");
+            check(std::find(requested.begin(),requested.end(),0)==requested.end(),"Resolved smart parts reach the provider as real forms");
+            check(encodeEntry(sample.rows[0].entry)==savedRule&&encodeEntry(sample.groups[0].entry.value())==savedRule,"Displaying chosen items preserves saved combination rules");
+        }
+        sample.equipmentOnly=true;sample.browsing=false;requested.clear();
+        ImGui::NewFrame();hud.draw(sample,appearance,1);ImGui::Render();
+        check(requested==std::vector<unsigned>({1,2}),"Equipment uses the resolved artwork");
+        hud.setItemIconProvider({});
+        ImGui::NewFrame();hud.draw(sample,appearance,1);ImGui::Render();
+        check(!draws(201)&&!draws(202),"HUD tolerates an unavailable provider");
+    }
     Editor editor;auto state=fixture::editor();editor.beginSession(state);std::vector<EditCommand> commands;
     EditHistory history;std::uint64_t historySession=0;
     const auto frame=[&](const std::vector<EditorInput>& events=std::vector<EditorInput>{}) {
@@ -101,7 +138,7 @@ int main(int argc,char** argv)try {
     click("Style");click("##theme");click("Skyrim silver");check(state.options.themeId=="silver"&&state.options.shape==1,"Theme remains independent of geometry");
     click("Selector");click("##selector shape");click("Squares");check(state.options.selectorShape==2,"Selector shapes can be chosen independently");
     click("Groups");click("Show group names");check(state.options.showLabels,"Names can be restored without changing theme");
-    click("Style");click("Key icons");check(!state.options.keyIcons,"Key artwork can switch to text caps");
+    click("Style");click("Key icons");check(!state.options.keyIcons,"Key artwork can switch to plain hotkey labels");
     click("Key icons");check(state.options.keyIcons,"Key artwork can be restored");
     check(probe::find("##item icon source").empty(),"Removed inventory source selector is not offered");
     click("##item icon color");click("White");check(state.options.itemIconColor==2,"White tint applies immediately");
@@ -462,10 +499,10 @@ int main(int argc,char** argv)try {
     click("Items");click("##candidate",0);click("Delete shortcut");click("Delete");
     check(!libraryShortcut(state.draft,sharedID)&&state.draft.groups[0].entries.size()==1,"Explicit library delete removes all memberships");
     click("Undo");check(libraryShortcut(state.draft,sharedID)&&state.draft.groups[0].entries.size()==2,"Undo restores shared definition and memberships");
-    hud.setIcons("sample-icons","Sample icons",123);click("Appearance");click("Style");click("##item icon set");click("Sample icons");
-    check(state.options.itemIconSet=="sample-icons"&&hud.iconTexture(state.options)==123,"Icon pack selection changes the live HUD texture");
-    click("Undo");check(state.options.itemIconSet=="quickslot","Icon pack selection supports Undo");
+    click("Appearance");click("Style");
     click("Equipment");click("##equipment visibility");click("Show always");check(state.options.showEquipment&&!state.options.equipmentDim,"Equipment can stay visible independently");
+    click("Show equipped ammunition");check(state.options.showEquipmentAmmo,"Equipment ammunition can be enabled");
+    click("Undo");check(!state.options.showEquipmentAmmo,"Equipment ammunition supports Undo");
     click("##equipment visibility");click("Dim when idle");check(state.options.equipmentDim,"Equipment dim mode applies immediately");
     click("Undo");check(!state.options.equipmentDim&&state.options.showEquipment,"Equipment visibility supports Undo");
     click("##equipment style");click("Circles");click("##equipment layout");click("Horizontal");click("##equipment text");click("Bottom");
@@ -524,6 +561,7 @@ int main(int argc,char** argv)try {
     ImGui::NewFrame();HudBounds bothBounds;hud.draw(hidden,visibility,201,{}, {},ImGui::GetBackgroundDrawList(),&bothBounds);ImGui::Render();
     check(bothBounds.equipment.valid&&bothBounds.equipment.height()<equipmentGeometry(visibility,io.DisplaySize.x,io.DisplaySize.y,4).height*equipmentGeometry(visibility,io.DisplaySize.x,io.DisplaySize.y,4).scale,"Two-handed equipment uses one compact row");
     hidden.equipment.hands[0]->entry.twoHanded=false;hidden.editorPreview=hidden.placementPreview=true;
+    visibility.showEquipmentAmmo=true;Entry ammunition;ammunition.kind=Kind::ammo;ammunition.name="Dwarven Bolts";hidden.equipment.ammo=Row{ammunition,true,true,{},147};
     for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<2;++layout)for(unsigned position=0;position<4;++position)
         for(const ImVec2 screen:{ImVec2{1280,720},ImVec2{3840,2160}})for(float spacing:{0.f,4.f}) {
             io.DisplaySize=screen;visibility.equipmentStyle=style;visibility.equipmentLayout=layout;visibility.equipmentTextPosition=position;
@@ -555,7 +593,11 @@ int main(int argc,char** argv)try {
                 hud.draw(fixed,look,300,{},preview?ImVec2{600,440}:ImVec2{},ImGui::GetBackgroundDrawList(),&b);ImGui::Render();return b;};
             const auto tight=drawSpacing(0),loose=drawSpacing(40);
             check(tight.tiles.size()==4&&loose.tiles.size()==4,"Both spacing extremes render all four group tiles");
-            for(unsigned i=0;i<4;++i)check(std::abs(tight.tiles[i].width()-loose.tiles[i].width())<.02f&&std::abs(tight.tiles[i].height()-loose.tiles[i].height())<.02f,"Rendered tile dimensions stay fixed when group spacing changes");
+            for(unsigned i=0;i<4;++i) {
+                const auto dw=std::abs(tight.tiles[i].width()-loose.tiles[i].width()),dh=std::abs(tight.tiles[i].height()-loose.tiles[i].height());
+                // Glyph edges snap to whole pixels; text above the frame can round its top bound.
+                check(dw<.02f&&dh<1.01f,"Rendered tile dimensions stay fixed within text pixel snapping when group spacing changes");
+            }
             const auto distance=[](const HudBounds& b){const auto& a=b.tiles[0];const auto& c=b.tiles[1];return std::hypot(a.min.x+a.max.x-c.min.x-c.max.x,a.min.y+a.max.y-c.min.y-c.max.y)*.5f;};
             check(distance(loose)>distance(tight),"Rendered tiles move farther apart in HUD and preview");
         }

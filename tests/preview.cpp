@@ -3,7 +3,6 @@
 #include "EditorFixture.h"
 #include "UiProbe.h"
 #include "Assets.h"
-#include "IconPacks.h"
 #include "Layout.h"
 #include <SDL.h>
 #include <SDL_opengl.h>
@@ -37,9 +36,14 @@ int main(int argc,char** argv) {
         glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,image.width,image.height,0,GL_RGBA,GL_UNSIGNED_BYTE,image.pixels.data());return id;
     };
     const auto texture=[&](const std::string& path){return upload(loadImageAsset(path));};
-    const auto atlas=upload(loadItemAtlas(root+"/assets/icons/items.png"));hud.setIcons("quickslot","Quickslot",ImTextureID(atlas));
-    std::vector<GLuint> iconTextures;
-    for(const auto& pack:loadIconPacks(std::filesystem::path(root)/"assets/icons"))if(pack.id!="quickslot"){auto id=upload(loadItemAtlas(pack.atlas));iconTextures.push_back(id);hud.setIcons(pack.id,pack.name,ImTextureID(id));}
+    // Native layout previews use a transparent fixture; Skyrim supplies I4 artwork in game.
+    ImageAsset fixtureIcon;fixtureIcon.width=fixtureIcon.height=64;fixtureIcon.pixels.resize(64*64*4);
+    for(int y=0;y<64;++y)for(int x=0;x<64;++x) {
+        const float distance=std::hypot(x-31.5f,y-31.5f);
+        if(distance<25&&distance>17)for(unsigned c=0;c<4;++c)fixtureIcon.pixels[(y*64+x)*4+c]=255;
+    }
+    const auto itemTexture=upload(fixtureIcon);
+    hud.setItemIconProvider([&](const Entry&)->std::optional<ItemIcon>{return ItemIcon{ImTextureID(itemTexture),ImTextureID(itemTexture),{}};});
     std::vector<GLuint> themes;for(const auto& t:hud.themes().all())if(!t.atlas.empty()){const auto id=texture(t.atlas.string());themes.push_back(id);hud.setTheme(t.id,ImTextureID(id));}
     const auto keys=loadKeyAtlas(argc>7?std::filesystem::path(argv[7]):std::filesystem::path(root)/"tests/fixtures/keys");
     const auto keyTexture=keys.image?upload(keys.image):0;hud.setKeys(ImTextureID(keyTexture),keys.glyphs);
@@ -249,11 +253,15 @@ int main(int argc,char** argv) {
         if(scene.find("small")!=std::string::npos){options.scale=.55f;options.textScale=1.5f;}
         if(scene.find("diamonds")!=std::string::npos){options.themeId="oathvein";options.shape=3;options.selectorShape=3;options.selector=1;options.layout=2;options.groupCount=4;options.spacing=4;options.selectorSpacing=8;options.scale=1.5f;options.equipmentStyle=1;options.positionX=.5f;options.positionY=1;options.showLabels=false;}
     }
+    if(scene.find("equipment-ammo")!=std::string::npos) {
+        options.showEquipment=options.showEquipmentAmmo=true;Entry ammo;ammo.kind=Kind::ammo;ammo.name="Dwarven Bolts";snapshot.equipment.ammo=Row{ammo,true,true,{},147};
+    }
     if(scene=="favorites-many") {
         options.selector=4;snapshot.rows.clear();snapshot.activeGroup=0;snapshot.selected=snapshot.preview=27;
         for(unsigned i=0;i<45;++i){auto e=editing.catalog[0].entry;e.name="Favorite weapon "+std::to_string(i+1);snapshot.rows.push_back({e,true,false});}
         snapshot.groups[0]={snapshot.rows[27].entry,45,true,false};
     }
+    if(scene.find("text-keys")!=std::string::npos)options.keyIcons=false;
     std::vector<std::string> previewClicks;
     if(scene.starts_with("equipped-")) {
         options.themeId="oathvein";layoutPreset(options,2);options.groupCount=4;options.showEquipment=true;options.inactiveGroups=1;
@@ -390,6 +398,6 @@ int main(int argc,char** argv) {
         }
         SDL_GL_SwapWindow(window);++frames;
     }
-    glDeleteTextures(1,&atlas);for(const auto t:iconTextures)glDeleteTextures(1,&t);for(const auto t:themes)glDeleteTextures(1,&t);glDeleteTextures(1,&keyTexture);if(backdrop)glDeleteTextures(1,&backdrop);
+    glDeleteTextures(1,&itemTexture);for(const auto t:themes)glDeleteTextures(1,&t);glDeleteTextures(1,&keyTexture);if(backdrop)glDeleteTextures(1,&backdrop);
     ImGui_ImplOpenGL3_Shutdown();ImGui_ImplSDL2_Shutdown();ImGui::DestroyContext();SDL_GL_DeleteContext(gl);SDL_DestroyWindow(window);SDL_Quit();
 }

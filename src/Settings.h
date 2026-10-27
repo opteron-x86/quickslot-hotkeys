@@ -1,6 +1,5 @@
 #pragma once
 #include "Storage.h"
-#include "IconPacks.h"
 #include "VRInput.h"
 
 namespace quickslot {
@@ -69,7 +68,6 @@ inline void sanitizeOptions(Options& o) {
     o.layout=std::min(o.layout,5u);o.shape=std::min(o.shape,3u);o.selector=std::min(o.selector,4u);
     o.selectorDock=std::min(o.selectorDock,4u);o.selectorShape=std::min(o.selectorShape,3u);
     o.itemIconColor=std::min(o.itemIconColor,2u);
-    if(!validIconPackID(o.itemIconSet))o.itemIconSet="quickslot";
     const auto finite=[](float v,float fallback,float min,float max){return std::isfinite(v)?std::clamp(v,min,max):fallback;};
     o.inactiveGroups=std::min(o.inactiveGroups,2u);
     o.inactiveGroupOpacity=finite(o.inactiveGroupOpacity,.3f,.05f,.9f);
@@ -113,11 +111,11 @@ inline std::string encodeOptions(Options o) {
         {"mouseActions",o.mouseActions},{"groupModifiers",o.groupModifiers},{"selectorBindings",selectorBindings},{"allowUnusedModifiers",o.allowUnusedModifiers},{"controllerActions",controllerActions},
         {"controllerEnabled",o.controllerEnabled},{"controllerBumpers",o.controllerBumpers},{"controllerStyle",o.controllerStyle},{"controllerStick",o.controllerStick},{"controllerDeadzone",o.controllerDeadzone},{"controllerGroups",padGroups},{"controllerEditor",binding(o.controllerEditor)},
         {"groupModes",modes},{"autoSort",o.autoSort},{"controllerModifiers",o.controllerModifiers},{"vrGroups",vrGroups},{"vrEditor",binding(o.vrEditor)},{"vrStick",o.vrStick},
-        {"showEquipment",o.showEquipment},{"equipmentX",o.equipmentX},{"equipmentY",o.equipmentY},{"hideEmptyGroups",o.hideEmptyGroups},{"inactiveGroups",o.inactiveGroups},{"inactiveGroupOpacity",o.inactiveGroupOpacity},
+        {"showEquipment",o.showEquipment},{"showEquipmentAmmo",o.showEquipmentAmmo},{"equipmentX",o.equipmentX},{"equipmentY",o.equipmentY},{"hideEmptyGroups",o.hideEmptyGroups},{"inactiveGroups",o.inactiveGroups},{"inactiveGroupOpacity",o.inactiveGroupOpacity},
         {"equipmentDim",o.equipmentDim},{"equipmentFadeDelay",o.equipmentFadeDelay},{"equipmentIdleOpacity",o.equipmentIdleOpacity},
         {"equipmentScale",o.equipmentScale},{"equipmentTextScale",o.equipmentTextScale},{"equipmentSpacing",o.equipmentSpacing},
         {"equipmentStyle",o.equipmentStyle},{"equipmentLayout",o.equipmentLayout},{"equipmentTextPosition",o.equipmentTextPosition},
-        {"itemIconColor",o.itemIconColor},{"itemIconSet",o.itemIconSet},
+        {"itemIconColor",o.itemIconColor},
         {"selectorDock",o.selectorDock},{"selectorGap",o.selectorGap},{"selectorX",o.selectorX},{"selectorY",o.selectorY},
         {"animateScroll",o.animateScroll},{"fadeIdle",o.fadeIdle},{"keepCombatVisible",o.keepCombatVisible},{"keepDrawnVisible",o.keepDrawnVisible},{"fadeDelay",o.fadeDelay},{"idleOpacity",o.idleOpacity},{"keys",o.keys},{"names",o.names},{"editorKey",o.editorKey},{"editorModifiers",o.editorModifiers},{"groupCount",o.groupCount},
         {"layout",o.layout},{"shape",o.shape},{"selector",o.selector},{"scale",o.scale},{"textScale",o.textScale},{"opacity",o.opacity},
@@ -153,7 +151,7 @@ inline Options decodeOptions(const std::string& bytes) {
         const auto modes=j.at("groupModes").get<std::array<unsigned,Arsenal::count>>();
         for(std::size_t i=0;i<Arsenal::count;++i)o.groupModes[i]=GroupMode(modes[i]);
     }
-    o.showEquipment=j.value("showEquipment",false);o.hideEmptyGroups=j.value("hideEmptyGroups",false);
+    o.showEquipment=j.value("showEquipment",false);o.showEquipmentAmmo=j.value("showEquipmentAmmo",false);o.hideEmptyGroups=j.value("hideEmptyGroups",false);
     o.equipmentX=j.value("equipmentX",.02f);o.equipmentY=j.value("equipmentY",.8f);
     o.equipmentScale=j.value("equipmentScale",1.f);o.equipmentTextScale=j.value("equipmentTextScale",1.f);
     o.equipmentSpacing=j.value("equipmentSpacing",1.f);
@@ -173,7 +171,6 @@ inline Options decodeOptions(const std::string& bytes) {
     o.vrEditor=binding(j.at("vrEditor"));
     o.vrStick=j.at("vrStick").get<decltype(o.vrStick)>();
     o.itemIconColor=j.at("itemIconColor").get<decltype(o.itemIconColor)>();
-    o.itemIconSet=j.value("itemIconSet",std::string("quickslot"));
     o.layout=j.at("layout").get<unsigned>();o.shape=j.at("shape").get<unsigned>();o.selector=j.at("selector").get<unsigned>();
     o.scale=j.at("scale").get<float>();o.opacity=j.at("opacity").get<float>();o.spacing=j.at("spacing").get<float>();
     o.textScale=j.value("textScale",1.f);o.placementSpacing=j.value("placementSpacing",1u);o.placementFrame=j.value("placementFrame",0u);o.placementGridSize=j.value("placementGridSize",16.f);

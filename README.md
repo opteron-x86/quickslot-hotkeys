@@ -13,6 +13,7 @@ Requirements:
 - [SKSE](https://skse.silverlock.org/) matching your Skyrim executable.
 - [Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/32444) matching your game version.
 - [SkyUI](https://www.nexusmods.com/skyrimspecialedition/mods/12604).
+- [Inventory Interface Information Injector (I4) 1.1.0+](https://www.nexusmods.com/skyrimspecialedition/mods/85702) for your Skyrim version.
 - Microsoft Visual C++ Redistributable, x64.
 
 VR uses SKSEVR, [VR Address Library](https://github.com/alandtse/skyrim_vr_address_library), [SkyUI VR](https://github.com/Odie/skyui-vr), and [ImGui VR Helper 1.9.4+](https://www.nexusmods.com/skyrimspecialedition/mods/183466). VR support is experimental.
@@ -101,9 +102,13 @@ While holding a group, optional **Equip in right/left hand** actions equip the h
 
 Choose a theme, then customize colors, frames, icon size, text size and spacing. Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Item icon sets and installed ImGui keycaps are selected independently.
 
+Use **Key icons** to switch between ImGui key artwork and plain hotkey labels on the frames.
+
+Item icons use the artwork and colors assigned by your installed I4 packs. **Appearance → Style → Icon color** offers **Original**, **Theme** and **White**. Smart shortcuts show the item currently chosen by their rule; combinations show both selected items. Empty-hand and unarmed actions use a gauntlet icon. When a rule has no matching item or its artwork is unavailable, Quickslot uses a SkyUI category icon.
+
 Group layouts include rows, columns, crosses, diamonds and circles. Selectors support horizontal/vertical strips, arcs, rings and lists. **Position** lets you drag outlined elements, adjust X/Y and snap to a grid. Hold Shift for free movement.
 
-**Appearance → Equipment** shows the right hand, left hand, selected consumable and power/shout. Two-handed equipment uses one entry. Choose list, circle, diamond, square or text layouts, with independent scale, spacing and placement. Quantities and shout timers appear on icons; spent powers dim.
+**Appearance → Equipment** shows the right hand, left hand, selected consumable and power/shout. Two-handed equipment uses one entry. Choose list, circle, diamond, square or text layouts, with independent scale, spacing and placement. Quantities and shout timers appear on icons; spent powers dim. Enable **Show equipped ammunition** to add an entry with the equipped arrows or bolts and their current count. This option starts off and also supports text-only layouts. **Show bow ammunition** controls the count on bow and crossbow icons.
 
 Poisoned weapons display a green droplet. Bows and crossbows display the equipped arrow or bolt count. These indicators also appear on smart weapon shortcuts. Both indicators can be disabled under **Appearance → Style**.
 
@@ -119,7 +124,7 @@ Changes save automatically. **Undo** and **Revert session** restore editor state
 
 Choose a menu language under **Appearance → Style**. Translation files belong in `Data/Quickslot/translations`; the English reference and format guide are included. Fonts support UTF-8 names with Cyrillic, Greek and CJK fallbacks. Theme fonts, including Futura, take priority. Install extra fallback fonts in `Data/Quickslot/fonts/fallback` and restart.
 
-MO2 stores generated settings in Overwrite or the configured output mod. Keep these files when updating. Close Skyrim before replacing the DLL or atlas, then restart.
+MO2 stores generated settings in Overwrite or the configured output mod. Keep these files when updating. Close Skyrim before installing an update, then restart.
 
 ## Builds and support
 

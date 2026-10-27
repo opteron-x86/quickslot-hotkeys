@@ -10,7 +10,6 @@ struct ImageAsset {
     explicit operator bool()const{return !pixels.empty();}
 };
 ImageAsset loadImageAsset(const std::filesystem::path& path);
-ImageAsset loadItemAtlas(const std::filesystem::path& path);
 struct KeyAtlas {ImageAsset image;KeyGlyphs glyphs{};unsigned loaded=0;};
 KeyAtlas loadKeyAtlas(const std::filesystem::path& directory);
 }

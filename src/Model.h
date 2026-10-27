@@ -221,11 +221,12 @@ public:
     void cancel() { held_=false;browsing_=false;++token_; }
 };
 struct WeaponStatus {bool poisoned=false;int ammunition=-1;};
-struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon; };
-struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=false,equipped=false;int quantity=0;float cooldown=0;bool voice=false,consumable=false;WeaponStatus weapon;};
+struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry; };
+inline const Entry& rowIconEntry(const Row& row){return row.iconEntry?*row.iconEntry:row.entry;}
+struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=false,equipped=false;int quantity=0;float cooldown=0;bool voice=false,consumable=false;WeaponStatus weapon;std::optional<Entry> iconEntry;};
 struct EquippedDisplay {
     std::array<std::optional<Row>,2> hands;
-    std::optional<Row> consumable,voice;
+    std::optional<Row> consumable,voice,ammo;
 };
 struct Snapshot {
     std::vector<Row> rows;
@@ -305,9 +306,8 @@ struct Options {
     bool showIdle=true,showHints=false,showLabels=true,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
     bool showPoison=true,showAmmo=true;
     unsigned itemIconColor=1;
-    std::string itemIconSet="i4";
     bool placementGrid=false,placementSnap=false;
-    bool showEquipment=false,equipmentDim=false,hideEmptyGroups=false;
+    bool showEquipment=false,equipmentDim=false,hideEmptyGroups=false,showEquipmentAmmo=false;
     float equipmentX=.02f,equipmentY=.8f;
     float equipmentScale=1,equipmentTextScale=1,equipmentSpacing=1;
     unsigned equipmentStyle=0,equipmentLayout=0,equipmentTextPosition=3;

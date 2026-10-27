@@ -41,6 +41,8 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 ./build/native/quickslot_preview .
 ```
 
+The native preview exercises HUD layout with transparent fixture artwork. In-game checks cover I4 assignments and SWF rendering.
+
 ## Linux cross-compilation
 
 Install clang-cl, lld-link, LLVM resource/manifest tools and an xwin Windows SDK/CRT. Set `XWIN_SYSROOT` to the SDK and `QUICKSLOT_WINDOWS_PREFIX` to the Windows dependency prefix. Those libraries use the Microsoft x64 ABI, static linkage and dynamic CRT.

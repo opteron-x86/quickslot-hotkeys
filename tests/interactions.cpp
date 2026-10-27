@@ -423,6 +423,18 @@ int main()try {
         for(bool crossbow:{false,true})for(bool bolt:{false,true})for(int quantity:{-1,0,27,1500})
             check(compatibleAmmoCount(crossbow,bolt,quantity)==(crossbow==bolt?std::max(0,quantity):0),"Bows count arrows and crossbows count bolts without mixing incompatible stock");
         check(compatibleAmmoCount(false,{},100)==0,"Unequipped ammunition reports zero");
+        EquippedDisplay equipped;equipped.hands[0]=row;
+        check(!look.showEquipmentAmmo&&equipmentRows(equipped,look)==4,"Ammunition starts hidden in the equipment widget");
+        look.showEquipmentAmmo=true;check(equipmentRows(equipped,look)==5,"Ammunition adds a fifth equipment row");
+        equipped.hands[0]->entry.twoHanded=true;check(equipmentRows(equipped,look)==4,"A bow and ammunition use four equipment rows");
+        Entry ammo;ammo.kind=Kind::ammo;ammo.name="Steel Arrows";equipped.ammo=Row{ammo,true,true,{},42};
+        look.showAmmo=false;
+        check(badgeQuantity(ammo,42,{},look)==42&&equipmentTextName(equipped.ammo,false,look)=="Steel Arrows ×42","Equipment ammunition counts remain available with bow badges disabled");
+        equipped.ammo->quantity=0;check(equipmentTextName(equipped.ammo,false,look)=="Steel Arrows ×0","A depleted ammunition row reflects the current quantity");
+        equipped.ammo.reset();check(equipmentTextName(equipped.ammo,false,look)=="—","The ammunition slot has an empty state");
+        const auto ammoSaved=decodeOptions(encodeOptions(look));check(ammoSaved.showEquipmentAmmo,"Equipment ammunition persists in settings");
+        Options importedAmmo;importAppearance(importedAmmo,ammoSaved);check(importedAmmo.showEquipmentAmmo,"Appearance presets include the ammunition row");
+        auto oldAmmo=Json::parse(encodeOptions(look));oldAmmo.erase("showEquipmentAmmo");check(!decodeOptions(oldAmmo.dump()).showEquipmentAmmo,"Existing settings retain the original equipment layout");
         look.showPoison=false;look.showAmmo=false;const auto saved=decodeOptions(encodeOptions(look));
         check(!saved.showPoison&&!saved.showAmmo,"Status settings persist");
         auto legacy=Json::parse(encodeOptions(look));legacy.erase("showPoison");legacy.erase("showAmmo");const auto migrated=decodeOptions(legacy.dump());

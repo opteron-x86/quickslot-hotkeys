@@ -64,7 +64,7 @@ Snapshot preview(const EditorState& state) {
     s.equipment=state.equippedDisplay;
     for(std::size_t i=0;i<Arsenal::count;++i) {
         const auto& g=state.draft.groups[i];auto& tile=s.groups[i];tile.count=g.entries.size();
-        if(g.selected<state.rows[i].size()){const auto& row=state.rows[i][g.selected];tile.entry=row.entry;tile.available=row.available;tile.equipped=row.equipped;tile.quantity=row.quantity;tile.cooldown=row.cooldown;tile.voice=isVoice(row.entry)&&row.equipped;tile.consumable=i==selectedConsumableGroup(state.draft);}
+        if(g.selected<state.rows[i].size()){const auto& row=state.rows[i][g.selected];tile.entry=row.entry;tile.iconEntry=row.iconEntry;tile.weapon=row.weapon;tile.available=row.available;tile.equipped=row.equipped;tile.quantity=row.quantity;tile.cooldown=row.cooldown;tile.voice=isVoice(row.entry)&&row.equipped;tile.consumable=i==selectedConsumableGroup(state.draft);}
     }
     return s;
 }
@@ -350,7 +350,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(options.placementFrame)guides->AddRect({frame.min.x,frame.min.y},{frame.max.x,frame.max.y},axis);
         }
         HudBounds bounds;hud.draw(snapshot,options,now,{},{},nullptr,&bounds);
-        const auto geometry=hudGeometry(options,screen.x,screen.y,equipmentRows(snapshot.equipment));
+        const auto geometry=hudGeometry(options,screen.x,screen.y,equipmentRows(snapshot.equipment,options));
         const auto detachSelector=[&] {
             if(options.selectorDock==4)return;
             options.selectorX=std::clamp((geometry.origin.x+geometry.selectorOrigin.x*geometry.scale-8)/std::max(1.f,screen.x-16-geometry.selectorWidth*geometry.scale),0.f,1.f);
@@ -984,14 +984,6 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 label(tr("Frame opacity"));ImGui::SetNextItemWidth(-1);tuned|=UI::SliderFloat("##Frame opacity",&tweak.frameOpacity,0,1,"%.2f");
                 label(tr("Icon size"));ImGui::SetNextItemWidth(-1);tuned|=UI::SliderFloat("##Icon size",&tweak.iconScale,.65f,1.2f,"%.2fx");
                 if(tuned){options.themeAdjustments[options.themeId]=tweak;changed=true;}
-                if(hud.iconSets().size()>1) {
-                label(tr("Icon set"));ImGui::SetNextItemWidth(-1);
-                const auto currentIcons=hud.iconSets().find(options.itemIconSet);
-                if(ImGui::BeginCombo("##item icon set",currentIcons==hud.iconSets().end()?tr("Quickslot"):currentIcons->second.name.c_str())) {
-                    for(const auto& [id,pack]:hud.iconSets())if(ImGui::Selectable(pack.name.c_str(),options.itemIconSet==id)){options.itemIconSet=id;changed=true;}
-                    ImGui::EndCombo();
-                }
-                }
                 combo("Icon color","##item icon color",options.itemIconColor,"Original\0Theme\0White\0");
                 if(options.itemIconColor==1)changed|=UI::Checkbox("Tint magic icons",&options.coloredMagic);
                 changed|=UI::Checkbox("Key icons",&options.keyIcons);
@@ -1025,6 +1017,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     slider("Idle delay",options.equipmentFadeDelay,0,20,"%.1f s");
                     slider("Idle opacity",options.equipmentIdleOpacity,.05f,.9f,"%.2f");
                 }
+                changed|=UI::Checkbox("Show equipped ammunition",&options.showEquipmentAmmo);
                 combo("Style","##equipment style",options.equipmentStyle,"List\0Circles\0Diamonds\0Squares\0Text only\0");
                 if(options.equipmentStyle)combo("Arrangement","##equipment layout",options.equipmentLayout,"Vertical\0Horizontal\0");
                 if(options.equipmentStyle>0&&options.equipmentStyle<4)combo("Text position","##equipment text",options.equipmentTextPosition,"Top\0Bottom\0Left\0Right\0");

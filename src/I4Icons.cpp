@@ -27,43 +27,10 @@ void keywords(RE::GFxValue& target,RE::BGSKeywordForm* form) {
     if(form)for(auto* keyword:form->GetKeywords())if(keyword&&!keyword->formEditorID.empty())
         target.SetMember(keyword->formEditorID.c_str(),true);
 }
-const char* defaultLabel(const Entry& entry) {
-    switch(baseIcon(entry)) {
-    case Icon::fire:return "magic_fire";
-    case Icon::frost:return "magic_frost";
-    case Icon::shock:return "magic_shock";
-    case Icon::alteration:return "default_alteration";
-    case Icon::conjuration:return "default_conjuration";
-    case Icon::destruction:return "default_destruction";
-    case Icon::illusion:return "default_illusion";
-    case Icon::restoration:return "default_restoration";
-    case Icon::health:return "potion_health";
-    case Icon::magicka:return "potion_magic";
-    case Icon::stamina:return "potion_stam";
-    default:break;
-    }
-    switch(entry.kind) {
-    case Kind::sword:return "weapon_sword";
-    case Kind::greatsword:return "weapon_greatsword";
-    case Kind::dagger:return "weapon_dagger";
-    case Kind::axe:return entry.twoHanded?"weapon_battleaxe":"weapon_waraxe";
-    case Kind::mace:return entry.twoHanded?"weapon_hammer":"weapon_mace";
-    case Kind::bow:return entry.icon==Icon::crossbow?"weapon_crossbow":"weapon_bow";
-    case Kind::staff:return "weapon_staff";
-    case Kind::shield:return "armor_shield";
-    case Kind::torch:return "misc_torch";
-    case Kind::food:return "default_food";
-    case Kind::poison:return "potion_poison";
-    case Kind::potion:return "default_potion";
-    case Kind::scroll:return "default_scroll";
-    case Kind::ammo:return entry.icon==Icon::bolt?"weapon_bolt":"weapon_arrow";
-    default:return "default_power";
-    }
-}
 void skyUIData(RE::GFxValue& data,RE::GFxMovieView& movie,RE::TESForm& form,const Entry& entry) {
     data.SetMember("baseId",double(entry.form&0xffffff));
     data.SetMember("text",entry.name.c_str());data.SetMember("displayName",entry.name.c_str());
-    data.SetMember("iconLabel",defaultLabel(entry));
+    data.SetMember("iconLabel",i4DefaultLabel(entry));
     RE::GFxValue keywordObject;movie.CreateObject(&keywordObject);
     keywords(keywordObject,form.As<RE::BGSKeywordForm>());data.SetMember("keywords",keywordObject);
     RE::GFxValue resistance;
@@ -151,13 +118,13 @@ struct I4Icons::Impl {
     struct Texture {ComPtr<ID3D11ShaderResourceView> original,mask;std::uint64_t used=0;};
     struct Form {std::optional<Spec> spec;std::uint64_t used=0;};
     std::map<std::string,Texture> textures;
-    std::map<std::uint32_t,Form> forms;
+    std::map<std::string,Form> forms;
     std::map<std::string,RE::GPtr<RE::GFxMovieDef>> movies;
     std::deque<Entry> pending;
     std::uint64_t generation=0,frame=0;
     bool available=false,reported=false;
     Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c),isolation(d,c){
-        if(!isolation.available())SKSE::log::warn("I4 icons require D3D11 context-state support; using Quickslot icons");
+        if(!isolation.available())throw std::runtime_error("I4 icons require D3D11 context-state support");
     }
 
     static std::string key(const Spec& spec){return spec.source+'\n'+spec.label;}
@@ -220,6 +187,25 @@ struct I4Icons::Impl {
         for(std::size_t i=0;i<pixels.size();i+=4)pixels[i]=pixels[i+1]=pixels[i+2]=255;
         result.mask=upload(pixels);return result;
     }
+    static Spec category(const Entry& entry){return {i4DefaultSource,i4DefaultLabel(entry),{}};}
+    static Spec placeholder(){return {i4DefaultSource,"default_misc",{}};}
+    std::optional<ItemIcon> cached(const Spec& spec) {
+        if(auto texture=textures.find(key(spec));texture!=textures.end()) {
+            texture->second.used=frame;
+            if(texture->second.original&&texture->second.mask)
+                return ItemIcon{reinterpret_cast<ImTextureID>(texture->second.original.Get()),reinterpret_cast<ImTextureID>(texture->second.mask.Get()),spec.rgb};
+        }
+        return {};
+    }
+    void queue(const Entry& entry) {
+        const auto id=i4RequestKey(entry);
+        if(pending.size()<128&&std::none_of(pending.begin(),pending.end(),[&](const auto& queued){return i4RequestKey(queued)==id;}))pending.push_back(entry);
+    }
+    void capture(const Spec& spec) {
+        trim(textures,maxTextures);auto texture=render(spec);
+        if(!texture.original||!texture.mask)SKSE::log::warn("I4 icon unavailable: {} [{}]",spec.source,spec.label);
+        textures.emplace(key(spec),std::move(texture));
+    }
     void beginFrame() {
         ++frame;
         if(generation!=iconGeneration.load()) {generation=iconGeneration.load();forms.clear();textures.clear();movies.clear();pending.clear();}
@@ -228,37 +214,43 @@ struct I4Icons::Impl {
         const auto hud=ui->GetMenu<RE::HUDMenu>();if(!hud||!hud->uiMovie)return;
         auto& movie=*hud->uiMovie;
         available=movie.IsAvailable(processEntry)&&movie.IsAvailable("skse.ExtendForm");
-        if(!reported){SKSE::log::info("I4 icon provider {}",available?"ready":"unavailable; using Quickslot icons");reported=true;}
-        if(!available){pending.clear();return;}
-        // Bound work per frame; only requested, visible icons enter the queue.
-        unsigned rendered=0;
-        for(unsigned work=0;work<8&&!pending.empty()&&rendered<1;++work) {
-            auto entry=std::move(pending.front());pending.pop_front();
-            auto found=forms.find(entry.form);
-            if(found==forms.end()) {
-                trim(forms,maxForms);found=forms.emplace(entry.form,Form{resolve(movie,entry),frame}).first;
+        if(!reported) {
+            if(available)SKSE::log::info("I4 icon provider ready");
+            else {
+                SKSE::log::error("Quickslot requires I4 1.1.0 or newer: ProcessEntry API unavailable");
+                SKSE::GetTaskInterface()->AddTask([]{RE::DebugMessageBox("Quickslot requires Inventory Interface Information Injector (I4) 1.1.0 or newer. Install I4 for your Skyrim version and restart the game.");});
             }
-            if(!found->second.spec)continue;
-            const auto& spec=*found->second.spec;const auto id=key(spec);
-            if(textures.contains(id))continue;
-            trim(textures,maxTextures);auto texture=render(spec);++rendered;
-            if(!texture.original||!texture.mask)SKSE::log::warn("I4 icon unavailable: {} [{}]",spec.source,spec.label);
-            textures.emplace(id,std::move(texture));
+            reported=true;
+        }
+        if(!available){pending.clear();return;}
+        // Bound SWF capture to one requested icon per frame.
+        if(!textures.contains(key(placeholder()))){capture(placeholder());return;}
+        for(unsigned work=0;work<8&&!pending.empty();++work) {
+            auto entry=std::move(pending.front());pending.pop_front();const auto request=i4RequestKey(entry);
+            auto found=forms.find(request);
+            if(found==forms.end()) {
+                const auto spec=i4HasForm(entry)?resolve(movie,entry).value_or(category(entry)):category(entry);
+                trim(forms,maxForms);found=forms.emplace(request,Form{spec,frame}).first;
+            }
+            const auto& spec=*found->second.spec;
+            if(textures.contains(key(spec)))continue;
+            capture(spec);break;
         }
     }
     std::optional<ItemIcon> find(const Entry& entry) {
-        if(!available||entry.unresolved||!entry.form||isReusable(entry))return {};
-        if(auto form=forms.find(entry.form);form!=forms.end()) {
+        if(!available)return {};
+        const auto request=i4RequestKey(entry);
+        if(auto form=forms.find(request);form!=forms.end()) {
             form->second.used=frame;
-            if(!form->second.spec)return {};
-            if(auto texture=textures.find(key(*form->second.spec));texture!=textures.end()) {
-                texture->second.used=frame;
-                if(!texture->second.original||!texture->second.mask)return {};
-                return ItemIcon{reinterpret_cast<ImTextureID>(texture->second.original.Get()),reinterpret_cast<ImTextureID>(texture->second.mask.Get()),form->second.spec->rgb};
+            if(auto icon=cached(*form->second.spec))return icon;
+            if(!textures.contains(key(*form->second.spec)))queue(entry);
+            else {
+                auto fallback=entry;fallback.form=0;
+                if(auto icon=cached(category(fallback)))return icon;
+                if(!textures.contains(key(category(fallback))))queue(fallback);
             }
-        }
-        if(pending.size()<128&&std::none_of(pending.begin(),pending.end(),[&](const auto& queued){return queued.form==entry.form;}))pending.push_back(entry);
-        return {};
+        }else queue(entry);
+        return cached(placeholder());
     }
 };
 I4Icons::I4Icons(ID3D11Device* d,ID3D11DeviceContext* c):impl_(std::make_unique<Impl>(d,c)){}

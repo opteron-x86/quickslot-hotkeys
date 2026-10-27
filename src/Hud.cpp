@@ -33,7 +33,7 @@ ImU32 iconColor(const Entry& e) {
     }
 }
 struct Paint {
-    ImDrawList* d;ImVec2 origin;float scale,alpha;ImFont* medium;ImFont* sans;ImTextureID icons,themeTexture,keyTexture;const KeyGlyphs& keyGlyphs;const Options& options;const Theme& theme;ThemeAdjustments tweaks;const ItemIconProvider& itemIcons;
+    ImDrawList* d;ImVec2 origin;float scale,alpha;ImFont* medium;ImFont* sans;ImTextureID themeTexture,keyTexture;const KeyGlyphs& keyGlyphs;const Options& options;const Theme& theme;ThemeAdjustments tweaks;const ItemIconProvider& itemIcons;
     ImU32 accent()const{return themeAccent(theme,options);}
     ImU32 itemColor(const Entry& e)const{return options.coloredMagic?iconColor(e):ivory;}
     ImVec2 p(float x,float y)const{return {origin.x+x*scale,origin.y+y*scale};}
@@ -130,48 +130,13 @@ struct Paint {
     void icon(float x,float y,float size,const Entry& e,ImU32 c) {
         if(e.kind==Kind::combo&&e.parts.size()==2){icon(x-size*.21f,y,size*.62f,e.parts[0],c==muted?c:itemColor(e.parts[0]));icon(x+size*.21f,y,size*.62f,e.parts[1],c==muted?c:itemColor(e.parts[1]));return;}
         size*=tweaks.iconScale;
-        if(options.itemIconSet=="i4"&&itemIcons)if(const auto supplied=itemIcons(e)) {
+        if(itemIcons)if(const auto supplied=itemIcons(e)) {
             const bool unavailable=c==muted;
             const auto tint=itemIconTint(*supplied,color(c),options.itemIconColor,unavailable);
             d->AddImage(supplied->mask,p(x-size*.5f+1,y-size*.5f+2),p(x+size*.5f+1,y+size*.5f+2),{0,0},{1,1},color(IM_COL32(0,0,0,150)));
             d->AddImage(itemIconTexture(*supplied,options.itemIconColor,unavailable),p(x-size*.5f,y-size*.5f),p(x+size*.5f,y+size*.5f),{0,0},{1,1},tint);
             return;
         }
-        if(c!=muted&&options.itemIconColor!=1)c=IM_COL32_WHITE;
-        const auto region=atlasRegion(iconFor(e));
-        const bool useAtlas=icons&&region.has_value();
-        if(isHandAction(e)&&!useAtlas) {
-            const bool fist=e.kind==Kind::unarmed;const float mirror=e.hand==Hand::left?-1.f:1.f;
-            const auto point=[&](float dx,float dy){return p(x+dx*size*mirror,y+dy*size);};
-            const auto rect=[&](float x1,float y1,float x2,float y2,float rounding){
-                auto a=point(x1,y1),b=point(x2,y2);if(a.x>b.x)std::swap(a.x,b.x);
-                d->AddRectFilled(a,b,color(c),rounding*size*scale);
-            };
-            rect(-.22f,-.09f,.22f,.25f,.08f);rect(-.15f,.22f,.14f,.39f,.015f);
-            const float heights[]{-.31f,-.42f,-.38f,-.25f};
-            for(unsigned finger=0;finger<4;++finger){const float dx=-.22f+float(finger)*.115f;rect(dx,fist?-.24f:heights[finger],dx+.095f,.02f,.04f);}
-            const ImVec2 thumb[]{point(-.19f,.17f),point(-.36f,-.01f),point(-.34f,-.11f),point(-.27f,-.14f),point(-.12f,.04f)};
-
-            if(mirror>0)d->AddConvexPolyFilled(thumb,5,color(c));
-            else {ImVec2 reverse[5];for(unsigned i=0;i<5;++i)reverse[i]=thumb[4-i];d->AddConvexPolyFilled(reverse,5,color(c));}
-            if(fist)line(x-size*.16f,y+size*.035f,x+size*.14f,y+size*.035f,dark,1.2f);
-            return;
-        }
-        if(e.kind==Kind::ammo&&!useAtlas) {
-
-            const float r=size*(e.icon==Icon::bolt?.30f:.40f),t=size*.055f;
-            line(x-r,y+r,x+r,y-r,c,t);
-            const ImVec2 tip[]{p(x+r,y-r),p(x+r-size*.22f,y-r+size*.04f),p(x+r-size*.04f,y-r+size*.22f)};
-            d->AddTriangleFilled(tip[0],tip[1],tip[2],color(c));
-            for(float at:{0.f,.12f}){const float a=size*at;line(x-r+a,y+r-a,x-r+a-size*.04f,y+r-a-size*.18f,c,t);line(x-r+a,y+r-a,x-r+a+size*.18f,y+r-a+size*.04f,c,t);}
-            return;
-        }
-        if(!useAtlas){diamond(x,y,size*.3f,c,false);text(x,y-size*.2f,"?",size*.4f,c,false,0,true);return;}
-        const ImVec2 uv0{region->u0,region->v0},uv1{region->u1,region->v1};
-
-        const auto tint=atlasTint(color(c),options.itemIconColor,c==muted);
-        d->AddImage(icons,p(x-size*.5f+1,y-size*.5f+2),p(x+size*.5f+1,y+size*.5f+2),uv0,uv1,color(IM_COL32(0,0,0,150)));
-        d->AddImage(icons,p(x-size*.5f,y-size*.5f),p(x+size*.5f,y+size*.5f),uv0,uv1,tint);
     }
     void rule(float x,float y,float half=70) {
         line(x-half,y,x-7,y,IM_COL32(175,173,161,130),.7f);
@@ -283,13 +248,13 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     if(visibility<=0&&equipmentAlpha<=0)return;
     const bool notification=!state.notice.empty()&&now<state.noticeUntil;
     const auto screen=viewport.x>0&&viewport.y>0?viewport:ImGui::GetIO().DisplaySize;
-    auto geometry=hudGeometry(o,screen.x,screen.y,equipmentRows(state.equipment));
-    if(state.editorPreview&&!state.placementPreview&&list){const auto display=ImGui::GetIO().DisplaySize;geometry=previewGeometry(o,display.x,display.y,screen.x,screen.y,state.browsing,!state.selectorOnly,state.equipmentOnly,equipmentRows(state.equipment));}
+    auto geometry=hudGeometry(o,screen.x,screen.y,equipmentRows(state.equipment,o));
+    if(state.editorPreview&&!state.placementPreview&&list){const auto display=ImGui::GetIO().DisplaySize;geometry=previewGeometry(o,display.x,display.y,screen.x,screen.y,state.browsing,!state.selectorOnly,state.equipmentOnly,equipmentRows(state.equipment,o));}
     const float scale=geometry.scale;
     const auto& theme=themes_.get(o.themeId);const auto& skin=skins_.at(theme.id);
     Paint p{list?list:ImGui::GetBackgroundDrawList(),
         {origin.x+geometry.origin.x+geometry.selectorOrigin.x*scale,origin.y+geometry.origin.y+geometry.selectorOrigin.y*scale},
-        scale,o.opacity*visibility,skin.title,skin.body,iconTexture(o),skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o),itemIcons_};
+        scale,o.opacity*visibility,skin.title,skin.body,skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o),itemIcons_};
     const auto collect=[&](int start,Bounds& box){for(int i=start;i<p.d->VtxBuffer.Size;++i){const auto v=p.d->VtxBuffer[i].pos;box.include({v.x,v.y});}};
     const int selectorStart=p.d->VtxBuffer.Size;const float text=hudTextFactor(o);
     const float center=geometry.selectorWidth*.5f;
@@ -302,7 +267,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         const auto node=[&](const Row& row,float x,float y,float r,bool selected,unsigned shape,float opacity) {
             auto nodePaint=p;nodePaint.alpha*=opacity;
             nodePaint.tile(x,y,r,selected,shape);
-            nodePaint.icon(x,y,r*1.48f,row.entry,row.available?nodePaint.itemColor(row.entry):muted);
+            nodePaint.icon(x,y,r*1.48f,rowIconEntry(row),row.available?nodePaint.itemColor(rowIconEntry(row)):muted);
             const float marker=x+(isStack(row.entry)||row.cooldown>0||(o.showAmmo&&row.weapon.ammunition>=0)||(o.showPoison&&row.weapon.poisoned)?-1.f:1.f)*r*.7f;
             if(!row.available&&!isStack(row.entry)){nodePaint.circle(marker,y+r*.7f,6,IM_COL32(22,18,18,240),true);nodePaint.line(marker-3,y+r*.7f+3,marker+3,y+r*.7f-3,blood,1.6f);}
             else if(row.equipped)nodePaint.diamond(marker,y+r*.7f,3.5f,ivory);
@@ -331,7 +296,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                         const float y=layout.centerY+position*layout.listPitch;
                         auto q=p;q.alpha*=opacity;
                         q.frame(12,y-layout.listHeight*.5f,layout.width-24,layout.listHeight,offset==0);
-                        q.icon(37,y,32,row.entry,row.available?q.itemColor(row.entry):muted);
+                        q.icon(37,y,32,rowIconEntry(row),row.available?q.itemColor(rowIconEntry(row)):muted);
                         q.label(66,y-8*text,displayName(row.entry),16,row.available?ivory:muted,true,layout.width-92);
                         if(row.equipped)q.diamond(53,y+15,2.5f,ivory);
                         else if(!row.available&&!isStack(row.entry)){q.circle(53,y+15,4,IM_COL32(22,18,18,240),true);q.line(50,y+18,56,y+12,blood,1.4f);}
@@ -395,6 +360,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         if(groupAlpha<=0)continue;
         const auto& tile=state.groups[id];const bool selected=id==group;
         const auto* entry=selected&&active?&active->entry:tile.entry?&*tile.entry:nullptr;
+        const auto* artwork=selected&&active?&rowIconEntry(*active):tile.iconEntry?&*tile.iconEntry:entry;
         const bool equipped=selected&&active?active->equipped:tile.equipped;
         const bool available=selected&&active?active->available:tile.available;
         const int quantity=selected&&active?active->quantity:tile.quantity;
@@ -411,7 +377,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             const float width=geometry.groups.tileWidth,iconX=x+(o.showCardNames||o.showLabels?25.f:width*.5f);
             const float h=geometry.groups.tileHeight-7,cy=y+3+h*.5f;
             q.frame(x,y+3,width,h,emphasized);
-            if(entry)q.icon(iconX,cy,36,*entry,available?q.itemColor(*entry):muted);
+            if(entry)q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted);
             else q.text(iconX,cy-15,"+",24,muted,false,0,true);
             const float block=(o.showLabels&&o.showCardNames?26*text+4:14*text),top=cy-block*.5f;
             if(o.showLabels)q.label(x+51,top,o.names[id],o.showCardNames?12.f:14.f,silver,true,width-59);
@@ -429,7 +395,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             if(o.shape==1)q.medallion(cx,cy,29,emphasized);
             else if(o.shape==2)q.frame(cx-41,y,82,100,emphasized,o.layout==5?(i==0?0u:i==2?1u:2u):1u);
             else q.lozenge(cx,cy,42,emphasized);
-            if(entry)q.icon(cx,cy+(o.shape==3?6.f:0.f),o.shape==2?54.f:o.shape==3?36.f:40.f,*entry,available?q.itemColor(*entry):muted);
+            if(entry)q.icon(cx,cy+(o.shape==3?6.f:0.f),o.shape==2?54.f:o.shape==3?36.f:40.f,*artwork,available?q.itemColor(*artwork):muted);
             else {q.line(cx-5,cy,cx+5,cy,muted);q.line(cx,cy-5,cx,cy+5,muted);}
             q.groupKey(cx,y+(o.shape==1?0.f:o.shape==2?9.f:16.f),id,previewing,state.controller,state.vr,o.shape==3?16.f:18.f);
             if(previewing)q.diamond(cx,y+geometry.groups.tileHeight+2,2.5f,q.accent());
@@ -469,7 +435,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             auto item=panel;if(row&&equipmentDimmed(*row))item.alpha*=.4f;
             if(box.iconSize>0) {
                 if(row) {
-                    item.icon(x,y,box.iconSize,row->entry,item.itemColor(row->entry));
+                    item.icon(x,y,box.iconSize,rowIconEntry(*row),item.itemColor(rowIconEntry(*row)));
                     const float size=11*std::clamp(t,.8f,1.25f),radius=o.equipmentStyle==0?box.iconSize*.5f:28.f;
                     panel.badge(x+radius*(o.equipmentStyle==2?.7f:1.f),y+(o.equipmentStyle==0?radius-size:radius*.5f),row->entry,row->quantity,row->cooldown,size,true,row->weapon);
                 }
@@ -482,6 +448,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         };
         if(twoHandedDisplay(state.equipment))drawRow("Both hands",state.equipment.hands[0]);
         else {drawRow("Right hand",state.equipment.hands[0]);drawRow("Left hand",state.equipment.hands[1]);}
+        if(o.showEquipmentAmmo)drawRow("Ammunition",state.equipment.ammo);
         drawRow("Consumable",state.equipment.consumable);drawRow("Power / shout",state.equipment.voice);
         if(bounds)collect(start,bounds->equipment);
     }

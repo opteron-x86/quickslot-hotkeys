@@ -37,20 +37,21 @@ class ReleaseTools(unittest.TestCase):
     def test_source_archive_has_build_tools_and_art_sources(self):
         files = support.source_files()
         for name in ['README.md', 'tools/package-release.py', '.github/workflows/build.yml',
-                     'assets/icons/source/sword.png', 'vendor/commonlib/CMakeLists.txt']:
+                     'assets/themes/oathvein/frames.png', 'vendor/commonlib/CMakeLists.txt']:
             self.assertIn(name, files)
-        self.assertFalse(any(n.startswith(('build/', 'dist/', '.git/')) for n in files))
+        self.assertFalse(any(n.startswith(('build/', 'dist/', '.git/', 'assets/icons/')) for n in files))
 
     def test_vendor_hashes_after_pruning(self):
         self.assertGreater(support.verify_dependencies(), 1000)
 
     def test_runtime_rejects_user_data_and_build_outputs(self):
         base = dict.fromkeys(['SKSE/Plugins/Quickslot.dll', 'SKSE/Plugins/Quickslot.ini',
-                             'Quickslot/icons/items.png', 'Quickslot/icons/manifest.json', 'Quickslot/README.md'])
+                             'Quickslot/README.md'])
         package.validate_runtime(base)
         for bad in ['Quickslot/settings.json', 'Quickslot/Presets/test.json', 'Quickslot/save.ess',
                     'Quickslot/debug.pdb', 'Quickslot/source/file.cpp', 'Quickslot/../other.txt',
-                    'SKSE/Plugins/Other.dll', 'Quickslot/Other.dll', 'controlmap.txt']:
+                    'SKSE/Plugins/Other.dll', 'Quickslot/Other.dll', 'controlmap.txt',
+                    'Quickslot/icons/items.png', 'Quickslot/icons/manifest.json']:
             with self.subTest(path=bad), self.assertRaises(ValueError):
                 package.validate_runtime({**base, bad: None})
         del base['SKSE/Plugins/Quickslot.dll']

@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- Display icons from installed Inventory Interface Information Injector (I4) packs. Select I4 under **Appearance → Style → Icon set** and choose Original, Theme or White coloring.
+- Item icons use Inventory Interface Information Injector (I4) 1.1.0+, now a required dependency. Choose Original, Theme or White coloring in Appearance → Style.
+- Smart shortcuts show the item they currently select, combinations show both items, and empty-hand actions use a gauntlet icon.
+- Add equipped arrows or bolts and their count to the equipment widget with **Appearance → Equipment → Show equipped ammunition**.
 - Item quantities, ammunition counts and cooldown timers use outlined text.
 - Hotkeys appear as plain text on frames when key artwork is disabled or unavailable.
 
@@ -40,7 +42,7 @@ Updating: keep your settings and presets.
 - Clear group hotkeys with **Clear** or **Esc** during binding. Assigning an occupied key swaps the group bindings.
 - Sort groups by name with **Sort A–Z** or **Auto-sort when adding**. Both support Undo.
 
-Updating: install the DLL and atlas together and keep your settings and presets.
+Updating: install the complete release package and keep your settings and presets.
 
 ## 0.10.0
 
@@ -54,7 +56,7 @@ Updating: install the DLL and atlas together and keep your settings and presets.
 - Mod, source, symbols, menu API and checksum downloads.
 - Experimental VR support.
 
-Updating: install the DLL and atlas together and keep your settings and presets. Custom icon packs use the 2048 × 2304, 65-icon layout described in [Theme and icon packs](THEMES.md).
+Updating: install the complete release package and keep your settings and presets.
 
 ## 0.9.0-rc20
 

@@ -28,15 +28,31 @@ int main(int argc,char** argv)try {
         Entry item;item.form=1;item.name="I4 test";
         Snapshot sample;sample.visible=true;sample.editorPreview=true;sample.groups[0]={item,1,true};
         Options appearance;appearance.itemIconColor=0;
-        hud.setIcons("quickslot","Quickslot",101);
         unsigned requests=0;hud.setItemIconProvider([&](const Entry& e)->std::optional<ItemIcon>{++requests;return e.form==1?std::optional(supplied):std::nullopt;});
         const auto draws=[&](ImTextureID texture){for(const auto& command:ImGui::GetBackgroundDrawList()->CmdBuffer)if(command.ElemCount&&command.GetTexID()==texture)return true;return false;};
         ImGui::NewFrame();hud.draw(sample,appearance,1);ImGui::Render();
-        check(requests>0&&draws(201)&&draws(202)&&!draws(101),"HUD draws supplied artwork and its shadow");
+        check(requests>0&&draws(201)&&draws(202),"HUD draws supplied artwork and its shadow");
+        Entry rule;rule.kind=Kind::smartWeapon;rule.equipmentType=unsigned(WeaponFamily::sword);
+        Entry dagger=item;dagger.form=2;dagger.kind=Kind::dagger;
+        Entry pair;pair.kind=Kind::combo;pair.parts={rule,rule};pair.parts[1].equipmentType=unsigned(WeaponFamily::dagger);
+        const auto savedRule=encodeEntry(pair);Entry resolved=pair;resolved.parts={item,dagger};
+        sample.groups[0]={pair,1,true};sample.groups[0].iconEntry=resolved;
+        Row selected{pair,true};selected.iconEntry=resolved;sample.rows={selected};
+        sample.equipment.consumable=selected;appearance.showEquipment=true;
+        std::vector<unsigned> requested;
+        hud.setItemIconProvider([&](const Entry& e)->std::optional<ItemIcon>{requested.push_back(e.form);return supplied;});
+        for(bool browsing:{false,true}) {
+            sample.browsing=browsing;requested.clear();ImGui::NewFrame();hud.draw(sample,appearance,1);ImGui::Render();
+            check(std::find(requested.begin(),requested.end(),1)!=requested.end()&&std::find(requested.begin(),requested.end(),2)!=requested.end(),"Group and selector combinations request both resolved item icons");
+            check(std::find(requested.begin(),requested.end(),0)==requested.end(),"Resolved smart parts reach the provider as real forms");
+            check(encodeEntry(sample.rows[0].entry)==savedRule&&encodeEntry(sample.groups[0].entry.value())==savedRule,"Displaying chosen items preserves saved combination rules");
+        }
+        sample.equipmentOnly=true;sample.browsing=false;requested.clear();
+        ImGui::NewFrame();hud.draw(sample,appearance,1);ImGui::Render();
+        check(requested==std::vector<unsigned>({1,2}),"Equipment uses the resolved artwork");
         hud.setItemIconProvider({});
         ImGui::NewFrame();hud.draw(sample,appearance,1);ImGui::Render();
-        check(draws(101),"HUD uses fallback artwork when the provider is unavailable");
-        hud.setIcons("quickslot","Quickslot",0);
+        check(!draws(201)&&!draws(202),"HUD tolerates an unavailable provider");
     }
     Editor editor;auto state=fixture::editor();editor.beginSession(state);std::vector<EditCommand> commands;
     EditHistory history;std::uint64_t historySession=0;
@@ -483,12 +499,10 @@ int main(int argc,char** argv)try {
     click("Items");click("##candidate",0);click("Delete shortcut");click("Delete");
     check(!libraryShortcut(state.draft,sharedID)&&state.draft.groups[0].entries.size()==1,"Explicit library delete removes all memberships");
     click("Undo");check(libraryShortcut(state.draft,sharedID)&&state.draft.groups[0].entries.size()==2,"Undo restores shared definition and memberships");
-    hud.setIcons("sample-icons","Sample icons",123);click("Appearance");click("Style");click("##item icon set");click("Sample icons");
-    check(state.options.itemIconSet=="sample-icons"&&hud.iconTexture(state.options)==123,"Icon pack selection changes the live HUD texture");
-    click("Undo");check(state.options.itemIconSet=="i4","Icon pack selection supports Undo");
-    click("##item icon set");click("Quickslot",1);check(state.options.itemIconSet=="quickslot","Bundled icons can be selected explicitly");
-    click("##item icon set");click("I4");check(state.options.itemIconSet=="i4","I4 can be selected in the editor");
+    click("Appearance");click("Style");
     click("Equipment");click("##equipment visibility");click("Show always");check(state.options.showEquipment&&!state.options.equipmentDim,"Equipment can stay visible independently");
+    click("Show equipped ammunition");check(state.options.showEquipmentAmmo,"Equipment ammunition can be enabled");
+    click("Undo");check(!state.options.showEquipmentAmmo,"Equipment ammunition supports Undo");
     click("##equipment visibility");click("Dim when idle");check(state.options.equipmentDim,"Equipment dim mode applies immediately");
     click("Undo");check(!state.options.equipmentDim&&state.options.showEquipment,"Equipment visibility supports Undo");
     click("##equipment style");click("Circles");click("##equipment layout");click("Horizontal");click("##equipment text");click("Bottom");
@@ -547,6 +561,7 @@ int main(int argc,char** argv)try {
     ImGui::NewFrame();HudBounds bothBounds;hud.draw(hidden,visibility,201,{}, {},ImGui::GetBackgroundDrawList(),&bothBounds);ImGui::Render();
     check(bothBounds.equipment.valid&&bothBounds.equipment.height()<equipmentGeometry(visibility,io.DisplaySize.x,io.DisplaySize.y,4).height*equipmentGeometry(visibility,io.DisplaySize.x,io.DisplaySize.y,4).scale,"Two-handed equipment uses one compact row");
     hidden.equipment.hands[0]->entry.twoHanded=false;hidden.editorPreview=hidden.placementPreview=true;
+    visibility.showEquipmentAmmo=true;Entry ammunition;ammunition.kind=Kind::ammo;ammunition.name="Dwarven Bolts";hidden.equipment.ammo=Row{ammunition,true,true,{},147};
     for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<2;++layout)for(unsigned position=0;position<4;++position)
         for(const ImVec2 screen:{ImVec2{1280,720},ImVec2{3840,2160}})for(float spacing:{0.f,4.f}) {
             io.DisplaySize=screen;visibility.equipmentStyle=style;visibility.equipmentLayout=layout;visibility.equipmentTextPosition=position;

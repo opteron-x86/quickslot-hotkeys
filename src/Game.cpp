@@ -478,6 +478,7 @@ ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* playe
             if(name&&*name)result.row.entry.name=result.action.name=gameName(name);
         }
     }
+    if(isReusable(entry))result.row.iconEntry=result.action;
     return result;
 }
 RE::TESObjectREFR::InventoryItemMap inventoryFor(const Arsenal& arsenal,RE::PlayerCharacter* player) {
@@ -521,7 +522,7 @@ bool syncFavoriteGroups(Arsenal& arsenal,RE::PlayerCharacter* player,const RE::T
     }
     bool changed=false;for(auto& group:arsenal.groups)changed|=refreshFavorites(group,favorites);return changed;
 }
-// Read the equipped hands and voice slot for the equipment display.
+// Read the equipment slots used by the HUD.
 EquippedDisplay readEquipment(RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
     EquippedDisplay state;
     const auto read=[&](RE::TESForm* form,Hand hand)->std::optional<Row> {
@@ -548,6 +549,8 @@ EquippedDisplay readEquipment(RE::PlayerCharacter* player,const RE::TESObjectREF
     for(unsigned hand=0;hand<2;++hand)if(state.hands[hand]&&state.hands[hand]->entry.twoHanded) {
         state.hands[1-hand]=state.hands[hand];break;
     }
+    state.ammo=read(equippedAmmo(player),Hand::right);
+    if(state.ammo&&state.ammo->quantity<=0)state.ammo.reset();
     state.voice=read(player->GetActorRuntimeData().selectedPower,Hand::right);
     return state;
 }
@@ -645,6 +648,11 @@ std::filesystem::path dataDirectory() {
 Game& Game::get(){static auto* game=new Game;return *game;}
 bool Game::initialize() {
     std::scoped_lock lock(mutex_);if(initialized_)return true;
+    const auto* i4=SKSE::GetPluginInfo("InventoryInjector");
+    if(!i4||(!REL::Module::IsVR()&&i4->version<REL::Version(1,1,0,0).pack())) {
+        constexpr auto message="Quickslot requires Inventory Interface Information Injector (I4) 1.1.0 or newer. Install I4 for your Skyrim version and restart the game.";
+        SKSE::log::error("{}",message);MessageBoxA(nullptr,message,"Quickslot",MB_OK|MB_ICONERROR);return false;
+    }
     if(!initializeVROverlay())return false;
     auto* ui=RE::UI::GetSingleton();if(!ui||!RE::BSInputDeviceManager::GetSingleton())return false;
     std::string gameLanguage="english";
@@ -1318,7 +1326,7 @@ void Game::refresh() {
                 if(group.automatic()&&tracksInstance(entry)&&!entry.owner)snapshot_.rows.back().detail=tr("Equip one copy first");
             }
             if(j==group.selected){
-                tile.entry=resolved.row.entry;tile.available=available;tile.equipped=resolved.row.equipped;tile.quantity=resolved.row.quantity;tile.cooldown=resolved.row.cooldown;tile.weapon=resolved.row.weapon;
+                tile.entry=resolved.row.entry;tile.iconEntry=resolved.row.iconEntry;tile.available=available;tile.equipped=resolved.row.equipped;tile.quantity=resolved.row.quantity;tile.cooldown=resolved.row.cooldown;tile.weapon=resolved.row.weapon;
                 tile.voice=isVoice(entry)&&tile.equipped;
                 tile.consumable=i==consumableGroup;
                 if(tile.consumable){snapshot_.equipment.consumable=resolved.row;if(resolved.item.available())snapshot_.equipment.consumable->entry=resolved.action;}

@@ -15,8 +15,4 @@ enum class Icon : unsigned {
     greater_power,
     count
 };
-inline constexpr unsigned iconColumns=8,iconRows=9,iconCell=256;
-inline constexpr unsigned iconCount=unsigned(Icon::count)-1;
-static_assert(iconCount<=iconColumns*iconRows);
-inline constexpr char itemAtlasPath[]="Quickslot/icons/items.png";
 }

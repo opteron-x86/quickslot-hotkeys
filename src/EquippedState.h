@@ -20,7 +20,7 @@ inline unsigned entryHands(const Entry& e,bool equipped) {
     return e.hand==Hand::left?2:1;
 }
 inline bool twoHandedDisplay(const EquippedDisplay& state){return state.hands[0]&&state.hands[0]->entry.twoHanded;}
-inline unsigned equipmentRows(const EquippedDisplay& state){return twoHandedDisplay(state)?3u:4u;}
+inline unsigned equipmentRows(const EquippedDisplay& state,const Options& options={}){return (twoHandedDisplay(state)?3u:4u)+(options.showEquipmentAmmo?1u:0u);}
 inline bool equipmentDimmed(const Row& row){return !row.available||row.powerUsed||row.cooldown>0;}
 inline int compatibleAmmoCount(bool crossbow,std::optional<bool> bolt,int count) {
     return bolt&&*bolt==crossbow?std::max(0,count):0;

@@ -1,5 +1,4 @@
 #include "Assets.h"
-#include "Icons.h"
 #include <algorithm>
 #include <fstream>
 #define STB_IMAGE_IMPLEMENTATION
@@ -22,11 +21,6 @@ ImageAsset loadImageAsset(const std::filesystem::path& path) {
     if(!decoded)return result;
     result.width=w;result.height=h;result.pixels.assign(decoded,decoded+std::size_t(w)*std::size_t(h)*4);
     stbi_image_free(decoded);return result;
-}
-ImageAsset loadItemAtlas(const std::filesystem::path& path) {
-    auto image=loadImageAsset(path);
-    if(image.width!=int(iconColumns*iconCell)||image.height!=int(iconRows*iconCell))return {};
-    return image;
 }
 }
 

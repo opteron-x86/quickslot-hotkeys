@@ -4,6 +4,7 @@
 
 - Display icons from installed Inventory Interface Information Injector (I4) packs. Select I4 under **Appearance → Style → Icon set** and choose Original, Theme or White coloring.
 - Item quantities, ammunition counts and cooldown timers use outlined text.
+- Hotkeys appear as plain text on frames when key artwork is disabled or unavailable.
 
 ## 0.11.0
 

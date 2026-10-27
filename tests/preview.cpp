@@ -254,6 +254,7 @@ int main(int argc,char** argv) {
         for(unsigned i=0;i<45;++i){auto e=editing.catalog[0].entry;e.name="Favorite weapon "+std::to_string(i+1);snapshot.rows.push_back({e,true,false});}
         snapshot.groups[0]={snapshot.rows[27].entry,45,true,false};
     }
+    if(scene.find("text-keys")!=std::string::npos)options.keyIcons=false;
     std::vector<std::string> previewClicks;
     if(scene.starts_with("equipped-")) {
         options.themeId="oathvein";layoutPreset(options,2);options.groupCount=4;options.showEquipment=true;options.inactiveGroups=1;

@@ -201,9 +201,6 @@ struct Paint {
             return;
         }
         const auto label=keyLabel(scan);
-        const float w=std::max(16.f,sans->CalcTextSizeA(12*scale,FLT_MAX,0,label.c_str()).x/scale+8);
-        d->AddRectFilled(p(x-w*.5f,y),p(x+w*.5f,y+16),color(IM_COL32(15,16,17,210)),2*scale);
-        d->AddRect(p(x-w*.5f,y),p(x+w*.5f,y+16),color(selected?ivory:silver),2*scale);
         text(x,y,label,12,selected?ivory:silver,true,0,true);
     }
     void groupKey(float x,float y,std::size_t group,bool selected,bool controller,bool vr,float height=18) {

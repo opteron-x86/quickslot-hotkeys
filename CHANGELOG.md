@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Improved I4 dependency detection, with in-game messages identifying missing plugins or icon APIs.
+- Added detailed logging for missing I4 icons.
 
 ## 0.12.0
 

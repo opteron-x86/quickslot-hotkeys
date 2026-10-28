@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "I4Icons.h"
 #include "InputFilter.h"
+#include "PlayerInput.h"
 #include "GameplayMenus.h"
 #include "Storage.h"
 #include "CallSite.h"
@@ -745,7 +746,7 @@ bool Game::allowed(MenuPurpose purpose,std::optional<bool> controller)const {
     auto* ui=RE::UI::GetSingleton();auto* player=RE::PlayerCharacter::GetSingleton();auto* controls=RE::ControlMap::GetSingleton();
     const auto ownPause=ui?ui->GetMenu(pauseMenuName):nullptr;
     return initialized_&&ready_&&!editor_.open&&ui&&player&&controls&&player->Is3DLoaded()&&!player->IsDead()&&
-        !player->IsInKillMove()&&selectionPauseAllowsInput(ui->numPausesGame,ownPause&&ownPause->PausesGame()&&ui->IsMenuOpen(pauseMenuName))&&ui->IsShowingMenus()&&ui->IsMenuOpen(RE::HUDMenu::MENU_NAME)&&
+        !player->IsInKillMove()&&!playerAIControlled(player)&&selectionPauseAllowsInput(ui->numPausesGame,ownPause&&ownPause->PausesGame()&&ui->IsMenuOpen(pauseMenuName))&&ui->IsShowingMenus()&&ui->IsMenuOpen(RE::HUDMenu::MENU_NAME)&&
         !foreignMenu(ui,purpose==MenuPurpose::editor?MenuPurpose::input:purpose,nullptr,purpose!=MenuPurpose::editor&&quickLootAllowed(controller))&&!frameworkCapturingInput()&&!vrOtherOverlayOpen()&&controls->GetRuntimeData().textEntryCount<=0&&controls->IsMovementControlsEnabled()&&renderHasFocus();
 }
 void Game::selectionTime(bool selecting) {
@@ -908,9 +909,9 @@ bool Game::consumeController(RE::InputEvent* event) {
             stickOwned_[index]=!neutral;return true;
         }
         auto* ui=RE::UI::GetSingleton();
-        const bool menuOpen=ui&&foreignMenu(ui,MenuPurpose::input,nullptr,quickLootAllowed(true));
-        const bool browsing=!menuOpen&&options_.controllerEnabled&&selection_.canBrowse()&&allowed(MenuPurpose::input,true)&&(vr?options_.vrStick:options_.controllerStick)==index;
-        const bool captured=captureGameplayStick(stickOwned_[index],neutral,browsing,menuOpen);
+        const bool inputTaken=playerAIControlled(RE::PlayerCharacter::GetSingleton())||(ui&&foreignMenu(ui,MenuPurpose::input,nullptr,quickLootAllowed(true)));
+        const bool browsing=!inputTaken&&options_.controllerEnabled&&selection_.canBrowse()&&allowed(MenuPurpose::input,true)&&(vr?options_.vrStick:options_.controllerStick)==index;
+        const bool captured=captureGameplayStick(stickOwned_[index],neutral,browsing,inputTaken);
         if(browsing) {
 
             if(!vr)if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
@@ -1066,6 +1067,10 @@ void Game::dispatch(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent**
         if(REL::Module::IsVR())for(auto* event=events?*events:nullptr;event;event=event->next)feedVROverlay(event);
         {
             std::scoped_lock lock(mutex_);
+            if(playerAIControlled(RE::PlayerCharacter::GetSingleton())) {
+                if(editor_.open||editorRequested_||editorLaunch_.pending())closeEditor("player is AI controlled");
+                stickOwned_.fill(false);
+            }
             if(!allowed())cancel();
             if(!REL::Module::IsVR())if(auto* devices=RE::BSInputDeviceManager::GetSingleton();devices&&devices->IsGamepadEnabled())
                 if(auto* pad=devices->GetGamepad())controller_.observe(readPadState(pad));
@@ -1135,7 +1140,7 @@ void Game::tick() {
         if(ready_&&use_.active()&&clockNow()>=nextUsePoll_)progressUse();
         if(editorLaunch_.pending()) {
             auto* ui=RE::UI::GetSingleton();auto* player=RE::PlayerCharacter::GetSingleton();auto* main=RE::Main::GetSingleton();
-            const bool safe=initialized_&&ready_&&ui&&player&&player->Is3DLoaded()&&!player->IsDead()&&!player->IsInKillMove()&&
+            const bool safe=initialized_&&ready_&&ui&&player&&player->Is3DLoaded()&&!player->IsDead()&&!player->IsInKillMove()&&!playerAIControlled(player)&&
                 ui->IsShowingMenus()&&ui->IsMenuOpen(RE::HUDMenu::MENU_NAME)&&!ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME)&&!ui->IsMenuOpen(RE::MainMenu::MENU_NAME)&&renderHasFocus();
             const auto launch=editorLaunch_.poll(clockNow(),safe,allowed(MenuPurpose::editor)&&main&&!main->GetRuntimeData().freezeTime);
             if(launch==EditorLaunch::Result::open)openEditor();
@@ -1177,7 +1182,7 @@ void Game::tick() {
 }
 bool Game::captureMenuOpen()const {
     auto* ui=RE::UI::GetSingleton();auto* player=RE::PlayerCharacter::GetSingleton();auto* controls=RE::ControlMap::GetSingleton();
-    if(!ready_||editor_.open||!ui||!player||!controls||player->IsDead()||!renderHasFocus()||frameworkCapturingInput()||controls->GetRuntimeData().textEntryCount>0)return false;
+    if(!ready_||editor_.open||!ui||!player||!controls||player->IsDead()||playerAIControlled(player)||!renderHasFocus()||frameworkCapturingInput()||controls->GetRuntimeData().textEntryCount>0)return false;
     return (ui->IsMenuOpen(RE::InventoryMenu::MENU_NAME)||ui->IsMenuOpen(RE::MagicMenu::MENU_NAME))&&!foreignMenu(ui,MenuPurpose::capture);
 }
 void Game::menuCapture(std::size_t groupID,Hand hand) {
@@ -1581,6 +1586,7 @@ std::string Game::editorBlockReason()const {
     if(!initialized_||!ready_||!ui||!player||!player->Is3DLoaded())return "game not ready";
     if(player->IsDead())return "player died";
     if(player->IsInKillMove())return "kill move started";
+    if(playerAIControlled(player))return "player is AI controlled";
     if(!ui->IsShowingMenus()||!ui->IsMenuOpen(RE::HUDMenu::MENU_NAME))return "HUD hidden";
     MenuBlocker blocker;
     if(foreignMenu(ui,MenuPurpose::editor,&blocker))return fmt::format("foreign menu '{}' (flags 0x{:08X})",blocker.name,blocker.flags);

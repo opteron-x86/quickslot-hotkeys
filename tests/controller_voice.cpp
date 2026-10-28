@@ -1,5 +1,6 @@
 #include "Controller.h"
 #include "GameplayMenus.h"
+#include "HudMenuState.h"
 #include "InputFilter.h"
 #include "VoiceAction.h"
 #include "Presets.h"
@@ -12,6 +13,26 @@ void check(bool ok,const char* why,std::source_location at=std::source_location:
     if(!ok)throw std::runtime_error(std::string(why)+" at "+std::to_string(at.line()));++checks;
 }
 int main()try {
+    {
+        HudMenuState hud;
+        check(!hud.request(false,false),"The HUD stays off the menu stack before gameplay");
+        check(hud.request(true,false)==true,"Gameplay queues the HUD show message");
+        check(!hud.request(true,false),"Repeated input frames share the pending show message");
+        check(!hud.request(false,false),"Opening a custom menu waits for an already queued HUD show");
+        hud.processed();
+        check(hud.request(false,true)==false,"A late HUD show is followed by a hide while a custom menu owns the screen");
+        check(!hud.request(false,true),"The pending hide is queued once");
+        check(!hud.request(true,true),"Closing the custom menu waits for an already queued HUD hide");
+        hud.processed();
+        check(hud.request(true,false)==true,"A late HUD hide is followed by a show after returning to gameplay");
+        hud.processed();
+        check(!hud.request(true,true),"An open gameplay HUD needs no message");
+        check(hud.request(false,true)==false,"Another interface removes the HUD from the menu stack");
+        hud.processed();
+        check(!hud.request(false,false),"A hidden HUD stays absent while another interface is open");
+        hud.processed();
+        check(hud.request(true,false)==true,"An externally removed HUD can reopen during gameplay");
+    }
     {
         Options controls;ControllerInput input;
         controls.controllerGroups[0]={PadButton::up,PadButton::x};

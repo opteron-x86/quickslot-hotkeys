@@ -73,7 +73,7 @@ class ReleaseTools(unittest.TestCase):
     def test_report_requires_every_probe_and_same_binary_revision(self):
         names = ['plugin', 'runtime_vr', 'smart_equipment', 'shortcut_library', 'interactions',
                  'localization', 'dx_state', 'controller_voice', 'icon', 'live', 'features',
-                 'hand_actions', 'advanced', 'consumable', 'smf']
+                 'hand_actions', 'advanced', 'consumable', 'smf', 'pngii']
         with tempfile.TemporaryDirectory() as tmp:
             dll = Path(tmp) / 'Quickslot.dll'; dll.write_bytes(b'tested-binary')
             state = {'commit': 'a' * 40, 'dirty': False, 'timestamp': 100}

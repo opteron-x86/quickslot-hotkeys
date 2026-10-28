@@ -18,7 +18,7 @@ Requirements:
 
 VR uses SKSEVR, [VR Address Library](https://github.com/alandtse/skyrim_vr_address_library), [SkyUI VR](https://github.com/Odie/skyui-vr), and [ImGui VR Helper 1.9.4+](https://www.nexusmods.com/skyrimspecialedition/mods/183466). VR support is experimental.
 
-Optional integrations include [SKSE Menu Framework](https://www.nexusmods.com/skyrimspecialedition/mods/120352) for its editor entry, ImGui Icons for keycaps, and Skyrim Souls RE for selection slowdown. Physical controller/headset checks are listed in [Testing](docs/TESTING.md).
+Optional integrations include [PNG Icon Injector](https://github.com/rijosan87/PNGII) with icon API v1 for item artwork, [SKSE Menu Framework](https://www.nexusmods.com/skyrimspecialedition/mods/120352) for its editor entry, ImGui Icons for keycaps, and Skyrim Souls RE for selection slowdown. Physical controller/headset checks are listed in [Testing](docs/TESTING.md).
 
 ## Groups
 
@@ -100,11 +100,13 @@ While holding a group, optional **Equip in right/left hand** actions equip the h
 
 ## Appearance
 
-Choose a theme, then customize colors, frames, icon size, text size and spacing. Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Item icon sets and installed ImGui keycaps are selected independently.
+Choose a theme, then customize colors, frames, icon size, text size and spacing. Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Item artwork and installed ImGui keycaps are configured independently.
 
 Use **Key icons** to switch between ImGui key artwork and plain hotkey labels on the frames.
 
 Item icons use the artwork and colors assigned by your installed I4 packs. **Appearance → Style → Icon color** offers **Original**, **Theme** and **White**. Smart shortcuts show the item currently chosen by their rule; combinations show both selected items. Empty-hand and unarmed actions use a gauntlet icon. When a rule has no matching item or its artwork is unavailable, Quickslot uses a SkyUI category icon.
+
+[PNG Icon Injector (PNGII)](https://github.com/rijosan87/PNGII) can supply matching PNG and SVG artwork. Install a PNGII build with icon API v1 and your preferred packs. **Appearance → Style → Use PNGII icons** starts enabled; matching artwork appears in the widget, browser, equipment display and editor preview. I4 supplies icons for the remaining items. **Original** preserves PNGII artwork colors, and **Theme** or **White** tint its silhouette. Restart Skyrim after changing icon packs.
 
 Group layouts include rows, columns, crosses, diamonds and circles. Selectors support horizontal/vertical strips, arcs, rings and lists. **Position** lets you drag outlined elements, adjust X/Y and snap to a grid. Hold Shift for free movement.
 

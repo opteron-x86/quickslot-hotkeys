@@ -313,6 +313,7 @@ int main(int argc,char** argv) {
     if(scene=="editor-controller-keyboard")previewClicks={"Groups##main","Items"};
     if(scene=="editor-controller-position"){editing.options.placementGrid=true;previewClicks={"Appearance","Groups","Position"};}
     if(scene=="editor-layout")previewClicks={"Appearance"};
+    if(scene=="editor-pngii")previewClicks={"Appearance","Style","Use PNGII icons","Use PNGII icons"};
     if(scene=="editor-groups")previewClicks={"Appearance","Groups"};
     if(scene.starts_with("editor-spacing-")) {
         editing.options.themeId="oathvein";editing.options.groupCount=4;layoutPreset(editing.options,1);editing.options.scale=1.5f;

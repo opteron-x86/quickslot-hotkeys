@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Display matching PNG and SVG artwork from PNG Icon Injector in the widget, browser, equipment display and editor preview. Configure **Use PNGII icons** and **Icon color** under **Appearance → Style**. I4 supplies the remaining icons.
+
 ## 0.12.0
 
 - Item icons use Inventory Interface Information Injector (I4) 1.1.0+, a required dependency. Choose Original, Theme or White coloring in Appearance → Style.

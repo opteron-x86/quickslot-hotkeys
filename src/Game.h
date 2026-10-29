@@ -10,6 +10,7 @@
 #include "MenuFramework.h"
 #include "Controller.h"
 #include "GameplayMenus.h"
+#include "HudMenuState.h"
 #include "VoiceAction.h"
 #include <RE/Skyrim.h>
 #include <SKSE/SKSE.h>
@@ -64,7 +65,9 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     void startVoice(const Entry&);
     void progressVoice();
     void stopVoice();
-    bool initialized_=false,ready_=false,dirty_=true,menuRequested_=false;
+    bool initialized_=false,ready_=false,dirty_=true;
+    HudMenuState hudMenu_;
+    double customMenuProbeAt_=0;
     std::atomic_bool tickQueued_{false};
     struct Pending {Selection::Commit commit;double deadline=0;EquipmentPhase phase=EquipmentPhase::equipping;int pairStep=-1;bool remove=false,castVoice=false;std::optional<Entry> action;};
     std::optional<Pending> pending_;
@@ -102,6 +105,7 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     void queueMove(std::size_t target);
     void refresh();
     void publish();
+    void syncHudMenu();
     void cancel();
     void notice(std::string,bool visible=true);
     void tick();

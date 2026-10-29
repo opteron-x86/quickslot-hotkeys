@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Quickslot yields controls to UIExtensions and custom modal menus, including unpaused menus.
+
 ## 0.12.0
 
 - Item icons use Inventory Interface Information Injector (I4) 1.1.0+, a required dependency. Choose Original, Theme or White coloring in Appearance → Style.

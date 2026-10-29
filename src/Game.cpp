@@ -38,7 +38,7 @@ void inputHook(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent** even
 class Menu final : public RuntimeMenu {
 public:
     Menu():RuntimeMenu(menuName) {
-        depthPriority=11;
+        depthPriority=3;
         menuFlags.set(RE::UI_MENU_FLAGS::kAlwaysOpen,RE::UI_MENU_FLAGS::kRequiresUpdate,
                       RE::UI_MENU_FLAGS::kCustomRendering,RE::UI_MENU_FLAGS::kAllowSaving);
     }
@@ -64,12 +64,27 @@ public:
     static RE::IMenu* create(){return new EditorMenu;}
 };
 struct MenuBlocker {std::string name;std::uint32_t flags=0;};
+void logCustomMenu(std::string_view phase) {
+    auto* ui=RE::UI::GetSingleton();if(!ui)return;
+    const auto menu=ui->GetMenu("CustomMenu");
+    if(!menu){log::info("CustomMenu {}: instance absent",phase);return;}
+    const auto& movie=menu->uiMovie;
+    const auto boolean=[&](const char* path) {
+        RE::GFxValue value;
+        if(!movie||!movie->GetVariable(&value,path)||!value.IsBool())return "unavailable";
+        return value.GetBool()?"true":"false";
+    };
+    const auto* definition=movie?movie->GetMovieDef():nullptr;
+    log::info("CustomMenu {}: open={}, movie={}, flags=0x{:08X}, depth={}, paused={}, QuickslotHUD={}, isLoaded={}, traitsVisible={}",
+        phase,menu->OnStack(),definition?definition->GetFileURL():"absent",menu->menuFlags.underlying(),int(menu->depthPriority),
+        ui->GameIsPaused(),ui->IsMenuOpen(menuName),boolean("_root.isLoaded"),boolean("_root.Traits_mc._visible"));
+}
 bool foreignMenu(RE::UI* ui,MenuPurpose purpose=MenuPurpose::input,MenuBlocker* blocker=nullptr,bool allowQuickLoot=false) {
     static_assert(gameplayBlockingMenus==std::array{
         RE::TweenMenu::MENU_NAME,RE::InventoryMenu::MENU_NAME,RE::MagicMenu::MENU_NAME,RE::FavoritesMenu::MENU_NAME,RE::MapMenu::MENU_NAME,RE::StatsMenu::MENU_NAME,RE::JournalMenu::MENU_NAME,
         RE::BookMenu::MENU_NAME,RE::ContainerMenu::MENU_NAME,RE::BarterMenu::MENU_NAME,RE::GiftMenu::MENU_NAME,RE::CraftingMenu::MENU_NAME,RE::SleepWaitMenu::MENU_NAME,
         RE::LockpickingMenu::MENU_NAME,RE::TrainingMenu::MENU_NAME,RE::MessageBoxMenu::MENU_NAME,RE::MainMenu::MENU_NAME,RE::LoadingMenu::MENU_NAME,RE::DialogueMenu::MENU_NAME,
-        RE::Console::MENU_NAME,RE::LevelUpMenu::MENU_NAME,RE::RaceSexMenu::MENU_NAME,std::string_view{"LootMenu"}});
+        RE::Console::MENU_NAME,RE::LevelUpMenu::MENU_NAME,RE::RaceSexMenu::MENU_NAME,std::string_view{"CustomMenu"},std::string_view{"LootMenu"}});
     if(gameplayMenuOpen([&](auto name){
         if(!ui->IsMenuOpen(name))return false;
         if(blocker){blocker->name=name;if(const auto menu=ui->GetMenu(name))blocker->flags=menu->menuFlags.underlying();}
@@ -79,8 +94,10 @@ bool foreignMenu(RE::UI* ui,MenuPurpose purpose=MenuPurpose::input,MenuBlocker* 
     const auto selectionPause=ui->GetMenu(pauseMenuName);
     const auto own=ui->GetMenu(menuName),hud=ui->GetMenu(RE::HUDMenu::MENU_NAME),cursor=ui->GetMenu(RE::CursorMenu::MENU_NAME);
     const auto loot=ignoreQuickLoot(purpose,allowQuickLoot)?ui->GetMenu(quickLootMenuName):nullptr;
+    const auto inventory=ignoreMenu(RE::InventoryMenu::MENU_NAME,purpose)?ui->GetMenu(RE::InventoryMenu::MENU_NAME):nullptr;
+    const auto magic=ignoreMenu(RE::MagicMenu::MENU_NAME,purpose)?ui->GetMenu(RE::MagicMenu::MENU_NAME):nullptr;
     for(const auto& menu:ui->menuStack)
-        if(menu&&menu.get()!=own.get()&&menu.get()!=editor.get()&&menu.get()!=selectionPause.get()&&menu.get()!=hud.get()&&menu.get()!=cursor.get()&&menu.get()!=loot.get()&&
+        if(menu&&menu.get()!=own.get()&&menu.get()!=editor.get()&&menu.get()!=selectionPause.get()&&menu.get()!=hud.get()&&menu.get()!=cursor.get()&&menu.get()!=loot.get()&&menu.get()!=inventory.get()&&menu.get()!=magic.get()&&
            menuFlagsBlock(menu->UsesMenuContext(),menu->UsesCursor(),menu->PausesGame(),menu->Modal(),purpose)) {
             if(blocker) {
                 blocker->name="unregistered";blocker->flags=menu->menuFlags.underlying();
@@ -758,14 +775,21 @@ void Game::publish(){
     if(snapshot_.visible)if(auto* player=RE::PlayerCharacter::GetSingleton()) {
         snapshot_.inCombat=player->IsInCombat();snapshot_.weaponsDrawn=player->AsActorState()->IsWeaponDrawn();
     }
+    syncHudMenu();
+}
+void Game::syncHudMenu() {
+    auto* ui=RE::UI::GetSingleton();auto* queue=RE::UIMessageQueue::GetSingleton();
+    if(!initialized_||!ui||!queue)return;
+    if(const auto visible=hudMenu_.request(snapshot_.visible,ui->IsMenuOpen(menuName)))
+        queue->AddMessage(menuName,*visible?RE::UI_MESSAGE_TYPE::kShow:RE::UI_MESSAGE_TYPE::kHide,nullptr);
 }
 void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
     if(arsenal_.presetIdentity.empty()){GUID id{};if(SUCCEEDED(CoCreateGuid(&id))){char key[40];std::snprintf(key,sizeof(key),"%08lx%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",id.Data1,id.Data2,id.Data3,id.Data4[0],id.Data4[1],id.Data4[2],id.Data4[3],id.Data4[4],id.Data4[5],id.Data4[6],id.Data4[7]);arsenal_.presetIdentity=key;}}
     if(auto* devices=RE::BSInputDeviceManager::GetSingleton())controllerLast_=controllerConnected_=REL::Module::IsVR()||devices->IsGamepadEnabled();
-    revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);dirty_=true;menuRequested_=false;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);}
+    revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);}
 void Game::reset(bool clear) {
     invalidateI4Icons();
-    std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;menuRequested_=false;
+    std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;
     if(clear)arsenal_=Arsenal{};
     snapshot_=Snapshot{};groupRecall_.reset();keyboardOwned_.fill(false);mouseOwned_.fill(false);controller_.reset();stickOwned_.fill(false);nativeVoiceDown_=false;
 }
@@ -1098,6 +1122,10 @@ void Game::tick() {
     std::scoped_lock lock(mutex_);
     flushSettings();
     try {
+        if(customMenuProbeAt_&&clockNow()>=customMenuProbeAt_) {
+            customMenuProbeAt_=0;
+            SKSE::GetTaskInterface()->AddUITask([]{logCustomMenu("settled");});
+        }
         const auto apiCommand=menuAPI().take();
         if(apiCommand==MenuAPIState::Command::close){closeEditor("menu API close request");publish();}
         else if(apiCommand==MenuAPIState::Command::open&&initialized_&&ready_&&!editor_.open&&!editorLaunch_.pending()) {
@@ -1131,9 +1159,6 @@ void Game::tick() {
             if(!allowed(MenuPurpose::hud)){publish();return;}
         }
         auto* ui=RE::UI::GetSingleton();
-        if(!ui->IsMenuOpen(menuName)&&!menuRequested_) {
-            RE::UIMessageQueue::GetSingleton()->AddMessage(menuName,RE::UI_MESSAGE_TYPE::kShow,nullptr);menuRequested_=true;
-        }
         if(inputAllowed) {
             if(voice_.active())progressVoice();
             selection_.tick(clockNow());selectionTime(selection_.browsing());
@@ -1153,8 +1178,7 @@ void Game::tick() {
 bool Game::captureMenuOpen()const {
     auto* ui=RE::UI::GetSingleton();auto* player=RE::PlayerCharacter::GetSingleton();auto* controls=RE::ControlMap::GetSingleton();
     if(!ready_||editor_.open||!ui||!player||!controls||player->IsDead()||!renderHasFocus()||frameworkCapturingInput()||controls->GetRuntimeData().textEntryCount>0)return false;
-    if(ui->IsMenuOpen(RE::Console::MENU_NAME)||ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME)||ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME))return false;
-    return ui->IsMenuOpen(RE::InventoryMenu::MENU_NAME)||ui->IsMenuOpen(RE::MagicMenu::MENU_NAME);
+    return (ui->IsMenuOpen(RE::InventoryMenu::MENU_NAME)||ui->IsMenuOpen(RE::MagicMenu::MENU_NAME))&&!foreignMenu(ui,MenuPurpose::capture);
 }
 void Game::menuCapture(std::size_t groupID,Hand hand) {
     if(!captureMenuOpen()||!groupVisible(options_,groupID))return;
@@ -1540,7 +1564,7 @@ void Game::progressUse() {
 }
 void Game::draw(bool editing) {
     Snapshot snapshot;Options options;EditorState editor;std::vector<EditorInput> input;
-    {std::scoped_lock lock(mutex_);if(!initialized_||editing!=editor_.open)return;snapshot=snapshot_;options=options_;
+    {std::scoped_lock lock(mutex_);if(!initialized_||editing!=editor_.open||(!editing&&!REL::Module::IsVR()&&!allowed(MenuPurpose::hud)))return;snapshot=snapshot_;options=options_;
         if(editing){editor=editor_;input.swap(editorInput_);}}
     if(snapshot.visible||editing||REL::Module::IsVR()) {
         auto commands=renderHud(snapshot,options,editing?&editor:nullptr,input);
@@ -1930,7 +1954,11 @@ RE::BSEventNotifyControl Game::ProcessEvent(const RE::MenuOpenCloseEvent* e,RE::
     std::scoped_lock lock(mutex_);
     if(e) {
         ++menuCaptureEpoch_;
-        if(e->menuName==menuName)menuRequested_=e->opening;
+        if(e->menuName==menuName)hudMenu_.processed();
+        if(e->menuName=="CustomMenu") {
+            logCustomMenu(e->opening?"opened":"closed");
+            customMenuProbeAt_=e->opening?clockNow()+2:0;
+        }
         if(e->menuName==slowMenuName&&e->opening&&(!selection_.browsing()||!allowed()||selectionClock(options_.selectionSpeed)!=SelectionClock::slow)) {
             soulsRequested_=false;RE::UIMessageQueue::GetSingleton()->AddMessage(slowMenuName,RE::UI_MESSAGE_TYPE::kHide,nullptr);
         }

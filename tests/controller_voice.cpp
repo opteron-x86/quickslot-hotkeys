@@ -1,5 +1,6 @@
 #include "Controller.h"
 #include "GameplayMenus.h"
+#include "HudMenuState.h"
 #include "InputFilter.h"
 #include "VoiceAction.h"
 #include "Presets.h"
@@ -12,6 +13,26 @@ void check(bool ok,const char* why,std::source_location at=std::source_location:
     if(!ok)throw std::runtime_error(std::string(why)+" at "+std::to_string(at.line()));++checks;
 }
 int main()try {
+    {
+        HudMenuState hud;
+        check(!hud.request(false,false),"The HUD stays off the menu stack before gameplay");
+        check(hud.request(true,false)==true,"Gameplay queues the HUD show message");
+        check(!hud.request(true,false),"Repeated input frames share the pending show message");
+        check(!hud.request(false,false),"Opening a custom menu waits for an already queued HUD show");
+        hud.processed();
+        check(hud.request(false,true)==false,"A late HUD show is followed by a hide while a custom menu owns the screen");
+        check(!hud.request(false,true),"The pending hide is queued once");
+        check(!hud.request(true,true),"Closing the custom menu waits for an already queued HUD hide");
+        hud.processed();
+        check(hud.request(true,false)==true,"A late HUD hide is followed by a show after returning to gameplay");
+        hud.processed();
+        check(!hud.request(true,true),"An open gameplay HUD needs no message");
+        check(hud.request(false,true)==false,"Another interface removes the HUD from the menu stack");
+        hud.processed();
+        check(!hud.request(false,false),"A hidden HUD stays absent while another interface is open");
+        hud.processed();
+        check(hud.request(true,false)==true,"An externally removed HUD can reopen during gameplay");
+    }
     {
         Options controls;ControllerInput input;
         controls.controllerGroups[0]={PadButton::up,PadButton::x};
@@ -148,16 +169,27 @@ int main()try {
     check(pad.button(PadButton::up,false,false,o,false,true).action==PadAction::none,"A menu opening invalidates the held gesture");
     check(gameplayMenuOpen([](auto name){return name=="LootMenu";}),"QuickLoot owns navigation without pause or menu-context flags");
     check(!menuFlagsBlock(false,true,false,false,MenuPurpose::editor),"Cursor-only text-entry overlay does not dismiss the editor");
-    for(const auto purpose:{MenuPurpose::input,MenuPurpose::hud})
+    for(const auto purpose:{MenuPurpose::input,MenuPurpose::hud,MenuPurpose::capture})
         check(menuFlagsBlock(false,true,false,false,purpose),"Cursor-only overlays still block gameplay controls and the passive HUD");
-    for(const auto purpose:{MenuPurpose::input,MenuPurpose::hud,MenuPurpose::editor}) {
+    for(const auto purpose:{MenuPurpose::input,MenuPurpose::hud,MenuPurpose::editor,MenuPurpose::capture}) {
         check(!menuFlagsBlock(false,false,false,false,purpose),"Passive overlay does not take over an interface");
         check(menuFlagsBlock(true,false,false,false,purpose),"Menu-context owner blocks with no cursor");
         check(menuFlagsBlock(false,false,true,false,purpose),"Paused interface blocks with no cursor");
+        check(menuFlagsBlock(false,false,false,true,purpose),"An unpaused modal menu owns input with keyboard or gamepad");
         check(menuFlagsBlock(true,true,false,false,purpose),"Cursor exception cannot override menu-context ownership");
         check(menuFlagsBlock(false,true,true,false,purpose),"Cursor exception cannot override a paused interface");
     }
     check(menuFlagsBlock(false,true,false,true,MenuPurpose::editor)&&menuFlagsBlock(false,false,false,true,MenuPurpose::editor),"Modal interfaces always dismiss the editor");
+    for(const auto purpose:{MenuPurpose::input,MenuPurpose::hud,MenuPurpose::editor,MenuPurpose::capture})
+        check(gameplayMenuOpen([](auto name){return name=="CustomMenu";},purpose,true),"UIExtensions CustomMenu blocks Quickslot even when its flags are cleared and QuickLoot input is enabled");
+    for(const auto inventory:{"InventoryMenu","MagicMenu"}) {
+        check(!gameplayMenuOpen([&](auto name){return name==inventory;},MenuPurpose::capture),"Inventory and Magic menus permit capturing their selected item");
+        check(ignoreMenu(inventory,MenuPurpose::capture),"Capture exempts its inventory or magic menu from stack flag checks");
+        for(const auto purpose:{MenuPurpose::input,MenuPurpose::hud,MenuPurpose::editor})
+            check(!ignoreMenu(inventory,purpose),"The inventory capture exception is local to capture");
+        for(const auto foreground:gameplayBlockingMenus)if(foreground!="InventoryMenu"&&foreground!="MagicMenu")
+            check(gameplayMenuOpen([&](auto name){return name==inventory||name==foreground;},MenuPurpose::capture,true),"A foreground menu blocks inventory capture even with QuickLoot enabled");
+    }
     for(const auto menu:gameplayBlockingMenus) {
         const auto blocked=gameplayMenuOpen([&](auto name){return name==menu;});
         check(blocked,"Interactive game menus block Quickslot even without pause or context flags");
@@ -174,30 +206,37 @@ int main()try {
         check(navigation.button(PadButton::up,false,false,menuOptions,!blocked,true).action==PadAction::none,"Opening a menu during a held group prevents delayed activation");
     }
     check(!gameplayMenuOpen([](auto name){return name=="HUD Menu"||name=="Quickslot"||name=="QuickslotSelectionPause";}),"HUD and Quickslot's own overlays do not block gameplay");
+    for(const std::string_view foreground:{"LootMenu","CustomMenu","TestModalMenu"})
     for(const auto codes:{PadCodeSet::xinput,PadCodeSet::orbis})for(const auto mode:{GroupMode::browse,GroupMode::cycle}) {
-        Options lootOptions;lootOptions.groupModes[0]=mode;
+        Options menuOptions;menuOptions.groupModes[0]=mode;
         ControllerInput navigation;Selection choosing;Group items;
         Entry sword;sword.form=1;items.add(sword);Entry potion;potion.kind=Kind::potion;potion.form=2;items.add(potion);
-        bool lootOpen=true;
-        const auto allowed=[&]{return !gameplayMenuOpen([&](auto name){return lootOpen&&name=="LootMenu";});};
+        bool menuOpen=true;
+        const auto allowed=[&]{return !gameplayMenuOpen([&](auto name){return menuOpen&&name==foreground;})&&
+            !(menuOpen&&foreground=="TestModalMenu"&&menuFlagsBlock(false,false,false,true));};
         for(unsigned i=1;i<unsigned(PadButton::count);++i) {
             const auto button=padButton(padCodes(codes)[i],codes);
-            const auto down=navigation.button(button,true,true,lootOptions,allowed(),false);
-            const auto repeat=navigation.button(button,true,false,lootOptions,allowed(),false);
-            const auto up=navigation.button(button,false,false,lootOptions,allowed(),false);
-            check(!down.consumed&&!repeat.consumed&&!up.consumed&&down.action==PadAction::none&&repeat.action==PadAction::none&&up.action==PadAction::none,"QuickLoot receives controller presses, repeats and releases in both group modes");
+            const auto down=navigation.button(button,true,true,menuOptions,allowed(),false);
+            const auto repeat=navigation.button(button,true,false,menuOptions,allowed(),false);
+            const auto up=navigation.button(button,false,false,menuOptions,allowed(),false);
+            check(!down.consumed&&!repeat.consumed&&!up.consumed&&down.action==PadAction::none&&repeat.action==PadAction::none&&up.action==PadAction::none,"Foreground menus receive controller presses, repeats and releases in both group modes");
         }
         const auto trigger=padButton(padCodes(codes)[unsigned(PadButton::up)],codes);
-        navigation.button(trigger,true,true,lootOptions,allowed(),false);lootOpen=false;
-        check(navigation.button(trigger,true,false,lootOptions,allowed(),false).action==PadAction::none,"Closing QuickLoot cannot adopt a held navigation button");
-        check(!navigation.button(trigger,false,false,lootOptions,allowed(),false).consumed,"A navigation release still passes through after QuickLoot closes");
-        check(navigation.button(trigger,true,true,lootOptions,allowed(),false).action==PadAction::press,"A fresh press resumes Quickslot after QuickLoot closes");
-        choosing.press(1,items);choosing.cycle(1,items);lootOpen=true;choosing.cancel();navigation.cancel();
-        check(navigation.button(trigger,false,false,lootOptions,allowed(),false).action==PadAction::none&&!choosing.release(items),"QuickLoot opening cancels a held selection without equipment or consumption on release");
-        lootOpen=false;choosing.press(2,items);auto released=choosing.release(items);lootOpen=true;choosing.cancel();
-        check(!choosing.accepts(*released,items),"QuickLoot opening invalidates a released but queued use");
+        navigation.button(trigger,true,true,menuOptions,allowed(),false);menuOpen=false;
+        check(navigation.button(trigger,true,false,menuOptions,allowed(),false).action==PadAction::none,"Closing a menu cannot adopt a held navigation button");
+        check(!navigation.button(trigger,false,false,menuOptions,allowed(),false).consumed,"A navigation release still passes through after the menu closes");
+        check(navigation.button(trigger,true,true,menuOptions,allowed(),false).action==PadAction::press,"A fresh press resumes Quickslot after the menu closes");
+        choosing.press(1,items);choosing.cycle(1,items);menuOpen=true;
+        if(!allowed()){choosing.cancel();navigation.cancel();}
+        const auto release=navigation.button(trigger,false,false,menuOptions,allowed(),false);
+        check(release.consumed&&release.action==PadAction::none&&!navigation.owned(trigger)&&!choosing.release(items),"Opening a menu cancels the selection and balances its owned release");
+        bool stickOwned=true;
+        check(!captureGameplayStick(stickOwned,false,false,!allowed())&&!stickOwned,"The foreground menu receives a previously captured stick immediately");
+        menuOpen=false;choosing.press(2,items);auto released=choosing.release(items);menuOpen=true;
+        if(!allowed())choosing.cancel();
+        check(!choosing.accepts(*released,items),"Opening a menu invalidates a released but queued use");
         auto cycled=choosing.requestCycle(items,0,0);choosing.cancel();
-        check(!choosing.accepts(*cycled,items),"QuickLoot opening invalidates a queued tap-cycle equip");
+        check(!choosing.accepts(*cycled,items),"Opening a menu invalidates a queued tap-cycle equip");
     }
     for(bool keyboard:{false,true})for(bool controller:{false,true}) {
         Options policy;policy.quickLootKeyboard=keyboard;policy.quickLootController=controller;

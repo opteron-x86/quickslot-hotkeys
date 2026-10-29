@@ -34,6 +34,41 @@ int main()try {
         check(hud.request(true,false)==true,"An externally removed HUD can reopen during gameplay");
     }
     {
+        HudMenuState hud;
+        check(!hud.request(false,true,true),"Opening the console keeps an existing HUD on the stack");
+        check(!hud.request(true,false,true),"The console also defers HUD shows until gameplay resumes");
+        check(!hud.request(true,true),"Closing the console keeps an existing HUD without another stack change");
+        check(hud.request(false,true)==false,"A custom menu can still remove the HUD after the console closes");
+        check(hud.accept(false),"HUD transitions proceed while the console is closed");
+        hud.processed();
+        check(!hud.request(false,false),"The HUD remains absent in the custom menu");
+        check(hud.request(true,false)==true,"Closing the custom menu restores the gameplay HUD");
+        hud.processed();
+    }
+    for(const bool show:{false,true}) {
+        HudMenuState hud;
+        const bool onStack=!show;
+        check(hud.request(show,onStack)==show,"A HUD transition can be queued before the console opens");
+        check(!hud.request(false,onStack,true),"The console leaves the pending transition for delivery to resolve");
+        check(!hud.accept(true),"Delivery rejects a queued HUD transition while the console owns its cursor");
+        check(!hud.request(false,onStack,true),"Rejecting a transition does not requeue it while the console is open");
+        check(hud.request(show,onStack)==show,"The rejected transition releases its pending state for retry after closing the console");
+        check(hud.accept(false),"The retried transition can update the HUD stack");
+        hud.processed();
+        check(!hud.request(show,show),"Successful delivery reaches the requested HUD state");
+    }
+    {
+        HudMenuState hud;
+        check(hud.request(false,true)==false,"Opening the editor can queue a HUD hide");
+        check(!hud.accept(true),"Opening the console before that hide arrives cancels it");
+        check(!hud.request(true,true),"Returning to gameplay preserves the HUD when the cancelled hide is no longer needed");
+        check(hud.request(false,true)==false,"A later custom-menu hide is independent of the cancelled message");
+        check(hud.accept(false),"A console that closes before delivery leaves the queued hide valid");
+        hud.processed();
+        check(hud.request(true,false)==true,"Gameplay restores the HUD after a late hide");
+        hud.processed();
+    }
+    {
         Options controls;ControllerInput input;
         controls.controllerGroups[0]={PadButton::up,PadButton::x};
         input.button(PadButton::right,true,true,controls,true,false);

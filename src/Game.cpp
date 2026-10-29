@@ -43,6 +43,11 @@ public:
         menuFlags.set(RE::UI_MENU_FLAGS::kAlwaysOpen,RE::UI_MENU_FLAGS::kRequiresUpdate,
                       RE::UI_MENU_FLAGS::kCustomRendering,RE::UI_MENU_FLAGS::kAllowSaving);
     }
+    RE::UI_MESSAGE_RESULTS ProcessMessage(RE::UIMessage& message)override {
+        if((message.type==RE::UI_MESSAGE_TYPE::kShow||message.type==RE::UI_MESSAGE_TYPE::kHide)&&
+           !Game::get().allowHudMenuTransition())return RE::UI_MESSAGE_RESULTS::kIgnore;
+        return RuntimeMenu::ProcessMessage(message);
+    }
     void PostDisplay()override{if(!REL::Module::IsVR())Game::get().draw();}
     static RE::IMenu* create(){return new Menu;}
 };
@@ -783,8 +788,15 @@ void Game::publish(){
 void Game::syncHudMenu() {
     auto* ui=RE::UI::GetSingleton();auto* queue=RE::UIMessageQueue::GetSingleton();
     if(!initialized_||!ui||!queue)return;
-    if(const auto visible=hudMenu_.request(snapshot_.visible,ui->IsMenuOpen(menuName)))
+    if(const auto visible=hudMenu_.request(snapshot_.visible,ui->IsMenuOpen(menuName),ui->IsMenuOpen(RE::Console::MENU_NAME)))
         queue->AddMessage(menuName,*visible?RE::UI_MESSAGE_TYPE::kShow:RE::UI_MESSAGE_TYPE::kHide,nullptr);
+}
+bool Game::allowHudMenuTransition() {
+    std::scoped_lock lock(mutex_);
+    auto* ui=RE::UI::GetSingleton();
+    // A HUD stack change refreshes Skyrim's cursor using menus below the console's depth.
+    // Check queued transitions too, since the console can open before they are delivered.
+    return hudMenu_.accept(ui&&ui->IsMenuOpen(RE::Console::MENU_NAME));
 }
 void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
     if(arsenal_.presetIdentity.empty()){GUID id{};if(SUCCEEDED(CoCreateGuid(&id))){char key[40];std::snprintf(key,sizeof(key),"%08lx%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",id.Data1,id.Data2,id.Data3,id.Data4[0],id.Data4[1],id.Data4[2],id.Data4[3],id.Data4[4],id.Data4[5],id.Data4[6],id.Data4[7]);arsenal_.presetIdentity=key;}}

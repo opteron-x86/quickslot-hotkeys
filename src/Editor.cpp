@@ -921,11 +921,11 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 for(unsigned i=0;i<options.controllerActions.size();++i)padBinding(options.controllerActions[i],tr(names[i]),100+i);
                 UI::TextWrapped("A button used as an explicit modifier does not also trigger a single-button browsing action. Rebind that action or use a chord.");
                 if(UI::Button("Use bumpers for hands")) {
-                    if(useBumpersForHands(options)){changed=true;hint_.clear();padDrafts_.clear();}
+                    if(useBumpersForHands(options)){changed=true;hint_.clear();std::erase_if(padDrafts_,[](const auto& draft){return draft.first>=100;});}
                     else hint_=tr("Bumpers are used by a group, editor or modifier binding. Choose different hand buttons or rebind those first.");
                 }
                 UI::TextWrapped("Hand actions equip immediately for this use. The bumper preset replaces bumper browsing; the stick can still browse.");
-                if(UI::Button("Reset controller actions")){options.controllerActions=defaultControllerActions;changed=true;padDrafts_.clear();}
+                if(UI::Button("Reset controller actions")){options.controllerActions=defaultControllerActions;changed=true;std::erase_if(padDrafts_,[](const auto& draft){return draft.first>=100;});}
             }
             if(!state.vr&&UI::CollapsingHeader("Modifier buttons")) {
                 for(unsigned b=1;b<unsigned(PadButton::count);++b) {

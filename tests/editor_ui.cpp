@@ -755,8 +755,9 @@ int main(int argc,char** argv)try {
     if(probe::find("##pad button100").empty())click("Browsing actions");
     choosePad("button",100,PadButton::none);choosePad("modifier",100,PadButton::lt);choosePad("button",100,PadButton::x);
     check(state.options.controllerActions[0]==PadBinding{PadButton::x,PadButton::lt},"Browsing actions accept modifier-first chords");
-    choosePad("modifier",100,PadButton::x);click("Reset controller actions");
+    choosePad("modifier",2,PadButton::y);choosePad("modifier",100,PadButton::x);click("Reset controller actions");
     check(state.options.controllerActions==defaultControllerActions&&probe::find("Cancel##pad draft100").empty(),"Reset clears pending action edits and restores defaults");
+    check(!probe::find("Cancel##pad draft2").empty()&&state.options.controllerGroups[2]==PadBinding{PadButton::y,PadButton::x},"Resetting browsing actions preserves unfinished group edits");
     choosePad("modifier",2,PadButton::y);click("Close");check(!state.open,"Closing with an unfinished binding succeeds");
     state=fixture::editor();state.session=session++;frame();frame();click("Controls");click("Controller");
     check(probe::find("Cancel##pad draft2").empty(),"Reopening discards unfinished binding edits");

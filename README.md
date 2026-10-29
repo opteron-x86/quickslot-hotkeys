@@ -16,7 +16,7 @@ Requirements:
 - [Inventory Interface Information Injector (I4) 1.1.0+](https://www.nexusmods.com/skyrimspecialedition/mods/85702) for your Skyrim version.
 - Microsoft Visual C++ Redistributable, x64.
 
-**Skyrim 1.5.97:** Icon rendering compatibility is provisional. If icons remain blank, use [Quickslot 0.11.0](https://github.com/opteron-x86/quickslot-hotkeys/releases/tag/v0.11.0) and report the problem in [issue #25](https://github.com/opteron-x86/quickslot-hotkeys/issues/25).
+**Skyrim 1.5.97:** Install Fuzzles' I4 port for this runtime.
 
 VR uses SKSEVR, [VR Address Library](https://github.com/alandtse/skyrim_vr_address_library), [SkyUI VR](https://github.com/Odie/skyui-vr), and [ImGui VR Helper 1.9.4+](https://www.nexusmods.com/skyrimspecialedition/mods/183466). VR support is experimental.
 

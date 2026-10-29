@@ -11,7 +11,7 @@
 - Quickslot yields controls and hides its HUD during scenes that take control of the player, including OStim. Controls resume when the scene returns control to the player.
 - Display matching PNG and SVG artwork from PNG Icon Injector in the widget, browser, equipment display and editor preview. Configure **Use PNGII icons** and **Icon color** under **Appearance → Style**. I4 supplies the remaining icons.
 
-**Skyrim 1.5.97:** Icon rendering compatibility is provisional. If icons remain blank, use [Quickslot 0.11.0](https://github.com/opteron-x86/quickslot-hotkeys/releases/tag/v0.11.0) and report the problem in [issue #25](https://github.com/opteron-x86/quickslot-hotkeys/issues/25).
+**Skyrim 1.5.97:** I4 icons display with Fuzzles' I4 port.
 
 ## 0.12.0
 

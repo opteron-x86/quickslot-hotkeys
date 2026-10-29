@@ -41,3 +41,9 @@ Install [Inventory Interface Information Injector (I4) 1.1.0+](https://www.nexus
 Smart shortcuts use the artwork assigned to the item they currently select. Combinations display both selected items. Empty-hand and unarmed actions use SkyUI's `armor_hands` gauntlet. A rule with no matching item uses its SkyUI category icon.
 
 I4 packs configure the artwork for inventory items and spells through I4's JSON rules. Quickslot reads each assignment through I4's public API. An unavailable SWF or frame uses the item's SkyUI category icon. Restart Skyrim after changing icon packs.
+
+## PNGII icons
+
+Install [PNG Icon Injector](https://github.com/rijosan87/PNGII) with icon API v1 and enable **Appearance → Style → Use PNGII icons**. PNGII's item and spell rules choose PNG or SVG artwork using the item's FormID, keywords, plugin and resolved I4 label. Quickslot loads the selected image from loose files or a loaded BSA. I4 supplies artwork when a rule has no match or an image is unavailable.
+
+Artwork fits the icon area with its aspect ratio and transparency preserved. **Original** shows the image's colors. **Theme** and **White** apply the chosen tint. Smart shortcuts query their selected item, combinations show each selected item's artwork, and empty-hand actions use the `armor_hands` label for PNGII matching. Restart Skyrim after changing PNGII rules or images.

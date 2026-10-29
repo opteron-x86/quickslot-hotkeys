@@ -41,7 +41,7 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 ./build/native/quickslot_preview .
 ```
 
-The native preview exercises HUD layout with transparent fixture artwork. In-game checks cover I4 assignments and SWF rendering.
+The native preview exercises HUD layout with transparent fixture artwork. PNGII tests cover API discovery, image decoding, GPU uploads and save transitions. In-game checks cover I4 assignments, SWF rendering and PNGII artwork from installed packs. The source archive includes LunaSVG 3.5.0 and its bundled PlutoVG renderer for SVG icons.
 
 ## Linux cross-compilation
 

@@ -28,6 +28,7 @@ public:
     void setTheme(const std::string& id,ImTextureID texture){skins_[id].texture=texture;}
     const Themes& themes()const{return themes_;}
     ImFont* bodyFont(const Options& o)const{const auto it=skins_.find(themes_.get(o.themeId).id);return it==skins_.end()||!it->second.body?sans:it->second.body;}
+    EquipmentMetrics equipmentMetrics(const EquippedDisplay&,const Options&)const;
     void setKeys(ImTextureID texture,const KeyGlyphs& glyphs){keyTexture=texture;keyGlyphs=glyphs;}
     void draw(const Snapshot& snapshot,const Options& options,double now,ImVec2 origin={0,0},ImVec2 size={0,0},ImDrawList* list=nullptr,HudBounds* bounds=nullptr);
 };

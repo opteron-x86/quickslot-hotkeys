@@ -18,7 +18,7 @@ Requirements:
 
 VR uses SKSEVR, [VR Address Library](https://github.com/alandtse/skyrim_vr_address_library), [SkyUI VR](https://github.com/Odie/skyui-vr), and [ImGui VR Helper 1.9.4+](https://www.nexusmods.com/skyrimspecialedition/mods/183466). VR support is experimental.
 
-Optional integrations include [SKSE Menu Framework](https://www.nexusmods.com/skyrimspecialedition/mods/120352) for its editor entry, ImGui Icons for keycaps, and Skyrim Souls RE for selection slowdown. Physical controller/headset checks are listed in [Testing](docs/TESTING.md).
+Optional integrations include [PNG Icon Injector](https://github.com/rijosan87/PNGII) with icon API v1 for item artwork, [SKSE Menu Framework](https://www.nexusmods.com/skyrimspecialedition/mods/120352) for its editor entry, ImGui Icons for keycaps, and Skyrim Souls RE for selection slowdown. Physical controller/headset checks are listed in [Testing](docs/TESTING.md).
 
 ## Groups
 
@@ -100,19 +100,25 @@ While holding a group, optional **Equip in right/left hand** actions equip the h
 
 ## Appearance
 
-Choose a theme, then customize colors, frames, icon size, text size and spacing. Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Item icon sets and installed ImGui keycaps are selected independently.
+Choose a theme, then customize colors, frames, icon size, text size and spacing. Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Item artwork and installed ImGui keycaps are configured independently.
 
 Use **Key icons** to switch between ImGui key artwork and plain hotkey labels on the frames.
 
 Item icons use the artwork and colors assigned by your installed I4 packs. **Appearance → Style → Icon color** offers **Original**, **Theme** and **White**. Smart shortcuts show the item currently chosen by their rule; combinations show both selected items. Empty-hand and unarmed actions use a gauntlet icon. When a rule has no matching item or its artwork is unavailable, Quickslot uses a SkyUI category icon.
 
-Group layouts include rows, columns, crosses, diamonds and circles. Selectors support horizontal/vertical strips, arcs, rings and lists. **Position** lets you drag outlined elements, adjust X/Y and snap to a grid. Hold Shift for free movement.
+[PNG Icon Injector (PNGII)](https://github.com/rijosan87/PNGII) can supply matching PNG and SVG artwork. Install a PNGII build with icon API v1 and your preferred packs. **Appearance → Style → Use PNGII icons** starts enabled; matching artwork appears in the widget, browser, equipment display and editor preview. I4 supplies icons for the remaining items. **Original** preserves PNGII artwork colors, and **Theme** or **White** tint its silhouette. Restart Skyrim after changing icon packs.
 
-**Appearance → Equipment** shows the right hand, left hand, selected consumable and power/shout. Two-handed equipment uses one entry. Choose list, circle, diamond, square or text layouts, with independent scale, spacing and placement. Quantities and shout timers appear on icons; spent powers dim. Enable **Show equipped ammunition** to add an entry with the equipped arrows or bolts and their current count. This option starts off and also supports text-only layouts. **Show bow ammunition** controls the count on bow and crossbow icons.
+Groups and equipment support horizontal, vertical, diamond, cross, circle and staggered-cross arrangements. **Cross layout**, **Diamond layout** and **Circle layout** apply matching arrangements and frame shapes. Selectors support horizontal/vertical strips, arcs, rings and lists. **Position** lets you drag outlined elements, adjust X/Y and snap to a grid. Hold Shift for free movement.
+
+**Spacing** uses a 0–128 numeric gap for groups, selectors and equipment. Zero brings neighboring frames together; higher values open up the layout. Equipment names occupy their measured width, and spacing adds a gap after the visible content. Gaps scale with their display. In the preview, **Zoom** controls magnification and **Fit preview** fits the current arrangement into the panel.
+
+**Appearance → Equipment** shows the right hand, left hand, selected consumable and power/shout. Two-handed equipment uses one entry. Choose list, circle, diamond, square or text styles, with independent arrangement, scale, spacing and placement. **Show equipment names** adds labels to circle, diamond and square tiles, with text above, below, left or right. Equipment layout presets show compact tiles. Quantities and shout timers appear on icons; spent powers dim. Enable **Show equipped ammunition** to add an entry with the equipped arrows or bolts and their current count. This option starts off and also supports text-only layouts. **Show bow ammunition** controls the count on bow and crossbow icons.
 
 Poisoned weapons display a green droplet. Bows and crossbows display the equipped arrow or bolt count. These indicators also appear on smart weapon shortcuts. Both indicators can be disabled under **Appearance → Style**.
 
 Groups and equipment have independent visibility settings. Choose always visible, idle fading or hiding where available, and configure combat/drawn-weapon visibility. QuickLoot receives input while the HUD follows its normal visibility settings. Full menus take input and hide the HUD.
+
+Scenes that take control of the player, including OStim, receive keyboard and controller input while Quickslot's HUD is hidden. Quickslot cancels any active selection and resumes when the scene returns control to the player.
 
 See [Theme and icon packs](THEMES.md) for customization files.
 

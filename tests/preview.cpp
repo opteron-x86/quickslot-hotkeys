@@ -286,18 +286,18 @@ int main(int argc,char** argv) {
         if(scene.find("diamond")!=std::string::npos)options.equipmentStyle=2;
         if(scene.find("square")!=std::string::npos)options.equipmentStyle=3;
         if(scene.find("text")!=std::string::npos)options.equipmentStyle=4;
-        if(scene.find("horizontal")!=std::string::npos)options.equipmentLayout=1;
+        if(scene.find("horizontal")!=std::string::npos)options.equipmentLayout=0;
         if(scene.find("top")!=std::string::npos)options.equipmentTextPosition=0;
         if(scene.find("bottom")!=std::string::npos)options.equipmentTextPosition=1;
         if(scene.find("left")!=std::string::npos)options.equipmentTextPosition=2;
         if(scene.find("only")!=std::string::npos)options.showIdle=false;
         if(scene.find("tight")!=std::string::npos)options.equipmentSpacing=0;
-        if(scene.find("loose")!=std::string::npos)options.equipmentSpacing=4;
+        if(scene.find("loose")!=std::string::npos)options.equipmentSpacing=128;
         if(scene.find("faded")!=std::string::npos){options.equipmentDim=true;options.equipmentFadeDelay=0;}
         if(scene.find("used")!=std::string::npos)snapshot.equipment.voice=Row{editing.catalog[14].entry,true,true,{},0,0,true};
     }
     if(scene=="editor-equipped"){editing.options.showEquipment=true;editing.options.themeId="oathvein";previewClicks={"Appearance","Equipment"};}
-    if(scene=="editor-equipped-spacing"){editing.options.showEquipment=true;editing.options.themeId="oathvein";editing.options.equipmentStyle=1;editing.options.equipmentSpacing=4;previewClicks={"Appearance","Equipment"};}
+    if(scene=="editor-equipped-spacing"){editing.options.showEquipment=true;editing.options.themeId="oathvein";editing.options.equipmentStyle=1;editing.options.equipmentSpacing=128;previewClicks={"Appearance","Equipment"};}
     if(scene=="editor-equipped-layout"){editing.options.showEquipment=true;editing.options.themeId="oathvein";previewClicks={"Appearance","Equipment","##equipment style","Circles","##equipment layout","Horizontal","##equipment text","Bottom"};}
     if(scene=="editor-cycle")previewClicks={"##group mode"};
     if(scene=="editor-library")previewClicks={"##filter","Shortcuts"};
@@ -313,12 +313,31 @@ int main(int argc,char** argv) {
     if(scene=="editor-controller-keyboard")previewClicks={"Groups##main","Items"};
     if(scene=="editor-controller-position"){editing.options.placementGrid=true;previewClicks={"Appearance","Groups","Position"};}
     if(scene=="editor-layout")previewClicks={"Appearance"};
+    if(scene=="editor-pngii")previewClicks={"Appearance","Style","Use PNGII icons","Use PNGII icons"};
     if(scene=="editor-groups")previewClicks={"Appearance","Groups"};
     if(scene.starts_with("editor-spacing-")) {
         editing.options.themeId="oathvein";editing.options.groupCount=4;layoutPreset(editing.options,1);editing.options.scale=1.5f;
         editing.options.spacing=scene.find("loose")!=std::string::npos?40:0;previewClicks={"Appearance","Groups"};
         if(scene.find("circles")!=std::string::npos){editing.options.shape=1;editing.options.layout=4;}
         if(scene.find("cross")!=std::string::npos){editing.options.shape=2;editing.options.layout=5;}
+    }
+    if(scene.starts_with("editor-gap-")) {
+        auto& o=editing.options;o.themeId="oathvein";o.groupCount=4;layoutPreset(o,1);o.scale=1.35f;
+        const float gap=scene.find("loose")!=std::string::npos?128.f:scene.find("medium")!=std::string::npos?32.f:0.f;
+        o.spacing=o.selectorSpacing=o.equipmentSpacing=gap;
+        if(scene.find("equipment")!=std::string::npos) {
+            o.showEquipment=o.showEquipmentAmmo=true;o.equipmentStyle=3;o.equipmentLayout=scene.find("vertical")!=std::string::npos?1u:0u;
+            o.equipmentTextPosition=3;o.equipmentScale=1.35f;o.equipmentTextScale=1.5f;
+            if(scene.find("diamond")!=std::string::npos){equipmentLayoutPreset(o,1);o.equipmentSpacing=gap;}
+            if(scene.find("circle")!=std::string::npos){equipmentLayoutPreset(o,2);o.equipmentSpacing=gap;}
+            if(scene.find("cross")!=std::string::npos){equipmentLayoutPreset(o,0);o.equipmentSpacing=gap;}
+            if(editing.equippedDisplay.hands[0])editing.equippedDisplay.hands[0]->entry.twoHanded=true;
+            previewClicks={"Appearance","Equipment"};
+        } else if(scene.find("selector")!=std::string::npos)previewClicks={"Appearance","Selector"};
+        else {
+            if(scene.find("horizontal")!=std::string::npos){o.layout=0;o.shape=2;}
+            previewClicks={"Appearance","Groups"};
+        }
     }
     if(scene=="editor-selector")previewClicks={"Appearance","Selector"};
     if(scene=="editor-position-grid"||scene=="editor-position-bounds"||scene=="editor-position-custom")previewClicks={"Appearance","Position"};

@@ -133,6 +133,7 @@ public:
     void dispatch(RE::BSTEventSource<RE::InputEvent*>*,RE::InputEvent**);
     void draw(bool editor=false);
     void drawVR();
+    bool allowHudMenuTransition();
     void rendererFailed();
     FrameworkStatus frameworkStatus();
     bool requestEditorFromFramework();

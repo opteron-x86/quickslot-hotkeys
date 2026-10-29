@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Preserve Skyrim's mouse pointer when opening the console.
+
 ## 0.13.0
 
 - Improved compatibility with I4 ports, with in-game dependency messages and detailed missing-icon logs.

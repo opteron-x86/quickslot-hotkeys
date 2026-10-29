@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Smart Potions recognize restoration potions from Apothecary and CACO and use the effects active for your character when choosing a potion.
+
 ## 0.13.1
 
 - Skyrim's console keeps its mouse pointer when opened during gameplay or after using the Quickslot editor.

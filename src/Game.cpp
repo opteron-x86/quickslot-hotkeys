@@ -286,25 +286,23 @@ std::optional<Hand> occupiedHand(RE::PlayerCharacter* player,Hand hand) {
     return handClearTarget(hands,hand);
 }
 std::vector<PotionCandidate> potionCandidates(const RE::TESObjectREFR::InventoryItemMap& inventory) {
+    static_assert(unsigned(PotionArchetype::valueModifier)==unsigned(RE::EffectArchetype::kValueModifier));
+    static_assert(unsigned(PotionArchetype::peakValueModifier)==unsigned(RE::EffectArchetype::kPeakValueModifier));
+    static_assert(unsigned(PotionValue::health)==unsigned(RE::ActorValue::kHealth)&&unsigned(PotionValue::magicka)==unsigned(RE::ActorValue::kMagicka)&&unsigned(PotionValue::stamina)==unsigned(RE::ActorValue::kStamina));
+    static_assert(unsigned(PotionValue::healthRate)==unsigned(RE::ActorValue::kHealRateMult)&&unsigned(PotionValue::magickaRate)==unsigned(RE::ActorValue::kMagickaRateMult)&&unsigned(PotionValue::staminaRate)==unsigned(RE::ActorValue::kStaminaRateMult));
     std::vector<PotionCandidate> result;
+    auto* player=RE::PlayerCharacter::GetSingleton();
+    const auto applies=[&](const RE::TESCondition& conditions){return !conditions.head||(player&&conditions.IsTrue(player,player));};
     for(const auto& [object,data]:inventory) {
         auto* potion=object->As<RE::AlchemyItem>();if(!potion||data.first<=0||potion->IsFood()||potion->IsPoison())continue;
         PotionCandidate c;c.entry.form=object->GetFormID();identify(object,c.entry);c.entry.name=gameName(object->GetName());c.count=data.first;
         for(const auto* effect:potion->effects) {
-            if(!effect||!effect->baseEffect||effect->baseEffect->IsDetrimental()||!std::isfinite(effect->effectItem.magnitude)||effect->effectItem.magnitude<=0)continue;
+            if(!effect||!effect->baseEffect)continue;
             const auto& base=effect->baseEffect->data;
             if(base.archetype!=RE::EffectArchetype::kValueModifier&&base.archetype!=RE::EffectArchetype::kPeakValueModifier)continue;
-            const float magnitude=effect->effectItem.magnitude;
-            unsigned resource=3;
-            switch(base.primaryAV){case RE::ActorValue::kHealth:resource=0;break;case RE::ActorValue::kMagicka:resource=1;break;case RE::ActorValue::kStamina:resource=2;break;default:break;}
-
-            if(resource<3&&base.archetype==RE::EffectArchetype::kValueModifier&&!base.flags.all(RE::EffectSetting::EffectSettingData::Flag::kRecover))
-                c.restore[resource]+=magnitude*float(std::max(1u,effect->effectItem.duration));
-            resource=3;
-            switch(base.primaryAV){
-            case RE::ActorValue::kHealRateMult:resource=0;break;case RE::ActorValue::kMagickaRateMult:resource=1;break;case RE::ActorValue::kStaminaRateMult:resource=2;break;default:break;}
-
-            if(resource<3)c.regeneration[resource]=std::max(c.regeneration[resource],magnitude);
+            addPotionEffect(c,{PotionArchetype(base.archetype),PotionValue(base.primaryAV),effect->effectItem.magnitude,effect->effectItem.duration,
+                base.flags.all(RE::EffectSetting::EffectSettingData::Flag::kRecover),effect->baseEffect->IsDetrimental(),
+                applies(effect->conditions)&&applies(effect->baseEffect->conditions)});
         }
         result.push_back(std::move(c));
     }

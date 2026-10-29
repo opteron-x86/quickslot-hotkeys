@@ -41,6 +41,8 @@ Groups containing consumables use tap-to-use and hold-to-choose. Browsing a poti
 
 Smart weapons rank by physical damage, including tempering and player modifiers. Smart shields rank by armor; smart ammo ranks by damage. Smart potions offer strongest, weakest and best fit for missing health, magicka or stamina. Regeneration potions offer strongest or weakest.
 
+Smart Potions recognize restoration and regeneration by their effects, including Apothecary and CACO potions. Restoration estimates include the effect's duration and conditions for your character. Use exclusions to reserve particular potions.
+
 Weapons, armor and shields follow the captured copy. Torches and consumables follow inventory stock of their saved type. Unavailable entries remain in the group for retrieval or restocking.
 
 In the group editor, change **Manual** to a Favorites category to populate the group from Skyrim Favorites. Categories include weapons, spells, potions, poisons, food, ammo, scrolls, powers/shouts, shields/torches, or all supported favorites. Generated groups show all matching entries in alphabetical order and use a configurable default hand, subject to normal equipment restrictions. Manual groups retain their 16-item limit.

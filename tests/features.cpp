@@ -7,7 +7,9 @@ using namespace quickslot;
 unsigned checks=0;
 void check(bool ok,const char* message){if(!ok)throw std::runtime_error(message);++checks;}
 template<class F> void rejects(F action,const char* message){bool failed=false;try{action();}catch(const std::exception&){failed=true;}check(failed,message);}
+#include "spacing_checks.h"
 int main()try {
+    spacing_test::run();
     const auto identity=[](std::uint32_t old,std::uint32_t& mapped){mapped=old;return true;};
     Entry ammo;ammo.form=0x123;ammo.name="Steel Arrow";ammo.kind=Kind::ammo;
     check(isStack(ammo)&&isInventory(ammo)&&!isConsumable(ammo)&&!tracksInstance(ammo),"Ammo is nonconsuming stack equipment");
@@ -140,11 +142,12 @@ int main()try {
             Options tight;tight.layout=layout;tight.shape=shape;tight.groupCount=count;tight.showLabels=labels;tight.scale=scale;tight.spacing=0;tight.selectorSpacing=0;
             auto loose=tight;loose.spacing=40;loose.selectorSpacing=32;
             const auto checkSpacing=[&](const HudGeometry& a,const HudGeometry& b) {
-                check(sameSize(a.scale,b.scale)&&sameSize(a.groups.tileWidth*a.scale,b.groups.tileWidth*b.scale)&&sameSize(a.groups.tileHeight*a.scale,b.groups.tileHeight*b.scale),"Spacing must preserve physical group icon/frame size");
+                check(sameSize(a.groups.tileWidth,b.groups.tileWidth)&&sameSize(a.groups.tileHeight,b.groups.tileHeight),"Spacing preserves logical group frame size");
+                check(b.scale<=a.scale+.001f,"Fitting a wider layout never enlarges its icons");
                 if(count>1) {
-                    const auto distance=[](const HudGeometry& g){const auto a=g.groups.tiles[0],b=g.groups.tiles[1];return std::hypot(a.x-b.x,a.y-b.y)*g.scale;};
+                    const auto distance=[](const HudGeometry& g){const auto a=g.groups.tiles[0],b=g.groups.tiles[1];return std::hypot(a.x-b.x,a.y-b.y);};
                     check(distance(b)>distance(a),"Spacing must increase actual separation between group icons");
-                }else check(sameSize(a.width*a.scale,b.width*b.scale)&&sameSize(a.height*a.scale,b.height*b.scale),"Single group ignores spacing");
+                }else check(sameSize(a.width,b.width)&&sameSize(a.height,b.height),"Single group ignores spacing");
             };
             checkSpacing(hudGeometry(tight,screen.x,screen.y),hudGeometry(loose,screen.x,screen.y));
             for(bool browsing:{false,true})for(unsigned dock:{0u,2u,4u}) {
@@ -156,12 +159,12 @@ int main()try {
         }
     for(unsigned selector=0;selector<5;++selector) {
         Options tight;tight.selector=selector;tight.selectorSpacing=0;auto loose=tight;loose.selectorSpacing=32;
-        const auto a=previewGeometry(tight,1920,1080,600,440,true,false),b=previewGeometry(loose,1920,1080,600,440,true,false);
+        const auto a=previewGeometry(tight,1920,1080,600,440,true,false,false,4,{},5,1),b=previewGeometry(loose,1920,1080,600,440,true,false,false,4,{},5,1);
         check(sameSize(a.scale,b.scale),"Selector spacing cannot resize its preview icons");
     }
     Options resized;resized.shape=3;resized.layout=2;resized.groupCount=4;resized.showLabels=false;resized.scale=.75f;
-    const auto smaller=previewGeometry(resized,1920,1080,600,440,false);resized.scale=1.5f;
-    const auto larger=previewGeometry(resized,1920,1080,600,440,false);
+    const auto smaller=previewGeometry(resized,1920,1080,600,440,false,true,false,4,{},5,1);resized.scale=1.5f;
+    const auto larger=previewGeometry(resized,1920,1080,600,440,false,true,false,4,{},5,1);
     check(larger.scale>smaller.scale*1.9f,"Widget scale changes icon size in the preview");
     std::cout<<"PASS: "<<checks<<" preset, ammo, feedback, fixed editor, grid and preview checks\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

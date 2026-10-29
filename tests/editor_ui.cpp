@@ -703,6 +703,10 @@ int main(int argc,char** argv)try {
     click("Reset keyboard actions");check(state.options.mouseActions==defaultMouseActions,"Reset restores legacy mouse cancellation");key(1);
 
     click("General");io.DisplaySize={1280,720};frame();frame();
+    check(state.options.cycleKeepOtherHand,"Cycling protection starts checked in the editor");
+    click("Keep the other hand equipped while cycling");
+    check(!state.options.cycleKeepOtherHand&&!decodeOptions(encodeOptions(state.options)).cycleKeepOtherHand,"Cycling protection can be disabled and saved through the editor");
+    click("Undo");check(state.options.cycleKeepOtherHand,"Undo restores cycling protection");
     click("Allow keyboard / mouse while QuickLoot is open");
     check(state.options.quickLootKeyboard&&!state.options.quickLootController,"QuickLoot keyboard allowance leaves controller navigation alone");
     click("Allow controller while QuickLoot is open");

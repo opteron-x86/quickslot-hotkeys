@@ -3,7 +3,9 @@
 #include "Editor.h"
 #include "DXIsolation.h"
 #include "Assets.h"
-#include "IconPacks.h"
+#include "I4Icons.h"
+#include "I4Policy.h"
+#include "PNGIIIcons.h"
 #include "VROverlay.h"
 #include <imgui_impl_dx11.h>
 #include <windows.h>
@@ -19,8 +21,9 @@ std::atomic<HWND> gameWindow{nullptr};
 struct Graphics {
     ImGuiContext* imgui=nullptr;ID3D11Device* device=nullptr;
     std::unique_ptr<preview::DXIsolation> isolation;
+    std::unique_ptr<I4Icons> i4;
+    std::unique_ptr<PNGIIIcons> pngii;
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> keyTexture;
-    std::map<std::string,Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> iconTextures;
     std::map<std::string,Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> themeTextures;
     Hud hud;Editor editor;bool backend=false;double previous=0;
     ~Graphics() {
@@ -34,6 +37,20 @@ struct Graphics {
         if(FAILED(swap->GetDesc(&desc))||!desc.OutputWindow)throw std::runtime_error("Cannot locate game window");
         gameWindow=desc.OutputWindow;device=d;
         isolation=std::make_unique<preview::DXIsolation>(d,c);
+        i4=std::make_unique<I4Icons>(d,c);
+        pngii=std::make_unique<PNGIIIcons>(d,[](const std::string& path) {
+            auto resource=path;std::replace(resource.begin(),resource.end(),'/','\\');
+            RE::BSResourceNiBinaryStream stream(resource);
+            if(!stream.good()||!stream.stream||!stream.stream->totalSize||stream.stream->totalSize>16*1024*1024)return std::vector<unsigned char>{};
+            std::vector<unsigned char> bytes(stream.stream->totalSize);
+            if(!stream.read(bytes.data(),unsigned(bytes.size())))bytes.clear();
+            return bytes;
+        },[](std::string_view message){SKSE::log::info("{}",message);},[](std::function<void()> task){SKSE::GetTaskInterface()->AddUITask(std::move(task));});
+        hud.setItemIconProvider([this](const Entry& entry){
+            auto fallback=i4->find(entry);
+            if(const auto label=i4->label(entry))if(auto icon=pngii->find(i4HasForm(entry)?entry.form:0,*label))return icon;
+            return fallback;
+        });
         IMGUI_CHECKVERSION();imgui=ImGui::CreateContext();ImGui::SetCurrentContext(imgui);
         auto& io=ImGui::GetIO();io.IniFilename=nullptr;io.LogFilename=nullptr;
         io.ConfigFlags|=ImGuiConfigFlags_NoMouseCursorChange;io.MouseDrawCursor=false;
@@ -48,11 +65,6 @@ struct Graphics {
             Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
             return SUCCEEDED(d->CreateTexture2D(&textureDesc,&pixels,&texture))&&SUCCEEDED(d->CreateShaderResourceView(texture.Get(),nullptr,&view));
         };
-        for(const auto& pack:loadIconPacks(dataDirectory()/"Quickslot/icons")) {
-            const auto atlas=loadItemAtlas(pack.atlas);auto& view=iconTextures[pack.id];
-            if(upload(atlas,view))hud.setIcons(pack.id,pack.name,reinterpret_cast<ImTextureID>(view.Get()));
-            else SKSE::log::warn("Icon pack {} unavailable",pack.id);
-        }
         for(const auto& theme:hud.themes().all())if(!theme.atlas.empty()) {
             const auto image=loadImageAsset(theme.atlas);auto& view=themeTextures[theme.id];
             if(image.width==1024&&image.height==320&&upload(image,view))hud.setTheme(theme.id,reinterpret_cast<ImTextureID>(view.Get()));
@@ -61,8 +73,7 @@ struct Graphics {
         for(const auto& warning:hud.themes().warnings())SKSE::log::warn("Theme pack: {}",warning);
         const auto keys=loadKeyAtlas(dataDirectory()/"Interface/ImGuiIcons/Icons");
         if(upload(keys.image,keyTexture))hud.setKeys(reinterpret_cast<ImTextureID>(keyTexture.Get()),keys.glyphs);
-        SKSE::log::info("Quickslot HUD assets: item atlas {}, theme packs {}, ImGui key glyphs {}",bool(iconTextures["quickslot"]),hud.themes().all().size(),keyTexture?keys.loaded:0);
-        if(!iconTextures["quickslot"])SKSE::log::warn("Quickslot icon atlas unavailable; using fallback glyphs");
+        SKSE::log::info("Quickslot HUD assets: I4 item icons, theme packs {}, ImGui key glyphs {}",hud.themes().all().size(),keyTexture?keys.loaded:0);
         backend=ImGui_ImplDX11_Init(d,c);if(!backend)throw std::runtime_error("D3D11 backend initialization failed");
         previous=clockNow();SKSE::log::info("Quickslot native renderer ready");
     }
@@ -94,6 +105,8 @@ std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& optio
         if(r.graphics&&r.graphics->device!=device)r.graphics.reset();
         if(!r.graphics){r.graphics=std::make_unique<Graphics>();r.graphics->initialize(device,context,swap);}
         auto& g=*r.graphics;ImGui::SetCurrentContext(g.imgui);
+        g.i4->beginFrame();
+        g.pngii->beginFrame(editor?editor->options.pngiiIcons:options.pngiiIcons,itemIconGeneration());
         localization().select(options.language);
         const bool vr=REL::Module::IsVR();
         preview::DXIsolation::Frame isolated(*g.isolation,!vr);

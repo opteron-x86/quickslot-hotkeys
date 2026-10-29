@@ -20,14 +20,28 @@ inline unsigned entryHands(const Entry& e,bool equipped) {
     return e.hand==Hand::left?2:1;
 }
 inline bool twoHandedDisplay(const EquippedDisplay& state){return state.hands[0]&&state.hands[0]->entry.twoHanded;}
-inline unsigned equipmentRows(const EquippedDisplay& state){return twoHandedDisplay(state)?3u:4u;}
+inline unsigned equipmentRows(const EquippedDisplay& state,const Options& options={}){return (twoHandedDisplay(state)?3u:4u)+(options.showEquipmentAmmo?1u:0u);}
+template<class Draw> void forEachEquipmentRow(const EquippedDisplay& state,const Options& options,Draw draw) {
+    if(twoHandedDisplay(state))draw("Both hands",state.hands[0]);
+    else {draw("Right hand",state.hands[0]);draw("Left hand",state.hands[1]);}
+    if(options.showEquipmentAmmo)draw("Ammunition",state.ammo);
+    draw("Consumable",state.consumable);draw("Power / shout",state.voice);
+}
 inline bool equipmentDimmed(const Row& row){return !row.available||row.powerUsed||row.cooldown>0;}
-inline std::string equipmentTextName(const std::optional<Row>& row,bool iconVisible) {
+inline int compatibleAmmoCount(bool crossbow,std::optional<bool> bolt,int count) {
+    return bolt&&*bolt==crossbow?std::max(0,count):0;
+}
+inline int badgeQuantity(const Entry& entry,int quantity,const WeaponStatus& weapon,const Options& options) {
+    return isStack(entry)?std::max(0,quantity):options.showAmmo?weapon.ammunition:-1;
+}
+inline std::string equipmentTextName(const std::optional<Row>& row,bool iconVisible,const Options& options={}) {
     if(!row)return "—";
     auto name=displayName(row->entry);
     if(!iconVisible) {
         if(isStack(row->entry))name+=" ×"+std::to_string(std::max(0,row->quantity));
+        else if(options.showAmmo&&row->weapon.ammunition>=0)name+=" ×"+std::to_string(row->weapon.ammunition);
         else if(row->cooldown>0)name+=" · "+std::to_string(int(std::ceil(row->cooldown)))+tr("s");
+        if(options.showPoison&&row->weapon.poisoned)name+=" · "+std::string(tr("Poisoned"));
     }
     return name;
 }

@@ -10,6 +10,7 @@
 #include "MenuFramework.h"
 #include "Controller.h"
 #include "GameplayMenus.h"
+#include "HudMenuState.h"
 #include "VoiceAction.h"
 #include <RE/Skyrim.h>
 #include <SKSE/SKSE.h>
@@ -64,7 +65,9 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     void startVoice(const Entry&);
     void progressVoice();
     void stopVoice();
-    bool initialized_=false,ready_=false,dirty_=true,menuRequested_=false;
+    bool initialized_=false,ready_=false,dirty_=true;
+    HudMenuState hudMenu_;
+    double customMenuProbeAt_=0;
     std::atomic_bool tickQueued_{false};
     struct Pending {Selection::Commit commit;double deadline=0;EquipmentPhase phase=EquipmentPhase::equipping;int pairStep=-1;bool remove=false,castVoice=false;std::optional<Entry> action;};
     std::optional<Pending> pending_;
@@ -72,7 +75,7 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     std::optional<Released> released_;
     ConsumableUse use_;
     Entry usedEntry_;
-    double nextStatus_=0,nextUsePoll_=0;
+    double nextStatus_=0,nextUsePoll_=0,nextFavorites_=0;
     RE::BSTSmartPointer<RE::BShkbAnimationGraph> animationGraph_;
     struct AnimationSignal {double time;std::string tag,payload;};
     std::mutex animationMutex_;
@@ -87,7 +90,8 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     SelectionTime selectionTime_;
     bool soulsRequested_=false,pauseRequested_=false;
     std::uint64_t menuCaptureEpoch_=0;
-    bool allowed(MenuPurpose purpose=MenuPurpose::input)const;
+    bool quickLootAllowed(std::optional<bool> controller={})const;
+    bool allowed(MenuPurpose purpose=MenuPurpose::input,std::optional<bool> controller={})const;
     bool consume(RE::InputEvent*);
     void capture(Hand);
     void equip(const Selection::Commit&,bool unequip=false);
@@ -95,11 +99,13 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     void progressUse();
     bool accepts(const Selection::Commit&)const;
     void activate(std::size_t group);
-    void queueUnequip(std::optional<std::size_t> index={});
+    void queueUnequip(std::optional<std::size_t> index={},bool controller=false);
+    void queueHand(Hand,bool controller);
     void queueReorder(int delta);
     void queueMove(std::size_t target);
     void refresh();
     void publish();
+    void syncHudMenu();
     void cancel();
     void notice(std::string,bool visible=true);
     void tick();
@@ -127,6 +133,7 @@ public:
     void dispatch(RE::BSTEventSource<RE::InputEvent*>*,RE::InputEvent**);
     void draw(bool editor=false);
     void drawVR();
+    bool allowHudMenuTransition();
     void rendererFailed();
     FrameworkStatus frameworkStatus();
     bool requestEditorFromFramework();

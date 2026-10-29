@@ -1,5 +1,7 @@
 #include "Game.h"
+#include "I4Icons.h"
 #include "InputFilter.h"
+#include "PlayerInput.h"
 #include "GameplayMenus.h"
 #include "Storage.h"
 #include "CallSite.h"
@@ -37,9 +39,14 @@ void inputHook(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent** even
 class Menu final : public RuntimeMenu {
 public:
     Menu():RuntimeMenu(menuName) {
-        depthPriority=11;
+        depthPriority=3;
         menuFlags.set(RE::UI_MENU_FLAGS::kAlwaysOpen,RE::UI_MENU_FLAGS::kRequiresUpdate,
                       RE::UI_MENU_FLAGS::kCustomRendering,RE::UI_MENU_FLAGS::kAllowSaving);
+    }
+    RE::UI_MESSAGE_RESULTS ProcessMessage(RE::UIMessage& message)override {
+        if((message.type==RE::UI_MESSAGE_TYPE::kShow||message.type==RE::UI_MESSAGE_TYPE::kHide)&&
+           !Game::get().allowHudMenuTransition())return RE::UI_MESSAGE_RESULTS::kIgnore;
+        return RuntimeMenu::ProcessMessage(message);
     }
     void PostDisplay()override{if(!REL::Module::IsVR())Game::get().draw();}
     static RE::IMenu* create(){return new Menu;}
@@ -63,23 +70,40 @@ public:
     static RE::IMenu* create(){return new EditorMenu;}
 };
 struct MenuBlocker {std::string name;std::uint32_t flags=0;};
-bool foreignMenu(RE::UI* ui,MenuPurpose purpose=MenuPurpose::input,MenuBlocker* blocker=nullptr) {
+void logCustomMenu(std::string_view phase) {
+    auto* ui=RE::UI::GetSingleton();if(!ui)return;
+    const auto menu=ui->GetMenu("CustomMenu");
+    if(!menu){log::info("CustomMenu {}: instance absent",phase);return;}
+    const auto& movie=menu->uiMovie;
+    const auto boolean=[&](const char* path) {
+        RE::GFxValue value;
+        if(!movie||!movie->GetVariable(&value,path)||!value.IsBool())return "unavailable";
+        return value.GetBool()?"true":"false";
+    };
+    const auto* definition=movie?movie->GetMovieDef():nullptr;
+    log::info("CustomMenu {}: open={}, movie={}, flags=0x{:08X}, depth={}, paused={}, QuickslotHUD={}, isLoaded={}, traitsVisible={}",
+        phase,menu->OnStack(),definition?definition->GetFileURL():"absent",menu->menuFlags.underlying(),int(menu->depthPriority),
+        ui->GameIsPaused(),ui->IsMenuOpen(menuName),boolean("_root.isLoaded"),boolean("_root.Traits_mc._visible"));
+}
+bool foreignMenu(RE::UI* ui,MenuPurpose purpose=MenuPurpose::input,MenuBlocker* blocker=nullptr,bool allowQuickLoot=false) {
     static_assert(gameplayBlockingMenus==std::array{
         RE::TweenMenu::MENU_NAME,RE::InventoryMenu::MENU_NAME,RE::MagicMenu::MENU_NAME,RE::FavoritesMenu::MENU_NAME,RE::MapMenu::MENU_NAME,RE::StatsMenu::MENU_NAME,RE::JournalMenu::MENU_NAME,
         RE::BookMenu::MENU_NAME,RE::ContainerMenu::MENU_NAME,RE::BarterMenu::MENU_NAME,RE::GiftMenu::MENU_NAME,RE::CraftingMenu::MENU_NAME,RE::SleepWaitMenu::MENU_NAME,
         RE::LockpickingMenu::MENU_NAME,RE::TrainingMenu::MENU_NAME,RE::MessageBoxMenu::MENU_NAME,RE::MainMenu::MENU_NAME,RE::LoadingMenu::MENU_NAME,RE::DialogueMenu::MENU_NAME,
-        RE::Console::MENU_NAME,RE::LevelUpMenu::MENU_NAME,RE::RaceSexMenu::MENU_NAME,std::string_view{"LootMenu"}});
+        RE::Console::MENU_NAME,RE::LevelUpMenu::MENU_NAME,RE::RaceSexMenu::MENU_NAME,std::string_view{"CustomMenu"},std::string_view{"LootMenu"}});
     if(gameplayMenuOpen([&](auto name){
         if(!ui->IsMenuOpen(name))return false;
         if(blocker){blocker->name=name;if(const auto menu=ui->GetMenu(name))blocker->flags=menu->menuFlags.underlying();}
         return true;
-    },purpose))return true;
+    },purpose,allowQuickLoot))return true;
     const auto editor=ui->GetMenu(editorMenuName);
     const auto selectionPause=ui->GetMenu(pauseMenuName);
     const auto own=ui->GetMenu(menuName),hud=ui->GetMenu(RE::HUDMenu::MENU_NAME),cursor=ui->GetMenu(RE::CursorMenu::MENU_NAME);
-    const auto loot=purpose==MenuPurpose::hud?ui->GetMenu(quickLootMenuName):nullptr;
+    const auto loot=ignoreQuickLoot(purpose,allowQuickLoot)?ui->GetMenu(quickLootMenuName):nullptr;
+    const auto inventory=ignoreMenu(RE::InventoryMenu::MENU_NAME,purpose)?ui->GetMenu(RE::InventoryMenu::MENU_NAME):nullptr;
+    const auto magic=ignoreMenu(RE::MagicMenu::MENU_NAME,purpose)?ui->GetMenu(RE::MagicMenu::MENU_NAME):nullptr;
     for(const auto& menu:ui->menuStack)
-        if(menu&&menu.get()!=own.get()&&menu.get()!=editor.get()&&menu.get()!=selectionPause.get()&&menu.get()!=hud.get()&&menu.get()!=cursor.get()&&menu.get()!=loot.get()&&
+        if(menu&&menu.get()!=own.get()&&menu.get()!=editor.get()&&menu.get()!=selectionPause.get()&&menu.get()!=hud.get()&&menu.get()!=cursor.get()&&menu.get()!=loot.get()&&menu.get()!=inventory.get()&&menu.get()!=magic.get()&&
            menuFlagsBlock(menu->UsesMenuContext(),menu->UsesCursor(),menu->PausesGame(),menu->Modal(),purpose)) {
             if(blocker) {
                 blocker->name="unregistered";blocker->flags=menu->menuFlags.underlying();
@@ -284,6 +308,11 @@ std::vector<PotionCandidate> potionCandidates(const RE::TESObjectREFR::Inventory
     }
     std::sort(result.begin(),result.end(),[](const auto& a,const auto& b){return a.entry.name<b.entry.name;});return result;
 }
+// The pinned Actor wrapper dispatches the decal-group slot. The REFR wrapper
+// uses the actual ammo getter for each runtime.
+RE::TESAmmo* equippedAmmo(const RE::Actor* actor) {
+    return actor?actor->RE::TESObjectREFR::GetCurrentAmmo():nullptr;
+}
 struct NativeEquipment {EquipmentCandidate choice;RE::TESBoundObject* object=nullptr;RE::ExtraDataList* extra=nullptr;};
 std::vector<NativeEquipment> equipmentCandidates(RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
     std::vector<NativeEquipment> result;
@@ -309,7 +338,7 @@ std::vector<NativeEquipment> equipmentCandidates(RE::PlayerCharacter* player,con
                 c.rightEquipped=worn(extra,right)&&player->GetEquippedObject(false)==object;
                 c.leftEquipped=worn(extra,left)&&player->GetEquippedObject(true)==object;
             }
-            if(ammo){c.damage=ammo->GetRuntimeData().data.damage;c.rightEquipped=player->GetCurrentAmmo()==object;}
+            if(ammo){c.damage=ammo->GetRuntimeData().data.damage;c.rightEquipped=equippedAmmo(player)==object;}
             else {RE::InventoryEntryData item(object,1);if(extra)item.AddExtraList(extra);c.damage=shield?player->GetArmorValue(&item):player->GetDamage(&item);}
             if(std::isfinite(c.damage)&&c.damage>0)result.push_back({std::move(c),object,extra});
         };
@@ -377,7 +406,7 @@ Resolved resolve(const Entry& entry,RE::PlayerCharacter* player,const RE::TESObj
         Resolved result;
         if(it==inventory.end()||it->second.first<=0)return result;
         result.object=object;result.quantity=it->second.first;
-        if(entry.kind==Kind::ammo)result.equipped=player->GetCurrentAmmo()==object;
+        if(entry.kind==Kind::ammo)result.equipped=equippedAmmo(player)==object;
         if(entry.kind==Kind::torch) {
             result.equipped=player->GetEquippedObject(true)==form;
 
@@ -406,6 +435,17 @@ Resolved resolve(const Entry& entry,RE::PlayerCharacter* player,const RE::TESObj
     const bool inHand=entry.twoHanded?player->GetEquippedObject(true)==form||player->GetEquippedObject(false)==form:
         player->GetEquippedObject(entry.hand==Hand::left)==form;
     return {object,found,nullptr,worn(found,entry)&&inHand,inOther};
+}
+WeaponStatus readWeaponStatus(RE::TESBoundObject* object,RE::ExtraDataList* extra,RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
+    WeaponStatus status;
+    auto* weapon=object?object->As<RE::TESObjectWEAP>():nullptr;if(!weapon)return status;
+    if(extra)if(const auto* poison=extra->GetByType<RE::ExtraPoison>())status.poisoned=poison->poison&&poison->count>0;
+    if(weapon->IsBow()||weapon->IsCrossbow()) {
+        auto* ammo=equippedAmmo(player);int count=0;
+        if(ammo)if(const auto it=inventory.find(ammo);it!=inventory.end())count=it->second.first;
+        status.ammunition=compatibleAmmoCount(weapon->IsCrossbow(),ammo?std::optional{ammo->IsBolt()}:std::nullopt,count);
+    }
+    return status;
 }
 ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory,
                                     const std::vector<PotionCandidate>& potions,const std::array<float,3>& deficits,const std::vector<NativeEquipment>* equipment=nullptr) {
@@ -443,6 +483,7 @@ ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* playe
                 }
             }else {part.icon=visualIcon(part.unresolved?nullptr:RE::TESForm::LookupByID(part.form));item=resolve(part,player,inventory);}
             result.row.available&=item.available();result.row.equipped&=item.equipped;
+            result.row.weapon.poisoned|=readWeaponStatus(item.object,item.extra,player,inventory).poisoned;
             if(!item.available())result.row.detail=tr("Missing ")+handName(part)+": "+displayName(part);
         }
         if(entry.parts.size()==2&&entry.parts[0].kind==Kind::scroll&&entry.parts[1].kind==Kind::scroll&&entry.parts[0].form==entry.parts[1].form&&resolve(entry.parts[0],player,inventory).quantity<2){result.row.available=false;result.row.detail=tr("Two scrolls needed for both hands");}
@@ -451,27 +492,58 @@ ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* playe
         result.row.equipped&=result.row.available;
         if(!entry.parts.empty())result.row.entry.icon=baseIcon(result.row.entry.parts[0]);
     } else {result.item=resolve(entry,player,inventory);result.row=makeRow(entry,result.item);result.row.entry.icon=visualIcon(entry.unresolved?nullptr:RE::TESForm::LookupByID(entry.form));}
+    if(entry.kind!=Kind::combo)result.row.weapon=readWeaponStatus(result.item.object,result.item.extra,player,inventory);
     if(!isSmartEquipment(entry)&&entry.kind!=Kind::smartPotion&&entry.kind!=Kind::combo&&!isHandAction(entry)) {
         if(auto* form=RE::TESForm::LookupByID(entry.form)) {
             const char* name=result.item.extra?result.item.extra->GetDisplayName(result.item.object):form->GetName();
             if(name&&*name)result.row.entry.name=result.action.name=gameName(name);
         }
     }
+    if(isReusable(entry))result.row.iconEntry=result.action;
     return result;
 }
 RE::TESObjectREFR::InventoryItemMap inventoryFor(const Arsenal& arsenal,RE::PlayerCharacter* player) {
     std::unordered_set<RE::FormID> forms;
-    bool smart=false,weapons=false,ammo=false;
+    bool smart=false,weapons=false,ammo=false;const bool favorites=hasFavoriteGroups(arsenal);
     for(const auto& group:arsenal.groups)for(const auto& saved:group.entries)eachLeaf(saved,[&](const Entry& e){
         smart|=e.kind==Kind::smartPotion;weapons|=e.kind==Kind::smartWeapon;ammo|=e.kind==Kind::smartAmmo;
         if(isInventory(e)&&!e.unresolved)forms.insert(e.form);
     });
     for(bool left:{false,true})if(auto* form=player->GetEquippedObject(left))forms.insert(form->GetFormID());
-    if(forms.empty()&&!smart&&!weapons&&!ammo)return {};
-    return player->GetInventory([&](RE::TESBoundObject& object){return forms.contains(object.GetFormID())||(smart&&object.As<RE::AlchemyItem>())||
+    if(auto* current=equippedAmmo(player))forms.insert(current->GetFormID());
+    if(forms.empty()&&!smart&&!weapons&&!ammo&&!favorites)return {};
+    return player->GetInventory([&](RE::TESBoundObject& object){return favorites||forms.contains(object.GetFormID())||(smart&&object.As<RE::AlchemyItem>())||
         (weapons&&(object.As<RE::TESObjectWEAP>()||(object.As<RE::TESObjectARMO>()&&object.As<RE::TESObjectARMO>()->IsShield())))||(ammo&&object.As<RE::TESAmmo>());});
 }
-// Read the equipped hands and voice slot for the equipment display.
+bool syncFavoriteGroups(Arsenal& arsenal,RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
+    if(!hasFavoriteGroups(arsenal))return false;
+    std::vector<Entry> favorites;
+    const auto needed=[&](const Entry& entry){return std::any_of(arsenal.groups.begin(),arsenal.groups.end(),[&](const auto& group){return favoriteMatches(group.source,entry);});};
+    for(const auto& [object,data]:inventory) {
+        if(data.first<=0||!data.second||!data.second->IsFavorited())continue;
+        Entry base;base.form=object->GetFormID();if(!identify(object,base)||!needed(base))continue;base.name=gameName(object->GetName());
+        if(isStack(base)){favorites.push_back(base);continue;}
+        if(data.second->extraLists)for(auto* extra:*data.second->extraLists)if(extra&&extra->HasType<RE::ExtraHotkey>()&&extra->GetCount()>0) {
+            auto entry=base;
+            if(const char* name=extra->GetDisplayName(object);name&&*name)entry.name=gameName(name);
+            // A favorite stack may contain several indistinguishable weapons. Wait for
+            // Skyrim to split one copy on equip before assigning it an exact identity.
+            if(extra->GetCount()==1&&ensureIdentity(player,extra,arsenal)) {
+                const auto* id=extra->GetByType<RE::ExtraUniqueID>();entry.owner=id->baseID;entry.unique=id->uniqueID;
+            }
+            favorites.push_back(std::move(entry));
+        }
+    }
+    if(auto* magic=RE::MagicFavorites::GetSingleton())for(auto* form:magic->spells) {
+        if(!form)continue;Entry entry;entry.form=form->GetFormID();if(!identify(form,entry))continue;
+        if(auto* spell=form->As<RE::SpellItem>();spell&&!player->HasSpell(spell))continue;
+        if(auto* shout=form->As<RE::TESShout>();shout&&!player->HasShout(shout))continue;
+        if(!entry.spell&&!isVoice(entry))continue;
+        entry.name=gameName(form->GetName());favorites.push_back(std::move(entry));
+    }
+    bool changed=false;for(auto& group:arsenal.groups)changed|=refreshFavorites(group,favorites);return changed;
+}
+// Read the equipment slots used by the HUD.
 EquippedDisplay readEquipment(RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
     EquippedDisplay state;
     const auto read=[&](RE::TESForm* form,Hand hand)->std::optional<Row> {
@@ -479,15 +551,17 @@ EquippedDisplay readEquipment(RE::PlayerCharacter* player,const RE::TESObjectREF
         Entry e;e.form=form->GetFormID();e.hand=hand;e.name=gameName(form->GetName()?form->GetName():"");
 
         if(!identify(form,e)){e.icon=visualIcon(form);if(auto* w=form->As<RE::TESObjectWEAP>())e.twoHanded=w->IsTwoHandedSword()||w->IsTwoHandedAxe()||w->IsBow()||w->IsCrossbow();}
-        Row row{e,true,true};
+        Row row{e,true,true};RE::ExtraDataList* wornExtra=nullptr;
         if(auto* object=form->As<RE::TESBoundObject>();object)if(auto it=inventory.find(object);it!=inventory.end()&&it->second.second) {
             row.quantity=it->second.first;
             if(auto* lists=it->second.second->extraLists)for(auto* extra:*lists)if(extra&&worn(extra,e)) {
+                wornExtra=extra;
                 if(const char* name=extra->GetDisplayName(object);name&&*name)row.entry.name=gameName(name);
                 if(tracksInstance(e))if(auto* id=extra->GetByType<RE::ExtraUniqueID>()){row.entry.owner=id->baseID;row.entry.unique=id->uniqueID;}
                 break;
             }
         }
+        row.weapon=readWeaponStatus(form->As<RE::TESBoundObject>(),wornExtra,player,inventory);
         if(e.kind==Kind::shout)row.cooldown=std::max(0.f,player->GetVoiceRecoveryTime());
         if(e.kind==Kind::power)if(auto* spell=form->As<RE::SpellItem>())row.powerUsed=player->IsInCastPowerList(spell);
         return row;
@@ -496,6 +570,8 @@ EquippedDisplay readEquipment(RE::PlayerCharacter* player,const RE::TESObjectREF
     for(unsigned hand=0;hand<2;++hand)if(state.hands[hand]&&state.hands[hand]->entry.twoHanded) {
         state.hands[1-hand]=state.hands[hand];break;
     }
+    state.ammo=read(equippedAmmo(player),Hand::right);
+    if(state.ammo&&state.ammo->quantity<=0)state.ammo.reset();
     state.voice=read(player->GetActorRuntimeData().selectedPower,Hand::right);
     return state;
 }
@@ -593,6 +669,13 @@ std::filesystem::path dataDirectory() {
 Game& Game::get(){static auto* game=new Game;return *game;}
 bool Game::initialize() {
     std::scoped_lock lock(mutex_);if(initialized_)return true;
+    const auto* i4=SKSE::GetPluginInfo("InventoryInjector");
+    if(!i4) {
+        constexpr auto message="Quickslot could not find a loaded Inventory Interface Information Injector (I4) plugin. Install I4 1.1.0 or newer for your Skyrim version and check your SKSE log.";
+        SKSE::log::error("{}",message);
+        SKSE::GetTaskInterface()->AddTask([message]{RE::DebugMessageBox(message);});return false;
+    }
+    log::info("I4 provider detected; raw SKSE plugin version 0x{:08X}. Icon APIs will be checked when the HUD is available.",i4->version);
     if(!initializeVROverlay())return false;
     auto* ui=RE::UI::GetSingleton();if(!ui||!RE::BSInputDeviceManager::GetSingleton())return false;
     std::string gameLanguage="english";
@@ -660,12 +743,16 @@ bool Game::initialize() {
     log::info("Editor scan {}, modifiers {}; {} visible groups. Editor pauses; optional selection slowdown is configurable.",options_.editorKey,options_.editorModifiers,options_.groupCount);
     return true;
 }
-bool Game::allowed(MenuPurpose purpose)const {
+bool Game::quickLootAllowed(std::optional<bool> controller)const {
+    const bool source=controller.value_or(released_?released_->commit.controller:pending_?pending_->commit.controller:selectionController_);
+    return source?options_.quickLootController:options_.quickLootKeyboard;
+}
+bool Game::allowed(MenuPurpose purpose,std::optional<bool> controller)const {
     auto* ui=RE::UI::GetSingleton();auto* player=RE::PlayerCharacter::GetSingleton();auto* controls=RE::ControlMap::GetSingleton();
     const auto ownPause=ui?ui->GetMenu(pauseMenuName):nullptr;
     return initialized_&&ready_&&!editor_.open&&ui&&player&&controls&&player->Is3DLoaded()&&!player->IsDead()&&
-        !player->IsInKillMove()&&selectionPauseAllowsInput(ui->numPausesGame,ownPause&&ownPause->PausesGame()&&ui->IsMenuOpen(pauseMenuName))&&ui->IsShowingMenus()&&ui->IsMenuOpen(RE::HUDMenu::MENU_NAME)&&
-        !foreignMenu(ui,purpose)&&!frameworkCapturingInput()&&!vrOtherOverlayOpen()&&controls->GetRuntimeData().textEntryCount<=0&&controls->IsMovementControlsEnabled()&&renderHasFocus();
+        !player->IsInKillMove()&&!playerAIControlled(player)&&selectionPauseAllowsInput(ui->numPausesGame,ownPause&&ownPause->PausesGame()&&ui->IsMenuOpen(pauseMenuName))&&ui->IsShowingMenus()&&ui->IsMenuOpen(RE::HUDMenu::MENU_NAME)&&
+        !foreignMenu(ui,purpose==MenuPurpose::editor?MenuPurpose::input:purpose,nullptr,purpose!=MenuPurpose::editor&&quickLootAllowed(controller))&&!frameworkCapturingInput()&&!vrOtherOverlayOpen()&&controls->GetRuntimeData().textEntryCount<=0&&controls->IsMovementControlsEnabled()&&renderHasFocus();
 }
 void Game::selectionTime(bool selecting) {
     if(!initialized_)return;
@@ -694,26 +781,41 @@ void Game::publish(){
     if(snapshot_.visible)if(auto* player=RE::PlayerCharacter::GetSingleton()) {
         snapshot_.inCombat=player->IsInCombat();snapshot_.weaponsDrawn=player->AsActorState()->IsWeaponDrawn();
     }
+    syncHudMenu();
 }
-void Game::loaded(){std::scoped_lock lock(mutex_);closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
+void Game::syncHudMenu() {
+    auto* ui=RE::UI::GetSingleton();auto* queue=RE::UIMessageQueue::GetSingleton();
+    if(!initialized_||!ui||!queue)return;
+    if(const auto visible=hudMenu_.request(snapshot_.visible,ui->IsMenuOpen(menuName),ui->IsMenuOpen(RE::Console::MENU_NAME)))
+        queue->AddMessage(menuName,*visible?RE::UI_MESSAGE_TYPE::kShow:RE::UI_MESSAGE_TYPE::kHide,nullptr);
+}
+bool Game::allowHudMenuTransition() {
+    std::scoped_lock lock(mutex_);
+    auto* ui=RE::UI::GetSingleton();
+    // A HUD stack change refreshes Skyrim's cursor using menus below the console's depth.
+    // Check queued transitions too, since the console can open before they are delivered.
+    return hudMenu_.accept(ui&&ui->IsMenuOpen(RE::Console::MENU_NAME));
+}
+void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
     if(arsenal_.presetIdentity.empty()){GUID id{};if(SUCCEEDED(CoCreateGuid(&id))){char key[40];std::snprintf(key,sizeof(key),"%08lx%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",id.Data1,id.Data2,id.Data3,id.Data4[0],id.Data4[1],id.Data4[2],id.Data4[3],id.Data4[4],id.Data4[5],id.Data4[6],id.Data4[7]);arsenal_.presetIdentity=key;}}
     if(auto* devices=RE::BSInputDeviceManager::GetSingleton())controllerLast_=controllerConnected_=REL::Module::IsVR()||devices->IsGamepadEnabled();
-    revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);dirty_=true;menuRequested_=false;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);}
+    revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);}
 void Game::reset(bool clear) {
-    std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;menuRequested_=false;
+    invalidateI4Icons();
+    std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;
     if(clear)arsenal_=Arsenal{};
     snapshot_=Snapshot{};groupRecall_.reset();keyboardOwned_.fill(false);mouseOwned_.fill(false);controller_.reset();stickOwned_.fill(false);nativeVoiceDown_=false;
 }
 void Game::queueEdit(int action,std::optional<std::size_t> index) {
-    cancel();const auto token=selection_.token();const auto groupID=arsenal_.active;
+    cancel();selectionController_=false;const auto token=selection_.token();const auto groupID=arsenal_.active;
     SKSE::GetTaskInterface()->AddTask([this,token,action,index,groupID] {
         std::scoped_lock lock(mutex_);
-        if(token!=selection_.token()||groupID!=arsenal_.active||!allowed())return;
+        if(token!=selection_.token()||groupID!=arsenal_.active||!allowed(MenuPurpose::input,false))return;
         try {
             auto& group=arsenal_.current();
             if(action==2) {
                 if(index&&*index<group.entries.size())group.selected=*index;
-                if(group.remove())notice(tr("Removed from ")+options_.names[groupID]);else notice(tr("This group is empty"));dirty_=true;
+                if(group.remove())notice((group.automatic()?tr("Excluded from "):tr("Removed from "))+options_.names[groupID]);else notice(group.automatic()?tr("No item removed; check the Favorites exclusion limit"):tr("This group is empty"));dirty_=true;
             }
             else capture(action?Hand::left:Hand::right);
             refresh();publish();
@@ -729,18 +831,29 @@ void Game::activate(std::size_t group) {
     if(group==arsenal_.active)return;
     cancel();arsenal_.active=group;snapshot_.rows.clear();dirty_=true;
 }
-void Game::queueUnequip(std::optional<std::size_t> index) {
+void Game::queueUnequip(std::optional<std::size_t> index,bool controller) {
+    selectionController_=controller;
     pending_.reset();released_.reset();selectionTime(false);const auto& group=arsenal_.current();
-    if(auto commit=selection_.request(group,arsenal_.active,index.value_or(group.selected)))
-        released_=Released{*commit,true};
+    if(auto commit=selection_.request(group,arsenal_.active,index.value_or(group.selected))) {
+        commit->controller=controller;released_=Released{*commit,true};
+    }
     else notice(tr("This group is empty"));
+}
+void Game::queueHand(Hand hand,bool controller) {
+    if(!selection_.held()||selection_.index()>=arsenal_.current().entries.size())return;
+    const auto index=selection_.index();
+    if(!entryForHand(arsenal_.current().entries[index],hand)){cancel();notice(tr("This item cannot use that hand"));return;}
+    selectionTime(false);controller_.cancel();pending_.reset();released_.reset();
+    if(auto commit=releaseToHand(selection_,arsenal_.current(),arsenal_.active,hand,controller)) {
+        selectionController_=controller;released_=Released{*commit};snapshot_.revealUntil=clockNow()+2;
+    }
 }
 void Game::queueReorder(int delta) {
     const auto token=selection_.token(),revision=arsenal_.current().revision;
     const auto groupID=arsenal_.active,index=selection_.index();
     SKSE::GetTaskInterface()->AddTask([this,token,revision,groupID,index,delta] {
         std::scoped_lock lock(mutex_);
-        if(token!=selection_.token()||!selection_.held()||groupID!=arsenal_.active||!allowed())return;
+        if(token!=selection_.token()||!selection_.held()||groupID!=arsenal_.active||!allowed()||!allowed(MenuPurpose::input,false))return;
         auto& group=arsenal_.current();if(group.revision!=revision)return;
         const auto target=wrappedIndex(index,delta,group.entries.size());
         if(group.reorder(index,target)) {
@@ -751,10 +864,10 @@ void Game::queueReorder(int delta) {
 }
 void Game::queueMove(std::size_t target) {
     if(target>=Arsenal::count)return;
-    const auto source=arsenal_.active,index=selection_.index();cancel();const auto token=selection_.token();
+    const auto source=arsenal_.active,index=selection_.index();cancel();selectionController_=false;const auto token=selection_.token();
     SKSE::GetTaskInterface()->AddTask([this,source,index,target,token] {
         std::scoped_lock lock(mutex_);
-        if(token!=selection_.token()||!allowed())return;
+        if(token!=selection_.token()||!allowed(MenuPurpose::input,false))return;
         if(arsenal_.move(source,index,target,options_.autoSort[target])) {
             dirty_=true;refresh();publish();notice(tr("Moved to ")+options_.names[target]);
         } else notice(tr("Could not move entry — destination is full or entry is missing"));
@@ -787,7 +900,7 @@ void Game::finishSelection() {
 }
 void Game::cycleSelection(int delta) {
     if(!selection_.canBrowse())return;
-    if(options_.skipEmpty){if(dirty_)refresh();std::vector<bool> available;for(const auto& row:snapshot_.rows)available.push_back(row.available);selection_.cycleAvailable(delta,arsenal_.current(),available);}
+    if(options_.skipEmpty){if(dirty_)refresh();if(!selection_.canBrowse())return;std::vector<bool> available;for(const auto& row:snapshot_.rows)available.push_back(row.available);selection_.cycleAvailable(delta,arsenal_.current(),available);}
     else selection_.cycle(delta,arsenal_.current());
     selectionTime(true);
 }
@@ -808,9 +921,9 @@ bool Game::consumeController(RE::InputEvent* event) {
             stickOwned_[index]=!neutral;return true;
         }
         auto* ui=RE::UI::GetSingleton();
-        const bool menuOpen=ui&&foreignMenu(ui);
-        const bool browsing=!menuOpen&&options_.controllerEnabled&&selection_.canBrowse()&&allowed()&&(vr?options_.vrStick:options_.controllerStick)==index;
-        const bool captured=captureGameplayStick(stickOwned_[index],neutral,browsing,menuOpen);
+        const bool inputTaken=playerAIControlled(RE::PlayerCharacter::GetSingleton())||(ui&&foreignMenu(ui,MenuPurpose::input,nullptr,quickLootAllowed(true)));
+        const bool browsing=!inputTaken&&options_.controllerEnabled&&selection_.canBrowse()&&allowed(MenuPurpose::input,true)&&(vr?options_.vrStick:options_.controllerStick)==index;
+        const bool captured=captureGameplayStick(stickOwned_[index],neutral,browsing,inputTaken);
         if(browsing) {
 
             if(!vr)if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
@@ -831,7 +944,7 @@ bool Game::consumeController(RE::InputEvent* event) {
         if(fresh||!down)editorInput_.push_back({EditorInputType::pad,unsigned(button),down});
         return captured;
     }
-    const auto result=controller_.button(button,down,fresh,options_,allowed(),selection_.held(),vr,selection_.canBrowse(),menuAPI().hotkeyEnabled());
+    const auto result=controller_.button(button,down,fresh,options_,allowed(MenuPurpose::input,true),selection_.held(),vr,selection_.canBrowse(),menuAPI().hotkeyEnabled()&&allowed(MenuPurpose::editor));
     switch(result.action) {
     case PadAction::press: {
         const auto binding=controller_.binding();
@@ -845,7 +958,9 @@ bool Game::consumeController(RE::InputEvent* event) {
     case PadAction::cancel:cancel();notice(tr("Selection cancelled"),false);break;
     case PadAction::previous:cycleSelection(-1);break;
     case PadAction::next:cycleSelection(1);break;
-    case PadAction::unequip:queueUnequip(selection_.index());break;
+    case PadAction::unequip:queueUnequip(selection_.index(),true);break;
+    case PadAction::rightHand:queueHand(Hand::right,true);break;
+    case PadAction::leftHand:queueHand(Hand::left,true);break;
     case PadAction::editor:cancel();editorRequested_=true;SKSE::GetTaskInterface()->AddTask([this]{openEditor();});break;
     default:break;
     }
@@ -902,8 +1017,8 @@ bool Game::consume(RE::InputEvent* event) {
             *owned=true;menuCapture(std::size_t(it-options_.keys.begin()),*hand);return true;
         }
     }
-    if(!allowed())return false;
-    if(menuAPI().hotkeyEnabled()&&keyboard&&options_.editorKey&&code==options_.editorKey&&button->IsDown()) {
+    if(!allowed(MenuPurpose::input,false))return false;
+    if(allowed(MenuPurpose::editor)&&menuAPI().hotkeyEnabled()&&keyboard&&options_.editorKey&&code==options_.editorKey&&button->IsDown()) {
         auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
         if(editorShortcutMatches(options_,code,keyboardModifiers([&](unsigned scan){return pressed(device,scan);}))) {
             *owned=true;cancel();editorRequested_=true;
@@ -928,16 +1043,20 @@ bool Game::consume(RE::InputEvent* event) {
         return true;
     }
     if(selection_.held()) {
-
-        if(keyboard&&(code==29||code==157)&&button->IsDown()&&selectorUsesCtrl(options_)){*owned=true;return true;}
-        if(((keyboard&&code==1)||(mouse&&code==1))&&button->IsDown()) {*owned=true;cancel();notice(tr("Selection cancelled"),false);return true;}
+        auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
+        const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
+        if(keyboard&&modifierForScan(code)&&button->IsDown()&&selectorUsesModifier(options_,modifierForScan(code))){*owned=true;return true;}
+        if(mouse&&button->IsDown())for(const auto action:{MouseAction::rightHand,MouseAction::leftHand})
+            if(options_.mouseActions[unsigned(action)]==int(code)){*owned=true;queueHand(action==MouseAction::rightHand?Hand::right:Hand::left,false);return true;}
+        if(((keyboard&&keyBindingMatches(options_.selectorBindings[unsigned(KeyboardAction::cancel)],code,modifiers))||(mouse&&int(code)==options_.mouseActions[unsigned(MouseAction::cancel)]))&&button->IsDown()) {*owned=true;cancel();notice(tr("Selection cancelled"),false);return true;}
         if(keyboard&&button->IsDown()) {
-            auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
-            const auto key=selectorKeyAction(options_,code,pressed(device,29)||pressed(device,157));
+            const auto key=selectorKeyAction(options_,code,modifiers);
             if(key.action!=SelectorKeyAction::pass) {
                 *owned=true;
                 switch(key.action) {
                 case SelectorKeyAction::browse:cycleSelection(key.delta);break;
+                case SelectorKeyAction::rightHand:queueHand(Hand::right,false);break;
+                case SelectorKeyAction::leftHand:queueHand(Hand::left,false);break;
                 case SelectorKeyAction::reorder:queueReorder(key.delta);break;
                 case SelectorKeyAction::unequip:queueUnequip(selection_.index());break;
                 case SelectorKeyAction::remove:queueEdit(2,selection_.index());break;
@@ -960,6 +1079,10 @@ void Game::dispatch(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent**
         if(REL::Module::IsVR())for(auto* event=events?*events:nullptr;event;event=event->next)feedVROverlay(event);
         {
             std::scoped_lock lock(mutex_);
+            if(playerAIControlled(RE::PlayerCharacter::GetSingleton())) {
+                if(editor_.open||editorRequested_||editorLaunch_.pending())closeEditor("player is AI controlled");
+                stickOwned_.fill(false);
+            }
             if(!allowed())cancel();
             if(!REL::Module::IsVR())if(auto* devices=RE::BSInputDeviceManager::GetSingleton();devices&&devices->IsGamepadEnabled())
                 if(auto* pad=devices->GetGamepad())controller_.observe(readPadState(pad));
@@ -988,7 +1111,7 @@ void Game::dispatch(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent**
                 controllerConnected_=devices&&(connected(devices->GetVRControllerLeft())||connected(devices->GetVRControllerRight()));
                 if(controller_.synchronize(readVRState(devices)))cancel();
                 if(!controllerConnected_){if(selectionController_)cancel();controller_.reset();stickOwned_.fill(false);}
-                else if(options_.controllerEnabled&&selection_.canBrowse()&&options_.vrStick<2&&allowed()) {
+                else if(options_.controllerEnabled&&selection_.canBrowse()&&options_.vrStick<2&&allowed(MenuPurpose::input,true)) {
                     const auto axis=readVRAxis(devices,options_.vrStick==1);
                     if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
                 }
@@ -1016,6 +1139,10 @@ void Game::tick() {
     std::scoped_lock lock(mutex_);
     flushSettings();
     try {
+        if(customMenuProbeAt_&&clockNow()>=customMenuProbeAt_) {
+            customMenuProbeAt_=0;
+            SKSE::GetTaskInterface()->AddUITask([]{logCustomMenu("settled");});
+        }
         const auto apiCommand=menuAPI().take();
         if(apiCommand==MenuAPIState::Command::close){closeEditor("menu API close request");publish();}
         else if(apiCommand==MenuAPIState::Command::open&&initialized_&&ready_&&!editor_.open&&!editorLaunch_.pending()) {
@@ -1025,12 +1152,16 @@ void Game::tick() {
         if(ready_&&use_.active()&&clockNow()>=nextUsePoll_)progressUse();
         if(editorLaunch_.pending()) {
             auto* ui=RE::UI::GetSingleton();auto* player=RE::PlayerCharacter::GetSingleton();auto* main=RE::Main::GetSingleton();
-            const bool safe=initialized_&&ready_&&ui&&player&&player->Is3DLoaded()&&!player->IsDead()&&!player->IsInKillMove()&&
+            const bool safe=initialized_&&ready_&&ui&&player&&player->Is3DLoaded()&&!player->IsDead()&&!player->IsInKillMove()&&!playerAIControlled(player)&&
                 ui->IsShowingMenus()&&ui->IsMenuOpen(RE::HUDMenu::MENU_NAME)&&!ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME)&&!ui->IsMenuOpen(RE::MainMenu::MENU_NAME)&&renderHasFocus();
-            const auto launch=editorLaunch_.poll(clockNow(),safe,allowed()&&main&&!main->GetRuntimeData().freezeTime);
+            const auto launch=editorLaunch_.poll(clockNow(),safe,allowed(MenuPurpose::editor)&&main&&!main->GetRuntimeData().freezeTime);
             if(launch==EditorLaunch::Result::open)openEditor();
             else if(launch==EditorLaunch::Result::cancel){frameworkMessage_=tr("Editor opening cancelled. Return to gameplay and try again.");notice(frameworkMessage_);}
             if(launch!=EditorLaunch::Result::idle)return;
+        }
+        if(clockNow()>=nextFavorites_) {
+            nextFavorites_=clockNow()+1;
+            if(hasFavoriteGroups(editor_.open?editor_.draft:arsenal_))dirty_=true;
         }
         if(editor_.open) {
             if(const auto reason=editorBlockReason();!reason.empty()){closeEditor(reason);publish();return;}
@@ -1045,9 +1176,6 @@ void Game::tick() {
             if(!allowed(MenuPurpose::hud)){publish();return;}
         }
         auto* ui=RE::UI::GetSingleton();
-        if(!ui->IsMenuOpen(menuName)&&!menuRequested_) {
-            RE::UIMessageQueue::GetSingleton()->AddMessage(menuName,RE::UI_MESSAGE_TYPE::kShow,nullptr);menuRequested_=true;
-        }
         if(inputAllowed) {
             if(voice_.active())progressVoice();
             selection_.tick(clockNow());selectionTime(selection_.browsing());
@@ -1057,7 +1185,7 @@ void Game::tick() {
 
         if(clockNow()>=nextStatus_) {
             nextStatus_=clockNow()+.25;if(options_.showEquipment||options_.inactiveGroups)dirty_=true;
-            for(const auto& group:arsenal_.groups)if(std::any_of(group.entries.begin(),group.entries.end(),[](const Entry& e){return isVoice(e)||e.kind==Kind::smartPotion||isSmartEquipment(e);})){dirty_=true;break;}
+            for(const auto& group:arsenal_.groups)if(std::any_of(group.entries.begin(),group.entries.end(),[&](const Entry& e){return isVoice(e)||e.kind==Kind::smartPotion||isSmartEquipment(e)||((options_.showPoison||options_.showAmmo)&&(e.kind<=Kind::staff||e.kind==Kind::combo));})){dirty_=true;break;}
         }
         if(dirty_||pending_)refresh();
         if(inputAllowed&&pending_)progressEquipment();
@@ -1066,12 +1194,12 @@ void Game::tick() {
 }
 bool Game::captureMenuOpen()const {
     auto* ui=RE::UI::GetSingleton();auto* player=RE::PlayerCharacter::GetSingleton();auto* controls=RE::ControlMap::GetSingleton();
-    if(!ready_||editor_.open||!ui||!player||!controls||player->IsDead()||!renderHasFocus()||frameworkCapturingInput()||controls->GetRuntimeData().textEntryCount>0)return false;
-    if(ui->IsMenuOpen(RE::Console::MENU_NAME)||ui->IsMenuOpen(RE::MessageBoxMenu::MENU_NAME)||ui->IsMenuOpen(RE::LoadingMenu::MENU_NAME))return false;
-    return ui->IsMenuOpen(RE::InventoryMenu::MENU_NAME)||ui->IsMenuOpen(RE::MagicMenu::MENU_NAME);
+    if(!ready_||editor_.open||!ui||!player||!controls||player->IsDead()||playerAIControlled(player)||!renderHasFocus()||frameworkCapturingInput()||controls->GetRuntimeData().textEntryCount>0)return false;
+    return (ui->IsMenuOpen(RE::InventoryMenu::MENU_NAME)||ui->IsMenuOpen(RE::MagicMenu::MENU_NAME))&&!foreignMenu(ui,MenuPurpose::capture);
 }
 void Game::menuCapture(std::size_t groupID,Hand hand) {
     if(!captureMenuOpen()||!groupVisible(options_,groupID))return;
+    if(arsenal_.groups[groupID].automatic()){notice(tr("This group follows Favorites; favorite the item in Skyrim"));return;}
     auto* ui=RE::UI::GetSingleton();
     RE::TESForm* form=nullptr;RE::InventoryEntryData* descriptor=nullptr;
     const bool magic=ui->IsMenuOpen(RE::MagicMenu::MENU_NAME);
@@ -1152,6 +1280,7 @@ RE::BSEventNotifyControl Game::ProcessEvent(const RE::BSAnimationGraphEvent* eve
     return RE::BSEventNotifyControl::kContinue;
 }
 void Game::capture(Hand hand) {
+    if(arsenal_.current().automatic()){notice(tr("This group follows Favorites; favorite the item in Skyrim"));return;}
     auto* player=RE::PlayerCharacter::GetSingleton();auto* form=player->GetEquippedObject(hand==Hand::left);
     if(!form){notice(hand==Hand::left?tr("Left hand is empty — equip a one-handed weapon or spell there first"):tr("Equip a weapon or spell first"));return;}
     Entry entry;entry.hand=hand;entry.form=form->GetFormID();
@@ -1216,9 +1345,13 @@ void Game::capture(Hand hand) {
 }
 void Game::refresh() {
     auto* player=RE::PlayerCharacter::GetSingleton();if(!player)return;
+    auto inventory=inventoryFor(arsenal_,player);
+    const auto revision=arsenal_.current().revision;
+    syncFavoriteGroups(arsenal_,player,inventory);
+    if(revision!=arsenal_.current().revision)cancel();
     const auto modes=options_.groupModes;normalizeGroupModes(options_,arsenal_);
     if(modes!=options_.groupModes)autosave_.change(clockNow());
-    auto inventory=inventoryFor(arsenal_,player);const auto potions=potionCandidates(inventory);const auto deficits=actorDeficits(player);snapshot_.rows.clear();snapshot_.equipment=readEquipment(player,inventory);
+    const auto potions=potionCandidates(inventory);const auto deficits=actorDeficits(player);snapshot_.rows.clear();snapshot_.equipment=readEquipment(player,inventory);
     const auto consumableGroup=selectedConsumableGroup(arsenal_);
     const bool smart=std::any_of(arsenal_.groups.begin(),arsenal_.groups.end(),[](const auto& g){return std::any_of(g.entries.begin(),g.entries.end(),hasSmartEquipment);});
     const auto equipment=smart?equipmentCandidates(player,inventory):std::vector<NativeEquipment>{};
@@ -1229,9 +1362,12 @@ void Game::refresh() {
             entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo)entry.parts=resolved.row.entry.parts;
             const bool available=resolved.row.available;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
-            if(i==arsenal_.active)snapshot_.rows.push_back(resolved.row);
+            if(i==arsenal_.active) {
+                snapshot_.rows.push_back(resolved.row);
+                if(group.automatic()&&tracksInstance(entry)&&!entry.owner)snapshot_.rows.back().detail=tr("Equip one copy first");
+            }
             if(j==group.selected){
-                tile.entry=resolved.row.entry;tile.available=available;tile.equipped=resolved.row.equipped;tile.quantity=resolved.row.quantity;tile.cooldown=resolved.row.cooldown;
+                tile.entry=resolved.row.entry;tile.iconEntry=resolved.row.iconEntry;tile.available=available;tile.equipped=resolved.row.equipped;tile.quantity=resolved.row.quantity;tile.cooldown=resolved.row.cooldown;tile.weapon=resolved.row.weapon;
                 tile.voice=isVoice(entry)&&tile.equipped;
                 tile.consumable=i==consumableGroup;
                 if(tile.consumable){snapshot_.equipment.consumable=resolved.row;if(resolved.item.available())snapshot_.equipment.consumable->entry=resolved.action;}
@@ -1282,10 +1418,14 @@ void Game::progressVoice() {
 }
 void Game::equip(const Selection::Commit& commit,bool unequip) {
     std::scoped_lock lock(mutex_);
-    if(!accepts(commit)||!allowed())return;
+    if(!accepts(commit)||!allowed(MenuPurpose::input,commit.controller))return;
     try {
         auto* player=RE::PlayerCharacter::GetSingleton();
-        const auto saved=arsenal_.current().entries[commit.index];
+        auto saved=arsenal_.current().entries[commit.index];
+        if(commit.hand) {
+            const auto chosen=entryForHand(saved,*commit.hand);if(!chosen||unequip)return;
+            saved=*chosen;
+        }
         const auto action=selectionAction(saved,commit,options_);
         if(!unequip&&action==SelectionAction::none)return;
         if(!unequip&&action==SelectionAction::select) {
@@ -1336,7 +1476,7 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
     }catch(const std::exception& e){pending_.reset();log::error("Equipment action failed: {}",e.what());notice(tr("Could not change equipment"));}
 }
 void Game::equipPairStep(const Selection::Commit& commit,int step,bool remove,std::optional<Entry> plan) {
-    if(!accepts(commit)||!allowed())return;
+    if(!accepts(commit)||!allowed(MenuPurpose::input,commit.controller))return;
     const auto combo=arsenal_.current().entries[commit.index];
     if(!equipmentSequence(combo)||(combo.kind==Kind::combo&&combo.parts.size()!=2))return;
     if(combo.kind==Kind::unarmed)remove=false;
@@ -1362,7 +1502,7 @@ void Game::equipPairStep(const Selection::Commit& commit,int step,bool remove,st
             if(!remove&&!validPair(plan->parts[0],plan->parts[1])){pending_.reset();notice(tr("Choose compatible items for both hands"));return;}
         }
     }
-    if(!accepts(commit)||!allowed())return;
+    if(!accepts(commit)||!allowed(MenuPurpose::input,commit.controller))return;
     if(!remove) {
         const auto state=resolveShortcut(*plan,player,inventory,{},{}).row;
         if(!state.available){pending_.reset();notice(tr("Combination stopped — ")+state.detail);return;}
@@ -1386,7 +1526,7 @@ void Game::equipPairStep(const Selection::Commit& commit,int step,bool remove,st
 }
 void Game::progressEquipment() {
     const auto pending=*pending_;const auto& commit=pending.commit;
-    if(!accepts(commit)){pending_.reset();return;}
+    if(!accepts(commit)||!allowed(MenuPurpose::input,commit.controller)){pending_.reset();return;}
     auto* player=RE::PlayerCharacter::GetSingleton();
     auto inventory=inventoryFor(arsenal_,player);const auto saved=arsenal_.current().entries[commit.index];
     const auto entry=pending.pairStep>=0?equipmentStep(pending.action.value_or(saved),std::size_t(pending.pairStep)):pending.action.value_or(saved);
@@ -1441,7 +1581,7 @@ void Game::progressUse() {
 }
 void Game::draw(bool editing) {
     Snapshot snapshot;Options options;EditorState editor;std::vector<EditorInput> input;
-    {std::scoped_lock lock(mutex_);if(!initialized_||editing!=editor_.open)return;snapshot=snapshot_;options=options_;
+    {std::scoped_lock lock(mutex_);if(!initialized_||editing!=editor_.open||(!editing&&!REL::Module::IsVR()&&!allowed(MenuPurpose::hud)))return;snapshot=snapshot_;options=options_;
         if(editing){editor=editor_;input.swap(editorInput_);}}
     if(snapshot.visible||editing||REL::Module::IsVR()) {
         auto commands=renderHud(snapshot,options,editing?&editor:nullptr,input);
@@ -1458,6 +1598,7 @@ std::string Game::editorBlockReason()const {
     if(!initialized_||!ready_||!ui||!player||!player->Is3DLoaded())return "game not ready";
     if(player->IsDead())return "player died";
     if(player->IsInKillMove())return "kill move started";
+    if(playerAIControlled(player))return "player is AI controlled";
     if(!ui->IsShowingMenus()||!ui->IsMenuOpen(RE::HUDMenu::MENU_NAME))return "HUD hidden";
     MenuBlocker blocker;
     if(foreignMenu(ui,MenuPurpose::editor,&blocker))return fmt::format("foreign menu '{}' (flags 0x{:08X})",blocker.name,blocker.flags);
@@ -1482,7 +1623,7 @@ void Game::requestVREditor(bool open) {
 }
 void Game::openEditor() {
     std::scoped_lock lock(mutex_);editorRequested_=false;
-    if(!allowed()||RE::UI::GetSingleton()->IsMenuOpen(editorMenuName))return;
+    if(!allowed(MenuPurpose::editor)||RE::UI::GetSingleton()->IsMenuOpen(editorMenuName))return;
     try {
         log::info("Editor opening: building equipment catalog");
         cancel();groupRecall_.reset();const auto session=editor_.session+1;editor_=EditorState{};editor_.session=session;editor_.open=true;
@@ -1540,7 +1681,7 @@ void Game::buildCatalog() {
         base.name=gameName(object->GetName());int plain=data.first;
         if(isStack(base)) {
             candidates_.push_back({object,nullptr,false,base});
-            editor_.catalog.push_back({base,candidates_.size(),data.first,base.kind==Kind::ammo&&player->GetCurrentAmmo()==object,true,{}});
+            editor_.catalog.push_back({base,candidates_.size(),data.first,base.kind==Kind::ammo&&equippedAmmo(player)==object,true,{}});
             if(base.kind==Kind::torch&&player->GetEquippedObject(true)==object) {
                 editor_.catalog.back().equipped=true;editor_.equippedCandidates[1]=candidates_.size();
             }
@@ -1601,7 +1742,9 @@ void Game::buildCatalog() {
     catalogDirty_=false;
 }
 void Game::refreshEditor() {
-    auto* player=RE::PlayerCharacter::GetSingleton();auto inventory=inventoryFor(editor_.draft,player);const auto potions=potionCandidates(inventory);editor_.deficits=actorDeficits(player);
+    auto* player=RE::PlayerCharacter::GetSingleton();auto inventory=inventoryFor(editor_.draft,player);
+    if(syncFavoriteGroups(editor_.draft,player,inventory)){++editor_.revision;arsenal_=editor_.draft;}
+    const auto potions=potionCandidates(inventory);editor_.deficits=actorDeficits(player);
     const auto equipment=equipmentCandidates(player,inventory);editor_.equippedDisplay=readEquipment(player,inventory);
     const auto consumableGroup=selectedConsumableGroup(editor_.draft);
     for(std::size_t i=0;i<Arsenal::count;++i) {
@@ -1611,6 +1754,7 @@ void Game::refreshEditor() {
             entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo)entry.parts=resolved.row.entry.parts;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             rows.push_back(resolved.row);
+            if(editor_.draft.groups[i].automatic()&&tracksInstance(entry)&&!entry.owner)rows.back().detail=tr("Equip one copy first");
             if(i==consumableGroup&&rows.size()-1==editor_.draft.groups[i].selected){editor_.equippedDisplay.consumable=resolved.row;if(resolved.item.available())editor_.equippedDisplay.consumable->entry=resolved.action;}
         }
     }
@@ -1653,6 +1797,7 @@ std::optional<Entry> Game::captureCandidate(std::uint64_t candidate,Hand hand) {
 bool Game::addCandidate(const EditCommand& c) {
     if(c.catalogVersion!=editor_.catalogVersion||catalogDirty_){editor_.message=tr("Select the item again");return false;}
     auto& group=editor_.draft.groups[c.group];
+    if(group.automatic()){editor_.message=tr("This group follows Favorites; favorite the item in Skyrim");return false;}
     if(group.entries.size()>=Group::limit) {
         const auto* choice=catalogItem(editor_,c.candidate);
         if(!choice){editor_.message=tr("Select the item again");return false;}
@@ -1666,6 +1811,7 @@ bool Game::addCandidate(const EditCommand& c) {
     buildCatalog();refreshEditor();return true;
 }
 bool Game::saveCombination(const EditCommand& c) {
+    if(!c.libraryID&&editor_.draft.groups[c.group].automatic())return false;
     if(catalogDirty_){buildCatalog();editor_.message=tr("Select the items again");return false;}
     if(!c.replace&&!c.libraryID&&editor_.draft.groups[c.group].entries.size()>=Group::limit){editor_.message=tr("Group full (16 / 16)");return false;}
     const auto pair=composeCombination(editor_,c,[&](std::uint64_t id,Hand hand){return captureCandidate(id,hand);});
@@ -1759,7 +1905,7 @@ void Game::edit(const EditCommand& c) {
         else editor_.message=tr(c.action==EditAction::sortGroup?"Already sorted":"Could not change item");
         editHistory_.finish(changed&&c.action!=EditAction::select,c.continuous,clockNow());
         if(changed) {
-            if(c.action==EditAction::addGroup||c.action==EditAction::removeGroup)++editor_.restoreSerial;
+            if(c.action==EditAction::addGroup||c.action==EditAction::removeGroup||c.action==EditAction::favoriteSource)++editor_.restoreSerial;
             if(c.action==EditAction::removeGroup)editor_.message=tr("Group removed");
             if(c.action==EditAction::clearGroup)editor_.message=tr("Group cleared");
             if(unsigned(c.action)>=unsigned(EditAction::addGroup))log::info("Editor structure action {}, group {}, visible {}, saved entries {}",unsigned(c.action),c.group+1,editor_.options.groupCount,editor_.draft.size());
@@ -1826,7 +1972,11 @@ RE::BSEventNotifyControl Game::ProcessEvent(const RE::MenuOpenCloseEvent* e,RE::
     std::scoped_lock lock(mutex_);
     if(e) {
         ++menuCaptureEpoch_;
-        if(e->menuName==menuName)menuRequested_=e->opening;
+        if(e->menuName==menuName)hudMenu_.processed();
+        if(e->menuName=="CustomMenu") {
+            logCustomMenu(e->opening?"opened":"closed");
+            customMenuProbeAt_=e->opening?clockNow()+2:0;
+        }
         if(e->menuName==slowMenuName&&e->opening&&(!selection_.browsing()||!allowed()||selectionClock(options_.selectionSpeed)!=SelectionClock::slow)) {
             soulsRequested_=false;RE::UIMessageQueue::GetSingleton()->AddMessage(slowMenuName,RE::UI_MESSAGE_TYPE::kHide,nullptr);
         }
@@ -1839,7 +1989,7 @@ RE::BSEventNotifyControl Game::ProcessEvent(const RE::MenuOpenCloseEvent* e,RE::
             else updateEditorTextInput();
         }
         if(e->opening&&e->menuName==RE::MainMenu::MENU_NAME){ready_=false;menuAPI().publish(false,false);cancel();use_.reset();stopAnimationWatch();}
-        else if((e->opening&&gameplayMenuOpen([&](auto name){return e->menuName==name;}))||!allowed())cancel();
+        else if((e->opening&&gameplayMenuOpen([&](auto name){return e->menuName==name;},MenuPurpose::input,quickLootAllowed()))||!allowed())cancel();
         dirty_=true;publish();
     }
     return RE::BSEventNotifyControl::kContinue;

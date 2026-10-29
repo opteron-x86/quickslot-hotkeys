@@ -60,6 +60,26 @@ void potionEffects(const std::filesystem::path& root) {
         effect.magnitude=100;effect.conditionsMet=false;addPotionEffect(bottle,effect);
         check(bottle.regeneration[resource]==50,"Inactive regeneration variants do not affect ranking");
     }
+    for(unsigned resource=0;resource<3;++resource) {
+        std::vector<PotionCandidate> stock(4);
+        for(unsigned i=0;i<stock.size();++i) {
+            auto& bottle=stock[i];bottle.entry=item(Kind::potion);bottle.entry.form+=i;bottle.count=1;
+            addPotionEffect(bottle,{i?PotionArchetype::peakValueModifier:PotionArchetype::valueModifier,
+                PotionValue(unsigned(PotionValue::health)+resource),i?float(5u<<(i-1)):25.f,i?10u:0u,i==3});
+        }
+        auto rule=smartEntry(resource,0,0);
+        check(choosePotion(rule,stock,40)==&stock[0],"Instant restoration competes with duration-based restoration for lowest strength");
+        rule.policy=1;
+        check(choosePotion(rule,stock,40)==&stock[2],"Highest strength uses the full restoration duration and excludes fortification");
+        rule.policy=2;
+        check(choosePotion(rule,stock,40)==&stock[1],"Best fit selects the smallest sufficient duration-based potion");
+        rule.exclusions={{stock[1].entry.form,0}};
+        check(choosePotion(rule,stock,40)==&stock[2],"Excluding a matching overhaul potion advances to the next sufficient potion");
+        stock[2].count=0;
+        check(choosePotion(rule,stock,40)==&stock[0],"Depleted overhaul potions leave eligible instant restoration available");
+        stock[2].count=2;
+        check(choosePotion(rule,stock,40)==&stock[2],"Restocking makes the recognized overhaul potion eligible again");
+    }
 }
 int main(int argc,char** argv)try {
     if(argc!=2)return 2;

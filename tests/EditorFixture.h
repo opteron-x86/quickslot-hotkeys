@@ -3,6 +3,8 @@
 #include "Presets.h"
 namespace quickslot::fixture {
 inline void rows(EditorState& s) {
+    std::vector<Entry> favorites;for(const auto& item:s.catalog)if(item.count>0)favorites.push_back(item.entry);
+    for(auto& group:s.draft.groups)refreshFavorites(group,favorites);
     for(std::size_t i=0;i<Arsenal::count;++i){s.rows[i].clear();for(const auto& e:s.draft.groups[i].entries) {
         int count=0;for(const auto& c:s.catalog)if(c.entry.form==e.form)count=c.count;
         s.rows[i].push_back({e,!e.unresolved&&(!isStack(e)||count>0),false,{},isStack(e)?count:0});
@@ -60,7 +62,7 @@ inline bool apply(EditorState& s,const EditCommand& c,EditHistory& history) {
             auto save=c;save.action=EditAction::saveShortcut;save.shortcut=*pair;
             if(!editStructure(s.draft,s.options,save)){history.finish(false,false,0);return false;}
         }else if(!editStructure(s.draft,s.options,c)&&!editGroup(s.draft,s.options,c)){history.finish(false,false,0);return false;}
-        if(c.action==EditAction::addGroup||c.action==EditAction::removeGroup)++s.restoreSerial;
+        if(c.action==EditAction::addGroup||c.action==EditAction::removeGroup||c.action==EditAction::favoriteSource)++s.restoreSerial;
         history.finish(c.action!=EditAction::select&&c.action!=EditAction::refresh,c.continuous,double(s.revision));
     }
     normalizeGroupModes(s.options,s.draft);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;rows(s);return true;

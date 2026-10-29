@@ -6,10 +6,13 @@ Equipment and consumable shortcut groups with a configurable HUD. Tap a group ke
 [list]
 [*]Up to eight groups for weapons, armor, shields, spells, scrolls, potions, poisons, food, powers, shouts and ammo.
 [*]Searchable hand combinations, including smart weapons and shields.
+[*]Category groups populated automatically from Skyrim Favorites.
+[*]Hand selection while browsing, with keyboard, mouse and controller bindings.
 [*]Smart weapons by physical damage, shields by armor, ammo by damage and potions by strength or best fit.
 [*]Hold-to-browse and tap-to-cycle group modes.
 [*]Keyboard, XInput, PS4 and experimental VR controls with configurable modifiers.
-[*]Independent equipment display with quantity badges, shout timers and power dimming.
+[*]Independent equipment display with quantity badges, poison indicators, bow ammunition counts, shout timers and power dimming.
+[*]Separate keyboard/mouse and controller options for using Quickslot while QuickLoot is open.
 [*]Rows, columns, crosses, diamonds, circles and list layouts.
 [*]Themes, icon sets, text sizing, spacing, screen positioning and grid snapping.
 [*]Preset import/export, Undo, automatic saving and menu translations.
@@ -19,6 +22,7 @@ Equipment and consumable shortcut groups with a configurable HUD. Tap a group ke
 [list]
 [*][url=https://skse.silverlock.org/]SKSE[/url] and [url=https://www.nexusmods.com/skyrimspecialedition/mods/32444]Address Library[/url] matching your game executable.
 [*][url=https://www.nexusmods.com/skyrimspecialedition/mods/12604]SkyUI[/url] and Microsoft Visual C++ Redistributable, x64.
+[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/85702]Inventory Interface Information Injector (I4) 1.1.0+[/url] for your Skyrim version.
 [*]VR: SKSEVR, [url=https://github.com/alandtse/skyrim_vr_address_library]VR Address Library[/url], [url=https://github.com/Odie/skyui-vr]SkyUI VR[/url] and [url=https://www.nexusmods.com/skyrimspecialedition/mods/183466]ImGui VR Helper 1.9.4+[/url].
 [/list]
 
@@ -32,11 +36,19 @@ Hold a group key and use the wheel or Left/Right to browse. Release to select. C
 
 On controller, groups use D-pad directions by default. Hold a group button and browse with the right stick or LB/RB. Release to select, B/Circle to cancel, X/Square to unequip. Hold D-pad Up and press Start/Options to open the editor. The editor supports D-pad focus, right-stick pointer, click/drag and on-screen text entry.
 
+Configure bindings under Controls. Keyboard actions use None or Clear to disable a binding. For Alt-to-walk setups, assign Remove group shortcut to another modifier or None and enable Allow group selection with unused modifiers.
+
+While browsing, choose Equip in right/left hand to equip the highlighted weapon or spell for the current use. Mouse-button and bumper presets are available in the binding settings.
+
 Tap-to-cycle recalls the selected item when returning to a group and advances on further taps. Consumable groups use tap-to-use and hold-to-choose.
 
 [b]Appearance[/b]
 
 Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Adjust frame and icon style, text, spacing and visibility. Position each display by dragging its outline or adjusting X/Y; Shift enables free movement.
+
+Item icons use your installed I4 packs. Original displays their colors; Theme and White apply the selected tint. Smart shortcuts show the item currently selected, combinations show both items, and hand actions use a gauntlet.
+
+Enable Show equipped ammunition under Appearance → Equipment to display equipped arrows or bolts and their current count.
 
 The equipment display shows the right hand first, then left hand, consumable and power/shout. Quantities and shout timers appear on icons. Groups and equipment have independent visibility settings.
 
@@ -44,7 +56,7 @@ The equipment display shows the right hand first, then left hand, consumable and
 
 [url=https://github.com/opteron-x86/quickslot-hotkeys]Source and documentation[/url] · [url=https://github.com/opteron-x86/quickslot-hotkeys/releases]Releases[/url]
 
-The DLL targets SE 1.5.97, AE 1.6.x, 1.7.99/1.7.104 and VR 1.4.15. VR is experimental; headset testing is pending. Automated test results accompany each release. In-game checks cover equipment behavior and physical input devices.
+The DLL targets SE 1.5.97, AE 1.6.x, 1.7.99/1.7.104 and VR 1.4.15. VR support is experimental.
 
 For bug reports, include Quickslot.log, the game version and reproduction steps. Include a crash log for crashes.
 

@@ -15,7 +15,7 @@ from release_support import ROOT, digest, package_version, release_notes, source
 
 def validate_runtime(files):
     required = {'SKSE/Plugins/Quickslot.dll', 'SKSE/Plugins/Quickslot.ini',
-                'Quickslot/icons/items.png', 'Quickslot/icons/manifest.json', 'Quickslot/README.md'}
+                'Quickslot/README.md'}
     if not required <= set(files):
         raise ValueError(f'Missing runtime files: {required - set(files)}')
     if {n for n in files if n.startswith('SKSE/')} != {'SKSE/Plugins/Quickslot.dll', 'SKSE/Plugins/Quickslot.ini'}:
@@ -24,6 +24,8 @@ def validate_runtime(files):
         path = Path(name)
         if not name.startswith(('SKSE/', 'Quickslot/')) or '..' in path.parts:
             raise ValueError(f'Unexpected package path: {name}')
+        if name.startswith('Quickslot/icons/'):
+            raise ValueError(f'Unexpected item icon asset: {name}')
         if any(p.lower() in {'presets', 'source', 'backups', '.git'} for p in path.parts):
             raise ValueError(f'Unexpected runtime directory: {name}')
         if path.suffix.lower() in {'.pdb', '.exe', '.log', '.ess', '.skse', '.swf'}:
@@ -37,7 +39,7 @@ def validate_runtime(files):
 def validate_tests(report, dll, state, release):
     expected = {'plugin', 'runtime_vr', 'smart_equipment', 'shortcut_library', 'interactions',
                 'localization', 'dx_state', 'controller_voice', 'icon', 'live', 'features',
-                'hand_actions', 'advanced', 'consumable', 'smf'}
+                'hand_actions', 'advanced', 'consumable', 'smf', 'pngii'}
     if report.get('passed') is not True or set(report.get('cases', {})) != expected:
         raise ValueError('All Windows probes must pass before packaging')
     if any(v.get('returncode') != 0 for v in report['cases'].values()):
@@ -95,10 +97,6 @@ def main():
         validate_runtime(files)
         if digest(runtime / 'SKSE/Plugins/Quickslot.dll') != report['dll_sha256']:
             raise ValueError('Installed DLL differs from the tested binary')
-        icon_manifest = json.loads((runtime / 'Quickslot/icons/manifest.json').read_text(encoding='utf-8'))
-        icon_catalog = json.loads((ROOT / 'assets/icons/catalog.json').read_text(encoding='utf-8'))
-        if icon_manifest['placeholders'] != 0 or [e['id'] for e in icon_manifest['icons']] != [e['id'] for e in icon_catalog['icons']]:
-            raise ValueError('Incomplete icon atlas')
         for file in (runtime / 'Quickslot').rglob('*.json'):
             json.loads(file.read_text(encoding='utf-8'))
         info = stage / 'SOURCE-INFO.json'

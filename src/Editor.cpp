@@ -64,7 +64,7 @@ Snapshot preview(const EditorState& state) {
     s.equipment=state.equippedDisplay;
     for(std::size_t i=0;i<Arsenal::count;++i) {
         const auto& g=state.draft.groups[i];auto& tile=s.groups[i];tile.count=g.entries.size();
-        if(g.selected<state.rows[i].size()){const auto& row=state.rows[i][g.selected];tile.entry=row.entry;tile.available=row.available;tile.equipped=row.equipped;tile.quantity=row.quantity;tile.cooldown=row.cooldown;tile.voice=isVoice(row.entry)&&row.equipped;tile.consumable=i==selectedConsumableGroup(state.draft);}
+        if(g.selected<state.rows[i].size()){const auto& row=state.rows[i][g.selected];tile.entry=row.entry;tile.iconEntry=row.iconEntry;tile.weapon=row.weapon;tile.available=row.available;tile.equipped=row.equipped;tile.quantity=row.quantity;tile.cooldown=row.cooldown;tile.voice=isVoice(row.entry)&&row.equipped;tile.consumable=i==selectedConsumableGroup(state.draft);}
     }
     return s;
 }
@@ -77,13 +77,17 @@ std::string scanName(unsigned scan) {
     for(const auto& s:scans)if(s.code==scan)return s.name;
     return "Scan "+std::to_string(scan);
 }
-static std::string shortcutName(unsigned scan,unsigned modifiers) {
-    if(!scan)return "None";
+static std::string modifierName(unsigned modifiers) {
     std::string name;
     if(modifiers&keyModifier::ctrl)name+="Ctrl + ";
     if(modifiers&keyModifier::shift)name+="Shift + ";
     if(modifiers&keyModifier::alt)name+="Alt + ";
-    return name+scanName(scan);
+    if(!name.empty())name.resize(name.size()-3);
+    return name.empty()?tr("None"):name;
+}
+static std::string shortcutName(unsigned scan,unsigned modifiers) {
+    if(!scan)return "None";
+    return (modifiers?modifierName(modifiers)+" + ":std::string{})+scanName(scan);
 }
 void Editor::beginSession(const EditorState& state) {
     controllerMode_=state.controller;vrMode_=state.vr;
@@ -110,7 +114,7 @@ void Editor::beginSession(const EditorState& state) {
         }
         return;
     }
-    restoreSerial_=state.restoreSerial;orderSelection_.reset();
+    restoreSerial_=state.restoreSerial;orderSelection_.reset();previewFittedMode_=-1;
     session_=state.session;catalogVersion_=state.catalogVersion;candidate_=0;selected_=0;binding_=-1;placement_=false;placementPanelTarget_=-1;returnTextFocus_=0;hint_.clear();downs_.clear();
     search_.fill(0);keys_.fill(false);padKeys_.fill(false);padDowns_.clear();pointerMode_=pointerDown_=false;pointerAxis_={};filter_=0;shortcutIndex_.reset();editingLibrary_=0;shortcutGroup_=Arsenal::count;shortcut_=smartEntry(0,0,0);comboName_.fill(0);builder_=0;comboCandidates_={};handSearch_={};
     for(std::size_t i=0;i<Arsenal::count;++i)std::snprintf(names_[i].data(),names_[i].size(),"%s",state.options.names[i].c_str());
@@ -263,6 +267,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         out.push_back(std::move(c));
     };
     const auto accept=[&](std::optional<std::size_t> index,std::size_t destination) {
+        if(state.draft.groups[destination].automatic())return;
         if(ImGui::BeginDragDropTarget()) {
             if(const auto* payload=ImGui::AcceptDragDropPayload("QUICKSLOT_ENTRY")) {
                 if(payload->DataSize==sizeof(Drag)) {
@@ -289,6 +294,11 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
     for(const auto press:downs_) {
         const auto scan=press.scan;
         if(binding_!=-1) {
+            if(binding_>=100) {
+                if(modifierForScan(scan))continue;
+                if(!assignSelectorBinding(options,KeyboardAction(binding_-100),scan==1?KeyBinding{}:KeyBinding{scan,press.modifiers})){hint_=tr("Key already assigned");continue;}
+                changed=true;binding_=-1;hint_.clear();break;
+            }
             if(scan==1){if(binding_>=0){options.keys[std::size_t(binding_)]=0;changed=true;}binding_=-1;hint_.clear();break;}
             if(modifierForScan(scan))continue;
             if(!validGroupKey(scan)){hint_=tr("Key unavailable");continue;}
@@ -296,7 +306,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(binding_==-2) {
                 bool duplicate=false;
                 for(std::size_t i=0;i<options.keys.size();++i)if(groupVisible(options,i)&&options.keys[i]==scan)duplicate=true;
-                if(duplicate){hint_=tr("Key already assigned");continue;}
+                if(duplicate||selectorKeyReserved(options,scan)){hint_=tr("Key already assigned");continue;}
                 options.editorKey=scan;options.editorModifiers=press.modifiers;
             }else {
                 bool swapped=false;
@@ -340,7 +350,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(options.placementFrame)guides->AddRect({frame.min.x,frame.min.y},{frame.max.x,frame.max.y},axis);
         }
         HudBounds bounds;hud.draw(snapshot,options,now,{},{},nullptr,&bounds);
-        const auto geometry=hudGeometry(options,screen.x,screen.y,equipmentRows(snapshot.equipment));
+        const auto geometry=hudGeometry(options,screen.x,screen.y,equipmentRows(snapshot.equipment,options),hud.equipmentMetrics(snapshot.equipment,options),snapshot.rows.size());
         const auto detachSelector=[&] {
             if(options.selectorDock==4)return;
             options.selectorX=std::clamp((geometry.origin.x+geometry.selectorOrigin.x*geometry.scale-8)/std::max(1.f,screen.x-16-geometry.selectorWidth*geometry.scale),0.f,1.f);
@@ -434,7 +444,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         label(tr("GROUPS"));
         for(std::size_t position=0;position<options.groupCount;++position) {
             const auto i=options.groupOrder[position];ImGui::PushID(int(i));
-            const auto text=scanName(options.keys[i])+"   "+options.names[i]+"\n     "+std::to_string(state.draft.groups[i].entries.size())+" / 16";
+            const auto text=scanName(options.keys[i])+"   "+options.names[i]+"\n     "+std::to_string(state.draft.groups[i].entries.size())+(state.draft.groups[i].automatic()?" favorites":" / 16");
             if(ImGui::Selectable(text.c_str(),i==state.draft.active,0,{0,px(48)})){selected_=0;emit(command(EditAction::select,i));}
             accept({},i);ImGui::PopID();
         }
@@ -442,7 +452,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         ImGui::Separator();
         if(UI::Button("Group up",{-1,0}))emit(command(EditAction::groupUp,state.draft.active));
         if(UI::Button("Group down",{-1,0}))emit(command(EditAction::groupDown,state.draft.active));
-        ImGui::BeginDisabled(state.draft.current().entries.empty());
+        ImGui::BeginDisabled(state.draft.current().automatic()||state.draft.current().entries.empty());
         if(UI::Button("Clear group",{-1,0}))emit(command(EditAction::clearGroup,state.draft.active));ImGui::EndDisabled();
         ImGui::BeginDisabled(options.groupCount<=1);
         if(UI::Button("Remove group",{-1,0}))emit(command(EditAction::removeGroup,state.draft.active));ImGui::EndDisabled();
@@ -454,6 +464,17 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             ImGui::SetNextItemWidth(std::max(px(100),ImGui::GetContentRegionAvail().x-px(250)));
             if(textField("##Group name","",names_[groupID])){options.names[groupID]=names_[groupID].data();changed=true;}
             ImGui::SameLine();UI::TextDisabled("Key");ImGui::SameLine();bindButton(int(groupID),options.keys[groupID],"##group binding");
+            ImGui::SetNextItemWidth(px(235));
+            if(ImGui::BeginCombo("##group source",tr(favoriteSourceName(group.source)))) {
+                for(unsigned i=0;i<unsigned(FavoriteSource::count);++i)if(ImGui::Selectable(tr(favoriteSourceName(FavoriteSource(i))),i==unsigned(group.source))) {
+                    auto c=command(EditAction::favoriteSource,groupID);c.source=FavoriteSource(i);c.hand=group.favoriteHand;emit(c);
+                }
+                ImGui::EndCombo();
+            }
+            if(group.automatic()) {
+                ImGui::SameLine();ImGui::SetNextItemWidth(px(140));int hand=int(group.favoriteHand);
+                if(UI::Combo("Default hand",&hand,"Right\0Left\0")){auto c=command(EditAction::favoriteSource,groupID);c.source=group.source;c.hand=Hand(hand);emit(c);}
+            }
             const auto loadDefinition=[&](const Entry& entry) {
                 shortcut_=entry;comboCandidates_={};
                 builder_=shortcut_.kind==Kind::combo?1:shortcut_.kind==Kind::smartPotion?2:isSmartEquipment(shortcut_)?4:3;
@@ -481,6 +502,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(type==1){shortcut_=Entry{};shortcut_.kind=Kind::combo;shortcut_.parts.resize(2);}
                 else shortcut_=type==2?smartEntry(0,0,0):type>=4?smartEquipmentEntry(type==5,type==6?unsigned(WeaponFamily::shield):0u):unarmedEntry();
             };
+            ImGui::BeginDisabled(group.automatic());
             if(UI::Button("Items")){builder_=0;shortcutIndex_.reset();editingLibrary_=0;}
             ImGui::SameLine();if(UI::Button("New"))ImGui::OpenPopup("new entry");
             if(ImGui::BeginPopup("new entry")) {
@@ -492,6 +514,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(UI::MenuItem("Hand action"))newShortcut(3);
                 ImGui::EndPopup();
             }
+            ImGui::EndDisabled();
             ImGui::SameLine();ImGui::SetNextItemWidth(px(180));
             const bool consumables=hasConsumables(group);int mode=int(groupMode(options,state.draft,groupID));
             ImGui::BeginDisabled(consumables);
@@ -509,6 +532,18 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             };
             const float column=(ImGui::GetContentRegionAvail().x-px(12))*.5f;
             beginPanel("catalog",{column,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
+            if(group.automatic()) {
+                label(tr("FAVORITES"));
+                UI::TextWrapped("Favorite items in Skyrim's Inventory or Magic menu to add them here. This group shows every matching favorite in name order.");
+                UI::TextWrapped("Switch back to Manual to restore the original group contents. Exclude hides an entry from this group without changing Skyrim Favorites.");
+                UI::TextDisabled("%u manual entries saved",unsigned(group.manualEntries.size()));
+                UI::TextDisabled("%u / 128 exclusions",unsigned(group.excludedFavorites.size()));
+                ImGui::BeginDisabled(group.excludedFavorites.empty());
+                if(UI::Button("Reset exclusions"))emit(command(EditAction::resetFavoriteExclusions,groupID));
+                ImGui::EndDisabled();
+                for(const auto& entry:group.excludedFavorites)ImGui::TextWrapped("%s",entry.name.c_str());
+            }else {
+
             if(builder_==0) {
             label(tr("ITEMS & SHORTCUTS"));
             ImGui::SetNextItemWidth(-1);textField("##search","Search…",search_,127);
@@ -705,19 +740,23 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(uses>1){ImGui::Spacing();UI::TextDisabled("Used in %u groups",unsigned(uses));}
             if(editingLibrary_&&UI::Button("Add to group",{-1,0})){auto c=command(EditAction::addShortcut,groupID);c.libraryID=editingLibrary_;emit(c);}
             }
+            }
             endPanel();ImGui::SameLine();
             beginPanel("entries",{0,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
             label(tr("GROUP ITEMS"));
-            ImGui::SameLine();ImGui::BeginDisabled(group.entries.size()<2);
+            ImGui::SameLine();ImGui::BeginDisabled(group.automatic()||group.entries.size()<2);
             if(UI::Button("Sort A–Z"))emit(command(EditAction::sortGroup,groupID));
             ImGui::EndDisabled();
             if(ImGui::IsItemHovered())UI::SetTooltip("Sort by name, ignoring case. Equal names keep their order.");
+            ImGui::BeginDisabled(group.automatic());
             changed|=UI::Checkbox("Auto-sort when adding",&options.autoSort[groupID]);
+            ImGui::EndDisabled();
             if(ImGui::IsItemHovered())UI::SetTooltip("Sort A–Z now and whenever an item is added to this group.");
             beginPanel("group list",{0,std::max(px(70),ImGui::GetContentRegionAvail().y-px(123))},ImGuiChildFlags_NavFlattened);
             navigationList();
             if(group.entries.empty()) {
-                UI::Button("Drop equipment here",{-1,px(100)});accept({},groupID);
+                if(group.automatic())UI::TextWrapped("No matching Favorites. Favorite an item in Skyrim to populate this group.");
+                else {UI::Button("Drop equipment here",{-1,px(100)});accept({},groupID);}
             }
             for(std::size_t i=0;i<group.entries.size();++i) {
                 ImGui::PushID(int(i));const auto& e=group.entries[i];const auto pos=ImGui::GetCursorScreenPos();
@@ -736,25 +775,26 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 d->AddText(nullptr,px(14),{pos.x+px(6),pos.y+px(27)},ImGui::GetColorU32(brass),status.c_str());d->PopClipRect();
                 const auto statusWidth=ImGui::GetFont()->CalcTextSizeA(px(14),FLT_MAX,0,status.c_str()).x;
                 if(std::max(nameSize.x,statusWidth)>end.x-pos.x-px(12)&&ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))UI::SetTooltip("%s\n%s",e.name.c_str(),status.c_str());
-                if(ImGui::BeginDragDropSource()) {
+                if(!group.automatic()&&ImGui::BeginDragDropSource()) {
                     Drag drag{state.session,state.revision,state.catalogVersion,0,groupID,i};ImGui::SetDragDropPayload("QUICKSLOT_ENTRY",&drag,sizeof(drag));
                     ImGui::TextUnformatted(displayName(e).c_str());ImGui::EndDragDropSource();
                 }
                 accept(i,groupID);ImGui::PopID();
             }
             endPanel();
-            const bool has=selected_<group.entries.size();ImGui::BeginDisabled(!has);
-            if(UI::Button("Remove")){emit(command(EditAction::remove,groupID,selected_));shortcutIndex_.reset();editingLibrary_=0;builder_=0;}ImGui::SameLine();
-            ImGui::BeginDisabled(!has||selected_==0);if(UI::Button("Up"))emit(command(EditAction::reorder,groupID,selected_,selected_-1));ImGui::EndDisabled();ImGui::SameLine();
-            ImGui::BeginDisabled(!has||selected_+1>=group.entries.size());if(UI::Button("Down"))emit(command(EditAction::reorder,groupID,selected_,selected_+1));ImGui::EndDisabled();
-            ImGui::BeginDisabled(!has||!flexibleHand(group.entries[has?selected_:0]));
+            const bool has=selected_<group.entries.size();ImGui::BeginDisabled(!has||(group.automatic()&&group.excludedFavorites.size()>=Group::exclusionLimit));
+            if(UI::Button(group.automatic()?"Exclude":"Remove")){emit(command(EditAction::remove,groupID,selected_));shortcutIndex_.reset();editingLibrary_=0;builder_=0;}ImGui::SameLine();
+            ImGui::BeginDisabled(group.automatic()||!has||selected_==0);if(UI::Button("Up"))emit(command(EditAction::reorder,groupID,selected_,selected_-1));ImGui::EndDisabled();ImGui::SameLine();
+            ImGui::BeginDisabled(group.automatic()||!has||selected_+1>=group.entries.size());if(UI::Button("Down"))emit(command(EditAction::reorder,groupID,selected_,selected_+1));ImGui::EndDisabled();
+            ImGui::BeginDisabled(group.automatic()||!has||!flexibleHand(group.entries[has?selected_:0]));
             if(UI::Button("Change hand",{-1,0})&&has){auto c=command(EditAction::hand,groupID,selected_);c.hand=group.entries[selected_].hand==Hand::left?Hand::right:Hand::left;emit(c);}ImGui::EndDisabled();
             ImGui::SetNextItemWidth(-1);
+            ImGui::BeginDisabled(group.automatic());
             if(ImGui::BeginCombo("##move","Move to another group…")) {
-                for(std::size_t position=0;position<options.groupCount;++position){const auto i=options.groupOrder[position];if(i!=groupID&&ImGui::Selectable(options.names[i].c_str()))emit(command(EditAction::move,groupID,selected_,i));}
+                for(std::size_t position=0;position<options.groupCount;++position){const auto i=options.groupOrder[position];if(i!=groupID&&!state.draft.groups[i].automatic()&&ImGui::Selectable(options.names[i].c_str()))emit(command(EditAction::move,groupID,selected_,i));}
                 ImGui::EndCombo();
             }
-            ImGui::EndDisabled();endPanel();
+            ImGui::EndDisabled();ImGui::EndDisabled();endPanel();
         } else if(tab_==2) {
             for(int i=0;i<3;++i){if(i)ImGui::SameLine();if(UI::Button(i==0?"General":i==1?"Keyboard":"Controller",{px(125),0}))controlsPage_=i;}
             ImGui::Separator();
@@ -769,28 +809,65 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             ImGui::Separator();label(tr("DEFAULT ACTIVATION"));
             changed|=UI::Checkbox("Activate with group hotkey",&options.voiceHotkey);
             ImGui::SetNextItemWidth(px(240));changed|=UI::SliderFloat("Shout charge",&options.shoutCharge,.05f,2.5f,"%.2f s");
+            ImGui::Separator();label(tr("QUICKLOOT"));
+            changed|=UI::Checkbox("Allow keyboard / mouse while QuickLoot is open",&options.quickLootKeyboard);
+            changed|=UI::Checkbox("Allow controller while QuickLoot is open",&options.quickLootController);
+            UI::TextWrapped("While browsing a Quickslot group, its navigation inputs go to Quickslot. Other inputs still reach QuickLoot. The editor and other game menus keep their normal restrictions.");
             }else if(controlsPage_==1){
             label(tr("KEYS"));
             for(std::size_t i=0;i<options.groupCount;++i){const auto id=options.groupOrder[i];ImGui::PushID(int(id));bindButton(int(id),options.keys[id],"##control binding");ImGui::SameLine();ImGui::TextUnformatted(options.names[id].c_str());ImGui::PopID();}
             ImGui::Separator();label(tr("Editor"));bindButton(-2,options.editorKey,"##editor binding");
             ImGui::SameLine();if(UI::Button("Clear##editor binding")){options.editorKey=options.editorModifiers=0;binding_=-1;changed=true;hint_.clear();}
-            ImGui::Separator();label(tr("Editing shortcuts"));
-            if(UI::Button("Enable all##editing shortcuts")){setEditingShortcuts(options,true);changed=true;}ImGui::SameLine();
-            if(UI::Button("Disable all##editing shortcuts")){setEditingShortcuts(options,false);changed=true;}
-            UI::TextWrapped("Disabled editing shortcuts pass through to the game and other mods. Browsing and canceling stay available.");
-            changed|=UI::Checkbox("Ctrl + group key: add right hand / highlighted item",&options.groupCaptureRightHotkey);
-            changed|=UI::Checkbox("Ctrl + Shift + group key: add left hand",&options.groupCaptureLeftHotkey);
-            changed|=UI::Checkbox("Shift + group key: unequip",&options.groupUnequipHotkey);
-            changed|=UI::Checkbox("Alt + group key: remove shortcut",&options.groupRemoveHotkey);
-            label(tr("While holding a group key:"));
-            changed|=UI::Checkbox("Ctrl + destination group key: move item",&options.groupMoveHotkey);
-            changed|=UI::Checkbox("Ctrl + Left / Right: reorder",&options.selectorReorderHotkey);
-            if(ImGui::IsItemHovered())UI::SetTooltip("Turn off both Ctrl move and Ctrl reorder to release Ctrl itself while browsing.");
-            changed|=UI::Checkbox("Backspace: unequip highlighted item",&options.selectorUnequipHotkey);
-            changed|=UI::Checkbox("Delete: remove highlighted shortcut",&options.selectorRemoveHotkey);
+            ImGui::Separator();label(tr("Actions"));
+            UI::TextWrapped("Configure each action in one place. Choose None or clear a binding to disable it.");
+            if(UI::Button("Remap actions…"))ImGui::OpenPopup("Keyboard action bindings");
+            ImGui::SetNextWindowSize({std::min(px(560),screen.x-40),std::min(px(540),screen.y-40)},ImGuiCond_Appearing);
+            ImGui::SetNextWindowSizeConstraints({0,0},{screen.x-40,screen.y-40});
+            if(ImGui::BeginPopup("Keyboard action bindings")) {
+                const char* groupNames[]{"Add right hand / highlighted item","Add left hand","Move to another group","Unequip group item","Remove group shortcut","Reorder while browsing"};
+                UI::TextWrapped("Choose the modifier held with a group or navigation key. None disables that action. Assigning an existing binding swaps the two actions.");
+                for(unsigned i=0;i<options.groupModifiers.size();++i) {
+                    ImGui::PushID(int(i));ImGui::SetNextItemWidth(px(185));
+                    const auto selected=groupActionEnabled(options,GroupModifier(i))?options.groupModifiers[i]:0u;
+                    if(ImGui::BeginCombo("##action modifier",modifierName(selected).c_str())) {
+                        for(unsigned mask=0;mask<=keyModifier::all;++mask)if(ImGui::Selectable(modifierName(mask).c_str(),mask==selected)){assignGroupModifier(options,GroupModifier(i),mask);changed=true;}
+                        ImGui::EndCombo();
+                    }
+                    ImGui::SameLine();ImGui::TextUnformatted(tr(groupNames[i]));ImGui::PopID();
+                }
+                changed|=UI::Checkbox("Allow group selection with unused modifiers",&options.allowUnusedModifiers);
+                UI::TextWrapped("Enable to use group keys while holding a walking or other unused modifier. Set the conflicting action to None or choose another modifier first.");
+                ImGui::Separator();
+                const char* actionNames[]{"Previous item","Next item","Unequip highlighted item","Remove highlighted shortcut","Cancel selection","Equip in right hand","Equip in left hand"};
+                for(unsigned i=0;i<options.selectorBindings.size();++i) {
+                    const auto binding=selectorBinding(options,KeyboardAction(i));ImGui::PushID(int(100+i));
+                    const auto text=binding_==int(100+i)?std::string(tr("Press a key…")):shortcutName(binding.key,binding.modifiers);
+                    if(UI::Button((text+"##action key").c_str(),{px(185),0})){binding_=int(100+i);hint_=tr("Press a key · Esc clears");}
+                    ImGui::SameLine();if(UI::Button("Clear##action key")){assignSelectorBinding(options,KeyboardAction(i),{});if(binding_==int(100+i))binding_=-1;changed=true;}
+                    ImGui::SameLine();ImGui::TextUnformatted(tr(actionNames[i]));ImGui::PopID();
+                }
+                ImGui::Separator();UI::TextWrapped("Hand actions equip the highlighted item immediately for this use. Saved hands and combinations stay as configured.");
+                const char* mouseNames[]{"Cancel selection","Equip in right hand","Equip in left hand"};
+                for(unsigned i=0;i<options.mouseActions.size();++i) {
+                    ImGui::PushID(int(200+i));ImGui::SetNextItemWidth(px(185));
+                    if(ImGui::BeginCombo("##mouse action",tr(mouseButtonName(options.mouseActions[i])))) {
+                        for(int button=-1;button<5;++button)if(ImGui::Selectable(tr(mouseButtonName(button)),button==options.mouseActions[i])){assignMouseAction(options,MouseAction(i),button);changed=true;}
+                        ImGui::EndCombo();
+                    }
+                    ImGui::SameLine();ImGui::TextUnformatted(tr(mouseNames[i]));ImGui::PopID();
+                }
+                if(UI::Button("Use mouse buttons for hands")) {
+                    options.mouseActions={-1,0,1};
+                    if(!options.selectorBindings[unsigned(KeyboardAction::cancel)].key)assignSelectorBinding(options,KeyboardAction::cancel,{1});
+                    changed=true;
+                }
+                if(UI::Button("Reset keyboard actions")){setEditingShortcuts(options,true);options.groupModifiers=defaultGroupModifiers;options.selectorBindings=defaultSelectorBindings;options.mouseActions=defaultMouseActions;options.allowUnusedModifiers=false;binding_=-1;changed=true;}
+                if(!hint_.empty())ImGui::TextWrapped("%s",hint_.c_str());
+                ImGui::EndPopup();
+            }
             if(UI::CollapsingHeader("Shortcuts")) {
-            ImGui::TextUnformatted(tr("Hold + scroll / Left / Right: select"));ImGui::TextUnformatted(tr("Tap: group action"));
-            ImGui::TextUnformatted(tr("Escape / right-click: cancel"));
+            ImGui::TextUnformatted(tr("Hold + scroll / navigation keys: select"));ImGui::TextUnformatted(tr("Tap: group action"));
+            const auto cancel=options.selectorBindings[unsigned(KeyboardAction::cancel)];ImGui::Text("%s / %s: %s",shortcutName(cancel.key,cancel.modifiers).c_str(),tr(mouseButtonName(options.mouseActions[0])),tr("Cancel selection"));
             }
             }else{
             changed|=UI::Checkbox("Enable controller",&options.controllerEnabled);
@@ -811,6 +888,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(value!=old) {
                     bool duplicate=value.button!=PadButton::none&& &value!=&editorBinding&&value==editorBinding;
                     for(std::size_t i=0;i<options.groupCount;++i){const auto& other=groups[options.groupOrder[i]];if(&other!=&value&&value.button!=PadButton::none&&other==value)duplicate=true;}
+                    if(!state.vr)for(const auto& other:options.controllerActions)if(&other!=&value&&value.button!=PadButton::none&&other==value)duplicate=true;
                     if(value.button==PadButton::none)value.modifier=PadButton::none;
                     if(duplicate||!validPadBinding(value)){value=old;hint_=duplicate?tr("Button combination already assigned"):tr("Choose different buttons");}else hint_.clear();
                 }
@@ -819,9 +897,20 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             for(std::size_t i=0;i<options.groupCount;++i){const auto id=options.groupOrder[i];padBinding(groups[id],options.names[id].c_str(),unsigned(id));}
             ImGui::Separator();padBinding(editorBinding,tr("Open editor"),8);
             int stick=int(browseStick);ImGui::SetNextItemWidth(px(220));if(UI::Combo("Browse with",&stick,state.vr?"Off-hand stick / pad\0Main-hand stick / pad\0Off\0":"Left stick\0Right stick\0Off\0")){browseStick=unsigned(stick);changed=true;}
-            if(!state.vr)changed|=UI::Checkbox("Browse with bumpers",&options.controllerBumpers);
+            if(!state.vr)changed|=UI::Checkbox("Enable previous / next buttons",&options.controllerBumpers);
             ImGui::SetNextItemWidth(px(220));changed|=UI::SliderFloat("Stick deadzone",&options.controllerDeadzone,.2f,.9f,"%.2f");
             if(!state.vr){int buttonStyle=int(options.controllerStyle);ImGui::SetNextItemWidth(px(220));if(UI::Combo("Button icons",&buttonStyle,"Xbox\0PlayStation\0")){options.controllerStyle=unsigned(buttonStyle);changed=true;}}
+            if(!state.vr&&UI::CollapsingHeader("Browsing actions")) {
+                const char* names[]{"Cancel selection","Unequip highlighted item","Previous item","Next item","Equip in right hand","Equip in left hand"};
+                for(unsigned i=0;i<options.controllerActions.size();++i)padBinding(options.controllerActions[i],tr(names[i]),100+i);
+                UI::TextWrapped("A button used as an explicit modifier does not also trigger a single-button browsing action. Rebind that action or use a chord.");
+                if(UI::Button("Use bumpers for hands")) {
+                    if(useBumpersForHands(options)){changed=true;hint_.clear();}
+                    else hint_=tr("Bumpers are used by a group, editor or modifier binding. Choose different hand buttons or rebind those first.");
+                }
+                UI::TextWrapped("Hand actions equip immediately for this use. The bumper preset replaces bumper browsing; the stick can still browse.");
+                if(UI::Button("Reset controller actions")){options.controllerActions=defaultControllerActions;changed=true;}
+            }
             if(!state.vr&&UI::CollapsingHeader("Modifier buttons")) {
                 for(unsigned b=1;b<unsigned(PadButton::count);++b) {
                     const auto mask=padButtonMask(PadButton(b));bool enabled=(options.controllerModifiers&mask)!=0;
@@ -831,7 +920,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             }
             if(UI::CollapsingHeader("Shortcuts")) {
             ImGui::TextUnformatted(tr("Hold: browse  |  Release: select"));
-            ImGui::TextUnformatted(tr(state.vr?"Tap: group action  |  Main B/Y: cancel  |  Off A/X: unequip":"Tap: group action  |  B / Circle: cancel  |  X / Square: unequip"));
+            if(state.vr)ImGui::TextUnformatted(tr("Tap: group action  |  Main B/Y: cancel  |  Off A/X: unequip"));
+            else ImGui::Text("%s: %s | %s: %s",padLabel(options.controllerActions[0],style).c_str(),tr("Cancel selection"),padLabel(options.controllerActions[1],style).c_str(),tr("Unequip highlighted item"));
             if(state.vr){ImGui::TextUnformatted(tr("Point + trigger: select"));ImGui::TextUnformatted(tr("Main / Off: Skyrim handedness"));}
             else {ImGui::TextUnformatted(tr("Editor: D-pad / left stick to navigate, A / Cross to confirm"));ImGui::TextUnformatted(tr("Right stick: cursor · A / Cross: click or drag"));ImGui::TextUnformatted(tr("Start / Options: close editor"));}
             }
@@ -894,17 +984,13 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 label(tr("Frame opacity"));ImGui::SetNextItemWidth(-1);tuned|=UI::SliderFloat("##Frame opacity",&tweak.frameOpacity,0,1,"%.2f");
                 label(tr("Icon size"));ImGui::SetNextItemWidth(-1);tuned|=UI::SliderFloat("##Icon size",&tweak.iconScale,.65f,1.2f,"%.2fx");
                 if(tuned){options.themeAdjustments[options.themeId]=tweak;changed=true;}
-                if(hud.iconSets().size()>1) {
-                label(tr("Icon set"));ImGui::SetNextItemWidth(-1);
-                const auto currentIcons=hud.iconSets().find(options.itemIconSet);
-                if(ImGui::BeginCombo("##item icon set",currentIcons==hud.iconSets().end()?tr("Quickslot"):currentIcons->second.name.c_str())) {
-                    for(const auto& [id,pack]:hud.iconSets())if(ImGui::Selectable(pack.name.c_str(),options.itemIconSet==id)){options.itemIconSet=id;changed=true;}
-                    ImGui::EndCombo();
-                }
-                }
                 combo("Icon color","##item icon color",options.itemIconColor,"Original\0Theme\0White\0");
+                changed|=UI::Checkbox("Use PNGII icons",&options.pngiiIcons);
+                if(ImGui::IsItemHovered())UI::SetTooltip("Use matching artwork from PNG Icon Injector. I4 supplies the remaining icons.");
                 if(options.itemIconColor==1)changed|=UI::Checkbox("Tint magic icons",&options.coloredMagic);
                 changed|=UI::Checkbox("Key icons",&options.keyIcons);
+                changed|=UI::Checkbox("Show poisoned weapons",&options.showPoison);
+                changed|=UI::Checkbox("Show bow ammunition",&options.showAmmo);
                 if(UI::Button("Reset theme",{-1,0})){options.themeAdjustments.erase(options.themeId);changed=true;}
             } else if(appearancePage_==1) {
                 label(tr("Layout presets"));
@@ -915,13 +1001,13 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 ImGui::Separator();
                 combo("Arrangement","##layout",options.layout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
                 combo("Tile shape","##shape",options.shape,"Cards\0Circles\0Squares\0Diamonds\0");
-                slider("Spacing",options.spacing,0,40);
+                slider("Spacing",options.spacing,0,128);
                 changed|=UI::Checkbox("Show group names",&options.showLabels);changed|=UI::Checkbox("Show keys",&options.showKeys);
                 if(options.shape==0)changed|=UI::Checkbox("Show card item names",&options.showCardNames);
             } else if(appearancePage_==2) {
                 combo("Arrangement","##selector",options.selector,"Horizontal strip\0Arc\0Ring\0Vertical strip\0List\0");
                 if(options.selector!=4)combo("Item shape","##selector shape",options.selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
-                slider("Spacing",options.selectorSpacing,0,32);
+                slider("Spacing",options.selectorSpacing,0,128);
                 combo("Position","##selector dock",options.selectorDock,"Above widget\0Below widget\0Left of widget\0Right of widget\0Independent\0");
                 if(options.selectorDock!=4)slider("Distance",options.selectorGap,0,100);
                 changed|=UI::Checkbox("Animate scrolling",&options.animateScroll);
@@ -933,11 +1019,20 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     slider("Idle delay",options.equipmentFadeDelay,0,20,"%.1f s");
                     slider("Idle opacity",options.equipmentIdleOpacity,.05f,.9f,"%.2f");
                 }
+                changed|=UI::Checkbox("Show equipped ammunition",&options.showEquipmentAmmo);
+                label(tr("Layout presets"));
+                if(UI::Button("Cross layout",{-1,0})){equipmentLayoutPreset(options,0);changed=true;}
+                if(UI::Button("Diamond layout",{-1,0})){equipmentLayoutPreset(options,1);changed=true;}
+                if(UI::Button("Circle layout",{-1,0})){equipmentLayoutPreset(options,2);changed=true;}
+                ImGui::Separator();
                 combo("Style","##equipment style",options.equipmentStyle,"List\0Circles\0Diamonds\0Squares\0Text only\0");
-                if(options.equipmentStyle)combo("Arrangement","##equipment layout",options.equipmentLayout,"Vertical\0Horizontal\0");
-                if(options.equipmentStyle>0&&options.equipmentStyle<4)combo("Text position","##equipment text",options.equipmentTextPosition,"Top\0Bottom\0Left\0Right\0");
+                combo("Arrangement","##equipment layout",options.equipmentLayout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
+                if(options.equipmentStyle>0&&options.equipmentStyle<4) {
+                    changed|=UI::Checkbox("Show equipment names",&options.equipmentShowText);
+                    if(options.equipmentShowText)combo("Text position","##equipment text",options.equipmentTextPosition,"Top\0Bottom\0Left\0Right\0");
+                }
                 slider("Scale",options.equipmentScale,.5f,2.f,"%.2fx");slider("Text size",options.equipmentTextScale,.75f,1.5f,"%.2fx");
-                slider("Spacing",options.equipmentSpacing,0,4,"%.2fx");
+                slider("Spacing",options.equipmentSpacing,0,128);
                 slider("X",options.equipmentX,0,1,"%.3f");slider("Y",options.equipmentY,0,1,"%.3f");
             } else {
                 changed|=UI::Checkbox("Show keys",&options.showKeys);
@@ -956,9 +1051,18 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             endPanel();ImGui::SameLine();
             beginPanel("live preview",{0,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
             label(tr("Preview"));ImGui::SetNextItemWidth(px(180));UI::Combo("##preview view",&previewMode_,"Widget\0Selector\0Both\0Equipment\0");snapshot.browsing=previewMode_==1||previewMode_==2;snapshot.selectorOnly=previewMode_==1;snapshot.equipmentOnly=previewMode_==3;
+            label(tr("Zoom"));ImGui::SameLine();ImGui::SetNextItemWidth(px(150));UI::SliderFloat("##Preview zoom",&previewZoom_,5,400,"%.0f%%");ImGui::SameLine();
+            const bool fitPreview=UI::Button("Fit preview");
             const auto origin=ImGui::GetCursorScreenPos(),size=ImGui::GetContentRegionAvail();
             auto previewOptions=options;
             previewOptions.showIdle=true;if(snapshot.equipmentOnly)previewOptions.showEquipment=true;auto* d=ImGui::GetWindowDrawList();d->PushClipRect(origin,{origin.x+size.x,origin.y+size.y},true);
+            if(fitPreview||previewFittedMode_!=previewMode_) {
+                const auto display=ImGui::GetIO().DisplaySize;
+                previewZoom_=std::clamp(100*previewGeometry(previewOptions,display.x,display.y,size.x,size.y,snapshot.browsing,!snapshot.selectorOnly,snapshot.equipmentOnly,
+                    equipmentRows(snapshot.equipment,previewOptions),hud.equipmentMetrics(snapshot.equipment,previewOptions),snapshot.rows.size()).previewZoom,5.f,400.f);
+                previewFittedMode_=previewMode_;
+            }
+            snapshot.previewZoom=previewZoom_*.01f;
             hud.draw(snapshot,previewOptions,now,origin,size,d);d->PopClipRect();
             endPanel();
         }

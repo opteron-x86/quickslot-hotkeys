@@ -4,8 +4,8 @@
 
 namespace quickslot {
 
-inline bool captureGameplayStick(bool& owned,bool neutral,bool browsing,bool menuOpen) {
-    if(menuOpen){owned=false;return false;}
+inline bool captureGameplayStick(bool& owned,bool neutral,bool browsing,bool inputTaken) {
+    if(inputTaken){owned=false;return false;}
     const bool capture=browsing||owned;
     owned=capture&&!neutral;
     return capture;

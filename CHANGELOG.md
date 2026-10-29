@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.13.1
 
-- Preserve Skyrim's mouse pointer when opening the console.
+- Skyrim's console keeps its mouse pointer when opened during gameplay or after using the Quickslot editor.
 
 ## 0.13.0
 

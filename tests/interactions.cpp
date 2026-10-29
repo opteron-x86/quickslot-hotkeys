@@ -175,7 +175,7 @@ int main()try {
     check(reloaded.equipmentScale==1.7f&&reloaded.equipmentTextScale==1.3f&&imported.scale==o.scale,"Equipment sizing survives settings and appearance import independently of group scale");
     check(reloaded.equipmentSpacing==2.5f&&imported.equipmentSpacing==2.5f,"Equipment spacing survives settings and appearance import");
     auto oldSpacing=Json::parse(encodeOptions(Options{}));oldSpacing.erase("equipmentSpacing");
-    check(decodeOptions(oldSpacing.dump()).equipmentSpacing==1,"Existing settings retain their equipment spacing");
+    check(decodeOptions(oldSpacing.dump()).equipmentSpacing==8,"Existing settings retain their equipment spacing");
     auto oldSizing=Json::parse(encodeOptions(Options{}));oldSizing.erase("equipmentScale");oldSizing.erase("equipmentTextScale");
     check(decodeOptions(oldSizing.dump()).equipmentScale==1&&decodeOptions(oldSizing.dump()).equipmentTextScale==1,"Existing settings retain equipment's original size");
     visual.equipmentScale=visual.equipmentTextScale=visual.equipmentSpacing=1;
@@ -190,10 +190,10 @@ int main()try {
     check(bad.equipmentScale==1&&bad.equipmentTextScale==1,"Invalid equipment scales restore finite defaults");
     for(const auto value:{-1.f,5.f,std::numeric_limits<float>::quiet_NaN()}) {
         bad.equipmentSpacing=value;sanitizeOptions(bad);
-        check(bad.equipmentSpacing==(std::isfinite(value)?std::clamp(value,0.f,4.f):1.f),"Invalid equipment spacing is bounded with a finite default");
+        check(bad.equipmentSpacing==(std::isfinite(value)?std::clamp(value,0.f,128.f):8.f),"Invalid equipment spacing is bounded with a finite default");
     }
     bad.equipmentStyle=99;bad.equipmentLayout=99;bad.equipmentTextPosition=99;bad.equipmentIdleOpacity=0;bad.equipmentFadeDelay=100;
-    sanitizeOptions(bad);check(bad.equipmentStyle==4&&bad.equipmentLayout==1&&bad.equipmentTextPosition==3&&bad.equipmentIdleOpacity==.05f&&bad.equipmentFadeDelay==20,"Equipment settings bounded; dim cannot hide completely");
+    sanitizeOptions(bad);check(bad.equipmentStyle==4&&bad.equipmentLayout==5&&bad.equipmentTextPosition==3&&bad.equipmentIdleOpacity==.05f&&bad.equipmentFadeDelay==20,"Equipment settings bounded; dim cannot hide completely");
 
     group.selected=2;rememberConsumable(a,0,2);a.groups[1].add(potion);a.active=1;
     check(selectedConsumableGroup(a)==0,"Last chosen consumable survives another group");
@@ -230,43 +230,44 @@ int main()try {
         check(e.origin.y>=8&&e.origin.y+e.height*e.scale<=height-7.9f&&e.origin.x>=8&&e.origin.x+e.width*e.scale<=height*16/9-7.9f,"Independent list fits at screen extremes");
         check(e.height*e.scale<height*.2f,"Idle equipment stays compact at each resolution");
     }
-    for(unsigned style=0;style<5;++style)for(unsigned text=0;text<4;++text)for(unsigned layout=0;layout<2;++layout)
+    for(unsigned style=0;style<5;++style)for(unsigned text=0;text<4;++text)for(unsigned layout=0;layout<6;++layout)
         for(float t:{.75f,1.5f})for(float edge:{0.f,1.f})for(unsigned count:{3u,4u})for(float spacing:{0.f,1.f,4.f}) {
             Options look;look.equipmentStyle=style;look.equipmentTextPosition=text;look.equipmentLayout=layout;look.textScale=t;look.equipmentX=look.equipmentY=edge;
             look.equipmentScale=2;look.equipmentTextScale=1.5f;look.equipmentSpacing=spacing;
             const auto g=equipmentGeometry(look,1280,720,count);
             check(g.origin.x>=8&&g.origin.y>=8&&g.origin.x+g.width*g.scale<=1272.1f&&g.origin.y+g.height*g.scale<=712.1f,"Every equipment layout fits screen extremes");
-            if(count==4) {
-                const bool horizontal=style&&layout==1;
-                check(horizontal?g.cells[1].x>g.cells[0].x&&g.cells[1].y==g.cells[0].y:g.cells[1].y>g.cells[0].y&&g.cells[1].x==g.cells[0].x,"Equipment cells follow requested arrangement");
-                if(style>0&&style<4)check(text==0?g.text.y<g.icon.y:text==1?g.text.y>g.icon.y:text==2?g.text.x<g.icon.x:g.text.x>g.icon.x,"Text uses the requested side of its icon");
+            if(count==4&&layout<2) {
+                const bool horizontal=layout==0;
+                check(horizontal?g.cells[1].origin.x>g.cells[0].origin.x&&g.cells[1].origin.y==g.cells[0].origin.y:g.cells[1].origin.y>g.cells[0].origin.y&&g.cells[1].origin.x==g.cells[0].origin.x,"Equipment cells follow requested arrangement");
+                if(style>0&&style<4)check(text==0?g.cells[0].text.y<g.cells[0].icon.y:text==1?g.cells[0].text.y>g.cells[0].icon.y:text==2?g.cells[0].text.x<g.cells[0].icon.x:g.cells[0].text.x>g.cells[0].icon.x,"Text uses the requested side of its icon");
                 if(style==4)check(g.iconSize==0,"Text-only layout has no icon");
             }
         }
-    for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<2;++layout) {
+    for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<6;++layout) {
         Options spaced;spaced.equipmentStyle=style;spaced.equipmentLayout=layout;
         const auto normal=equipmentGeometry(spaced,3840,2160);
         spaced.equipmentSpacing=0;const auto tight=equipmentGeometry(spaced,3840,2160);
-        spaced.equipmentSpacing=4;const auto loose=equipmentGeometry(spaced,3840,2160);
-        const auto pitch=[&](const auto& g){return style&&layout?g.cells[1].x-g.cells[0].x:g.cells[1].y-g.cells[0].y;};
+        spaced.equipmentSpacing=128;const auto loose=equipmentGeometry(spaced,3840,2160);
+        const auto pitch=[&](const auto& g){return std::hypot(g.cells[1].origin.x-g.cells[0].origin.x,g.cells[1].origin.y-g.cells[0].origin.y);};
         check(pitch(tight)<pitch(normal)&&pitch(normal)<pitch(loose),"Spacing adjusts separation in every equipment style and arrangement");
-        check(tight.iconSize==normal.iconSize&&normal.iconSize==loose.iconSize&&tight.textWidth==loose.textWidth&&tight.scale==loose.scale,"Spacing preserves icon/text size while there is screen room");
-        check(style?pitch(tight)>=(layout?normal.cellWidth:normal.cellHeight):pitch(tight)>=40,"Minimum spacing leaves readable rows without overlapping frames");
+        check(tight.iconSize==normal.iconSize&&normal.iconSize==loose.iconSize&&tight.cells[0].textWidth==loose.cells[0].textWidth&&tight.scale==loose.scale,"Spacing preserves icon/text size while there is screen room");
+        if(layout<2)check(pitch(tight)>=(layout==0?normal.cells[0].width:normal.cells[0].height),"Zero spacing joins the content bounds");
         const auto one=equipmentGeometry(spaced,3840,2160,1);spaced.equipmentSpacing=0;
         const auto oneTight=equipmentGeometry(spaced,3840,2160,1);
         check(one.width==oneTight.width&&one.height==oneTight.height,"Spacing adds no outer padding to a single equipment entry");
     }
-    for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<2;++layout)for(unsigned text=0;text<4;++text) {
-        Options a;a.equipmentStyle=style;a.equipmentLayout=layout;a.equipmentTextPosition=text;a.equipmentScale=2;a.textScale=1.5f;a.equipmentSpacing=0;
-        auto b=a;b.equipmentSpacing=4;
+    for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<6;++layout)for(unsigned text=0;text<4;++text) {
+        Options a;a.equipmentStyle=style;a.equipmentLayout=layout;a.equipmentTextPosition=text;a.equipmentScale=1;a.textScale=1;a.equipmentSpacing=0;
+        auto b=a;b.equipmentSpacing=128;
         const auto tight=equipmentGeometry(a,1280,720),loose=equipmentGeometry(b,1280,720);
-        check(tight.scale==loose.scale,"Equipment screen fitting preserves size across the spacing range");
-        const auto previewTight=previewGeometry(a,1280,720,600,440,false,false,true).equipment;
-        const auto previewLoose=previewGeometry(b,1280,720,600,440,false,false,true).equipment;
-        check(std::abs(previewTight.scale-previewLoose.scale)<.001f,"Equipment preview spacing cannot resize icons or text");
+        const float requested=a.equipmentScale*.75f;
+        if(loose.width*requested<=1264&&loose.height*requested<=704)check(tight.scale==loose.scale,"Equipment size stays fixed while the layout fits the screen");
+        const auto previewTight=previewGeometry(a,1280,720,600,440,false,false,true,4,{},5,.5f).equipment;
+        const auto previewLoose=previewGeometry(b,1280,720,600,440,false,false,true,4,{},5,.5f).equipment;
+        check(std::abs(previewTight.scale/tight.scale-previewLoose.scale/loose.scale)<.001f,"Equipment preview zoom remains fixed when spacing changes");
     }
     Options sized;sized.equipmentStyle=1;
-    const auto previewEquipment=[&]{return previewGeometry(sized,1920,1080,900,700,false,false,true).equipment;};
+    const auto previewEquipment=[&]{return previewGeometry(sized,1920,1080,900,700,false,false,true,4,{},5,1).equipment;};
     const auto small=previewEquipment();sized.equipmentScale=2;const auto big=previewEquipment();
     check(big.width*big.scale>small.width*small.scale&&big.width*big.scale<900&&big.height*big.scale<700,"Equipment live preview grows with scale while fitting its panel");
     auto two=sword;two.twoHanded=true;s.equipment.hands[0]=Row{two,true,true};

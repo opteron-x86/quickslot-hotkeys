@@ -114,7 +114,7 @@ void Editor::beginSession(const EditorState& state) {
         }
         return;
     }
-    restoreSerial_=state.restoreSerial;orderSelection_.reset();
+    restoreSerial_=state.restoreSerial;orderSelection_.reset();previewFittedMode_=-1;
     session_=state.session;catalogVersion_=state.catalogVersion;candidate_=0;selected_=0;binding_=-1;placement_=false;placementPanelTarget_=-1;returnTextFocus_=0;hint_.clear();downs_.clear();
     search_.fill(0);keys_.fill(false);padKeys_.fill(false);padDowns_.clear();pointerMode_=pointerDown_=false;pointerAxis_={};filter_=0;shortcutIndex_.reset();editingLibrary_=0;shortcutGroup_=Arsenal::count;shortcut_=smartEntry(0,0,0);comboName_.fill(0);builder_=0;comboCandidates_={};handSearch_={};
     for(std::size_t i=0;i<Arsenal::count;++i)std::snprintf(names_[i].data(),names_[i].size(),"%s",state.options.names[i].c_str());
@@ -350,7 +350,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(options.placementFrame)guides->AddRect({frame.min.x,frame.min.y},{frame.max.x,frame.max.y},axis);
         }
         HudBounds bounds;hud.draw(snapshot,options,now,{},{},nullptr,&bounds);
-        const auto geometry=hudGeometry(options,screen.x,screen.y,equipmentRows(snapshot.equipment,options));
+        const auto geometry=hudGeometry(options,screen.x,screen.y,equipmentRows(snapshot.equipment,options),hud.equipmentMetrics(snapshot.equipment,options),snapshot.rows.size());
         const auto detachSelector=[&] {
             if(options.selectorDock==4)return;
             options.selectorX=std::clamp((geometry.origin.x+geometry.selectorOrigin.x*geometry.scale-8)/std::max(1.f,screen.x-16-geometry.selectorWidth*geometry.scale),0.f,1.f);
@@ -1001,13 +1001,13 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 ImGui::Separator();
                 combo("Arrangement","##layout",options.layout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
                 combo("Tile shape","##shape",options.shape,"Cards\0Circles\0Squares\0Diamonds\0");
-                slider("Spacing",options.spacing,0,40);
+                slider("Spacing",options.spacing,0,128);
                 changed|=UI::Checkbox("Show group names",&options.showLabels);changed|=UI::Checkbox("Show keys",&options.showKeys);
                 if(options.shape==0)changed|=UI::Checkbox("Show card item names",&options.showCardNames);
             } else if(appearancePage_==2) {
                 combo("Arrangement","##selector",options.selector,"Horizontal strip\0Arc\0Ring\0Vertical strip\0List\0");
                 if(options.selector!=4)combo("Item shape","##selector shape",options.selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
-                slider("Spacing",options.selectorSpacing,0,32);
+                slider("Spacing",options.selectorSpacing,0,128);
                 combo("Position","##selector dock",options.selectorDock,"Above widget\0Below widget\0Left of widget\0Right of widget\0Independent\0");
                 if(options.selectorDock!=4)slider("Distance",options.selectorGap,0,100);
                 changed|=UI::Checkbox("Animate scrolling",&options.animateScroll);
@@ -1020,11 +1020,19 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     slider("Idle opacity",options.equipmentIdleOpacity,.05f,.9f,"%.2f");
                 }
                 changed|=UI::Checkbox("Show equipped ammunition",&options.showEquipmentAmmo);
+                label(tr("Layout presets"));
+                if(UI::Button("Cross layout",{-1,0})){equipmentLayoutPreset(options,0);changed=true;}
+                if(UI::Button("Diamond layout",{-1,0})){equipmentLayoutPreset(options,1);changed=true;}
+                if(UI::Button("Circle layout",{-1,0})){equipmentLayoutPreset(options,2);changed=true;}
+                ImGui::Separator();
                 combo("Style","##equipment style",options.equipmentStyle,"List\0Circles\0Diamonds\0Squares\0Text only\0");
-                if(options.equipmentStyle)combo("Arrangement","##equipment layout",options.equipmentLayout,"Vertical\0Horizontal\0");
-                if(options.equipmentStyle>0&&options.equipmentStyle<4)combo("Text position","##equipment text",options.equipmentTextPosition,"Top\0Bottom\0Left\0Right\0");
+                combo("Arrangement","##equipment layout",options.equipmentLayout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
+                if(options.equipmentStyle>0&&options.equipmentStyle<4) {
+                    changed|=UI::Checkbox("Show equipment names",&options.equipmentShowText);
+                    if(options.equipmentShowText)combo("Text position","##equipment text",options.equipmentTextPosition,"Top\0Bottom\0Left\0Right\0");
+                }
                 slider("Scale",options.equipmentScale,.5f,2.f,"%.2fx");slider("Text size",options.equipmentTextScale,.75f,1.5f,"%.2fx");
-                slider("Spacing",options.equipmentSpacing,0,4,"%.2fx");
+                slider("Spacing",options.equipmentSpacing,0,128);
                 slider("X",options.equipmentX,0,1,"%.3f");slider("Y",options.equipmentY,0,1,"%.3f");
             } else {
                 changed|=UI::Checkbox("Show keys",&options.showKeys);
@@ -1043,9 +1051,18 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             endPanel();ImGui::SameLine();
             beginPanel("live preview",{0,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
             label(tr("Preview"));ImGui::SetNextItemWidth(px(180));UI::Combo("##preview view",&previewMode_,"Widget\0Selector\0Both\0Equipment\0");snapshot.browsing=previewMode_==1||previewMode_==2;snapshot.selectorOnly=previewMode_==1;snapshot.equipmentOnly=previewMode_==3;
+            label(tr("Zoom"));ImGui::SameLine();ImGui::SetNextItemWidth(px(150));UI::SliderFloat("##Preview zoom",&previewZoom_,5,400,"%.0f%%");ImGui::SameLine();
+            const bool fitPreview=UI::Button("Fit preview");
             const auto origin=ImGui::GetCursorScreenPos(),size=ImGui::GetContentRegionAvail();
             auto previewOptions=options;
             previewOptions.showIdle=true;if(snapshot.equipmentOnly)previewOptions.showEquipment=true;auto* d=ImGui::GetWindowDrawList();d->PushClipRect(origin,{origin.x+size.x,origin.y+size.y},true);
+            if(fitPreview||previewFittedMode_!=previewMode_) {
+                const auto display=ImGui::GetIO().DisplaySize;
+                previewZoom_=std::clamp(100*previewGeometry(previewOptions,display.x,display.y,size.x,size.y,snapshot.browsing,!snapshot.selectorOnly,snapshot.equipmentOnly,
+                    equipmentRows(snapshot.equipment,previewOptions),hud.equipmentMetrics(snapshot.equipment,previewOptions),snapshot.rows.size()).previewZoom,5.f,400.f);
+                previewFittedMode_=previewMode_;
+            }
+            snapshot.previewZoom=previewZoom_*.01f;
             hud.draw(snapshot,previewOptions,now,origin,size,d);d->PopClipRect();
             endPanel();
         }

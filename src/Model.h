@@ -239,6 +239,7 @@ struct Snapshot {
     double noticeUntil=0;
     EquippedDisplay equipment;
     bool holding=false,placementPreview=false,equipmentOnly=false;
+    float previewZoom=0;
     double revealUntil=0;
 };
 struct ThemeAdjustments {
@@ -310,8 +311,9 @@ struct Options {
     bool placementGrid=false,placementSnap=false;
     bool showEquipment=false,equipmentDim=false,hideEmptyGroups=false,showEquipmentAmmo=false;
     float equipmentX=.02f,equipmentY=.8f;
-    float equipmentScale=1,equipmentTextScale=1,equipmentSpacing=1;
-    unsigned equipmentStyle=0,equipmentLayout=0,equipmentTextPosition=3;
+    float equipmentScale=1,equipmentTextScale=1,equipmentSpacing=8;
+    unsigned equipmentStyle=0,equipmentLayout=1,equipmentTextPosition=3;
+    bool equipmentShowText=true;
     float equipmentFadeDelay=4,equipmentIdleOpacity=.35f;
     unsigned inactiveGroups=0;
     float inactiveGroupOpacity=.3f;

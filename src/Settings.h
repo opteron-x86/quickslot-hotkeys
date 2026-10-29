@@ -75,12 +75,12 @@ inline void sanitizeOptions(Options& o) {
     o.scale=finite(o.scale,1,.55f,1.5f);o.textScale=finite(o.textScale,1,.75f,1.5f);o.opacity=finite(o.opacity,.92f,.4f,1);
     o.placementSpacing=std::min(o.placementSpacing,3u);o.placementFrame=std::min(o.placementFrame,3u);
     o.placementGridSize=finite(o.placementGridSize,16,4,128);
-    o.spacing=finite(o.spacing,14,0,40);o.selectorSpacing=finite(o.selectorSpacing,16,0,32);
+    o.spacing=finite(o.spacing,14,0,128);o.selectorSpacing=finite(o.selectorSpacing,16,0,128);
     o.positionX=finite(o.positionX,1,0,1);o.positionY=finite(o.positionY,1,0,1);
     o.equipmentX=finite(o.equipmentX,.02f,0,1);o.equipmentY=finite(o.equipmentY,.8f,0,1);
     o.equipmentScale=finite(o.equipmentScale,1,.5f,2.f);o.equipmentTextScale=finite(o.equipmentTextScale,1,.75f,1.5f);
-    o.equipmentSpacing=finite(o.equipmentSpacing,1,0,4);
-    o.equipmentStyle=std::min(o.equipmentStyle,4u);o.equipmentLayout=std::min(o.equipmentLayout,1u);o.equipmentTextPosition=std::min(o.equipmentTextPosition,3u);
+    o.equipmentSpacing=finite(o.equipmentSpacing,8,0,128);
+    o.equipmentStyle=std::min(o.equipmentStyle,4u);o.equipmentLayout=std::min(o.equipmentLayout,5u);o.equipmentTextPosition=std::min(o.equipmentTextPosition,3u);
     o.equipmentFadeDelay=finite(o.equipmentFadeDelay,4,0,20);o.equipmentIdleOpacity=finite(o.equipmentIdleOpacity,.35f,.05f,.9f);
     o.selectorGap=finite(o.selectorGap,12,0,100);o.selectorX=finite(o.selectorX,.75f,0,1);o.selectorY=finite(o.selectorY,.4f,0,1);
     o.fadeDelay=finite(o.fadeDelay,4,0,20);o.idleOpacity=finite(o.idleOpacity,.35f,0,1);
@@ -114,7 +114,7 @@ inline std::string encodeOptions(Options o) {
         {"showEquipment",o.showEquipment},{"showEquipmentAmmo",o.showEquipmentAmmo},{"equipmentX",o.equipmentX},{"equipmentY",o.equipmentY},{"hideEmptyGroups",o.hideEmptyGroups},{"inactiveGroups",o.inactiveGroups},{"inactiveGroupOpacity",o.inactiveGroupOpacity},
         {"equipmentDim",o.equipmentDim},{"equipmentFadeDelay",o.equipmentFadeDelay},{"equipmentIdleOpacity",o.equipmentIdleOpacity},
         {"equipmentScale",o.equipmentScale},{"equipmentTextScale",o.equipmentTextScale},{"equipmentSpacing",o.equipmentSpacing},
-        {"equipmentStyle",o.equipmentStyle},{"equipmentLayout",o.equipmentLayout},{"equipmentTextPosition",o.equipmentTextPosition},
+        {"layoutVersion",2},{"equipmentStyle",o.equipmentStyle},{"equipmentLayout",o.equipmentLayout},{"equipmentTextPosition",o.equipmentTextPosition},{"equipmentShowText",o.equipmentShowText},
         {"itemIconColor",o.itemIconColor},
         {"selectorDock",o.selectorDock},{"selectorGap",o.selectorGap},{"selectorX",o.selectorX},{"selectorY",o.selectorY},
         {"animateScroll",o.animateScroll},{"fadeIdle",o.fadeIdle},{"keepCombatVisible",o.keepCombatVisible},{"keepDrawnVisible",o.keepDrawnVisible},{"fadeDelay",o.fadeDelay},{"idleOpacity",o.idleOpacity},{"keys",o.keys},{"names",o.names},{"editorKey",o.editorKey},{"editorModifiers",o.editorModifiers},{"groupCount",o.groupCount},
@@ -154,9 +154,14 @@ inline Options decodeOptions(const std::string& bytes) {
     o.showEquipment=j.value("showEquipment",false);o.showEquipmentAmmo=j.value("showEquipmentAmmo",false);o.hideEmptyGroups=j.value("hideEmptyGroups",false);
     o.equipmentX=j.value("equipmentX",.02f);o.equipmentY=j.value("equipmentY",.8f);
     o.equipmentScale=j.value("equipmentScale",1.f);o.equipmentTextScale=j.value("equipmentTextScale",1.f);
-    o.equipmentSpacing=j.value("equipmentSpacing",1.f);
+    o.equipmentSpacing=j.value("equipmentSpacing",j.value("layoutVersion",1)<2?1.f:8.f);
     o.equipmentDim=j.value("equipmentDim",false);o.equipmentFadeDelay=j.value("equipmentFadeDelay",4.f);o.equipmentIdleOpacity=j.value("equipmentIdleOpacity",.35f);
-    o.equipmentStyle=j.value("equipmentStyle",0u);o.equipmentLayout=j.value("equipmentLayout",0u);o.equipmentTextPosition=j.value("equipmentTextPosition",3u);
+    o.equipmentStyle=j.value("equipmentStyle",0u);o.equipmentLayout=j.value("equipmentLayout",j.value("layoutVersion",1)<2?0u:1u);o.equipmentTextPosition=j.value("equipmentTextPosition",3u);
+    o.equipmentShowText=j.value("equipmentShowText",true);
+    if(j.value("layoutVersion",1)<2) {
+        o.equipmentSpacing*=o.equipmentStyle==0?4.f:o.equipmentLayout==1?12.f:8.f;
+        o.equipmentLayout=o.equipmentStyle==0?1u:o.equipmentLayout==1?0u:1u;
+    }
     o.inactiveGroups=j.value("inactiveGroups",0u);o.inactiveGroupOpacity=j.value("inactiveGroupOpacity",.3f);
     o.controllerStyle=j.at("controllerStyle").get<decltype(o.controllerStyle)>();o.controllerStick=j.at("controllerStick").get<decltype(o.controllerStick)>();o.controllerDeadzone=j.at("controllerDeadzone").get<decltype(o.controllerDeadzone)>();
     const auto binding=[](const Json& value){const auto b=value.get<std::array<unsigned,2>>();return PadBinding{PadButton(b[0]),PadButton(b[1])};};

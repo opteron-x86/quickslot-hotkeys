@@ -108,13 +108,17 @@ Item icons use the artwork and colors assigned by your installed I4 packs. **App
 
 [PNG Icon Injector (PNGII)](https://github.com/rijosan87/PNGII) can supply matching PNG and SVG artwork. Install a PNGII build with icon API v1 and your preferred packs. **Appearance → Style → Use PNGII icons** starts enabled; matching artwork appears in the widget, browser, equipment display and editor preview. I4 supplies icons for the remaining items. **Original** preserves PNGII artwork colors, and **Theme** or **White** tint its silhouette. Restart Skyrim after changing icon packs.
 
-Group layouts include rows, columns, crosses, diamonds and circles. Selectors support horizontal/vertical strips, arcs, rings and lists. **Position** lets you drag outlined elements, adjust X/Y and snap to a grid. Hold Shift for free movement.
+Groups and equipment support horizontal, vertical, diamond, cross, circle and staggered-cross arrangements. **Cross layout**, **Diamond layout** and **Circle layout** apply matching arrangements and frame shapes. Selectors support horizontal/vertical strips, arcs, rings and lists. **Position** lets you drag outlined elements, adjust X/Y and snap to a grid. Hold Shift for free movement.
 
-**Appearance → Equipment** shows the right hand, left hand, selected consumable and power/shout. Two-handed equipment uses one entry. Choose list, circle, diamond, square or text layouts, with independent scale, spacing and placement. Quantities and shout timers appear on icons; spent powers dim. Enable **Show equipped ammunition** to add an entry with the equipped arrows or bolts and their current count. This option starts off and also supports text-only layouts. **Show bow ammunition** controls the count on bow and crossbow icons.
+**Spacing** uses a 0–128 numeric gap for groups, selectors and equipment. Zero brings neighboring frames together; higher values open up the layout. Equipment names occupy their measured width, and spacing adds a gap after the visible content. Gaps scale with their display. In the preview, **Zoom** controls magnification and **Fit preview** fits the current arrangement into the panel.
+
+**Appearance → Equipment** shows the right hand, left hand, selected consumable and power/shout. Two-handed equipment uses one entry. Choose list, circle, diamond, square or text styles, with independent arrangement, scale, spacing and placement. **Show equipment names** adds labels to circle, diamond and square tiles, with text above, below, left or right. Equipment layout presets show compact tiles. Quantities and shout timers appear on icons; spent powers dim. Enable **Show equipped ammunition** to add an entry with the equipped arrows or bolts and their current count. This option starts off and also supports text-only layouts. **Show bow ammunition** controls the count on bow and crossbow icons.
 
 Poisoned weapons display a green droplet. Bows and crossbows display the equipped arrow or bolt count. These indicators also appear on smart weapon shortcuts. Both indicators can be disabled under **Appearance → Style**.
 
 Groups and equipment have independent visibility settings. Choose always visible, idle fading or hiding where available, and configure combat/drawn-weapon visibility. QuickLoot receives input while the HUD follows its normal visibility settings. Full menus take input and hide the HUD.
+
+Scenes that take control of the player, including OStim, receive keyboard and controller input while Quickslot's HUD is hidden. Quickslot cancels any active selection and resumes when the scene returns control to the player.
 
 See [Theme and icon packs](THEMES.md) for customization files.
 

@@ -132,6 +132,8 @@ Changes save automatically. **Undo** and **Revert session** restore editor state
 
 Choose a menu language under **Appearance → Style**. Translation files belong in `Data/Quickslot/translations`; the English reference and format guide are included. Fonts support UTF-8 names with Cyrillic, Greek and CJK fallbacks. Theme fonts, including Futura, take priority. Install extra fallback fonts in `Data/Quickslot/fonts/fallback` and restart.
 
+With an IME, activating a text field enables composition. Leaving the field restores normal editor navigation and key binding.
+
 MO2 stores generated settings in Overwrite or the configured output mod. Keep these files when updating. Close Skyrim before installing an update, then restart.
 
 ## Builds and support

@@ -24,7 +24,8 @@ inline constexpr char menuName[]="QuickslotHUD";
 inline constexpr char editorMenuName[]="QuickslotEditor";
 double clockNow();
 std::filesystem::path dataDirectory();
-std::vector<EditCommand> renderHud(const Snapshot&,const Options&,const EditorState*,const std::vector<EditorInput>&);
+struct RenderResult {std::vector<EditCommand> commands;bool wantsTextInput=false;};
+RenderResult renderHud(const Snapshot&,const Options&,const EditorState*,const std::vector<EditorInput>&);
 bool renderHasFocus();
 class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
                    public RE::BSTEventSink<RE::TESContainerChangedEvent>,

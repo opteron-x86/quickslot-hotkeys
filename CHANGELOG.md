@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- IME composition follows the active editor text field. Leaving the field restores normal navigation and key binding.
+
 ## 0.13.1
 
 - Skyrim's console keeps its mouse pointer when opened during gameplay or after using the Quickslot editor.

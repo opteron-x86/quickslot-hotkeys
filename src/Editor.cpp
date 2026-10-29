@@ -118,7 +118,13 @@ void Editor::beginSession(const EditorState& state) {
     session_=state.session;catalogVersion_=state.catalogVersion;candidate_=0;selected_=0;binding_=-1;placement_=false;placementPanelTarget_=-1;returnTextFocus_=0;hint_.clear();downs_.clear();
     search_.fill(0);keys_.fill(false);padKeys_.fill(false);padDowns_.clear();pointerMode_=pointerDown_=false;pointerAxis_={};filter_=0;shortcutIndex_.reset();editingLibrary_=0;shortcutGroup_=Arsenal::count;shortcut_=smartEntry(0,0,0);comboName_.fill(0);builder_=0;comboCandidates_={};handSearch_={};
     for(std::size_t i=0;i<Arsenal::count;++i)std::snprintf(names_[i].data(),names_[i].size(),"%s",state.options.names[i].c_str());
+    ImGui::ClearActiveID();
     auto& io=ImGui::GetIO();io.ClearInputKeys();io.ClearInputMouse();mouse_={io.DisplaySize.x*.5f,io.DisplaySize.y*.5f};io.AddMousePosEvent(mouse_.x,mouse_.y);
+}
+bool Editor::wantsTextInput()const {
+    const auto& context=*ImGui::GetCurrentContext();
+    // io.WantTextInput updates next frame; the IME data already describes this frame.
+    return binding_==-1&&context.PlatformImeData.WantTextInput&&context.ActiveId!=0&&context.ActiveId==context.InputTextState.ID;
 }
 void Editor::input(const std::vector<EditorInput>& events) {
     auto& io=ImGui::GetIO();

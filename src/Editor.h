@@ -36,7 +36,8 @@ class Editor {
     bool placementPanelRight_=false;
     std::string hint_;
     ImVec2 mouse_{},dragStart_{};
-    int appearancePage_=0,previewMode_=0,exportScope_=0;
+    int appearancePage_=0,previewMode_=0,previewFittedMode_=-1,exportScope_=0;
+    float previewZoom_=100;
     bool importAppearance_=true;
     std::array<char,65> presetName_{};
     std::string presetFile_;

@@ -13,11 +13,14 @@ Requirements:
 - [SKSE](https://skse.silverlock.org/) matching your Skyrim executable.
 - [Address Library](https://www.nexusmods.com/skyrimspecialedition/mods/32444) matching your game version.
 - [SkyUI](https://www.nexusmods.com/skyrimspecialedition/mods/12604).
+- [Inventory Interface Information Injector (I4) 1.1.0+](https://www.nexusmods.com/skyrimspecialedition/mods/85702) for your Skyrim version.
 - Microsoft Visual C++ Redistributable, x64.
 
-VR uses SKSEVR, [VR Address Library](https://github.com/alandtse/skyrim_vr_address_library), [SkyUI VR](https://github.com/Odie/skyui-vr), and [ImGui VR Helper 1.9.4+](https://www.nexusmods.com/skyrimspecialedition/mods/183466). VR support is experimental; physical headset validation is pending.
+**Skyrim 1.5.97:** Install Fuzzles' I4 port for this runtime.
 
-Optional integrations include [SKSE Menu Framework](https://www.nexusmods.com/skyrimspecialedition/mods/120352) for its editor entry, ImGui Icons for keycaps, and Skyrim Souls RE for selection slowdown. Physical controller/headset checks are listed in [Testing](docs/TESTING.md).
+VR uses SKSEVR, [VR Address Library](https://github.com/alandtse/skyrim_vr_address_library), [SkyUI VR](https://github.com/Odie/skyui-vr), and [ImGui VR Helper 1.9.4+](https://www.nexusmods.com/skyrimspecialedition/mods/183466). VR support is experimental.
+
+Optional integrations include [PNG Icon Injector](https://github.com/rijosan87/PNGII) with icon API v1 for item artwork, [SKSE Menu Framework](https://www.nexusmods.com/skyrimspecialedition/mods/120352) for its editor entry, ImGui Icons for keycaps, and Skyrim Souls RE for selection slowdown. Physical controller/headset checks are listed in [Testing](docs/TESTING.md).
 
 ## Groups
 
@@ -39,6 +42,10 @@ Groups containing consumables use tap-to-use and hold-to-choose. Browsing a poti
 Smart weapons rank by physical damage, including tempering and player modifiers. Smart shields rank by armor; smart ammo ranks by damage. Smart potions offer strongest, weakest and best fit for missing health, magicka or stamina. Regeneration potions offer strongest or weakest.
 
 Weapons, armor and shields follow the captured copy. Torches and consumables follow inventory stock of their saved type. Unavailable entries remain in the group for retrieval or restocking.
+
+In the group editor, change **Manual** to a Favorites category to populate the group from Skyrim Favorites. Categories include weapons, spells, potions, poisons, food, ammo, scrolls, powers/shouts, shields/torches, or all supported favorites. Generated groups show all matching entries in alphabetical order and use a configurable default hand, subject to normal equipment restrictions. Manual groups retain their 16-item limit.
+
+**Exclude** controls a favorite’s visibility in this group. Each group supports 128 exclusions; **Reset exclusions** shows them again. Switch to **Manual** to return to your manually added shortcuts and remembered selection. Source settings, exclusions and the remembered favorite are saved with the character and complete presets. Depleted or unfavorited entries disappear; restocking a still-favorited item brings it back. The list refreshes on inventory/menu changes and approximately once per second, cancelling a pending selection if membership changes. If several identical weapons share one favorited stack, equip one in Skyrim first so Quickslot can identify that copy.
 
 ## Controls
 
@@ -64,17 +71,23 @@ Left/Right browsing and Ctrl + Left/Right reordering wrap at both ends. Activati
 
 **Ctrl + group key** adds the equipped right hand or highlighted Inventory/Magic item; **Ctrl + Shift + group key** adds the left hand. **Shift + group key** unequips the remembered entry; **Alt + group key** removes its shortcut. While browsing, **Ctrl + destination group key** moves the highlighted shortcut to that group.
 
-Under **Controls → Keyboard → Editing shortcuts**, turn off any unused editing action or use **Disable all**. Right/left-hand capture, moving between groups, Shift-to-unequip, Alt-to-remove, Ctrl-arrow reordering, Backspace unequipping and Delete removal each have their own switch. Disabled actions pass their keys to the game or other mods; they do not trigger another Quickslot action. Browsing and Escape/right-click cancellation remain available. All editing shortcuts start enabled; **Enable all** restores them.
+All keyboard actions are configured under **Controls → Keyboard → Remap actions…**. For a group editing action, choose a modifier combination or **None** to disable it. For browsing, selected-item and cancel keys, click the binding to assign it, or use **Clear** (Escape during capture also clears). Assigning an occupied binding swaps the actions. **Reset keyboard actions** restores the default bindings. Upgrades preserve your bindings and disabled actions.
 
-The right/left capture switches apply during gameplay and in Inventory/Magic. To disable capture only in those menus, turn off **Controls → General → Add from Inventory / Magic**; enabled gameplay capture stays available. This lets another hotkey mod own those menu bindings.
+To use Left Alt for walking, set **Remove group shortcut** to **None** or another modifier, then enable **Allow group selection with unused modifiers**. This setting lets unused modifier chords select groups. It starts disabled.
 
-While browsing, Ctrl itself is reserved if either Ctrl-move or Ctrl-reorder is enabled. Disable both to release the modifier too; right/left capture can remain enabled independently.
+The right/left capture bindings apply during gameplay and in Inventory/Magic. To disable capture only in those menus, turn off **Controls → General → Add from Inventory / Magic**; gameplay capture stays available.
 
-Controller modifiers are configured per binding. Hold the modifier first; release the group button to select. Releasing the modifier cancels browsing. Other assigned chords, such as B + D-pad, pass to their owner. **Modifier buttons** controls which held buttons suppress unmodified group bindings.
+While browsing, moving and reordering reserve their assigned modifiers. Set both actions to **None** to release those modifiers; capture bindings have independent settings.
+
+Controller modifiers are configured per binding. Hold the modifier first; release the group button to select. Releasing the modifier cancels browsing. Other assigned chords, such as B + D-pad, stay available to other mods. **Modifier buttons** controls which held buttons suppress unmodified group bindings.
+
+Under **Controls → Controller → Browsing actions**, remap cancel, unequip, previous and next, including optional modifier chords. **Enable previous / next buttons** controls the last two actions. For example, assign X as a group modifier and Y to **Unequip highlighted entry**.
 
 XInput and native PS4 input are supported. Steam Input can supply XInput. Skyrim must recognize the controller first.
 
-### VR controls
+While holding a group, optional **Equip in right/left hand** actions equip the highlighted item immediately for this use. Configure keys and mouse buttons in **Controls → Keyboard → Remap actions…**, or controller actions in **Controls → Controller → Browsing actions**. **Use mouse buttons for hands** assigns left mouse to the right hand and right mouse to the left hand, leaving keyboard cancellation available. **Use bumpers for hands** assigns RB/LB and replaces bumper browsing; the stick still browses. Shields and torches use the left hand; two-handed equipment uses both hands. Saved combinations equip their configured hands.
+
+## VR controls
 
 **Main** and **Off** follow Skyrim VR's handedness setting. Bindings are configurable under **Controls → Controller**.
 
@@ -89,15 +102,29 @@ XInput and native PS4 input are supported. Steam Input can supply XInput. Skyrim
 
 ## Appearance
 
-Choose a theme, then customize colors, frames, icon size, text size and spacing. Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Item icon sets and installed ImGui keycaps are selected independently.
+Choose a theme, then customize colors, frames, icon size, text size and spacing. Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Item artwork and installed ImGui keycaps are configured independently.
 
-Group layouts include rows, columns, crosses, diamonds and circles. Selectors support horizontal/vertical strips, arcs, rings and lists. **Position** lets you drag outlined elements, adjust X/Y and snap to a grid. Hold Shift for free movement.
+Use **Key icons** to switch between ImGui key artwork and plain hotkey labels on the frames.
 
-**Appearance → Equipment** shows the right hand, left hand, selected consumable and power/shout. Two-handed equipment uses one entry. Choose list, circle, diamond, square or text layouts, with independent scale, spacing and placement. Quantities and shout timers appear on icons; spent powers dim.
+Item icons use the artwork and colors assigned by your installed I4 packs. **Appearance → Style → Icon color** offers **Original**, **Theme** and **White**. Smart shortcuts show the item currently chosen by their rule; combinations show both selected items. Empty-hand and unarmed actions use a gauntlet icon. When a rule has no matching item or its artwork is unavailable, Quickslot uses a SkyUI category icon.
+
+[PNG Icon Injector (PNGII)](https://github.com/rijosan87/PNGII) can supply matching PNG and SVG artwork. Install a PNGII build with icon API v1 and your preferred packs. **Appearance → Style → Use PNGII icons** starts enabled; matching artwork appears in the widget, browser, equipment display and editor preview. I4 supplies icons for the remaining items. **Original** preserves PNGII artwork colors, and **Theme** or **White** tint its silhouette. Restart Skyrim after changing icon packs.
+
+Groups and equipment support horizontal, vertical, diamond, cross, circle and staggered-cross arrangements. **Cross layout**, **Diamond layout** and **Circle layout** apply matching arrangements and frame shapes. Selectors support horizontal/vertical strips, arcs, rings and lists. **Position** lets you drag outlined elements, adjust X/Y and snap to a grid. Hold Shift for free movement.
+
+**Spacing** uses a 0–128 numeric gap for groups, selectors and equipment. Zero brings neighboring frames together; higher values open up the layout. Equipment names occupy their measured width, and spacing adds a gap after the visible content. Gaps scale with their display. In the preview, **Zoom** controls magnification and **Fit preview** fits the current arrangement into the panel.
+
+**Appearance → Equipment** shows the right hand, left hand, selected consumable and power/shout. Two-handed equipment uses one entry. Choose list, circle, diamond, square or text styles, with independent arrangement, scale, spacing and placement. **Show equipment names** adds labels to circle, diamond and square tiles, with text above, below, left or right. Equipment layout presets show compact tiles. Quantities and shout timers appear on icons; spent powers dim. Enable **Show equipped ammunition** to add an entry with the equipped arrows or bolts and their current count. This option starts off and also supports text-only layouts. **Show bow ammunition** controls the count on bow and crossbow icons.
+
+Poisoned weapons display a green droplet. Bows and crossbows display the equipped arrow or bolt count. These indicators also appear on smart weapon shortcuts. Both indicators can be disabled under **Appearance → Style**.
 
 Groups and equipment have independent visibility settings. Choose always visible, idle fading or hiding where available, and configure combat/drawn-weapon visibility. QuickLoot receives input while the HUD follows its normal visibility settings. Full menus take input and hide the HUD.
 
+Scenes that take control of the player, including OStim, receive keyboard and controller input while Quickslot's HUD is hidden. Quickslot cancels any active selection and resumes when the scene returns control to the player.
+
 See [Theme and icon packs](THEMES.md) for customization files.
+
+QuickLoot input is optional under **Controls → General**. Enable keyboard/mouse, controller, or both; both start disabled. While browsing a Quickslot group, captured navigation goes to Quickslot and other input still reaches QuickLoot. Other menus and the editor retain their normal restrictions.
 
 ## Settings and languages
 
@@ -105,9 +132,9 @@ Changes save automatically. **Undo** and **Revert session** restore editor state
 
 Choose a menu language under **Appearance → Style**. Translation files belong in `Data/Quickslot/translations`; the English reference and format guide are included. Fonts support UTF-8 names with Cyrillic, Greek and CJK fallbacks. Theme fonts, including Futura, take priority. Install extra fallback fonts in `Data/Quickslot/fonts/fallback` and restart.
 
-With an IME, editing a text field enables composition. Leaving the field releases text input so navigation and key binding can use normal editor keys.
+With an IME, activating a text field enables composition. Leaving the field restores normal editor navigation and key binding.
 
-MO2 stores generated settings in Overwrite or the configured output mod. Keep these files when updating. Close Skyrim before replacing the DLL or atlas, then restart.
+MO2 stores generated settings in Overwrite or the configured output mod. Keep these files when updating. Close Skyrim before installing an update, then restart.
 
 ## Builds and support
 
@@ -117,6 +144,6 @@ For bug reports, include reproduction steps, the game version and `Quickslot.log
 
 The [menu API](src/API/README.md) supports editor opening, closing, state queries and shortcut control.
 
-For IME integrations, `QuickslotEditor` receives characters from the engine input queue (`RE::CharEvent`) and forwards them to ImGui. Text input is claimed only while an editable field is active and the editor menu is on the stack. A cleared counter is restored while that field remains active; leaving the field or closing the editor releases the claim. IME plugins must deliver committed text through this engine queue.
+IME authors can find text-routing instructions in the [integration guide](src/API/README.md#ime-text-input).
 
 Item artwork was supplied by the mod author. Frame/font credits and dependency notices are in [licenses](licenses). Dependency revisions are recorded in `vendor/dependencies.json`.

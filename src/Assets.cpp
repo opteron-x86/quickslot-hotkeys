@@ -1,5 +1,4 @@
 #include "Assets.h"
-#include "Icons.h"
 #include <algorithm>
 #include <fstream>
 #define STB_IMAGE_IMPLEMENTATION
@@ -8,6 +7,16 @@
 #include "../third_party/stb_image.h"
 
 namespace quickslot {
+ImageAsset decodeImageAsset(std::span<const unsigned char> bytes,int maxDimension) {
+    ImageAsset result;
+    if(bytes.empty()||bytes.size()>16*1024*1024)return result;
+    int w=0,h=0,channels=0;
+    if(!stbi_info_from_memory(bytes.data(),int(bytes.size()),&w,&h,&channels)||w<1||h<1||w>maxDimension||h>maxDimension)return result;
+    auto* decoded=stbi_load_from_memory(bytes.data(),int(bytes.size()),&w,&h,&channels,4);
+    if(!decoded)return result;
+    result.width=w;result.height=h;result.pixels.assign(decoded,decoded+std::size_t(w)*std::size_t(h)*4);
+    stbi_image_free(decoded);return result;
+}
 ImageAsset loadImageAsset(const std::filesystem::path& path) {
     ImageAsset result;
     std::ifstream stream(path,std::ios::binary|std::ios::ate);
@@ -16,17 +25,7 @@ ImageAsset loadImageAsset(const std::filesystem::path& path) {
     if(length<=0||length>16*1024*1024)return result;
     std::vector<unsigned char> bytes(static_cast<std::size_t>(length));
     stream.seekg(0);if(!stream.read(reinterpret_cast<char*>(bytes.data()),length))return result;
-    int w=0,h=0,channels=0;
-    if(!stbi_info_from_memory(bytes.data(),int(bytes.size()),&w,&h,&channels)||w<1||h<1||w>8192||h>8192)return result;
-    auto* decoded=stbi_load_from_memory(bytes.data(),int(bytes.size()),&w,&h,&channels,4);
-    if(!decoded)return result;
-    result.width=w;result.height=h;result.pixels.assign(decoded,decoded+std::size_t(w)*std::size_t(h)*4);
-    stbi_image_free(decoded);return result;
-}
-ImageAsset loadItemAtlas(const std::filesystem::path& path) {
-    auto image=loadImageAsset(path);
-    if(image.width!=int(iconColumns*iconCell)||image.height!=int(iconRows*iconCell))return {};
-    return image;
+    return decodeImageAsset(bytes);
 }
 }
 

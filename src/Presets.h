@@ -23,8 +23,12 @@ inline void importAppearance(Options& target,const Options& source) {
     target.groupUnequipHotkey=previous.groupUnequipHotkey;target.groupRemoveHotkey=previous.groupRemoveHotkey;
     target.groupCaptureRightHotkey=previous.groupCaptureRightHotkey;target.groupCaptureLeftHotkey=previous.groupCaptureLeftHotkey;target.groupMoveHotkey=previous.groupMoveHotkey;
     target.selectorReorderHotkey=previous.selectorReorderHotkey;target.selectorUnequipHotkey=previous.selectorUnequipHotkey;target.selectorRemoveHotkey=previous.selectorRemoveHotkey;
+    target.groupModifiers=previous.groupModifiers;target.selectorBindings=previous.selectorBindings;target.allowUnusedModifiers=previous.allowUnusedModifiers;
+    target.controllerActions=previous.controllerActions;
+    target.mouseActions=previous.mouseActions;
     target.voiceHotkey=previous.voiceHotkey;target.shoutCharge=previous.shoutCharge;
     target.controllerEnabled=previous.controllerEnabled;target.controllerBumpers=previous.controllerBumpers;
+    target.quickLootKeyboard=previous.quickLootKeyboard;target.quickLootController=previous.quickLootController;
     target.controllerModifiers=previous.controllerModifiers;
     target.groupModes=previous.groupModes;
     target.autoSort=previous.autoSort;
@@ -69,7 +73,7 @@ inline PresetImport importPreset(const std::string& bytes,const Arsenal& current
     result.arsenal.presetIdentity=current.presetIdentity;
 
     const auto detach=[&](Entry& e){if(!sameCharacter&&tracksInstance(e)){e.unresolved=true;e.form=e.owner=e.unique=0;}};
-    for(auto& group:result.arsenal.groups)for(auto& entry:group.entries)eachLeaf(entry,[&](Entry& e){detach(e);if(e.unresolved)++result.unresolved;});
+    for(auto& group:result.arsenal.groups)eachGroupEntry(group,[&](auto& entry){eachLeaf(entry,[&](Entry& e){detach(e);if(e.unresolved)++result.unresolved;});});
     for(auto& entry:result.arsenal.shortcuts)eachLeaf(entry,detach);
     result.options=imported;revealSavedGroups(result.options,result.arsenal);return result;
 }

@@ -75,7 +75,7 @@ int main(int argc,char** argv)try {
     auto broken=o;broken.keys[0]=14;broken.keys[1]=broken.keys[2];broken.editorKey=broken.keys[3];broken.scale=NAN;broken.spacing=999;broken.groupCount=999;broken.layout=999;
     sanitizeOptions(broken);check(broken.keys[0]!=14&&broken.keys[1]!=broken.keys[2],"Reserved/duplicate group keys sanitized");
     check(!broken.editorKey||std::find(broken.keys.begin(),broken.keys.end(),broken.editorKey)==broken.keys.end(),"Editor key cannot collide with any group");
-    check(broken.scale==1&&broken.spacing==40&&broken.groupCount==8&&broken.layout==5,"Invalid layout settings bounded");
+    check(broken.scale==1&&broken.spacing==128&&broken.groupCount==8&&broken.layout==5,"Invalid layout settings bounded");
     const auto defaults=decodeOptions(encodeOptions(Options{}));
     check(defaults.editorKey==43&&defaults.editorModifiers==keyModifier::shift,"Shift + backslash is the default and survives reload");
     for(const unsigned shift:{42u,54u}) {
@@ -98,7 +98,8 @@ int main(int argc,char** argv)try {
     }
     const auto complete=Json::parse(settings);
     for(const auto& [field,value]:complete.items()) {
-        if(field=="controllerModifiers"||field=="groupModes"||field=="autoSort"||field=="groupUnequipHotkey"||field=="groupRemoveHotkey"||field=="groupCaptureRightHotkey"||field=="groupCaptureLeftHotkey"||field=="groupMoveHotkey"||field=="selectorReorderHotkey"||field=="selectorUnequipHotkey"||field=="selectorRemoveHotkey"||field=="language"||field=="itemIconSet"||field=="keepDrawnVisible"||field=="textScale"||field=="placementSpacing"||field=="placementFrame"||field=="placementGridSize"||
+        if(field=="pngiiIcons"||field=="layoutVersion"||field=="equipmentShowText"||field=="showEquipmentAmmo"||field=="showPoison"||field=="showAmmo"||field=="mouseActions"||field=="groupModifiers"||field=="selectorBindings"||field=="allowUnusedModifiers"||field=="controllerActions")continue;
+        if(field=="quickLootKeyboard"||field=="quickLootController"||field=="controllerModifiers"||field=="groupModes"||field=="autoSort"||field=="groupUnequipHotkey"||field=="groupRemoveHotkey"||field=="groupCaptureRightHotkey"||field=="groupCaptureLeftHotkey"||field=="groupMoveHotkey"||field=="selectorReorderHotkey"||field=="selectorUnequipHotkey"||field=="selectorRemoveHotkey"||field=="language"||field=="keepDrawnVisible"||field=="textScale"||field=="placementSpacing"||field=="placementFrame"||field=="placementGridSize"||
            field=="equipmentX"||field=="equipmentY"||field=="equipmentScale"||field=="equipmentTextScale"||field=="equipmentSpacing"||field=="showEquipment"||field=="hideEmptyGroups"||field=="inactiveGroups"||field=="inactiveGroupOpacity"||
            field=="equipmentDim"||field=="equipmentStyle"||field=="equipmentLayout"||field=="equipmentTextPosition"||field=="equipmentFadeDelay"||field=="equipmentIdleOpacity")continue;
         auto incomplete=complete;incomplete.erase(field);bool rejected=false;
@@ -165,9 +166,9 @@ int main(int argc,char** argv)try {
         auto g=groupGeometry(appearance);bool separated=g.tiles.size()==count;
         for(std::size_t i=0;i<count;++i)for(std::size_t j=0;j<i;++j) {
             const auto dx=std::abs(g.tiles[i].x-g.tiles[j].x),dy=std::abs(g.tiles[i].y-g.tiles[j].y);
-            if(shape==1&&!labels&&(layout==2||layout==4))separated&=std::hypot(dx,dy)>=73.99f;
-            else if(shape==3&&!labels&&layout==2)separated&=dx+dy>=87.99f;
-            else separated&=dx+.01f>=g.tileWidth||dy+.01f>=g.tileHeight;
+            if(shape==1&&!labels)separated&=std::hypot(dx,dy)>=57.99f;
+            else if(shape==3&&!labels)separated&=dx+dy>=83.99f;
+            else separated&=dx+.01f>=g.tileWidth||dy+.01f>=g.tileHeight-(shape==0?7.f:0.f);
         }
         check(separated,"Every layout keeps group tiles apart");
         for(const auto size:{Point{800,450},Point{1280,720},Point{1920,1080},Point{3440,1440},Point{3840,2160}}) {

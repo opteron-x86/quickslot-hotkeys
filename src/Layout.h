@@ -14,141 +14,180 @@ struct HudBounds {Bounds widget,selector,equipment;std::vector<Bounds> tiles;};
 
 inline float hudTextFactor(const Options& o){return o.textScale*std::max(1.f,o.scale)/o.scale;}
 struct LayoutGeometry {std::vector<Point> tiles;float width=0,height=0,tileWidth=0,tileHeight=0;};
-inline LayoutGeometry groupGeometry(const Options& o) {
-    LayoutGeometry g;const auto count=std::clamp(o.groupCount,std::size_t(1),Arsenal::count);
-    const float text=hudTextFactor(o);
-    switch(o.shape) {
-    case 1:g.tileWidth=o.showLabels?76*std::max(1.f,text):68;g.tileHeight=o.showLabels?71+12*text+4:70;break;
-    case 2:g.tileWidth=o.showLabels?82*std::max(1.f,text):82;g.tileHeight=o.showLabels?100+12*text+4:100;break;
-    case 3:g.tileWidth=o.showLabels?88*std::max(1.f,text):88;g.tileHeight=o.showLabels?88+12*text+4:88;break;
-    default:g.tileWidth=o.showCardNames||o.showLabels?59+97*std::max(1.f,text):64;g.tileHeight=std::max(56.f,(o.showCardNames&&o.showLabels?26:14)*text+20);break;
+// Shape codes match the HUD tile renderer: circle, rectangle, diamond.
+inline float tileDistance(Point direction,float width,float height,unsigned shape,float gap) {
+    const float length=std::hypot(direction.x,direction.y);
+    const float x=std::abs(direction.x)/length,y=std::abs(direction.y)/length;
+    if(shape==1)return width+gap;
+    if(shape==3) {
+        const float edge=(width+gap*std::sqrt(2.f))/(x+y);
+        if(std::abs(x-y)*edge<=width)return edge;
+        const float major=std::max(x,y),minor=std::min(x,y);
+        return major*width+std::sqrt(std::max(0.f,gap*gap-minor*minor*width*width));
     }
-    const float dx=g.tileWidth+o.spacing,dy=g.tileHeight+o.spacing;
+    if(x>0) {const float edge=(width+gap)/x;if(edge*y<=height)return edge;}
+    if(y>0) {const float edge=(height+gap)/y;if(edge*x<=width)return edge;}
+    const float projection=x*width+y*height;
+    return projection+std::sqrt(std::max(0.f,projection*projection-width*width-height*height+gap*gap));
+}
+struct Arrangement {std::vector<Point> centers;float width=0,height=0;};
+inline Arrangement arrangeTiles(const std::vector<Point>& sizes,unsigned layout,float gap,unsigned shape=2,float rotation=0) {
+    Arrangement a;if(sizes.empty())return a;
+    const auto count=sizes.size();float width=0,height=0;
+    for(const auto size:sizes){width=std::max(width,size.x);height=std::max(height,size.y);}
     constexpr float pi=3.141592654f;
+    constexpr std::array<Point,8> diamond{{{1,0},{2,1},{1,2},{0,1},{0,-1},{2,-1},{0,3},{2,3}}};
+    constexpr std::array<Point,8> cross{{{1,1},{0,1},{2,1},{1,0},{1,2},{0,0},{2,0},{0,2}}};
+    constexpr std::array<Point,8> staggered{{{1,0},{2,.5f},{1,1},{0,.5f},{0,-.5f},{2,-.5f},{0,1.5f},{2,1.5f}}};
+    float cursor=0;
     for(std::size_t i=0;i<count;++i) {
         Point p;
-        if(count==1){g.tiles.push_back(p);continue;}
-        switch(o.layout) {
-        case 1:p={0,float(i)*dy};break;
-        case 2: {
-
-            constexpr std::array<Point,8> compact{{{1,0},{2,1},{1,2},{0,1},{0,-1},{2,-1},{0,3},{2,3}}};
-            constexpr std::array<Point,8> spaced{{{1,0},{2,1},{1,2},{0,1},{0,0},{2,0},{0,2},{2,2}}};
-            const bool tight=!o.showLabels&&(o.shape==1||o.shape==3);
-            const float pitch=o.shape==3?(88+o.spacing)*.5f:(74+o.spacing)/std::sqrt(2.f);
-            const auto slot=(tight?compact:spaced)[i];p={slot.x*(tight?pitch:dx),slot.y*(tight?pitch:dy)};break;
+        if(layout<2) {
+            p=layout==0?Point{cursor+sizes[i].x*.5f,height*.5f}:Point{width*.5f,cursor+sizes[i].y*.5f};
+            cursor+=(layout==0?sizes[i].x:sizes[i].y)+gap;
+        } else if(layout==4) {
+            const float angle=-pi*.5f+float(i)*2*pi/float(count)+rotation;
+            p={std::cos(angle)*width,std::sin(angle)*height};
+        } else {
+            const auto slot=(layout==2?diamond:layout==3?cross:staggered)[i];
+            const float pad=layout==2&&shape==2?gap/std::sqrt(2.f):layout==2?0.f:gap;
+            p={slot.x*(width+pad),slot.y*(height+pad)};
         }
-        case 3: {
-            constexpr std::array<Point,8> cross{{{1,1},{0,1},{2,1},{1,0},{1,2},{0,0},{2,0},{0,2}}};
-            const auto slot=cross[i];p={slot.x*dx,slot.y*dy};break;
-        }
-        case 4: {
-            const float angle=-pi/2+float(i)*2*pi/float(count);
-            const float radius=std::max(1.f,1.414214f/(2*std::sin(pi/float(count))));
-            if(o.shape==1&&!o.showLabels) {
-
-                const float r=(74+o.spacing)/(2*std::sin(pi/float(count)));
-                p={std::cos(angle)*r,std::sin(angle)*r};
-            } else p={(std::cos(angle)+1)*dx*radius,(std::sin(angle)+1)*dy*radius};
-            break;
-        }
-        case 5: {
-
-            constexpr std::array<Point,8> stb{{{1,0},{2,.5f},{1,1},{0,.5f},{0,-.5f},{2,-.5f},{0,1.5f},{2,1.5f}}};
-            const auto slot=stb[i];p={slot.x*dx,slot.y*dy};break;
-        }
-        default:p={float(i)*dx,0};break;
-        }
-        g.tiles.push_back(p);
+        a.centers.push_back(p);
     }
-    float minX=g.tiles[0].x,minY=g.tiles[0].y;
-    for(const auto& p:g.tiles){minX=std::min(minX,p.x);minY=std::min(minY,p.y);}
-    for(auto& p:g.tiles){p.x-=minX;p.y-=minY;g.width=std::max(g.width,p.x+g.tileWidth);g.height=std::max(g.height,p.y+g.tileHeight);}
+    if((layout==4||(layout==2&&shape!=2)||(layout>=2&&count==2))&&count>1) {
+        float factor=0;
+        for(std::size_t i=0;i<count;++i)for(std::size_t j=0;j<i;++j) {
+            const Point delta{a.centers[i].x-a.centers[j].x,a.centers[i].y-a.centers[j].y};
+            factor=std::max(factor,tileDistance(delta,(sizes[i].x+sizes[j].x)*.5f,(sizes[i].y+sizes[j].y)*.5f,shape,gap)/std::hypot(delta.x,delta.y));
+        }
+        for(auto& p:a.centers){p.x*=factor;p.y*=factor;}
+    }
+    Bounds bounds;
+    for(std::size_t i=0;i<count;++i){const auto p=a.centers[i],size=sizes[i];bounds.include({p.x-size.x*.5f,p.y-size.y*.5f});bounds.include({p.x+size.x*.5f,p.y+size.y*.5f});}
+    for(auto& p:a.centers){p.x-=bounds.min.x;p.y-=bounds.min.y;}
+    a.width=bounds.width();a.height=bounds.height();return a;
+}
+inline LayoutGeometry groupGeometry(const Options& o) {
+    LayoutGeometry g;const auto count=std::clamp(o.groupCount,std::size_t(1),Arsenal::count);
+    const float text=hudTextFactor(o);Point footprint;unsigned shape=2;
+    switch(o.shape) {
+    case 1:g.tileWidth=o.showLabels?76*std::max(1.f,text):68;g.tileHeight=o.showLabels?71+12*text+4:70;footprint={58,58};shape=1;break;
+    case 2:g.tileWidth=o.showLabels?82*std::max(1.f,text):82;g.tileHeight=o.showLabels?100+12*text+4:100;footprint={82,100};break;
+    case 3:g.tileWidth=o.showLabels?88*std::max(1.f,text):88;g.tileHeight=o.showLabels?88+12*text+4:88;footprint={84,84};shape=3;break;
+    default:g.tileWidth=o.showCardNames||o.showLabels?59+97*std::max(1.f,text):64;g.tileHeight=std::max(56.f,(o.showCardNames&&o.showLabels?26:14)*text+20);footprint={g.tileWidth,g.tileHeight-7};break;
+    }
+    if(o.showLabels&&o.shape){footprint={g.tileWidth,g.tileHeight};shape=2;}
+    const auto arranged=arrangeTiles(std::vector<Point>(count,footprint),o.layout,o.spacing,shape);
+    for(const auto p:arranged.centers)g.tiles.push_back({std::max(0.f,p.x-footprint.x*.5f),std::max(0.f,p.y-footprint.y*.5f)});
+    g.width=arranged.width+g.tileWidth-footprint.x;g.height=arranged.height+g.tileHeight-footprint.y;
     return g;
 }
+inline unsigned selectorTileShape(const Options& o){return o.selectorShape?o.selectorShape:o.selector==0?2u:1u;}
+inline float selectorRadius(float distance){return distance<1?40-12*distance:std::max(18.f,28-7*(distance-1));}
+inline float selectorStep(float radii,float rise,unsigned shape,float gap) {
+    if(shape==2)return radii+gap;
+    if(shape==1)return std::sqrt(std::max(0.f,(radii+gap)*(radii+gap)-rise*rise));
+    return rise>=gap/std::sqrt(2.f)?radii-rise+gap*std::sqrt(2.f):radii+std::sqrt(std::max(0.f,gap*gap-rise*rise));
+}
+inline Point selectorOffset(const Options& o,float position) {
+    const int whole=int(std::floor(position));const float fraction=position-float(whole),rise=o.selector==1?13.f:0.f;
+    const auto between=[&](float a,float b){return selectorStep(selectorRadius(std::abs(a))+selectorRadius(std::abs(b)),
+        std::abs(std::abs(a)-std::abs(b))*rise,selectorTileShape(o),o.selectorSpacing);};
+    const float central=between(fraction-1,fraction);
+    float shift=whole<0?-(1-fraction)*central:fraction*central;
+    if(whole>=0)for(int i=0;i<whole;++i)shift+=between(fraction+i,fraction+i+1);
+    else for(int i=-1;i>whole;--i)shift-=between(fraction+i,fraction+i-1);
+    return o.selector==3?Point{0,shift}:Point{shift,std::abs(position)*rise};
+}
 struct SelectorGeometry {
-    float width=420,height=155,centerY=16,ruleY=67,nameY=76,statusY=104,pagerY=132,hintY=154,listPitch=0,listHeight=46,ringRadiusX=140,ringRadiusY=74;
+    float width=420,height=155,centerY=16,ruleY=67,nameY=76,statusY=104,pagerY=132,hintY=154,listPitch=0,listHeight=46;
+    std::vector<Point> ring;
 };
-inline SelectorGeometry selectorGeometry(const Options& o) {
-    const float text=hudTextFactor(o);
-    SelectorGeometry s;s.width=std::max(420.f,328+o.selectorSpacing*4);
+inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,float phase=0) {
+    const float text=hudTextFactor(o);SelectorGeometry s;
+    const float side=count>3?2:count>1?1:0;
     if(o.selector==2) {
-        const float extra=std::max(0.f,text-1)*30;
-        s.ringRadiusX=(140+o.selectorSpacing*1.25f)*std::max(1.f,text);
-        s.centerY=78+o.selectorSpacing*.5f+extra;s.ringRadiusY=74+o.selectorSpacing*.5f+extra;
-        s.nameY=s.centerY-21*text;s.statusY=s.nameY+27*text;s.ruleY=s.statusY+19*text;
-        s.pagerY=s.centerY+s.ringRadiusY+39;
+        const auto visible=std::clamp(count,std::size_t(1),std::size_t(8));
+        std::vector<Point> sizes(visible,{44,44});sizes[0]={58,58};
+        constexpr float pi=3.141592654f;const auto shape=selectorTileShape(o);
+        const auto ring=arrangeTiles(sizes,4,o.selectorSpacing,shape,phase*2*pi/float(visible));
+        const float radius=visible>1?(51*(shape==2?std::sqrt(2.f):1.f)+o.selectorSpacing)/(2*std::sin(pi/float(visible))):0;
+        const float extent=2*(radius+29);
+        s.width=std::max(260*std::max(1.f,text),extent+24);s.ring=ring.centers;
+        Point pivot;for(const auto p:s.ring){pivot.x+=p.x/float(visible);pivot.y+=p.y/float(visible);}
+        for(auto& p:s.ring){p.x+=s.width*.5f-pivot.x;p.y+=extent*.5f-24-pivot.y;}
+        s.ruleY=extent-24+18;
     } else if(o.selector==3) {
-        s.width=320;s.centerY=113+o.selectorSpacing*2;s.ruleY=263+o.selectorSpacing*4;
-        s.nameY=s.ruleY+9;s.statusY=s.ruleY+37;s.pagerY=s.ruleY+65;
+        const float reach=selectorOffset(o,side).y+selectorRadius(side);
+        s.width=std::max(240.f,240*text);s.centerY=reach;s.ruleY=reach*2+18;
     } else if(o.selector==4) {
-        s.width=320;s.listHeight=std::max(46.f,16*text+14);s.listPitch=s.listHeight+2+o.selectorSpacing*.5f;s.centerY=s.listPitch*2-5;
-        s.ruleY=s.centerY+s.listPitch*2+s.listHeight*.5f+12;
+        s.width=320*std::max(1.f,text);s.listHeight=std::max(46.f,16*text+14);s.listPitch=s.listHeight+o.selectorSpacing;s.centerY=s.listPitch*side;
+        s.ruleY=s.centerY+s.listPitch*side+s.listHeight*.5f+16;
+    } else {
+        const auto last=selectorOffset(o,side);
+        s.width=std::max(240*std::max(1.f,text),(last.x+selectorRadius(side))*2+48);
+        s.ruleY=s.centerY+std::max(40.f,last.y+selectorRadius(side))+16;
     }
-    s.width*=std::max(1.f,text);
-    if(o.selector!=2){s.nameY=s.ruleY+9;s.statusY=s.nameY+28*text;s.pagerY=s.statusY+13*text+15;}
+    s.nameY=s.ruleY+9;s.statusY=s.nameY+28*text;s.pagerY=s.statusY+13*text+15;
     s.hintY=s.pagerY+8+12*text+10;
     s.height=o.showHints?s.hintY+13*text+4:s.pagerY+8+12*text+4;return s;
 }
+struct EquipmentMetrics {std::array<float,5> textWidths{};bool measured=false;};
+struct EquipmentCell {Point origin,icon,text;float width=0,height=0,textWidth=0;bool centered=false;};
 struct EquipmentGeometry {
-    Point origin,icon,text;
-    std::array<Point,4> cells{};
-    float width=340,height=184,rowHeight=44,scale=1,cellWidth=340,cellHeight=44,iconSize=30,textWidth=281;
-    bool centered=false;
+    Point origin;std::array<EquipmentCell,5> cells{};
+    float width=0,height=0,scale=1,iconSize=30;
 };
-inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float screenY,unsigned rows=4) {
-    EquipmentGeometry g;rows=std::clamp(rows,1u,4u);
-    const float t=o.textScale*o.equipmentTextScale,f=std::max(1.f,t),textHeight=36*t;
-    float fitWidth=0,fitHeight=0;
-    if(o.equipmentStyle==0) {
-        g.cellWidth=340*f;g.cellHeight=44*f;
-        g.icon={23,g.cellHeight*.5f};g.text={47,g.cellHeight*.5f-18*t};g.textWidth=g.cellWidth-59;
-
-        const float pitch=g.cellHeight+(o.equipmentSpacing-1)*4*f;
-        g.width=g.cellWidth;g.height=g.cellHeight+float(rows-1)*pitch+8;
-        for(unsigned i=0;i<rows;++i)g.cells[i]={0,4+float(i)*pitch};
-        fitWidth=g.width;fitHeight=g.cellHeight+float(rows-1)*(g.cellHeight+12*f)+8;
-    } else {
-        if(o.equipmentStyle==4) {
-            g.cellWidth=280*f;g.cellHeight=textHeight+8;g.iconSize=0;g.text={8,4};g.textWidth=g.cellWidth-16;
+inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={}) {
+    EquipmentGeometry g;rows=std::clamp(rows,1u,5u);
+    const float t=o.textScale*o.equipmentTextScale,textHeight=36*t;
+    const bool labels=o.equipmentShowText||o.equipmentStyle==0||o.equipmentStyle==4;
+    g.iconSize=o.equipmentStyle==0?30.f:o.equipmentStyle==4?0.f:o.equipmentStyle==2?32.f:38.f;
+    std::vector<Point> sizes;
+    for(unsigned i=0;i<rows;++i) {
+        auto& cell=g.cells[i];cell.textWidth=labels?std::clamp(metrics.measured?metrics.textWidths[i]:140*t,0.f,220*t):0;
+        const float frame=o.equipmentStyle==0?30.f:o.equipmentStyle==4?0.f:56.f;
+        if(!labels) {cell.width=cell.height=frame;cell.icon={frame*.5f,frame*.5f};}
+        else if(o.equipmentStyle==4){cell.width=cell.textWidth;cell.height=textHeight;cell.text={};}
+        else if(o.equipmentStyle>0&&o.equipmentTextPosition<2) {
+            cell.width=std::max(frame,cell.textWidth);cell.height=frame+6+textHeight;cell.centered=true;
+            cell.icon={cell.width*.5f,o.equipmentTextPosition==0?textHeight+6+frame*.5f:frame*.5f};
+            cell.text={cell.width*.5f,o.equipmentTextPosition==0?0.f:frame+6};
         } else {
-            g.iconSize=o.equipmentStyle==2?32.f:38.f;
-            if(o.equipmentTextPosition<2) {
-                g.cellWidth=180*f;g.cellHeight=80+textHeight;g.centered=true;g.textWidth=g.cellWidth-16;
-                g.text={g.cellWidth*.5f,o.equipmentTextPosition==0?4.f:76.f};
-                g.icon={g.cellWidth*.5f,o.equipmentTextPosition==0?44+textHeight:36.f};
-            } else {
-                g.cellWidth=300*f;g.cellHeight=std::max(64.f,textHeight)+8;g.textWidth=g.cellWidth-84;
-                const bool right=o.equipmentTextPosition==3;
-                g.icon={right?36.f:g.cellWidth-36,g.cellHeight*.5f};
-                g.text={right?76.f:8.f,(g.cellHeight-textHeight)*.5f};
+            cell.width=frame+8+cell.textWidth;cell.height=std::max(frame,textHeight);
+            const bool right=o.equipmentStyle==0||o.equipmentTextPosition==3;
+            cell.icon={right?frame*.5f:cell.width-frame*.5f,cell.height*.5f};
+            cell.text={right?frame+8:0.f,(cell.height-textHeight)*.5f};
+        }
+        sizes.push_back({cell.width,cell.height});
+    }
+    if(o.equipmentLayout==1) {
+        float width=0;for(const auto size:sizes)width=std::max(width,size.x);
+        for(unsigned i=0;i<rows;++i) {
+            auto& cell=g.cells[i];cell.width=sizes[i].x=width;
+            if(cell.centered)cell.icon.x=cell.text.x=width*.5f;
+            else if(o.equipmentStyle>0&&o.equipmentStyle<4&&labels&&o.equipmentTextPosition==2) {
+                cell.icon.x=width-28;cell.text.x=width-64-cell.textWidth;
             }
         }
-        const bool horizontal=o.equipmentLayout==1;
-        const float gap=(horizontal?12.f:8.f)*o.equipmentSpacing;
-        g.width=8+g.cellWidth*(horizontal?rows:1)+(horizontal?rows-1:0)*gap;
-        g.height=8+g.cellHeight*(horizontal?1:rows)+(horizontal?0:rows-1)*gap;
-        for(unsigned i=0;i<rows;++i)g.cells[i]={4+(horizontal?float(i)*(g.cellWidth+gap):0),4+(horizontal?0:float(i)*(g.cellHeight+gap))};
-        const float maxGap=(horizontal?12.f:8.f)*4;
-        fitWidth=8+g.cellWidth*(horizontal?rows:1)+(horizontal?rows-1:0)*maxGap;
-        fitHeight=8+g.cellHeight*(horizontal?1:rows)+(horizontal?0:rows-1)*maxGap;
     }
-    g.rowHeight=g.cellHeight;
-
-    g.scale=std::max(.05f,std::min({o.equipmentScale*std::clamp(screenY/1080.f,.75f,3.f),(screenX-16)/fitWidth,(screenY-16)/fitHeight}));
+    const auto shape=!labels?(o.equipmentStyle==1?1u:o.equipmentStyle==2?3u:2u):2u;
+    const auto arranged=arrangeTiles(sizes,o.equipmentLayout,o.equipmentSpacing,shape);
+    g.width=arranged.width+8;g.height=arranged.height+8;
+    for(unsigned i=0;i<rows;++i)g.cells[i].origin={4+arranged.centers[i].x-sizes[i].x*.5f,4+arranged.centers[i].y-sizes[i].y*.5f};
+    g.scale=std::max(.05f,std::min({o.equipmentScale*std::clamp(screenY/1080.f,.75f,3.f),(screenX-16)/g.width,(screenY-16)/g.height}));
     g.origin={8+std::max(0.f,screenX-16-g.width*g.scale)*o.equipmentX,8+std::max(0.f,screenY-16-g.height*g.scale)*o.equipmentY};
     return g;
 }
-struct HudGeometry {LayoutGeometry groups;EquipmentGeometry equipment;Point origin,groupOrigin,selectorOrigin;float scale=1,width=0,height=0,selectorHeight=150,selectorWidth=420,captionHeight=40;};
-inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsigned rows=4) {
-    HudGeometry g;g.equipment=equipmentGeometry(o,screenX,screenY,rows);g.groups=groupGeometry(o);g.width=g.groups.width;g.captionHeight=15*hudTextFactor(o)+8;
+struct HudGeometry {LayoutGeometry groups;EquipmentGeometry equipment;Point origin,groupOrigin,selectorOrigin;float scale=1,width=0,height=0,selectorHeight=150,selectorWidth=420,captionHeight=40,previewZoom=1;};
+inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={},std::size_t selectorCount=5) {
+    HudGeometry g;g.equipment=equipmentGeometry(o,screenX,screenY,rows,metrics);g.groups=groupGeometry(o);g.width=g.groups.width;g.captionHeight=15*hudTextFactor(o)+8;
     g.groupOrigin={0,o.shape==0?3.f:0.f};g.height=g.groups.height+g.groupOrigin.y;
-    const auto selectorLayout=selectorGeometry(o);g.selectorHeight=selectorLayout.height;g.selectorWidth=selectorLayout.width;
+    const auto selectorLayout=selectorGeometry(o,selectorCount);g.selectorHeight=selectorLayout.height;g.selectorWidth=selectorLayout.width;
     const float sh=g.selectorHeight+32,resolutionScale=std::clamp(screenY/1080.f,.75f,3.f);
-    auto widest=o;widest.spacing=40;widest.selectorSpacing=32;
-    const auto groupLimit=groupGeometry(widest);const auto selectorLimit=selectorGeometry(widest);
-    g.scale=std::max(.05f,std::min({o.scale*resolutionScale,(screenX-16)/std::max(groupLimit.width,selectorLimit.width),
-        (screenY-16)/std::max(groupLimit.height+g.groupOrigin.y,selectorLimit.height+32)}));
+    g.scale=std::max(.05f,std::min({o.scale*resolutionScale,(screenX-16)/std::max(g.width,g.selectorWidth),
+        (screenY-16)/std::max(g.height,g.selectorHeight+32)}));
     const float w=g.width*g.scale,h=g.height*g.scale,sw=g.selectorWidth*g.scale,soh=sh*g.scale,gap=o.selectorGap*g.scale;
     g.origin={8+std::max(0.f,screenX-16-w)*o.positionX,8+std::max(0.f,screenY-16-h)*o.positionY};
     const auto clamp=[&](Point p){return Point{std::clamp(p.x,8.f,std::max(8.f,screenX-8-sw)),std::clamp(p.y,8.f,std::max(8.f,screenY-8-soh))};};
@@ -206,9 +245,9 @@ inline SnapAxis snapPlacementAxis(float value,float extent,float screen,float lo
     const float snapped=value+delta/travel,clamped=std::clamp(snapped,0.f,1.f);
     return {clamped,guide,snapped==clamped};
 }
-inline HudGeometry previewGeometry(const Options& o,float screenX,float screenY,float width,float height,bool selector,bool groups=true,bool equipment=false,unsigned rows=4) {
+inline HudGeometry previewGeometry(const Options& o,float screenX,float screenY,float width,float height,bool selector,bool groups=true,bool equipment=false,unsigned rows=4,const EquipmentMetrics& metrics={},std::size_t selectorCount=5,float zoom=0) {
     const auto arrange=[&](const Options& look) {
-        auto g=hudGeometry(look,screenX,screenY,rows);g.origin={};g.equipment.origin={};
+        auto g=hudGeometry(look,screenX,screenY,rows,metrics,selectorCount);g.origin={};g.equipment.origin={};
         if(selector&&groups&&!equipment) {
             const float w=g.width,h=g.height,sw=g.selectorWidth,sh=g.selectorHeight+32,gap=look.selectorGap;
             const std::array<Point,4> docks{{{(w-sw)*.5f,-gap-sh},{(w-sw)*.5f,h+gap},
@@ -230,14 +269,9 @@ inline HudGeometry previewGeometry(const Options& o,float screenX,float screenY,
         return b;
     };
     auto g=arrange(o);const auto actual=bounds(g);
-    auto widest=o;widest.spacing=40;widest.selectorSpacing=32;widest.equipmentSpacing=4;
-    const auto spaced=bounds(arrange(widest));
-    widest.scale=1.5f;widest.equipmentScale=2;
-    const auto largest=bounds(arrange(widest));
     const float margin=std::min(width,height)*.06f;
-
-    const float factor=std::max(.05f,std::min((width-margin*2)/std::max({1.f,spaced.width(),largest.width()}),
-        (height-margin*2)/std::max({1.f,spaced.height(),largest.height()})));
+    const float factor=zoom>0?zoom:std::min((width-margin*2)/std::max(1.f,actual.width()),(height-margin*2)/std::max(1.f,actual.height()));
+    g.previewZoom=factor;
     const auto center=[&](Point p){return Point{(width-actual.width()*factor)*.5f+(p.x-actual.min.x)*factor,
         (height-actual.height()*factor)*.5f+(p.y-actual.min.y)*factor};};
     g.equipment.origin=center(g.equipment.origin);
@@ -252,5 +286,11 @@ inline void layoutPreset(Options& o,unsigned preset) {
     if(preset==0){o.layout=5;o.shape=2;o.selectorShape=2;}
     else if(preset==1){o.layout=2;o.shape=3;o.selectorShape=3;}
     else {o.layout=4;o.shape=1;o.selector=0;o.selectorShape=1;o.spacing=2;}
+}
+inline void equipmentLayoutPreset(Options& o,unsigned preset) {
+    o.equipmentShowText=false;o.equipmentSpacing=8;
+    if(preset==0){o.equipmentLayout=5;o.equipmentStyle=3;}
+    else if(preset==1){o.equipmentLayout=2;o.equipmentStyle=2;}
+    else {o.equipmentLayout=4;o.equipmentStyle=1;}
 }
 }

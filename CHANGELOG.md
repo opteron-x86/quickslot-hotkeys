@@ -2,54 +2,84 @@
 
 ## Unreleased
 
-- Text input is now claimed only while an editable field is active, allowing IME users to navigate and bind keys without starting composition elsewhere in the editor. Field changes retain counter recovery and balanced release; reopening starts without an active text field (GitHub #5). In-game validation of field-focused claiming is pending.
+- IME composition follows the active editor text field. Leaving the field restores normal navigation and key binding.
+
+## 0.13.1
+
+- Skyrim's console keeps its mouse pointer when opened during gameplay or after using the Quickslot editor.
+
+## 0.13.0
+
+- Improved compatibility with I4 ports, with in-game dependency messages and detailed missing-icon logs.
+- Groups, selectors and equipment share a 0–128 spacing range, with compact layouts at zero and wider gaps at higher values.
+- Horizontal equipment spacing follows the width of each item's icon and labels.
+- Equipment supports horizontal, vertical, diamond, cross, circle and staggered-cross arrangements, layout presets and optional item names.
+- Appearance previews have adjustable zoom and a **Fit preview** button.
+- Quickslot yields controls to UIExtensions and custom modal menus, including unpaused menus.
+- Quickslot yields controls and hides its HUD during scenes that take control of the player, including OStim. Controls resume when the scene returns control to the player.
+- Display matching PNG and SVG artwork from PNG Icon Injector in the widget, browser, equipment display and editor preview. Configure **Use PNGII icons** and **Icon color** under **Appearance → Style**. I4 supplies the remaining icons.
+
+**Skyrim 1.5.97:** I4 icons display with Fuzzles' I4 port.
+
+## 0.12.0
+
+- Item icons use Inventory Interface Information Injector (I4) 1.1.0+, a required dependency. Choose Original, Theme or White coloring in Appearance → Style.
+- Smart shortcuts show the item they currently select, combinations show both items, and empty-hand actions use a gauntlet icon.
+- Add equipped arrows or bolts and their count to the equipment widget with **Appearance → Equipment → Show equipped ammunition**.
+- Item quantities, ammunition counts and cooldown timers use outlined text.
+- Hotkeys appear as plain text on frames when key artwork is disabled or unavailable.
+
+Updating: install I4 1.1.0+ for your Skyrim version. Keep your settings and presets.
+
+## 0.11.0
+
+- Configure keyboard editing modifiers, browsing keys and controller actions under **Controls**. Choose **None** or **Clear** to disable a binding. Enable **Allow group selection with unused modifiers** to use group keys while holding a walking modifier ([#14](https://github.com/opteron-x86/quickslot-hotkeys/pull/14)).
+- Use Quickslot while QuickLoot is displayed, with separate keyboard/mouse and controller options under **Controls → General** ([#15](https://github.com/opteron-x86/quickslot-hotkeys/pull/15)).
+- See poison indicators on weapons and equipped arrow/bolt counts on bows and crossbows. Configure these indicators under **Appearance → Style** ([#16](https://github.com/opteron-x86/quickslot-hotkeys/pull/16)).
+- Choose a hand for the highlighted weapon or spell while browsing. Hand choices apply to the current use, with configurable keyboard, mouse and controller bindings plus mouse-button and bumper presets ([#17](https://github.com/opteron-x86/quickslot-hotkeys/pull/17)).
+- Link groups to Skyrim Favorites by category. Groups display all matching favorites, with alphabetical browsing, exclusions and a default hand ([#18](https://github.com/opteron-x86/quickslot-hotkeys/pull/18)).
+
+Updating: keep your settings and presets. Enable QuickLoot input and hand-selection bindings in Controls to use those features.
 
 ## 0.10.3
 
-- Fixed editor text fields becoming untypable when an IME integration clears Skyrim's text-entry counter during opening. The editor now waits until its menu is open before claiming text input, and restores a cleared claim while the editor remains open ([#3](https://github.com/opteron-x86/quickslot-hotkeys/issues/3), [#4](https://github.com/opteron-x86/quickslot-hotkeys/pull/4)).
-- Guarded cleanup so closing after a cleared claim does not request an extra release. Recovery warnings are limited to once per editor session.
-- Documented the engine character-input queue used by the editor for IME integrations.
+- Reliable editor text entry with IME integrations ([#4](https://github.com/opteron-x86/quickslot-hotkeys/pull/4)).
 
-In-game verification: the SimpleIME author confirmed nine ownership-test cycles with its Quickslot declaration disabled, plus three end-to-end Chinese-input cycles with its released routing declaration enabled. See the [verification notes](https://github.com/opteron-x86/quickslot-hotkeys/pull/4#issuecomment-6380918875).
-
-Updating: keep your settings and presets. SimpleIME's engine-input routing declaration is still needed for committed Chinese text to reach the editor.
+Updating: keep your settings and presets. Enable SimpleIME's engine-input routing declaration for Chinese text entry in the editor.
 
 ## 0.10.2
 
-- Removing a group now resets its name, contents, remembered selection, keyboard/controller/VR bindings, behavior and auto-sort setting. Undo restores the complete group.
-- Added groups start fresh, including slots left hidden by older versions. The keyboard binding uses the lowest unused number from **1–8**, skipping the editor shortcut; the default name follows that number. Controller and VR bindings use available defaults. Existing groups keep their bindings.
-- Refreshed the editor's name field after adding or removing a group so old names cannot reappear while editing.
-- Fixed the editor closing when a non-modal, cursor-only text-entry overlay appears. Gameplay hotkeys still yield to cursor menus; full game menus and other modal interfaces still close the editor.
-- Editor close logs now include the reason and, when another menu intervenes, its name and flags.
-- Added individual switches and **Enable all / Disable all** under **Controls → Keyboard → Editing shortcuts**. Capture for each hand, moving between groups, unequipping, removing and reordering can all be disabled independently. Disabled actions pass their keys to the game and other mods; browsing and cancellation remain available. Existing settings keep all editing shortcuts enabled.
+- **Remove group** resets its contents, name, bindings, behavior and auto-sort setting. Undo restores the group.
+- **Add group** assigns the lowest available number key from **1–8** and available controller/VR defaults.
+- Group names refresh when adding or removing groups.
+- Editor text entry supports cursor-only IME overlays.
+- Editor logs include closing reasons and menu details.
+- Enable or disable individual keyboard editing shortcuts under **Controls → Keyboard → Editing shortcuts**, with **Enable all / Disable all** controls.
 
-Updating: keep your settings and presets. Existing groups retain their names, items and bindings; the reset behavior applies when removing or adding a group. Editing shortcuts remain enabled until you opt out.
+Updating: keep your settings and presets.
 
 ## 0.10.1
 
-- Fixed DirectX shader-state cleanup that could crash when used alongside another menu mod.
-- Updated katana and nodachi icon artwork.
-- Clear a group hotkey with **Clear**, or click its binding and press **Esc**. Assigning a key used by another group swaps the two bindings; removed groups release their keys.
-- Added **Sort A–Z** and an optional **Auto-sort when adding** setting for each group. Sorting ignores case, preserves the remembered item and supports Undo.
+- Improved stability when using Quickslot alongside other menu mods.
+- Updated katana and nodachi icons.
+- Clear group hotkeys with **Clear** or **Esc** during binding. Assigning an occupied key swaps the group bindings.
+- Sort groups by name with **Sort A–Z** or **Auto-sort when adding**. Both support Undo.
 
-Updating: install the DLL and atlas together. Existing groups keep their order until sorting is requested; auto-sort starts disabled.
+Updating: install the complete release package and keep your settings and presets.
 
 ## 0.10.0
 
-This standard release brings together the features and refinements from the 0.9.0 release candidates.
-
-- Hold-to-browse and tap-to-cycle groups with remembered selections, wrapping keyboard navigation and shortcut reordering.
-- Searchable shared shortcuts and hand combinations, including smart weapons and shields with separate item copies for each hand.
-- Smart equipment ranking, consumable selection and restocking, and torch shortcuts that follow inventory stock.
+- Hold-to-browse and tap-to-cycle groups with remembered selections and shortcut reordering.
+- Searchable shared shortcuts, hand combinations and smart equipment choices.
+- Consumable selection and restocking, including torches.
 - Controller navigation, modifier bindings, pointer controls and on-screen text entry.
-- Independent equipment display with right-hand-first ordering, quantity badges, shout timers and spent-power dimming.
-- Theme, layout, scale, spacing, positioning and visibility controls with live previews, Undo and presets.
-- Refreshed icon artwork, distinct lesser/greater power icons, and dedicated javelin, quarterstaff, claw and whip drawings. The atlas contains 64 supplied drawings and one gun-to-crossbow alias.
-- Automated Linux tests, Windows build/probes, and versioned packages containing the mod, source, symbols, menu API and checksums.
+- Equipment display with quantities, shout timers and spent-power indicators.
+- Themes, layouts, positioning, visibility controls, live previews and presets.
+- Weapon icons, distinct lesser/greater power icons, and javelin, quarterstaff, claw and whip categories.
+- Mod, source, symbols, menu API and checksum downloads.
+- Experimental VR support.
 
-Updating: install the DLL and atlas together and keep existing settings and presets. Custom icon packs must use the new 2048 × 2304, 65-icon layout described in `THEMES.md`.
-
-VR support remains experimental; physical headset validation is pending.
+Updating: install the complete release package and keep your settings and presets.
 
 ## 0.9.0-rc20
 

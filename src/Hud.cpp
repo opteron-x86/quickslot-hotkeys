@@ -33,7 +33,7 @@ ImU32 iconColor(const Entry& e) {
     }
 }
 struct Paint {
-    ImDrawList* d;ImVec2 origin;float scale,alpha;ImFont* medium;ImFont* sans;ImTextureID icons,themeTexture,keyTexture;const KeyGlyphs& keyGlyphs;const Options& options;const Theme& theme;ThemeAdjustments tweaks;
+    ImDrawList* d;ImVec2 origin;float scale,alpha;ImFont* medium;ImFont* sans;ImTextureID themeTexture,keyTexture;const KeyGlyphs& keyGlyphs;const Options& options;const Theme& theme;ThemeAdjustments tweaks;const ItemIconProvider& itemIcons;
     ImU32 accent()const{return themeAccent(theme,options);}
     ImU32 itemColor(const Entry& e)const{return options.coloredMagic?iconColor(e):ivory;}
     ImVec2 p(float x,float y)const{return {origin.x+x*scale,origin.y+y*scale};}
@@ -130,41 +130,13 @@ struct Paint {
     void icon(float x,float y,float size,const Entry& e,ImU32 c) {
         if(e.kind==Kind::combo&&e.parts.size()==2){icon(x-size*.21f,y,size*.62f,e.parts[0],c==muted?c:itemColor(e.parts[0]));icon(x+size*.21f,y,size*.62f,e.parts[1],c==muted?c:itemColor(e.parts[1]));return;}
         size*=tweaks.iconScale;
-        if(c!=muted&&options.itemIconColor!=1)c=IM_COL32_WHITE;
-        const auto region=atlasRegion(iconFor(e));
-        const bool useAtlas=icons&&region.has_value();
-        if(isHandAction(e)&&!useAtlas) {
-            const bool fist=e.kind==Kind::unarmed;const float mirror=e.hand==Hand::left?-1.f:1.f;
-            const auto point=[&](float dx,float dy){return p(x+dx*size*mirror,y+dy*size);};
-            const auto rect=[&](float x1,float y1,float x2,float y2,float rounding){
-                auto a=point(x1,y1),b=point(x2,y2);if(a.x>b.x)std::swap(a.x,b.x);
-                d->AddRectFilled(a,b,color(c),rounding*size*scale);
-            };
-            rect(-.22f,-.09f,.22f,.25f,.08f);rect(-.15f,.22f,.14f,.39f,.015f);
-            const float heights[]{-.31f,-.42f,-.38f,-.25f};
-            for(unsigned finger=0;finger<4;++finger){const float dx=-.22f+float(finger)*.115f;rect(dx,fist?-.24f:heights[finger],dx+.095f,.02f,.04f);}
-            const ImVec2 thumb[]{point(-.19f,.17f),point(-.36f,-.01f),point(-.34f,-.11f),point(-.27f,-.14f),point(-.12f,.04f)};
-
-            if(mirror>0)d->AddConvexPolyFilled(thumb,5,color(c));
-            else {ImVec2 reverse[5];for(unsigned i=0;i<5;++i)reverse[i]=thumb[4-i];d->AddConvexPolyFilled(reverse,5,color(c));}
-            if(fist)line(x-size*.16f,y+size*.035f,x+size*.14f,y+size*.035f,dark,1.2f);
+        if(itemIcons)if(const auto supplied=itemIcons(e)) {
+            const bool unavailable=c==muted;
+            const auto tint=itemIconTint(*supplied,color(c),options.itemIconColor,unavailable);
+            d->AddImage(supplied->mask,p(x-size*.5f+1,y-size*.5f+2),p(x+size*.5f+1,y+size*.5f+2),{0,0},{1,1},color(IM_COL32(0,0,0,150)));
+            d->AddImage(itemIconTexture(*supplied,options.itemIconColor,unavailable),p(x-size*.5f,y-size*.5f),p(x+size*.5f,y+size*.5f),{0,0},{1,1},tint);
             return;
         }
-        if(e.kind==Kind::ammo&&!useAtlas) {
-
-            const float r=size*(e.icon==Icon::bolt?.30f:.40f),t=size*.055f;
-            line(x-r,y+r,x+r,y-r,c,t);
-            const ImVec2 tip[]{p(x+r,y-r),p(x+r-size*.22f,y-r+size*.04f),p(x+r-size*.04f,y-r+size*.22f)};
-            d->AddTriangleFilled(tip[0],tip[1],tip[2],color(c));
-            for(float at:{0.f,.12f}){const float a=size*at;line(x-r+a,y+r-a,x-r+a-size*.04f,y+r-a-size*.18f,c,t);line(x-r+a,y+r-a,x-r+a+size*.18f,y+r-a+size*.04f,c,t);}
-            return;
-        }
-        if(!useAtlas){diamond(x,y,size*.3f,c,false);text(x,y-size*.2f,"?",size*.4f,c,false,0,true);return;}
-        const ImVec2 uv0{region->u0,region->v0},uv1{region->u1,region->v1};
-
-        const auto tint=atlasTint(color(c),options.itemIconColor,c==muted);
-        d->AddImage(icons,p(x-size*.5f+1,y-size*.5f+2),p(x+size*.5f+1,y+size*.5f+2),uv0,uv1,color(IM_COL32(0,0,0,150)));
-        d->AddImage(icons,p(x-size*.5f,y-size*.5f),p(x+size*.5f,y+size*.5f),uv0,uv1,tint);
     }
     void rule(float x,float y,float half=70) {
         line(x-half,y,x-7,y,IM_COL32(175,173,161,130),.7f);
@@ -194,9 +166,6 @@ struct Paint {
             return;
         }
         const auto label=keyLabel(scan);
-        const float w=std::max(16.f,sans->CalcTextSizeA(12*scale,FLT_MAX,0,label.c_str()).x/scale+8);
-        d->AddRectFilled(p(x-w*.5f,y),p(x+w*.5f,y+16),color(IM_COL32(15,16,17,210)),2*scale);
-        d->AddRect(p(x-w*.5f,y),p(x+w*.5f,y+16),color(selected?ivory:silver),2*scale);
         text(x,y,label,12,selected?ivory:silver,true,0,true);
     }
     void groupKey(float x,float y,std::size_t group,bool selected,bool controller,bool vr,float height=18) {
@@ -216,13 +185,22 @@ struct Paint {
         const float left=width(mod),right=width(button),start=x-(left+right+12)*.5f;
         key(start+left*.5f,y,mod,selected,h);text(start+left+6,y,"+",11,silver,false,0,true);key(start+left+12+right*.5f,y,button,selected,h);
     }
-    void badge(float x,float y,const Entry& entry,int quantity,float cooldown,float size=13,bool rightAligned=false) {
-        if(!isStack(entry)&&cooldown<=0)return;
-        const auto label=isStack(entry)?(quantity>999?std::string("999+"):std::to_string(std::max(0,quantity))):std::to_string(int(std::ceil(cooldown)))+"s";
-        const auto w=sans->CalcTextSizeA(size*scale,FLT_MAX,0,label.c_str()).x/scale+8;
+    void badge(float x,float y,const Entry& entry,int quantity,float cooldown,float size=13,bool rightAligned=false,WeaponStatus weapon={}) {
+        const int count=badgeQuantity(entry,quantity,weapon,options);
+        const bool poisoned=options.showPoison&&weapon.poisoned;
+        if(count<0&&cooldown<=0&&!poisoned)return;
+        const auto label=count>=0?(count>999?std::string("999+"):std::to_string(count)):cooldown>0?std::to_string(int(std::ceil(cooldown)))+"s":std::string{};
+        const auto textWidth=sans->CalcTextSizeA(size*scale,FLT_MAX,0,label.c_str()).x/scale;
+        const float poisonWidth=poisoned?size+3:0,w=textWidth+poisonWidth+8;
         if(rightAligned)x-=w*.5f;
-        d->AddRectFilled(p(x-w*.5f,y-1),p(x+w*.5f,y+size+2),color(IM_COL32(12,13,14,215)),2*scale);
-        text(x,y,label,size,isStack(entry)&&quantity<=0?IM_COL32(219,143,132,255):ivory,false,0,true);
+        const float left=x-w*.5f;
+        if(poisoned) {
+            const auto green=color(IM_COL32(174,209,122,255));const float cx=left+4+size*.5f,cy=y+size*.65f,r=size*.26f;
+            const auto droplet=[&]{d->PathLineTo(p(cx,cy-size*.65f));d->PathArcTo(p(cx,cy),r*scale,-pi*.2f,pi*1.2f,12);};
+            droplet();d->PathFillConvex(green);
+            droplet();d->PathStroke(color(IM_COL32(12,18,10,210)),ImDrawFlags_Closed,std::max(1.f,scale*.7f));
+        }
+        if(!label.empty())text(left+4+poisonWidth+textWidth*.5f,y,label,size,count==0?IM_COL32(219,143,132,255):ivory,false,0,true);
     }
 };
 }
@@ -263,6 +241,16 @@ void Hud::initialize(const std::string& directory) {
     };
     for(const auto& t:themes_.all())skins_[t.id]={packFont(t.font,sans),packFont(t.titleFont.empty()?t.font:t.titleFont,medium),0};
 }
+EquipmentMetrics Hud::equipmentMetrics(const EquippedDisplay& state,const Options& o)const {
+    EquipmentMetrics metrics;auto* font=bodyFont(o);if(!font)return metrics;
+    metrics.measured=true;unsigned index=0;const float t=o.textScale*o.equipmentTextScale;
+    forEachEquipmentRow(state,o,[&](const char* role,const std::optional<Row>& row) {
+        const auto name=equipmentTextName(row,o.equipmentStyle!=4,o);
+        metrics.textWidths[index++]=std::max(font->CalcTextSizeA(11.5f*t,FLT_MAX,0,tr(role)).x,
+            font->CalcTextSizeA(17*t,FLT_MAX,0,name.c_str()).x)+2;
+    });
+    return metrics;
+}
 void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,ImVec2 viewport,ImDrawList* list,HudBounds* bounds) {
     if(bounds)*bounds={};
     const auto displacement=motion_.update(state,o,now);const auto visibility=fade_.update(state,o,now);
@@ -270,13 +258,14 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     if(visibility<=0&&equipmentAlpha<=0)return;
     const bool notification=!state.notice.empty()&&now<state.noticeUntil;
     const auto screen=viewport.x>0&&viewport.y>0?viewport:ImGui::GetIO().DisplaySize;
-    auto geometry=hudGeometry(o,screen.x,screen.y,equipmentRows(state.equipment));
-    if(state.editorPreview&&!state.placementPreview&&list){const auto display=ImGui::GetIO().DisplaySize;geometry=previewGeometry(o,display.x,display.y,screen.x,screen.y,state.browsing,!state.selectorOnly,state.equipmentOnly,equipmentRows(state.equipment));}
+    const auto metrics=equipmentMetrics(state.equipment,o);
+    auto geometry=hudGeometry(o,screen.x,screen.y,equipmentRows(state.equipment,o),metrics,state.rows.size());
+    if(state.editorPreview&&!state.placementPreview&&list){const auto display=ImGui::GetIO().DisplaySize;geometry=previewGeometry(o,display.x,display.y,screen.x,screen.y,state.browsing,!state.selectorOnly,state.equipmentOnly,equipmentRows(state.equipment,o),metrics,state.rows.size(),state.previewZoom);}
     const float scale=geometry.scale;
     const auto& theme=themes_.get(o.themeId);const auto& skin=skins_.at(theme.id);
     Paint p{list?list:ImGui::GetBackgroundDrawList(),
         {origin.x+geometry.origin.x+geometry.selectorOrigin.x*scale,origin.y+geometry.origin.y+geometry.selectorOrigin.y*scale},
-        scale,o.opacity*visibility,skin.title,skin.body,iconTexture(o),skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o)};
+        scale,o.opacity*visibility,skin.title,skin.body,skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o),itemIcons_};
     const auto collect=[&](int start,Bounds& box){for(int i=start;i<p.d->VtxBuffer.Size;++i){const auto v=p.d->VtxBuffer[i].pos;box.include({v.x,v.y});}};
     const int selectorStart=p.d->VtxBuffer.Size;const float text=hudTextFactor(o);
     const float center=geometry.selectorWidth*.5f;
@@ -289,21 +278,21 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         const auto node=[&](const Row& row,float x,float y,float r,bool selected,unsigned shape,float opacity) {
             auto nodePaint=p;nodePaint.alpha*=opacity;
             nodePaint.tile(x,y,r,selected,shape);
-            nodePaint.icon(x,y,r*1.48f,row.entry,row.available?nodePaint.itemColor(row.entry):muted);
-            const float marker=x+(isStack(row.entry)||row.cooldown>0?-1.f:1.f)*r*.7f;
+            nodePaint.icon(x,y,r*1.48f,rowIconEntry(row),row.available?nodePaint.itemColor(rowIconEntry(row)):muted);
+            const float marker=x+(isStack(row.entry)||row.cooldown>0||(o.showAmmo&&row.weapon.ammunition>=0)||(o.showPoison&&row.weapon.poisoned)?-1.f:1.f)*r*.7f;
             if(!row.available&&!isStack(row.entry)){nodePaint.circle(marker,y+r*.7f,6,IM_COL32(22,18,18,240),true);nodePaint.line(marker-3,y+r*.7f+3,marker+3,y+r*.7f-3,blood,1.6f);}
             else if(row.equipped)nodePaint.diamond(marker,y+r*.7f,3.5f,ivory);
-            nodePaint.badge(x+r*.58f,y+r*.5f,row.entry,row.quantity,row.cooldown,selected?15:12);
+            nodePaint.badge(x+r*.58f,y+r*.5f,row.entry,row.quantity,row.cooldown,selected?15:12,false,row.weapon);
         };
-        const auto layout=selectorGeometry(o);
+        const auto layout=selectorGeometry(o,n,displacement);
         if(active) {
             if(o.selector==2) {
                 const auto visible=std::min(n,std::size_t(8));
                 for(std::size_t i=0;i<visible;++i) {
                     const auto offset=i<=visible/2?std::ptrdiff_t(i):std::ptrdiff_t(i)-std::ptrdiff_t(visible);
                     const auto at=std::size_t((std::ptrdiff_t(index)+offset+std::ptrdiff_t(n))%std::ptrdiff_t(n));
-                    const float angle=-pi*.5f+(float(i)+displacement)*2*pi/float(visible);
-                    node(state.rows[at],center+layout.ringRadiusX*std::cos(angle),layout.centerY+layout.ringRadiusY*std::sin(angle),i==0?29.f:22.f,i==0,o.selectorShape?o.selectorShape:1u,i==0?1.f:.72f);
+                    const auto p=layout.ring[i];
+                    node(state.rows[at],p.x,p.y,i==0?29.f:22.f,i==0,selectorTileShape(o),i==0?1.f:.72f);
                 }
             } else {
                 p.d->PushClipRect(p.p(0,-32),p.p(layout.width,layout.ruleY-2),true);
@@ -318,17 +307,14 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                         const float y=layout.centerY+position*layout.listPitch;
                         auto q=p;q.alpha*=opacity;
                         q.frame(12,y-layout.listHeight*.5f,layout.width-24,layout.listHeight,offset==0);
-                        q.icon(37,y,32,row.entry,row.available?q.itemColor(row.entry):muted);
+                        q.icon(37,y,32,rowIconEntry(row),row.available?q.itemColor(rowIconEntry(row)):muted);
                         q.label(66,y-8*text,displayName(row.entry),16,row.available?ivory:muted,true,layout.width-92);
                         if(row.equipped)q.diamond(53,y+15,2.5f,ivory);
                         else if(!row.available&&!isStack(row.entry)){q.circle(53,y+15,4,IM_COL32(22,18,18,240),true);q.line(50,y+18,56,y+12,blood,1.4f);}
-                        q.badge(35,y+8,row.entry,row.quantity,row.cooldown,11);
+                        q.badge(35,y+8,row.entry,row.quantity,row.cooldown,11,false,row.weapon);
                     } else {
-                        const float r=distance<1?40-12*distance:std::max(18.f,28-7*(distance-1));
-                        const float step=distance<=1?distance*(68+o.selectorSpacing):68+o.selectorSpacing+(distance-1)*(49+o.selectorSpacing);
-                        const float shift=position<0?-step:step;
-                        node(row,o.selector==3?center:center+shift,layout.centerY+(o.selector==3?shift:o.selector==1?distance*13.f:0),r,offset==0,
-                             o.selectorShape?o.selectorShape:o.selector==0?2u:1u,opacity);
+                        const auto positionOffset=selectorOffset(o,position);
+                        node(row,center+positionOffset.x,layout.centerY+positionOffset.y,selectorRadius(distance),offset==0,selectorTileShape(o),opacity);
                     }
                 }
                 if(n>1&&o.selector<2){p.line(16,layout.centerY-3,11,layout.centerY+2,muted);p.line(11,layout.centerY+2,16,layout.centerY+7,muted);p.line(geometry.selectorWidth-16,layout.centerY-3,geometry.selectorWidth-11,layout.centerY+2,muted);p.line(geometry.selectorWidth-11,layout.centerY+2,geometry.selectorWidth-16,layout.centerY+7,muted);}
@@ -340,13 +326,29 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             p.label(center,layout.nameY,displayName(active->entry),o.selector==2?20.f:23.f,active->available?ivory:muted,true,nameWidth,true);
             p.label(center,layout.statusY,rowStatus(*active),13,active->available?silver:IM_COL32(209,134,122,255),false,layout.width-24,true);
             if(n>1) {
-                const float start=center-float(n-1)*4;
-                for(std::size_t i=0;i<n;++i)p.diamond(start+float(i)*8,layout.pagerY,i==index?2.7f:1.6f,i==index?ivory:IM_COL32(155,151,141,140),i==index);
+                const auto dots=std::min(n,std::size_t(16)),first=std::min(index>dots/2?index-dots/2:0,n-dots);
+                const float start=center-float(dots-1)*4;
+                for(std::size_t i=0;i<dots;++i)p.diamond(start+float(i)*8,layout.pagerY,i+first==index?2.7f:1.6f,i+first==index?ivory:IM_COL32(155,151,141,140),i+first==index);
                 p.label(center,layout.pagerY+6,std::to_string(index+1)+" / "+std::to_string(n),12,silver,false,100,true);
             }
             if(o.showHints) {
-                const std::string cancel=state.controller?(state.vr?tr("Main B/Y  cancel"):o.controllerStyle?tr("Circle  cancel"):tr("B  cancel")):tr("Esc  cancel");
-                p.label(center,layout.hintY,(state.controller?(state.vr?tr("Stick / pad  choose   ·   "):tr("Stick / bumpers  choose   ·   ")):tr("Scroll  choose   ·   "))+cancel,13,silver,false,layout.width-24,true);
+                std::string cancel;
+                if(state.controller) {
+                    if(state.vr)cancel=tr("Main B/Y  cancel");
+                    else if(o.controllerActions[0].button!=PadButton::none)cancel=padLabel(o.controllerActions[0],o.controllerStyle)+"  "+tr("cancel");
+                }else {
+                    const auto binding=o.selectorBindings[unsigned(KeyboardAction::cancel)];
+                    if(binding.key) {
+                        if(binding.modifiers&keyModifier::ctrl)cancel+="Ctrl + ";
+                        if(binding.modifiers&keyModifier::shift)cancel+="Shift + ";
+                        if(binding.modifiers&keyModifier::alt)cancel+="Alt + ";
+                        cancel+=keyLabel(binding.key);
+                    }
+                    if(cancel.empty()&&o.mouseActions[0]>=0)cancel=tr(mouseButtonName(o.mouseActions[0]));
+                    if(!cancel.empty())cancel+="  "+std::string(tr("cancel"));
+                }
+                const std::string browse=state.controller?(state.vr?tr("Stick / pad  choose"):tr("Stick / buttons  choose")):tr("Scroll  choose");
+                p.label(center,layout.hintY,browse+(cancel.empty()?std::string{}:"   ·   "+cancel),13,silver,false,layout.width-24,true);
             }
         } else {
             const float y=std::min(layout.centerY,75.f);
@@ -366,10 +368,12 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         if(groupAlpha<=0)continue;
         const auto& tile=state.groups[id];const bool selected=id==group;
         const auto* entry=selected&&active?&active->entry:tile.entry?&*tile.entry:nullptr;
+        const auto* artwork=selected&&active?&rowIconEntry(*active):tile.iconEntry?&*tile.iconEntry:entry;
         const bool equipped=selected&&active?active->equipped:tile.equipped;
         const bool available=selected&&active?active->available:tile.available;
         const int quantity=selected&&active?active->quantity:tile.quantity;
         const float cooldown=selected&&active?active->cooldown:tile.cooldown;
+        const auto weapon=selected&&active?active->weapon:tile.weapon;
         const auto pos=geometry.groups.tiles[i];const float x=pos.x,y=pos.y;
         auto q=groups;q.alpha*=groupAlpha;
         const bool previewing=selected&&state.browsing;
@@ -381,25 +385,25 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             const float width=geometry.groups.tileWidth,iconX=x+(o.showCardNames||o.showLabels?25.f:width*.5f);
             const float h=geometry.groups.tileHeight-7,cy=y+3+h*.5f;
             q.frame(x,y+3,width,h,emphasized);
-            if(entry)q.icon(iconX,cy,36,*entry,available?q.itemColor(*entry):muted);
+            if(entry)q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted);
             else q.text(iconX,cy-15,"+",24,muted,false,0,true);
             const float block=(o.showLabels&&o.showCardNames?26*text+4:14*text),top=cy-block*.5f;
             if(o.showLabels)q.label(x+51,top,o.names[id],o.showCardNames?12.f:14.f,silver,true,width-59);
             if(o.showCardNames)q.label(x+51,top+(o.showLabels?12*text+4:0),entry?displayName(*entry):tr("Empty"),14,entry&&!available?muted:ivory,true,width-59);
             q.groupKey(x+width-20,y-3,id,previewing,state.controller,state.vr);
             if(previewing)q.diamond(x+width*.5f,y-3,2.5f,q.accent());
-            if(hands)q.text(iconX-18,cy+14,handMarker(hands),10,ivory);
+            if(hands)q.text(iconX-18,cy+((o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned)?-22.f:14.f),handMarker(hands),10,ivory);
             else if(equipped||ready)q.diamond(iconX+18,cy+15,2.5f,ivory);
-            if(entry)q.badge(iconX+2,cy+9,*entry,quantity,cooldown,11);
+            if(entry)q.badge(iconX+2,cy+9,*entry,quantity,cooldown,11,false,weapon);
         } else {
             const float cx=x+geometry.groups.tileWidth*.5f;
             const float cy=y+(o.shape==1?37.f:o.shape==2?50.f:44.f);
-            const float markerX=cx+(entry&&(isStack(*entry)||cooldown>0)?-1.f:1.f)*(o.shape==1?21.f:o.shape==2?28.f:0.f);
+            const float markerX=cx+(entry&&(isStack(*entry)||cooldown>0||(o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned))?-1.f:1.f)*(o.shape==1?21.f:o.shape==2?28.f:0.f);
             const float markerY=cy+(o.shape==1?21.f:o.shape==2?25.f:30.f);
             if(o.shape==1)q.medallion(cx,cy,29,emphasized);
             else if(o.shape==2)q.frame(cx-41,y,82,100,emphasized,o.layout==5?(i==0?0u:i==2?1u:2u):1u);
             else q.lozenge(cx,cy,42,emphasized);
-            if(entry)q.icon(cx,cy+(o.shape==3?6.f:0.f),o.shape==2?54.f:o.shape==3?36.f:40.f,*entry,available?q.itemColor(*entry):muted);
+            if(entry)q.icon(cx,cy+(o.shape==3?6.f:0.f),o.shape==2?54.f:o.shape==3?36.f:40.f,*artwork,available?q.itemColor(*artwork):muted);
             else {q.line(cx-5,cy,cx+5,cy,muted);q.line(cx,cy-5,cx,cy+5,muted);}
             q.groupKey(cx,y+(o.shape==1?0.f:o.shape==2?9.f:16.f),id,previewing,state.controller,state.vr,o.shape==3?16.f:18.f);
             if(previewing)q.diamond(cx,y+geometry.groups.tileHeight+2,2.5f,q.accent());
@@ -407,7 +411,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             if(hands)q.text(cx-27,cy+18,handMarker(hands),10,ivory);
             else if(equipped||ready)q.diamond(markerX,markerY,3,ivory);
             else if(entry&&!available&&!isStack(*entry)){q.circle(markerX,markerY,5,IM_COL32(22,18,18,230),true);q.line(markerX-3,markerY+3,markerX+3,markerY-3,blood,1.5f);}
-            if(entry)q.badge(cx+(o.shape==3?18.f:22.f),cy+(o.shape==3?14.f:18.f),*entry,quantity,cooldown);
+            if(entry)q.badge(cx+(o.shape==3?18.f:22.f),cy+(o.shape==3?14.f:18.f),*entry,quantity,cooldown,13,false,weapon);
         }
         if(bounds){Bounds box;collect(tileStart,box);bounds->tiles.push_back(box);}
     }
@@ -425,7 +429,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         auto panel=p;const auto& box=geometry.equipment;
         panel.origin={origin.x+box.origin.x,origin.y+box.origin.y};panel.scale=box.scale;panel.alpha=o.opacity*equipmentAlpha;
         const float width=box.width,height=box.height,t=o.textScale*o.equipmentTextScale;
-        if(o.equipmentStyle==0) {
+        if(o.equipmentStyle==0&&o.equipmentLayout==1) {
             const auto shade=panel.color(dark,.72f*panel.tweaks.frameOpacity);
             panel.d->AddRectFilledMultiColor(panel.p(0,0),panel.p(width,height),shade,shade&0x00ffffff,shade&0x00ffffff,shade);
             if(panel.themeTexture)panel.d->AddImage(panel.themeTexture,panel.p(0,0),panel.p(width,height),{.80f,.16f},{.96f,.78f},panel.color(IM_COL32_WHITE,.12f*panel.tweaks.frameOpacity));
@@ -433,26 +437,27 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         }
         unsigned slot=0;
         const auto drawRow=[&](const char* role,const std::optional<Row>& row) {
-            const auto cell=box.cells[slot++];const float x=cell.x+box.icon.x,y=cell.y+box.icon.y;
-            if(o.equipmentStyle==0&&slot>1)panel.d->AddLine(panel.p(45,cell.y),panel.p(width-8,cell.y),panel.color(theme.border,.32f*panel.tweaks.frameOpacity));
+            const auto cell=box.cells[slot++];const float x=cell.origin.x+cell.icon.x,y=cell.origin.y+cell.icon.y;
+            if(o.equipmentStyle==0&&o.equipmentLayout==1&&slot>1)panel.d->AddLine(panel.p(45,cell.origin.y-o.equipmentSpacing*.5f),panel.p(width-8,cell.origin.y-o.equipmentSpacing*.5f),panel.color(theme.border,.32f*panel.tweaks.frameOpacity));
+            if(o.equipmentStyle==0&&o.equipmentLayout!=1)panel.frame(cell.origin.x,cell.origin.y,cell.width,cell.height,false);
             if(o.equipmentStyle>0&&o.equipmentStyle<4)panel.tile(x,y,28,false,o.equipmentStyle==2?3u:o.equipmentStyle==3?2u:1u);
             auto item=panel;if(row&&equipmentDimmed(*row))item.alpha*=.4f;
             if(box.iconSize>0) {
                 if(row) {
-                    item.icon(x,y,box.iconSize,row->entry,item.itemColor(row->entry));
+                    item.icon(x,y,box.iconSize,rowIconEntry(*row),item.itemColor(rowIconEntry(*row)));
                     const float size=11*std::clamp(t,.8f,1.25f),radius=o.equipmentStyle==0?box.iconSize*.5f:28.f;
-                    panel.badge(x+radius*(o.equipmentStyle==2?.7f:1.f),y+(o.equipmentStyle==0?radius-size:radius*.5f),row->entry,row->quantity,row->cooldown,size,true);
+                    panel.badge(x+radius*(o.equipmentStyle==2?.7f:1.f),y+(o.equipmentStyle==0?radius-size:radius*.5f),row->entry,row->quantity,row->cooldown,size,true,row->weapon);
                 }
                 else panel.text(x,y-8*t,"—",16*t,muted,false,0,true);
             }
-            const bool right=o.equipmentStyle>0&&o.equipmentStyle<4&&o.equipmentTextPosition==2;
-            const float tx=cell.x+box.text.x+(right?box.textWidth:0),ty=cell.y+box.text.y;
-            panel.text(tx,ty,tr(role),11.5f*t,silver,false,box.textWidth,box.centered,right);
-            item.text(tx,ty+16*t,equipmentTextName(row,box.iconSize>0),17*t,ivory,false,box.textWidth,box.centered,right);
+            if(o.equipmentShowText||o.equipmentStyle==0||o.equipmentStyle==4) {
+                const bool right=o.equipmentStyle>0&&o.equipmentStyle<4&&o.equipmentTextPosition==2;
+                const float tx=cell.origin.x+cell.text.x+(right?cell.textWidth:0),ty=cell.origin.y+cell.text.y;
+                panel.text(tx,ty,tr(role),11.5f*t,silver,false,cell.textWidth,cell.centered,right);
+                item.text(tx,ty+16*t,equipmentTextName(row,box.iconSize>0,o),17*t,ivory,false,cell.textWidth,cell.centered,right);
+            }
         };
-        if(twoHandedDisplay(state.equipment))drawRow("Both hands",state.equipment.hands[0]);
-        else {drawRow("Right hand",state.equipment.hands[0]);drawRow("Left hand",state.equipment.hands[1]);}
-        drawRow("Consumable",state.equipment.consumable);drawRow("Power / shout",state.equipment.voice);
+        forEachEquipmentRow(state.equipment,o,drawRow);
         if(bounds)collect(start,bounds->equipment);
     }
     if(notification&&visibility>0) {

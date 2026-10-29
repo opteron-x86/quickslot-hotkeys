@@ -7,6 +7,7 @@
 #include "EditorLaunch.h"
 #include "EditorTextInput.h"
 #include "Presets.h"
+#include "LiveEditor.h"
 #include "VoiceAction.h"
 #include <iostream>
 #include <source_location>
@@ -18,6 +19,48 @@ void check(bool value,const char* why,std::source_location at=std::source_locati
     ++checks;
 }
 int main()try {
+    {
+        Options keys;keys.groupRemoveHotkey=false;
+        check(groupKeyAction(keys,keyModifier::alt)==GroupKeyAction::pass,"Existing disabled Alt editing still passes through by default");
+        keys.allowUnusedModifiers=true;
+        check(groupKeyAction(keys,keyModifier::alt)==GroupKeyAction::select,"Opt-in lets an Alt-walking user select groups without removing entries");
+        keys.groupRemoveHotkey=true;assignGroupModifier(keys,GroupModifier::remove,keyModifier::ctrl|keyModifier::alt);
+        check(groupKeyAction(keys,keyModifier::alt)==GroupKeyAction::select&&groupKeyAction(keys,keyModifier::ctrl|keyModifier::alt)==GroupKeyAction::remove,"Remapping remove frees Alt while the explicit editing chord still works");
+        check(groupKeyAction(keys,keyModifier::ctrl)==GroupKeyAction::captureRight,"An unrelated remapping preserves capture");
+        assignGroupModifier(keys,GroupModifier::remove,keyModifier::shift);
+        check(keys.groupModifiers[unsigned(GroupModifier::unequip)]==(keyModifier::ctrl|keyModifier::alt),"Reusing an editing modifier swaps the existing action");
+        check(assignSelectorBinding(keys,KeyboardAction::previous,{16,keyModifier::alt}),"Navigation can use a custom keyboard chord");
+        check(selectorKeyAction(keys,16,keyModifier::alt).action==SelectorKeyAction::browse&&selectorKeyAction(keys,16,keyModifier::ctrl|keyModifier::alt).action==SelectorKeyAction::reorder,"Custom navigation supports normal browsing and the reorder modifier");
+        check(selectorKeyAction(keys,16,0u).action==SelectorKeyAction::pass,"The unmodified custom key remains available to gameplay");
+        check(!assignSelectorBinding(keys,KeyboardAction::cancel,{2})&&!assignSelectorBinding(keys,KeyboardAction::cancel,{56}),"Action bindings cannot steal a group key or bind a modifier alone");
+        check(!assignGroupKey(keys,0,16),"Group bindings cannot steal a custom action key");
+        check(assignSelectorBinding(keys,KeyboardAction::cancel,{16})&&keys.selectorBindings[unsigned(KeyboardAction::previous)].key==1,"An unmodified action cannot shadow another action's chord on the same key");
+        check(assignSelectorBinding(keys,KeyboardAction::remove,{14})&&keys.selectorBindings[unsigned(KeyboardAction::unequip)].key==211,"Duplicate action chords swap instead of leaving an unreachable action");
+        keys.controllerActions[unsigned(ControllerAction::unequip)]={PadButton::y,PadButton::x};
+        const auto saved=decodeOptions(encodeOptions(keys));
+        check(saved.groupModifiers==keys.groupModifiers&&saved.selectorBindings==keys.selectorBindings&&saved.controllerActions==keys.controllerActions&&saved.allowUnusedModifiers,"New bindings and modifier policy survive settings reload");
+        importAppearance(keys,Options{});
+        check(keys.selectorBindings==saved.selectorBindings&&keys.groupModifiers==saved.groupModifiers&&keys.controllerActions==saved.controllerActions&&keys.allowUnusedModifiers,"Appearance presets preserve remapped actions");
+        auto legacy=Json::parse(encodeOptions(Options{}));for(const auto key:{"groupModifiers","selectorBindings","controllerActions","allowUnusedModifiers"})legacy.erase(key);
+        const auto migrated=decodeOptions(legacy.dump());
+        check(migrated.groupModifiers==defaultGroupModifiers&&migrated.selectorBindings==defaultSelectorBindings&&migrated.controllerActions==defaultControllerActions&&!migrated.allowUnusedModifiers,"Old settings retain all original controls and pass-through behavior");
+        legacy["groupRemoveHotkey"]=false;legacy["selectorUnequipHotkey"]=false;
+        auto disabled=decodeOptions(legacy.dump());
+        check(!groupActionEnabled(disabled,GroupModifier::remove)&&selectorBinding(disabled,KeyboardAction::unequip)==KeyBinding{},"Older disabled shortcuts appear as None after migration");
+        check(!selectorKeyReserved(disabled,14)&&selectorKeyAction(disabled,14,false).action==SelectorKeyAction::pass,"A disabled legacy key is free for another binding and passes through");
+        check(assignSelectorBinding(disabled,KeyboardAction::unequip,{14})&&selectorKeyAction(disabled,14,false).action==SelectorKeyAction::unequip,"Rebinding a migrated disabled action enables it without a hidden toggle");
+        assignGroupModifier(disabled,GroupModifier::remove,keyModifier::shift);
+        check(disabled.groupRemoveHotkey&&!disabled.groupUnequipHotkey&&groupKeyAction(disabled,keyModifier::shift)==GroupKeyAction::remove,"Assigning an occupied modifier from None moves the previous action to None");
+        assignGroupModifier(disabled,GroupModifier::remove,0);disabled.allowUnusedModifiers=true;
+        check(groupKeyAction(disabled,keyModifier::shift)==GroupKeyAction::select,"A cleared group modifier permits normal selection with the unused-modifier opt-in");
+        assignSelectorBinding(disabled,KeyboardAction::remove,{});
+        assignSelectorBinding(disabled,KeyboardAction::unequip,{211});
+        check(selectorKeyAction(disabled,211,false).action==SelectorKeyAction::unequip&&!disabled.selectorRemoveHotkey,"A cleared action key can be reassigned without reviving the old action");
+        const auto disabledSaved=decodeOptions(encodeOptions(disabled));
+        check(!disabledSaved.groupRemoveHotkey&&!disabledSaved.selectorRemoveHotkey&&selectorBinding(disabledSaved,KeyboardAction::unequip).key==211,"None and reassigned bindings survive save/load together");
+        auto invalid=keys;invalid.selectorBindings[0]={999,999};invalid.controllerActions[0]={PadButton(999)};sanitizeOptions(invalid);
+        check(invalid.selectorBindings[0]==KeyBinding{}&&invalid.controllerActions[0]==PadBinding{},"Invalid saved action bindings are disabled safely");
+    }
     const auto shortcutFlags=[](const Options& o){return std::array{
         o.groupCaptureRightHotkey,o.groupCaptureLeftHotkey,o.groupMoveHotkey,o.groupUnequipHotkey,
         o.groupRemoveHotkey,o.selectorReorderHotkey,o.selectorUnequipHotkey,o.selectorRemoveHotkey};};
@@ -132,7 +175,7 @@ int main()try {
     check(reloaded.equipmentScale==1.7f&&reloaded.equipmentTextScale==1.3f&&imported.scale==o.scale,"Equipment sizing survives settings and appearance import independently of group scale");
     check(reloaded.equipmentSpacing==2.5f&&imported.equipmentSpacing==2.5f,"Equipment spacing survives settings and appearance import");
     auto oldSpacing=Json::parse(encodeOptions(Options{}));oldSpacing.erase("equipmentSpacing");
-    check(decodeOptions(oldSpacing.dump()).equipmentSpacing==1,"Existing settings retain their equipment spacing");
+    check(decodeOptions(oldSpacing.dump()).equipmentSpacing==8,"Existing settings retain their equipment spacing");
     auto oldSizing=Json::parse(encodeOptions(Options{}));oldSizing.erase("equipmentScale");oldSizing.erase("equipmentTextScale");
     check(decodeOptions(oldSizing.dump()).equipmentScale==1&&decodeOptions(oldSizing.dump()).equipmentTextScale==1,"Existing settings retain equipment's original size");
     visual.equipmentScale=visual.equipmentTextScale=visual.equipmentSpacing=1;
@@ -147,10 +190,10 @@ int main()try {
     check(bad.equipmentScale==1&&bad.equipmentTextScale==1,"Invalid equipment scales restore finite defaults");
     for(const auto value:{-1.f,5.f,std::numeric_limits<float>::quiet_NaN()}) {
         bad.equipmentSpacing=value;sanitizeOptions(bad);
-        check(bad.equipmentSpacing==(std::isfinite(value)?std::clamp(value,0.f,4.f):1.f),"Invalid equipment spacing is bounded with a finite default");
+        check(bad.equipmentSpacing==(std::isfinite(value)?std::clamp(value,0.f,128.f):8.f),"Invalid equipment spacing is bounded with a finite default");
     }
     bad.equipmentStyle=99;bad.equipmentLayout=99;bad.equipmentTextPosition=99;bad.equipmentIdleOpacity=0;bad.equipmentFadeDelay=100;
-    sanitizeOptions(bad);check(bad.equipmentStyle==4&&bad.equipmentLayout==1&&bad.equipmentTextPosition==3&&bad.equipmentIdleOpacity==.05f&&bad.equipmentFadeDelay==20,"Equipment settings bounded; dim cannot hide completely");
+    sanitizeOptions(bad);check(bad.equipmentStyle==4&&bad.equipmentLayout==5&&bad.equipmentTextPosition==3&&bad.equipmentIdleOpacity==.05f&&bad.equipmentFadeDelay==20,"Equipment settings bounded; dim cannot hide completely");
 
     group.selected=2;rememberConsumable(a,0,2);a.groups[1].add(potion);a.active=1;
     check(selectedConsumableGroup(a)==0,"Last chosen consumable survives another group");
@@ -187,43 +230,44 @@ int main()try {
         check(e.origin.y>=8&&e.origin.y+e.height*e.scale<=height-7.9f&&e.origin.x>=8&&e.origin.x+e.width*e.scale<=height*16/9-7.9f,"Independent list fits at screen extremes");
         check(e.height*e.scale<height*.2f,"Idle equipment stays compact at each resolution");
     }
-    for(unsigned style=0;style<5;++style)for(unsigned text=0;text<4;++text)for(unsigned layout=0;layout<2;++layout)
+    for(unsigned style=0;style<5;++style)for(unsigned text=0;text<4;++text)for(unsigned layout=0;layout<6;++layout)
         for(float t:{.75f,1.5f})for(float edge:{0.f,1.f})for(unsigned count:{3u,4u})for(float spacing:{0.f,1.f,4.f}) {
             Options look;look.equipmentStyle=style;look.equipmentTextPosition=text;look.equipmentLayout=layout;look.textScale=t;look.equipmentX=look.equipmentY=edge;
             look.equipmentScale=2;look.equipmentTextScale=1.5f;look.equipmentSpacing=spacing;
             const auto g=equipmentGeometry(look,1280,720,count);
             check(g.origin.x>=8&&g.origin.y>=8&&g.origin.x+g.width*g.scale<=1272.1f&&g.origin.y+g.height*g.scale<=712.1f,"Every equipment layout fits screen extremes");
-            if(count==4) {
-                const bool horizontal=style&&layout==1;
-                check(horizontal?g.cells[1].x>g.cells[0].x&&g.cells[1].y==g.cells[0].y:g.cells[1].y>g.cells[0].y&&g.cells[1].x==g.cells[0].x,"Equipment cells follow requested arrangement");
-                if(style>0&&style<4)check(text==0?g.text.y<g.icon.y:text==1?g.text.y>g.icon.y:text==2?g.text.x<g.icon.x:g.text.x>g.icon.x,"Text uses the requested side of its icon");
+            if(count==4&&layout<2) {
+                const bool horizontal=layout==0;
+                check(horizontal?g.cells[1].origin.x>g.cells[0].origin.x&&g.cells[1].origin.y==g.cells[0].origin.y:g.cells[1].origin.y>g.cells[0].origin.y&&g.cells[1].origin.x==g.cells[0].origin.x,"Equipment cells follow requested arrangement");
+                if(style>0&&style<4)check(text==0?g.cells[0].text.y<g.cells[0].icon.y:text==1?g.cells[0].text.y>g.cells[0].icon.y:text==2?g.cells[0].text.x<g.cells[0].icon.x:g.cells[0].text.x>g.cells[0].icon.x,"Text uses the requested side of its icon");
                 if(style==4)check(g.iconSize==0,"Text-only layout has no icon");
             }
         }
-    for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<2;++layout) {
+    for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<6;++layout) {
         Options spaced;spaced.equipmentStyle=style;spaced.equipmentLayout=layout;
         const auto normal=equipmentGeometry(spaced,3840,2160);
         spaced.equipmentSpacing=0;const auto tight=equipmentGeometry(spaced,3840,2160);
-        spaced.equipmentSpacing=4;const auto loose=equipmentGeometry(spaced,3840,2160);
-        const auto pitch=[&](const auto& g){return style&&layout?g.cells[1].x-g.cells[0].x:g.cells[1].y-g.cells[0].y;};
+        spaced.equipmentSpacing=128;const auto loose=equipmentGeometry(spaced,3840,2160);
+        const auto pitch=[&](const auto& g){return std::hypot(g.cells[1].origin.x-g.cells[0].origin.x,g.cells[1].origin.y-g.cells[0].origin.y);};
         check(pitch(tight)<pitch(normal)&&pitch(normal)<pitch(loose),"Spacing adjusts separation in every equipment style and arrangement");
-        check(tight.iconSize==normal.iconSize&&normal.iconSize==loose.iconSize&&tight.textWidth==loose.textWidth&&tight.scale==loose.scale,"Spacing preserves icon/text size while there is screen room");
-        check(style?pitch(tight)>=(layout?normal.cellWidth:normal.cellHeight):pitch(tight)>=40,"Minimum spacing leaves readable rows without overlapping frames");
+        check(tight.iconSize==normal.iconSize&&normal.iconSize==loose.iconSize&&tight.cells[0].textWidth==loose.cells[0].textWidth&&tight.scale==loose.scale,"Spacing preserves icon/text size while there is screen room");
+        if(layout<2)check(pitch(tight)>=(layout==0?normal.cells[0].width:normal.cells[0].height),"Zero spacing joins the content bounds");
         const auto one=equipmentGeometry(spaced,3840,2160,1);spaced.equipmentSpacing=0;
         const auto oneTight=equipmentGeometry(spaced,3840,2160,1);
         check(one.width==oneTight.width&&one.height==oneTight.height,"Spacing adds no outer padding to a single equipment entry");
     }
-    for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<2;++layout)for(unsigned text=0;text<4;++text) {
-        Options a;a.equipmentStyle=style;a.equipmentLayout=layout;a.equipmentTextPosition=text;a.equipmentScale=2;a.textScale=1.5f;a.equipmentSpacing=0;
-        auto b=a;b.equipmentSpacing=4;
+    for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<6;++layout)for(unsigned text=0;text<4;++text) {
+        Options a;a.equipmentStyle=style;a.equipmentLayout=layout;a.equipmentTextPosition=text;a.equipmentScale=1;a.textScale=1;a.equipmentSpacing=0;
+        auto b=a;b.equipmentSpacing=128;
         const auto tight=equipmentGeometry(a,1280,720),loose=equipmentGeometry(b,1280,720);
-        check(tight.scale==loose.scale,"Equipment screen fitting preserves size across the spacing range");
-        const auto previewTight=previewGeometry(a,1280,720,600,440,false,false,true).equipment;
-        const auto previewLoose=previewGeometry(b,1280,720,600,440,false,false,true).equipment;
-        check(std::abs(previewTight.scale-previewLoose.scale)<.001f,"Equipment preview spacing cannot resize icons or text");
+        const float requested=a.equipmentScale*.75f;
+        if(loose.width*requested<=1264&&loose.height*requested<=704)check(tight.scale==loose.scale,"Equipment size stays fixed while the layout fits the screen");
+        const auto previewTight=previewGeometry(a,1280,720,600,440,false,false,true,4,{},5,.5f).equipment;
+        const auto previewLoose=previewGeometry(b,1280,720,600,440,false,false,true,4,{},5,.5f).equipment;
+        check(std::abs(previewTight.scale/tight.scale-previewLoose.scale/loose.scale)<.001f,"Equipment preview zoom remains fixed when spacing changes");
     }
     Options sized;sized.equipmentStyle=1;
-    const auto previewEquipment=[&]{return previewGeometry(sized,1920,1080,900,700,false,false,true).equipment;};
+    const auto previewEquipment=[&]{return previewGeometry(sized,1920,1080,900,700,false,false,true,4,{},5,1).equipment;};
     const auto small=previewEquipment();sized.equipmentScale=2;const auto big=previewEquipment();
     check(big.width*big.scale>small.width*small.scale&&big.width*big.scale<900&&big.height*big.scale<700,"Equipment live preview grows with scale while fitting its panel");
     auto two=sword;two.twoHanded=true;s.equipment.hands[0]=Row{two,true,true};
@@ -386,5 +430,139 @@ int main()try {
     used.powerUsed=false;used.cooldown=17.2f;
     check(equipmentDimmed(used)&&equipmentTextName(used,false)=="Battle Cry · 18s"&&equipmentTextName(used,true)=="Battle Cry","Recharge timer sits on the icon or beside text-only names");
     used.cooldown=0;check(!equipmentDimmed(used),"Finished recharge restores normal brightness");
+    {
+        Options hands;check(hands.mouseActions==defaultMouseActions&&!hands.selectorBindings[unsigned(KeyboardAction::rightHand)].key,"Existing configurations keep right-click cancel and no hand actions");
+        assignMouseAction(hands,MouseAction::leftHand,1);
+        check(hands.mouseActions[0]==-1&&hands.mouseActions[2]==1,"Assigning right-click to a hand removes its cancellation conflict");
+        assignMouseAction(hands,MouseAction::rightHand,0);
+        check(!assignMouseAction(hands,MouseAction::rightHand,8),"Mouse wheel cannot masquerade as a hand button");
+        check(assignSelectorBinding(hands,KeyboardAction::rightHand,{16})&&selectorKeyAction(hands,16,0u).action==SelectorKeyAction::rightHand,"Keyboard hand actions use configurable captured bindings");
+        const auto saved=decodeOptions(encodeOptions(hands));
+        check(saved.mouseActions==hands.mouseActions&&saved.selectorBindings==hands.selectorBindings,"Hand bindings persist");
+        auto old=Json::parse(encodeOptions(hands));old.erase("mouseActions");old["selectorBindings"].erase(old["selectorBindings"].begin()+5,old["selectorBindings"].end());old["controllerActions"].erase(old["controllerActions"].begin()+4,old["controllerActions"].end());
+        const auto migrated=decodeOptions(old.dump());check(migrated.mouseActions==defaultMouseActions&&!migrated.selectorBindings[5].key&&migrated.controllerActions[4].button==PadButton::none,"Earlier action arrays migrate without enabling hand actions");
+        Options local;importAppearance(local,hands);check(local.mouseActions==defaultMouseActions,"Appearance imports preserve mouse controls");
+    }
+    {
+        Options look;Entry bow;bow.kind=Kind::bow;bow.name="Hunting Bow";Row row{bow,true,true};row.weapon={true,42};
+        check(equipmentTextName(row,false,look)=="Hunting Bow ×42 · Poisoned"&&equipmentTextName(row,true,look)=="Hunting Bow","Text-only equipment retains ammo and poison status without duplicating icon badges");
+        check(badgeQuantity(bow,1,row.weapon,look)==42,"Bows show ammunition rather than weapon copies");
+        look.showAmmo=false;check(badgeQuantity(bow,1,row.weapon,look)==-1&&equipmentTextName(row,false,look)=="Hunting Bow · Poisoned","Ammo display can be disabled without hiding poison");
+        look.showAmmo=true;look.showPoison=false;check(equipmentTextName(row,false,look)=="Hunting Bow ×42","Poison display can be disabled independently");
+        row.weapon={};check(badgeQuantity(bow,1,row.weapon,look)==-1&&equipmentTextName(row,false,look)=="Hunting Bow","Unresolved weapons do not invent ammo or poison status");
+        look.showPoison=true;row.weapon={true,0};check(equipmentTextName(row,false,look)=="Hunting Bow ×0 · Poisoned","Zero compatible ammunition remains explicit");
+        check(badgeQuantity(bottle,4,row.weapon,look)==4,"Existing consumable quantities keep priority");
+        for(bool crossbow:{false,true})for(bool bolt:{false,true})for(int quantity:{-1,0,27,1500})
+            check(compatibleAmmoCount(crossbow,bolt,quantity)==(crossbow==bolt?std::max(0,quantity):0),"Bows count arrows and crossbows count bolts without mixing incompatible stock");
+        check(compatibleAmmoCount(false,{},100)==0,"Unequipped ammunition reports zero");
+        EquippedDisplay equipped;equipped.hands[0]=row;
+        check(!look.showEquipmentAmmo&&equipmentRows(equipped,look)==4,"Ammunition starts hidden in the equipment widget");
+        look.showEquipmentAmmo=true;check(equipmentRows(equipped,look)==5,"Ammunition adds a fifth equipment row");
+        equipped.hands[0]->entry.twoHanded=true;check(equipmentRows(equipped,look)==4,"A bow and ammunition use four equipment rows");
+        Entry ammo;ammo.kind=Kind::ammo;ammo.name="Steel Arrows";equipped.ammo=Row{ammo,true,true,{},42};
+        look.showAmmo=false;
+        check(badgeQuantity(ammo,42,{},look)==42&&equipmentTextName(equipped.ammo,false,look)=="Steel Arrows ×42","Equipment ammunition counts remain available with bow badges disabled");
+        equipped.ammo->quantity=0;check(equipmentTextName(equipped.ammo,false,look)=="Steel Arrows ×0","A depleted ammunition row reflects the current quantity");
+        equipped.ammo.reset();check(equipmentTextName(equipped.ammo,false,look)=="—","The ammunition slot has an empty state");
+        const auto ammoSaved=decodeOptions(encodeOptions(look));check(ammoSaved.showEquipmentAmmo,"Equipment ammunition persists in settings");
+        Options importedAmmo;importAppearance(importedAmmo,ammoSaved);check(importedAmmo.showEquipmentAmmo,"Appearance presets include the ammunition row");
+        auto oldAmmo=Json::parse(encodeOptions(look));oldAmmo.erase("showEquipmentAmmo");check(!decodeOptions(oldAmmo.dump()).showEquipmentAmmo,"Existing settings retain the original equipment layout");
+        look.showPoison=false;look.showAmmo=false;const auto saved=decodeOptions(encodeOptions(look));
+        check(!saved.showPoison&&!saved.showAmmo,"Status settings persist");
+        auto legacy=Json::parse(encodeOptions(look));legacy.erase("showPoison");legacy.erase("showAmmo");const auto migrated=decodeOptions(legacy.dump());
+        check(migrated.showPoison&&migrated.showAmmo,"Existing settings gain both status indicators");
+        Options appearance;importAppearance(appearance,saved);check(!appearance.showPoison&&!appearance.showAmmo,"Appearance imports include status display preferences");
+    }
+    {
+        const auto identity=[](std::uint32_t id,std::uint32_t& mapped){mapped=id;return true;};
+        Arsenal favorites;Options settings;auto& linked=favorites.groups[0];
+        Entry manual;manual.form=17;manual.owner=0x14;manual.unique=1;manual.name="Manual sword";linked.add(manual);
+        Entry other=manual;other.form=18;other.unique=2;other.name="Manual axe";linked.add(other);
+        const auto manualData=encode(linked);
+        std::vector<Entry> choices;
+        for(unsigned i=0;i<40;++i){auto e=manual;e.form=100+i;e.unique=std::uint16_t(10+i);e.name="Favorite "+std::to_string(100+i);choices.push_back(e);}
+        Entry spell;spell.form=200;spell.kind=Kind::spell;spell.spell=true;spell.name="Healing";choices.push_back(spell);
+        Entry potion;potion.form=201;potion.kind=Kind::potion;potion.name="Potion";choices.push_back(potion);
+        choices.push_back(choices[0]);
+        check(setFavoriteSource(linked,FavoriteSource::weapons,Hand::left)&&linked.manualEntries.size()==2,"Linking Favorites preserves the manual group separately");
+        check(refreshFavorites(linked,choices)&&linked.entries.size()==40&&linked.entries.front().hand==Hand::left,"Category groups include all matches beyond the manual 16-item limit and remove duplicate identities");
+        check(!linked.add(manual)&&!linked.reorder(0,1)&&!linked.sortByName()&&!favorites.move(0,0,1),"Generated membership cannot be manually added, reordered or moved");
+        linked.selected=28;const auto remembered=linked.entries[28];const auto revision=linked.revision;
+        std::reverse(choices.begin(),choices.end());check(!refreshFavorites(linked,choices)&&linked.revision==revision&&linked.entries[linked.selected].same(remembered),"Inventory enumeration order cannot reorder Favorites or change selection");
+        Selection browse;browse.press(1,linked);const auto queued=browse.release(linked);
+        auto added=manual;added.form=300;added.unique=100;added.name="A first favorite";choices.push_back(added);
+        check(refreshFavorites(linked,choices)&&linked.entries[linked.selected].same(remembered)&&!browse.accepts(*queued,linked),"Inserting a favorite retains the selected identity and invalidates a queued index");
+        linked.selected=1;const auto excluded=linked.entries[1];check(linked.remove()&&linked.excludedFavorites.size()==1,"Removing a generated row creates an exclusion");
+        refreshFavorites(linked,choices);check(std::none_of(linked.entries.begin(),linked.entries.end(),[&](const auto& e){return sameFavorite(e,excluded);}),"Excluded favorites stay absent on refresh");
+        setFavoriteSource(linked,FavoriteSource::all,Hand::right);refreshFavorites(linked,choices);
+        check(linked.entries.size()==42&&std::none_of(linked.entries.begin(),linked.entries.end(),[&](const auto& e){return sameFavorite(e,excluded);}),"Changing category or default hand retains exclusions");
+        const auto encoded=encodeArsenal(favorites);const auto json=Json::parse(encoded);
+        check(json["groups"][0]["entries"].size()==2&&json["groups"][0]["favorites"]["excluded"].size()==1,"Save data contains manual entries and source preferences, not generated membership");
+        auto loaded=decodeArsenal(encoded,identity);auto& restored=loaded.groups[0];
+        check(restored.automatic()&&restored.entries.empty()&&restored.manualEntries.size()==2&&restored.excludedFavorites.size()==1,"Loading restores source and manual backup before reading current Favorites");
+        refreshFavorites(restored,choices);check(restored.entries.size()==linked.entries.size(),"Current Favorites rebuild the linked group after load");
+        setFavoriteSource(restored,FavoriteSource::manual,Hand::right);
+        auto oldManual=Json::parse(manualData),restoredManual=Json::parse(encode(restored));restoredManual.erase("favorites");
+        check(restoredManual==oldManual,"Switching back to Manual restores the original contents and remembered item");
+        auto oldSave=Json::parse(encoded);oldSave["groups"][0].erase("favorites");
+        check(!decodeArsenal(oldSave.dump(),identity).groups[0].automatic(),"Older settings remain manual without losing entries");
+        auto invalid=json;invalid["groups"][0]["favorites"]["source"]=999u;bool rejected=false;
+        try{decodeArsenal(invalid.dump(),identity);}catch(...){rejected=true;}check(rejected,"Invalid source values are rejected");
+        const auto portable=exportPreset(favorites,settings,false,[](auto id){return Json{{"file","Favorites.esp"},{"local",id}};});
+        favorites.presetIdentity="same";const auto samePreset=exportPreset(favorites,settings,false,[](auto id){return Json{{"file","Favorites.esp"},{"local",id}};});
+        const auto imported=importPreset(samePreset,favorites,settings,false,[](const auto&,auto id){return id;});
+        check(imported.arsenal.groups[0].automatic()&&imported.arsenal.groups[0].manualEntries[0].same(manual)&&imported.arsenal.groups[0].excludedFavorites.size()==1,"Complete presets round-trip hidden manual references and exclusions");
+        const auto foreign=importPreset(portable,favorites,settings,false,[](const auto&,auto id){return id;});
+        const auto& foreignGroup=foreign.arsenal.groups[0];
+        check(foreignGroup.automatic()&&foreignGroup.manualEntries[0].unresolved&&!foreignGroup.manualEntries[0].owner&&foreignGroup.excludedFavorites[0].unresolved&&foreignGroup.rememberedFavorite->unresolved,"Another character's preset retains category settings without borrowing exact inventory identities");
+        EditHistory history;history.begin(favorites,settings);history.prepare(favorites,settings);
+        setFavoriteSource(linked,FavoriteSource::manual,Hand::right);history.finish(true,false,1);
+        check(history.undo(favorites,settings)&&favorites.groups[0].automatic(),"Undo restores the source and generated selection together");
+        auto& g=favorites.groups[0];setFavoriteSource(g,FavoriteSource::spells,Hand::left);refreshFavorites(g,choices);
+        check(g.entries.size()==1&&g.entries[0].spell&&g.entries[0].hand==Hand::left,"Spell categories honor their default hand");
+        setFavoriteSource(g,FavoriteSource::potions,Hand::left);refreshFavorites(g,choices);
+        check(g.entries.size()==1&&g.entries[0].kind==Kind::potion&&g.entries[0].hand==Hand::right,"Potion categories retain consumable hand rules");
+        refreshFavorites(g,{});check(g.entries.empty(),"Unfavorited or depleted items leave generated membership");
+        refreshFavorites(g,choices);check(g.entries.size()==1,"Restocked favorites return without manual additions");
+        const auto changed=followIdentityChange(g,{manual.form,manual.owner,0x24,manual.unique,31});
+        check(changed&&g.manualEntries[0].owner==0x24&&g.manualEntries[0].unique==31,"Hidden manual items follow inventory identity changes");
+        resetGroup(favorites,settings,0);check(!favorites.groups[0].automatic()&&favorites.groups[0].manualEntries.empty()&&favorites.groups[0].excludedFavorites.empty(),"Removing a group clears its source, exclusions and hidden backup");
+        Entry smart;smart.kind=Kind::smartPotion;smart.name="Restore health";
+        const auto shortcut=rememberShortcut(favorites,smart);addShortcut(favorites,0,shortcut);favorites.groups[0].add(manual);
+        setFavoriteSource(favorites.groups[0],FavoriteSource::potions,Hand::right);refreshFavorites(favorites.groups[0],choices);
+        smart.name="Renamed health";
+        check(shortcutUses(favorites,shortcut)==1&&updateShortcut(favorites,shortcut,smart)&&favorites.groups[0].manualEntries[0].name==smart.name,"Shared shortcut edits reach the saved manual contents of a Favorites group");
+        check(deleteShortcut(favorites,shortcut)&&favorites.groups[0].manualEntries.size()==1&&favorites.groups[0].manualSelected==0&&favorites.groups[0].entries.size()==1,"Deleting a shared shortcut preserves generated membership and the remaining manual selection");
+        setFavoriteSource(favorites.groups[0],FavoriteSource::manual,Hand::right);
+        check(favorites.groups[0].entries[0].same(manual),"Restoring Manual cannot resurrect a deleted shared shortcut");
+        Group capped;setFavoriteSource(capped,FavoriteSource::all,Hand::right);refreshFavorites(capped,choices);
+        for(unsigned i=0;i<Group::exclusionLimit;++i){auto e=potion;e.form=1000+i;capped.excludedFavorites.push_back(e);}
+        const auto before=capped.entries.size();check(!capped.remove()&&capped.entries.size()==before,"A full exclusion list leaves membership intact instead of losing an unpersisted exclusion");
+        auto oversized=Json::parse(encode(capped));oversized["favorites"]["excluded"].push_back(encodeEntry(potion));rejected=false;
+        try{decode(oversized.dump(),identity);}catch(...){rejected=true;}check(rejected,"Loading rejects an exclusion list beyond its supported limit");
+        for(unsigned i=1;i<unsigned(FavoriteSource::count);++i)for(const auto kind:{Kind::sword,Kind::spell,Kind::potion,Kind::poison,Kind::food,Kind::ammo,Kind::scroll,Kind::shout,Kind::shield}) {
+            Entry e;e.form=1;e.kind=kind;
+            const bool expected=i==1||(i==2&&kind==Kind::sword)||(i==3&&kind==Kind::spell)||(i==4&&kind==Kind::potion)||(i==5&&kind==Kind::poison)||(i==6&&kind==Kind::food)||(i==7&&kind==Kind::ammo)||(i==8&&kind==Kind::scroll)||(i==9&&kind==Kind::shout)||(i==10&&kind==Kind::shield);
+            check(favoriteMatches(FavoriteSource(i),e)==expected,"Each Favorites category uses item type rather than display name");
+        }
+    }
+    {
+        Group favorites;setFavoriteSource(favorites,FavoriteSource::weapons,Hand::right);
+        std::vector<Entry> weapons;
+        for(unsigned i=0;i<40;++i){Entry e;e.form=500+i;e.owner=0x14;e.unique=std::uint16_t(i);e.name="Weapon "+std::to_string(100+i);weapons.push_back(e);}
+        refreshFavorites(favorites,weapons);favorites.selected=31;
+        Options options;options.quickLootKeyboard=true;
+        for(bool controller:{false,true}) {
+            Selection select;select.press(0,favorites);
+            const auto saved=favorites.entries[31];const auto commit=releaseToHand(select,favorites,0,Hand::left,controller);
+            check(commit&&commit->index==31&&commit->hand==Hand::left&&select.accepts(*commit,favorites),"Hand actions select Favorites beyond the manual group limit");
+            check(favorites.entries[31].same(saved)&&favorites.favoriteHand==Hand::right,"A per-use hand choice leaves Favorites defaults and membership unchanged");
+            const bool allow=commit->controller?options.quickLootController:options.quickLootKeyboard;
+            check(gameplayMenuOpen([](auto name){return name==quickLootMenuName;},MenuPurpose::input,allow)==controller,"The hand commit retains its device's QuickLoot policy");
+            auto changed=weapons;changed.erase(changed.begin());refreshFavorites(favorites,changed);
+            check(!select.accepts(*commit,favorites)&&sameFavorite(favorites.entries[favorites.selected],saved),"A Favorites refresh preserves the chosen identity while cancelling the old hand commit");
+            refreshFavorites(favorites,weapons);
+        }
+    }
     std::cout<<"PASS: "<<checks<<" browse/cycle, compact equipped HUD, settings and menu API checks\n";
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}

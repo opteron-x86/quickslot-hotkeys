@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check compiled object references for CommonLib wrappers with zero AE IDs."""
+"""Check compiled object references for unsafe CommonLib engine wrappers."""
 import argparse
 from pathlib import Path
 import re
@@ -30,6 +30,9 @@ symbols = subprocess.check_output(['llvm-nm', '--undefined-only', '--demangle', 
 unsafe = [(name, source) for name, source in missing.items() if name in symbols]
 for name, source in unsafe:
     print(f'FAIL: compiled plugin calls {name[:-1]} with a zero AE relocation: {source}')
-if unsafe:
+bad_ammo = 'RE::Actor::GetCurrentAmmo(' in symbols
+if bad_ammo:
+    print('FAIL: compiled plugin calls Actor::GetCurrentAmmo, whose pinned wrapper dispatches GetDecalGroup. Use TESObjectREFR::GetCurrentAmmo.')
+if unsafe or bad_ammo:
     raise SystemExit(1)
-print(f'PASS: {len(objects)} compiled objects checked against {len(missing)} known missing-AE-ID wrappers.')
+print(f'PASS: {len(objects)} compiled objects checked against {len(missing)} known missing-AE-ID wrappers and the invalid actor ammo wrapper.')

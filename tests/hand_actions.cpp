@@ -156,5 +156,28 @@ int main()try {
     Selection selection;selection.press(0,group);selection.cycleAvailable(1,group,{true,true,true});auto commit=selection.release(group);
     check(commit&&commit->browsed,"Actions participate in carousel selection");selection.cancel();check(!selection.accepts(*commit,group),"Cancelled action cannot proceed to another hand");
     selection.press(1,group);commit=selection.release(group);group.remove();check(!selection.accepts(*commit,group),"Changing action list invalidates pending requests");
+    {
+        const auto saved=encodeEntry(sword);const auto chosen=entryForHand(sword,Hand::left);
+        check(chosen&&chosen->hand==Hand::left&&chosen->form==sword.form&&chosen->owner==sword.owner&&chosen->unique==sword.unique&&encodeEntry(sword)==saved,"Per-use hand overrides retain the exact copy and do not edit the shortcut");
+        Entry spell;spell.kind=Kind::spell;spell.spell=true;spell.form=42;
+        check(entryForHand(spell,Hand::left)->hand==Hand::left&&entryForHand(spell,Hand::right)->hand==Hand::right,"One-handed spells support either destination");
+        check(!entryForHand(shield,Hand::right)&&entryForHand(shield,Hand::left)->hand==Hand::left&&!entryForHand(torch,Hand::right),"Shields and torches remain left-only");
+        check(entryForHand(twoHanded,Hand::left)->hand==Hand::right&&entryForHand(twoHanded,Hand::right)->hand==Hand::right,"Either hand button uses the native two-handed weapon slot");
+        auto rule=smartEquipmentEntry(false,unsigned(WeaponFamily::sword));
+        check(entryForHand(rule,Hand::left)->hand==Hand::left&&rule.hand==Hand::right,"Smart weapon selection receives the per-use hand while its rule stays unchanged");
+        for(const auto kind:{Kind::potion,Kind::poison,Kind::food,Kind::smartPotion,Kind::shout,Kind::power,Kind::lesserPower,Kind::combo,Kind::ammo,Kind::smartAmmo,Kind::unarmed,Kind::emptyHand}) {
+            Entry unsupported;unsupported.kind=kind;Group items;items.add(unsupported);Selection browse;browse.press(0,items);
+            check(!entryForHand(unsupported,Hand::left)&&!entryForHand(unsupported,Hand::right),"Hand actions reject consumables, voice, combinations, ammo and empty-hand commands");
+            check(!releaseToHand(browse,items,0,Hand::left,false)&&!browse.release(items),"Unsupported hand action cannot become an accidental use on group release");
+        }
+        for(bool controller:{false,true}) {
+            Group items;items.add(sword);Selection browse;browse.press(0,items);
+            const auto commit=releaseToHand(browse,items,0,Hand::left,controller);
+            check(commit&&commit->hand==Hand::left&&commit->controller==controller&&commit->browsed&&browse.accepts(*commit,items),"Hand selection creates one valid equip commit with its input origin");
+            check(!browse.release(items)&&!releaseToHand(browse,items,0,Hand::right,controller),"The later group release and repeated hand presses cannot create a second equip");
+            browse.cancel();check(!browse.accepts(*commit,items),"Menus and focus loss invalidate pending hand equips");
+            browse.press(1,items);items.add(shield);check(!releaseToHand(browse,items,0,Hand::left,controller),"Changing group membership invalidates an in-progress hand selection");
+        }
+    }
     std::cout<<"PASS: "<<checks<<" hand action, combination, persistence and cancellation checks\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

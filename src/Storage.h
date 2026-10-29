@@ -2,6 +2,7 @@
 #include "Model.h"
 #include "SmartEquipment.h"
 #include "ShortcutLibrary.h"
+#include "Favorites.h"
 #include <nlohmann/json.hpp>
 #include <functional>
 #include <stdexcept>
@@ -29,8 +30,16 @@ inline Json encodeEntry(const Entry& e) {
     return j;
 }
 inline std::string encode(const Group& g) {
-    Json entries=Json::array();for(const auto& e:g.entries)entries.push_back(encodeEntry(e));
-    return Json{{"schema",groupSchema},{"selected",g.selected},{"entries",entries}}.dump();
+    Json entries=Json::array();for(const auto& e:g.savedEntries())entries.push_back(encodeEntry(e));
+    Json result{{"schema",groupSchema},{"selected",g.automatic()?g.manualSelected:g.selected},{"entries",entries}};
+    if(g.automatic()||!g.excludedFavorites.empty()||g.rememberedFavorite||g.favoriteHand!=Hand::right) {
+        Json favorites{{"source",unsigned(g.source)},{"hand",unsigned(g.favoriteHand)},{"excluded",Json::array()}};
+        for(const auto& e:g.excludedFavorites)favorites["excluded"].push_back(encodeEntry(e));
+        if(g.automatic()&&g.selected<g.entries.size())favorites["remembered"]=encodeEntry(g.entries[g.selected]);
+        else if(g.rememberedFavorite)favorites["remembered"]=encodeEntry(*g.rememberedFavorite);
+        result["favorites"]=std::move(favorites);
+    }
+    return result.dump();
 }
 inline Entry decodeEntry(const Json& v,const std::function<bool(std::uint32_t,std::uint32_t&)>& resolve,unsigned depth=0) {
     Entry e;
@@ -99,6 +108,15 @@ inline Group decode(const std::string& bytes,const std::function<bool(std::uint3
     if(!j.at("selected").is_number_unsigned())throw std::runtime_error("Invalid selection");
     const auto selected=j.at("selected").get<std::uint64_t>();
     g.selected=g.entries.empty()?0:std::min<std::uint64_t>(selected,g.entries.size()-1);
+    if(j.contains("favorites")) {
+        const auto& f=j.at("favorites");
+        if(!f.at("source").is_number_unsigned()||f.at("source").get<std::uint64_t>()>=unsigned(FavoriteSource::count)||
+           !f.at("hand").is_number_unsigned()||f.at("hand").get<std::uint64_t>()>1||!f.at("excluded").is_array()||f.at("excluded").size()>Group::exclusionLimit)throw std::runtime_error("Invalid Favorites source");
+        setFavoriteSource(g,FavoriteSource(f.at("source").get<unsigned>()),Hand(f.at("hand").get<unsigned>()));
+        const auto read=[&](const Json& value){auto e=decodeEntry(value,resolve);if(isReusable(e)||e.shortcut)throw std::runtime_error("Invalid Favorite reference");return e;};
+        for(const auto& value:f.at("excluded"))g.excludedFavorites.push_back(read(value));
+        if(f.contains("remembered"))g.rememberedFavorite=read(f.at("remembered"));
+    }
     return g;
 }
 inline std::string encodeArsenal(const Arsenal& arsenal) {
@@ -127,7 +145,7 @@ inline Arsenal decodeArsenal(const std::string& bytes,const std::function<bool(s
             arsenal.shortcuts.push_back(std::move(entry));
         }
     }
-    for(const auto& group:arsenal.groups)for(const auto& e:group.entries)if(e.shortcut) {
+    for(const auto& group:arsenal.groups)for(const auto& e:group.savedEntries())if(e.shortcut) {
         const auto* definition=libraryShortcut(arsenal,e.shortcut);
         if(!definition||e.kind!=definition->kind)throw std::runtime_error("Invalid shortcut reference");
     }

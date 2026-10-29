@@ -28,46 +28,22 @@ Place a theme in `Data/Quickslot/themes/<folder>/theme.json`. Restart after inst
 
 Optional TTF files supply body and title fonts. The default font is Jost. Theme overrides for accent, frame opacity and icon size are saved by theme ID. **Reset theme** restores that pack's defaults.
 
-Item icons use their own atlas and Theme/White tint settings. Keycaps come from the active `Data/Interface/ImGuiIcons/Icons` files; select their style through the mod manager and restart.
+Item icons use I4 packs, with Original, Theme and White color settings. Keycaps come from the active `Data/Interface/ImGuiIcons/Icons` files; select their style through the mod manager and restart.
 
 Frame and font credits are in `licenses/Theme-pack-credits.txt`. Source hashes are in `assets/themes/packs-manifest.json`.
 
-## Item atlas
+## I4 icons
 
-`Quickslot/icons/items.png` is a 2048 × 2304 RGBA PNG with eight columns and nine rows of 256 × 256 cells. Artwork uses white RGB values and transparent cutouts. The packer preserves each silhouette's aspect ratio, centers it, and leaves at least 20 pixels of clear padding. Cells are numbered from zero:
+Install [Inventory Interface Information Injector (I4) 1.1.0+](https://www.nexusmods.com/skyrimspecialedition/mods/85702) for your Skyrim version and your preferred I4 packs. Quickslot uses each item's assigned SWF artwork, frame label and color. Skyrim's resource loading supplies the active files, including resources in archives.
 
-| Row | Cells | Order from left to right |
-| --- | --- | --- |
-| 1 | 0–7 | sword, greatsword, dagger, axe, mace, bow, staff, shield |
-| 2 | 8–15 | torch, spell, battleaxe, warhammer, crossbow, alteration, conjuration, destruction |
-| 3 | 16–23 | illusion, restoration, fire, frost, shock, potion, health, magicka |
-| 4 | 24–31 | stamina, food, poison, scroll, power, shout, arrow, bolt |
-| 5 | 32–39 | unarmed, shortsword, rapier, saber, scimitar, falchion, katana, nodachi |
-| 6 | 40–47 | flamberge, stiletto, tanto, hatchet, morningstar, club, spiked_club, maul |
-| 7 | 48–55 | spear, shortspear, pike, halberd, glaive, naginata, trident, scythe |
-| 8 | 56–63 | pickaxe, woodcutters_axe, javelin, quarterstaff, claw, whip, gun, lesser_power |
-| 9 | 64–71 | greater_power, unused, unused, unused, unused, unused, unused, unused |
+**Original** preserves the artwork's colors and I4 color assignments. **Theme** applies theme colors, including the **Tint magic icons** setting. **White** displays white artwork. Opacity and unavailable-item dimming apply to each mode.
 
-The 64 source icons are stored in `assets/icons/source`. The gun cell aliases the crossbow drawing, making 65 populated cells. Dedicated `gun.png` artwork can replace this last alias in `catalog.json`. The catalog maps filenames to cells; `war_axe.png` supplies the `axe` cell. The manifest records each source hash, packing bounds, conversion method and source type. The packer extracts the white mask from an opaque scroll source and uses alpha for transparent sources.
+Smart shortcuts use the artwork assigned to the item they currently select. Combinations display both selected items. Empty-hand and unarmed actions use SkyUI's `armor_hands` gauntlet. A rule with no matching item uses its SkyUI category icon.
 
-`lesser_power.png` supplies lesser powers (`kLesserPower`); `greater_power.png` supplies daily powers (`kPower`). The original generic `power` cell remains at index 28. The new cells are appended, preserving all existing icon IDs. This layout requires the matching rebuilt DLL; earlier 2048 × 2048 atlases and 63-icon packs need updating.
+I4 packs configure the artwork for inventory items and spells through I4's JSON rules. Quickslot reads each assignment through I4's public API. An unavailable SWF or frame uses the item's SkyUI category icon. Restart Skyrim after changing icon packs.
 
-Run `python3 tools/pack-icons.py` after updating the source PNGs. It generates `items.png`, `manifest.json` and `src/Icons.h` from the catalog. `--check` verifies that these files match the inputs; `--preview <path.png>` produces a labeled contact sheet. Missing source files stop packing. Packing requires Pillow. Adding catalog entries or changing the grid requires rebuilding the DLL; replacing artwork in an existing cell preserves the layout contract.
+## PNGII icons
 
-`src/WeaponIcons.h` maps category keywords from the `WeapType`, `OCF_WeapType` and `ABC_I4WIO_` families. A one-handed katana uses the katana cell; a two-handed katana uses nodachi. Specific tags win over broader families, independent of keyword order. New shapes such as falchion, flamberge and morningstar need a corresponding type tag on the weapon to be selected automatically. This mapping changes presentation only.
+Install [PNG Icon Injector](https://github.com/rijosan87/PNGII) with icon API v1 and enable **Appearance → Style → Use PNGII icons**. PNGII's item and spell rules choose PNG or SVG artwork using the item's FormID, keywords, plugin and resolved I4 label. Quickslot loads the selected image from loose files or a loaded BSA. I4 supplies artwork when a rule has no match or an image is unavailable.
 
-Ammo, unarmed and empty-hand actions use atlas cells. Empty-hand actions use the unarmed cell. A missing atlas retains the procedural ammo/hand fallback and a placeholder for other items. The live editor preview uses the same image and tint as the game HUD.
-
-Install a replacement PNG under the same path in a mod with higher priority, then restart Skyrim. The image is loaded once per renderer initialization. A missing or incorrectly sized file records a warning and uses fallback glyphs.
-
-## Selectable item icon packs
-
-An additional set lives in `Data/Quickslot/icons/packs/<folder>/`. Include `items.png` and this `pack.json`:
-
-```json
-{"schema":1,"id":"my-icons","name":"My icons","atlas":"items.png","columns":8,"rows":9,"cellSize":256,"icons":65}
-```
-
-Keep the cell order above and the 2048 × 2304 size. IDs use lowercase ASCII letters, digits, hyphens or underscores, up to 64 characters; `quickslot` is reserved. Names are UTF-8, up to 80 bytes. The atlas must be a PNG filename within the same folder. Discovery checks up to 64 folders; invalid metadata or images are skipped.
-
-Restart after installation. **Appearance → Style → Icon set** appears when an additional pack is installed and switches among loaded packs immediately, independently of frame themes and keycap packs. The choice supports Undo and appearance presets. Missing packs fall back to Quickslot while retaining the chosen ID for reinstallation.
+Artwork fits the icon area with its aspect ratio and transparency preserved. **Original** shows the image's colors. **Theme** and **White** apply the chosen tint. Smart shortcuts query their selected item, combinations show each selected item's artwork, and empty-hand actions use the `armor_hands` label for PNGII matching. Restart Skyrim after changing PNGII rules or images.

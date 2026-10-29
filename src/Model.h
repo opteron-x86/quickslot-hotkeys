@@ -2,6 +2,8 @@
 #include "Icons.h"
 #include "Localization.h"
 #include "ControllerTypes.h"
+#include "ActionBindings.h"
+#include <bit>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -89,13 +91,25 @@ struct SelectorArrow {int delta=0;bool reorder=false;};
 inline SelectorArrow selectorArrow(unsigned scan,bool ctrl) {
     return {scan==203?-1:scan==205?1:0,ctrl};
 }
+enum class FavoriteSource : unsigned {manual,all,weapons,spells,potions,poisons,food,ammo,scrolls,voice,offhand,count};
+inline bool sameFavorite(const Entry& a,const Entry& b){auto other=b;other.hand=a.hand;return a.same(other);}
 struct Group {
     static constexpr std::size_t limit=16;
+    static constexpr std::size_t exclusionLimit=128;
     std::vector<Entry> entries;
     std::size_t selected=0;
     std::uint64_t revision=0;
+    FavoriteSource source=FavoriteSource::manual;
+    Hand favoriteHand=Hand::right;
+    std::vector<Entry> manualEntries,excludedFavorites;
+    std::size_t manualSelected=0;
+    std::optional<Entry> rememberedFavorite;
+    bool automatic()const{return source!=FavoriteSource::manual;}
+    auto& savedEntries(){return automatic()?manualEntries:entries;}
+    const auto& savedEntries()const{return automatic()?manualEntries:entries;}
     bool sortByName();
     bool add(Entry value,bool autoSort=false) {
+        if(automatic())return false;
         const auto it=std::find_if(entries.begin(),entries.end(),[&](const Entry& e){return e.shortcut&&value.shortcut?e.shortcut==value.shortcut:e.same(value);});
         if(it!=entries.end()) { selected=std::size_t(it-entries.begin());++revision;return false; }
         if(entries.size()>=limit)return false;
@@ -105,9 +119,14 @@ struct Group {
     }
     bool remove() {
         if(entries.empty())return false;
+        if(automatic()) {
+            if(excludedFavorites.size()>=exclusionLimit)return false;
+            if(std::none_of(excludedFavorites.begin(),excludedFavorites.end(),[&](const auto& e){return sameFavorite(e,entries[selected]);}))excludedFavorites.push_back(entries[selected]);
+        }
         entries.erase(entries.begin()+std::ptrdiff_t(selected));selected=std::min(selected,entries.empty()?0:entries.size()-1);++revision;return true;
     }
     bool reorder(std::size_t from,std::size_t to) {
+        if(automatic())return false;
         if(from>=entries.size()||to>=entries.size()||from==to)return false;
         auto entry=std::move(entries[from]);
         entries.erase(entries.begin()+std::ptrdiff_t(from));
@@ -131,6 +150,7 @@ struct Arsenal {
     std::size_t size()const{std::size_t total=0;for(const auto& group:groups)total+=group.entries.size();return total;}
     bool move(std::size_t source,std::size_t index,std::size_t target,bool autoSort=false) {
         if(source>=count||target>=count||source==target||index>=groups[source].entries.size())return false;
+        if(groups[source].automatic()||groups[target].automatic())return false;
         auto& from=groups[source];auto& to=groups[target];const auto entry=from.entries[index];
         const bool exists=std::any_of(to.entries.begin(),to.entries.end(),[&](const Entry& e){return e.shortcut&&entry.shortcut?e.shortcut==entry.shortcut:e.same(entry);});
         if(!exists&&to.entries.size()>=Group::limit)return false;
@@ -140,8 +160,14 @@ struct Arsenal {
         active=target;return true;
     }
 };
+template<class G,class F> void eachGroupEntry(G& group,const F& f) {
+    for(auto& entry:group.entries)f(entry);
+    for(auto& entry:group.manualEntries)f(entry);
+    for(auto& entry:group.excludedFavorites)f(entry);
+    if(group.rememberedFavorite)f(*group.rememberedFavorite);
+}
 template<class A,class F> void eachSavedEntry(A& arsenal,const F& f) {
-    for(auto& group:arsenal.groups)for(auto& entry:group.entries)f(entry);
+    for(auto& group:arsenal.groups)eachGroupEntry(group,f);
     for(auto& entry:arsenal.shortcuts)f(entry);
 }
 
@@ -152,7 +178,7 @@ class Selection {
     std::uint64_t token_=0,revision_=0;
 public:
     double holdSeconds=.18;
-    struct Commit { std::size_t index;std::uint64_t token,revision;std::size_t group=0;bool browsed=false,controller=false,cycling=false; };
+    struct Commit { std::size_t index;std::uint64_t token,revision;std::size_t group=0;bool browsed=false,controller=false,cycling=false;std::optional<Hand> hand; };
     bool held() const { return held_; }
     bool browsing() const { return browsing_; }
     bool canBrowse() const { return held_; }
@@ -194,11 +220,13 @@ public:
     bool accepts(const Commit& c,const Group& g,std::size_t group=0) const { return c.group==group&&c.token==token_&&c.revision==g.revision&&c.index<g.entries.size(); }
     void cancel() { held_=false;browsing_=false;++token_; }
 };
-struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback; };
-struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=false,equipped=false;int quantity=0;float cooldown=0;bool voice=false,consumable=false;};
+struct WeaponStatus {bool poisoned=false;int ammunition=-1;};
+struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry; };
+inline const Entry& rowIconEntry(const Row& row){return row.iconEntry?*row.iconEntry:row.entry;}
+struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=false,equipped=false;int quantity=0;float cooldown=0;bool voice=false,consumable=false;WeaponStatus weapon;std::optional<Entry> iconEntry;};
 struct EquippedDisplay {
     std::array<std::optional<Row>,2> hands;
-    std::optional<Row> consumable,voice;
+    std::optional<Row> consumable,voice,ammo;
 };
 struct Snapshot {
     std::vector<Row> rows;
@@ -211,6 +239,7 @@ struct Snapshot {
     double noticeUntil=0;
     EquippedDisplay equipment;
     bool holding=false,placementPreview=false,equipmentOnly=false;
+    float previewZoom=0;
     double revealUntil=0;
 };
 struct ThemeAdjustments {
@@ -245,7 +274,12 @@ struct Options {
     bool groupCaptureRightHotkey=true,groupCaptureLeftHotkey=true,groupMoveHotkey=true;
     bool groupUnequipHotkey=true,groupRemoveHotkey=true;
     bool selectorReorderHotkey=true,selectorUnequipHotkey=true,selectorRemoveHotkey=true;
+    std::array<unsigned,unsigned(GroupModifier::count)> groupModifiers=defaultGroupModifiers;
+    std::array<KeyBinding,unsigned(KeyboardAction::count)> selectorBindings=defaultSelectorBindings;
+    std::array<int,unsigned(MouseAction::count)> mouseActions=defaultMouseActions;
+    bool allowUnusedModifiers=false;
     bool voiceHotkey=true;
+    bool quickLootKeyboard=false,quickLootController=false;
     float shoutCharge=1.2f;
     bool controllerEnabled=true,controllerBumpers=true;
     unsigned controllerModifiers=allPadButtons;
@@ -253,6 +287,7 @@ struct Options {
     float controllerDeadzone=.45f;
     std::array<PadBinding,Arsenal::count> controllerGroups{{{PadButton::up},{PadButton::right},{PadButton::down},{PadButton::left},{},{},{},{}}};
     PadBinding controllerEditor{PadButton::start,PadButton::up};
+    std::array<PadBinding,unsigned(ControllerAction::count)> controllerActions=defaultControllerActions;
     std::array<PadBinding,Arsenal::count> vrGroups{{{PadButton::rt,PadButton::lb},{PadButton::rs,PadButton::lb},{PadButton::lt,PadButton::rb},{PadButton::ls,PadButton::rb},{},{},{},{}}};
     PadBinding vrEditor{PadButton::a,PadButton::lb};
     unsigned vrStick=1;
@@ -270,13 +305,15 @@ struct Options {
     float fadeDelay=4,idleOpacity=.35f;
     float scale=1,textScale=1,opacity=.92f;
     bool showIdle=true,showHints=false,showLabels=true,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
+    bool showPoison=true,showAmmo=true;
     unsigned itemIconColor=1;
-    std::string itemIconSet="quickslot";
+    bool pngiiIcons=true;
     bool placementGrid=false,placementSnap=false;
-    bool showEquipment=false,equipmentDim=false,hideEmptyGroups=false;
+    bool showEquipment=false,equipmentDim=false,hideEmptyGroups=false,showEquipmentAmmo=false;
     float equipmentX=.02f,equipmentY=.8f;
-    float equipmentScale=1,equipmentTextScale=1,equipmentSpacing=1;
-    unsigned equipmentStyle=0,equipmentLayout=0,equipmentTextPosition=3;
+    float equipmentScale=1,equipmentTextScale=1,equipmentSpacing=8;
+    unsigned equipmentStyle=0,equipmentLayout=1,equipmentTextPosition=3;
+    bool equipmentShowText=true;
     float equipmentFadeDelay=4,equipmentIdleOpacity=.35f;
     unsigned inactiveGroups=0;
     float inactiveGroupOpacity=.3f;
@@ -291,19 +328,56 @@ inline void setEditingShortcuts(Options& o,bool enabled) {
     o.groupUnequipHotkey=o.groupRemoveHotkey=enabled;
     o.selectorReorderHotkey=o.selectorUnequipHotkey=o.selectorRemoveHotkey=enabled;
 }
-inline bool selectorUsesCtrl(const Options& o) {
-    return o.groupMoveHotkey||o.selectorReorderHotkey;
+inline bool selectorUsesModifier(const Options& o,unsigned modifier) {
+    return (o.groupMoveHotkey&&(o.groupModifiers[unsigned(GroupModifier::move)]&modifier))||
+        (o.selectorReorderHotkey&&(o.groupModifiers[unsigned(GroupModifier::reorder)]&modifier));
+}
+inline bool selectorUsesCtrl(const Options& o){return selectorUsesModifier(o,keyModifier::ctrl);}
+template<class O> auto& groupActionEnabled(O& o,GroupModifier action) {
+    switch(action) {
+    case GroupModifier::captureRight:return o.groupCaptureRightHotkey;
+    case GroupModifier::captureLeft:return o.groupCaptureLeftHotkey;
+    case GroupModifier::move:return o.groupMoveHotkey;
+    case GroupModifier::unequip:return o.groupUnequipHotkey;
+    case GroupModifier::remove:return o.groupRemoveHotkey;
+    default:return o.selectorReorderHotkey;
+    }
+}
+inline bool selectorActionEnabled(const Options& o,KeyboardAction action) {
+    return action==KeyboardAction::unequip?o.selectorUnequipHotkey:action==KeyboardAction::remove?o.selectorRemoveHotkey:true;
+}
+inline void setSelectorActionEnabled(Options& o,KeyboardAction action,bool enabled) {
+    if(action==KeyboardAction::unequip)o.selectorUnequipHotkey=enabled;
+    if(action==KeyboardAction::remove)o.selectorRemoveHotkey=enabled;
+}
+inline KeyBinding selectorBinding(const Options& o,KeyboardAction action){return selectorActionEnabled(o,action)?o.selectorBindings[unsigned(action)]:KeyBinding{};}
+inline void assignGroupModifier(Options& o,GroupModifier action,unsigned modifiers) {
+    if((modifiers&~keyModifier::all)||action>=GroupModifier::count)return;
+    auto& enabled=groupActionEnabled(o,action);
+    if(!modifiers){enabled=false;return;}
+    const auto index=unsigned(action),previous=o.groupModifiers[index];
+    if(action!=GroupModifier::move&&action!=GroupModifier::reorder)
+        for(const auto other:{GroupModifier::captureRight,GroupModifier::captureLeft,GroupModifier::unequip,GroupModifier::remove})
+            if(other!=action&&o.groupModifiers[unsigned(other)]==modifiers) {
+                o.groupModifiers[unsigned(other)]=previous;
+                if(groupActionEnabled(o,other))groupActionEnabled(o,other)=enabled;
+            }
+    o.groupModifiers[index]=modifiers;enabled=true;
 }
 enum class GroupKeyAction {select,captureRight,captureLeft,move,unequip,remove,pass};
 inline GroupKeyAction groupKeyAction(const Options& o,unsigned modifiers,bool moving=false) {
-    if(modifiers&keyModifier::ctrl) {
-        if(moving)return o.groupMoveHotkey?GroupKeyAction::move:GroupKeyAction::pass;
-        if(modifiers&keyModifier::shift)return o.groupCaptureLeftHotkey?GroupKeyAction::captureLeft:GroupKeyAction::pass;
-        return o.groupCaptureRightHotkey?GroupKeyAction::captureRight:GroupKeyAction::pass;
+    const auto matches=[&](GroupModifier action){const auto mask=o.groupModifiers[unsigned(action)];return mask&&(modifiers&mask)==mask;};
+    const auto disabled=o.allowUnusedModifiers?GroupKeyAction::select:GroupKeyAction::pass;
+    if(moving&&matches(GroupModifier::move))return o.groupMoveHotkey?GroupKeyAction::move:disabled;
+    struct Choice {GroupModifier modifier;GroupKeyAction action;bool enabled;};
+    GroupKeyAction result=modifiers&&!o.allowUnusedModifiers?GroupKeyAction::pass:GroupKeyAction::select;int specificity=0;
+    for(const auto choice:{Choice{GroupModifier::captureLeft,GroupKeyAction::captureLeft,o.groupCaptureLeftHotkey},
+        Choice{GroupModifier::captureRight,GroupKeyAction::captureRight,o.groupCaptureRightHotkey},
+        Choice{GroupModifier::remove,GroupKeyAction::remove,o.groupRemoveHotkey},Choice{GroupModifier::unequip,GroupKeyAction::unequip,o.groupUnequipHotkey}}) {
+        const auto bits=std::popcount(o.groupModifiers[unsigned(choice.modifier)]);
+        if(matches(choice.modifier)&&bits>specificity){specificity=bits;result=choice.enabled?choice.action:disabled;}
     }
-    if(modifiers&keyModifier::alt)return o.groupRemoveHotkey?GroupKeyAction::remove:GroupKeyAction::pass;
-    if(modifiers&keyModifier::shift)return o.groupUnequipHotkey?GroupKeyAction::unequip:GroupKeyAction::pass;
-    return GroupKeyAction::select;
+    return result;
 }
 inline std::optional<Hand> menuCaptureHand(const Options& o,unsigned modifiers) {
     if(!o.menuCapture)return {};
@@ -312,16 +386,52 @@ inline std::optional<Hand> menuCaptureHand(const Options& o,unsigned modifiers) 
     if(action==GroupKeyAction::captureLeft)return Hand::left;
     return {};
 }
-enum class SelectorKeyAction {pass,browse,reorder,unequip,remove};
+enum class SelectorKeyAction {pass,browse,reorder,unequip,remove,rightHand,leftHand};
 struct SelectorKey {SelectorKeyAction action=SelectorKeyAction::pass;int delta=0;};
-inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,bool ctrl) {
-    if(scan==211&&o.selectorRemoveHotkey)return {SelectorKeyAction::remove};
-    if(scan==14&&o.selectorUnequipHotkey)return {SelectorKeyAction::unequip};
-    const auto arrow=selectorArrow(scan,ctrl);
-    if(!arrow.delta||(arrow.reorder&&!o.selectorReorderHotkey))return {};
-    return {arrow.reorder?SelectorKeyAction::reorder:SelectorKeyAction::browse,arrow.delta};
+inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,unsigned modifiers) {
+    for(const auto action:{KeyboardAction::rightHand,KeyboardAction::leftHand})
+        if(keyBindingMatches(o.selectorBindings[unsigned(action)],scan,modifiers))return {action==KeyboardAction::rightHand?SelectorKeyAction::rightHand:SelectorKeyAction::leftHand};
+    if(keyBindingMatches(o.selectorBindings[unsigned(KeyboardAction::remove)],scan,modifiers)&&o.selectorRemoveHotkey)return {SelectorKeyAction::remove};
+    if(keyBindingMatches(o.selectorBindings[unsigned(KeyboardAction::unequip)],scan,modifiers)&&o.selectorUnequipHotkey)return {SelectorKeyAction::unequip};
+    const auto reorder=o.groupModifiers[unsigned(GroupModifier::reorder)];
+    const bool reordering=reorder&&(modifiers&reorder)==reorder;
+    for(const auto action:{KeyboardAction::previous,KeyboardAction::next}) {
+        const auto binding=o.selectorBindings[unsigned(action)];
+        if(!keyBindingMatches(binding,scan,reordering?modifiers&~reorder:modifiers))continue;
+        if(reordering&&!o.selectorReorderHotkey)return {};
+        return {reordering?SelectorKeyAction::reorder:SelectorKeyAction::browse,action==KeyboardAction::previous?-1:1};
+    }
+    return {};
+}
+inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,bool ctrl){return selectorKeyAction(o,scan,ctrl?keyModifier::ctrl:0u);}
+inline bool selectorKeyReserved(const Options& o,unsigned key){for(unsigned i=0;key&&i<o.selectorBindings.size();++i)if(selectorBinding(o,KeyboardAction(i)).key==key)return true;return false;}
+inline bool assignSelectorBinding(Options& o,KeyboardAction action,KeyBinding binding) {
+    if(action>=KeyboardAction::count||binding.key>255||modifierForScan(binding.key)||(binding.modifiers&~keyModifier::all))return false;
+    if(binding.key&&(binding.key==o.editorKey||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
+    if(!binding.key)binding.modifiers=0;
+    const auto index=unsigned(action);
+    for(unsigned i=0;i<o.selectorBindings.size();++i)if(!selectorActionEnabled(o,KeyboardAction(i)))o.selectorBindings[i]={};
+    if(binding.key)for(unsigned i=0;i<o.selectorBindings.size();++i)if(i!=index&&o.selectorBindings[i].key==binding.key) {
+        o.selectorBindings[i]=o.selectorBindings[index];setSelectorActionEnabled(o,KeyboardAction(i),o.selectorBindings[i].key!=0);
+    }
+    o.selectorBindings[index]=binding;setSelectorActionEnabled(o,action,binding.key!=0);return true;
 }
 inline bool hasConsumables(const Group& group){return std::any_of(group.entries.begin(),group.entries.end(),isConsumable);}
+inline bool assignMouseAction(Options& o,MouseAction action,int button) {
+    if(action>=MouseAction::count||button< -1||button>4)return false;
+    const auto index=unsigned(action);
+    if(button>=0)for(unsigned i=0;i<o.mouseActions.size();++i)if(i!=index&&o.mouseActions[i]==button)o.mouseActions[i]=o.mouseActions[index];
+    o.mouseActions[index]=button;return true;
+}
+inline bool useBumpersForHands(Options& o) {
+    const auto conflict=[](PadBinding b){return b.button==PadButton::lb||b.button==PadButton::rb||b.modifier==PadButton::lb||b.modifier==PadButton::rb;};
+    if(conflict(o.controllerEditor))return false;
+    for(std::size_t i=0;i<o.groupCount;++i)if(conflict(o.controllerGroups[o.groupOrder[i]]))return false;
+    for(const auto b:o.controllerActions)if(b.modifier==PadButton::lb||b.modifier==PadButton::rb)return false;
+    for(auto& b:o.controllerActions)if(b==PadBinding{PadButton::lb}||b==PadBinding{PadButton::rb})b={};
+    o.controllerActions[unsigned(ControllerAction::rightHand)]={PadButton::rb};
+    o.controllerActions[unsigned(ControllerAction::leftHand)]={PadButton::lb};return true;
+}
 inline GroupMode groupMode(const Options& o,const Arsenal& a,std::size_t group) {
     return group<Arsenal::count&&!hasConsumables(a.groups[group])?o.groupModes[group]:GroupMode::browse;
 }
@@ -361,7 +471,7 @@ inline void sortNewlyEnabledGroups(Arsenal& a,const Options& previous,const Opti
     for(std::size_t id=0;id<Arsenal::count;++id)if(next.autoSort[id]&&!previous.autoSort[id])a.groups[id].sortByName();
 }
 inline void resetGroup(Arsenal& a,Options& o,std::size_t id) {
-    auto& g=a.groups[id];g.entries.clear();g.selected=0;++g.revision;
+    auto& g=a.groups[id];const auto revision=g.revision+1;g={};g.revision=revision;
     o.names[id]="Group "+std::to_string(id+1);
     o.keys[id]=0;o.controllerGroups[id]={};o.vrGroups[id]={};
     o.groupModes[id]=GroupMode::browse;o.autoSort[id]=false;
@@ -425,6 +535,7 @@ inline std::string rowStatus(const Row& row) {
 }
 inline std::string displayName(const Entry& e){return isHandAction(e)||isSmartEquipment(e)||e.kind==Kind::smartPotion?std::string(tr(e.name.c_str())):e.name;}
 inline bool Group::sortByName() {
+    if(automatic())return false;
     std::vector<std::size_t> order;std::vector<std::string> names;
     for(std::size_t i=0;i<entries.size();++i){order.push_back(i);names.push_back(foldedText(displayName(entries[i])));}
     std::stable_sort(order.begin(),order.end(),[&](auto a,auto b){return names[a]<names[b];});
@@ -440,11 +551,23 @@ inline bool validGroupKey(unsigned key) {
     return key>=2&&key<=255&&key!=14&&key!=29&&key!=42&&key!=54&&key!=56&&key!=157&&key!=184&&key!=203&&key!=205&&key!=211;
 }
 inline bool assignGroupKey(Options& o,std::size_t group,unsigned key) {
-    if(group>=Arsenal::count||(key&&(!validGroupKey(key)||key==o.editorKey)))return false;
+    if(group>=Arsenal::count||(key&&(!validGroupKey(key)||key==o.editorKey||selectorKeyReserved(o,key))))return false;
     if(key)for(std::size_t id=0;id<Arsenal::count;++id)if(id!=group&&o.keys[id]==key)
         o.keys[id]=groupVisible(o,id)?o.keys[group]:0;
     o.keys[group]=key;return true;
 }
 inline bool flexibleHand(const Entry& e){return !isConsumable(e)&&!isVoice(e)&&e.kind!=Kind::combo&&e.kind!=Kind::ammo&&e.kind!=Kind::smartAmmo&&e.kind!=Kind::unarmed&&!e.twoHanded&&e.kind!=Kind::shield&&e.kind!=Kind::torch&&!smartShield(e);}
 inline Hand normalizedHand(const Entry& e,Hand hand){return isConsumable(e)||isVoice(e)||e.kind==Kind::ammo||e.kind==Kind::smartAmmo||e.kind==Kind::unarmed||e.twoHanded?Hand::right:e.kind==Kind::shield||e.kind==Kind::torch||smartShield(e)?Hand::left:hand;}
+inline std::optional<Entry> entryForHand(const Entry& entry,Hand hand) {
+    if(unsigned(hand)>1||isConsumable(entry)||isVoice(entry)||isHandAction(entry)||entry.kind==Kind::combo||entry.kind==Kind::ammo||entry.kind==Kind::smartAmmo)return {};
+    if(hand==Hand::right&&(entry.kind==Kind::shield||entry.kind==Kind::torch||smartShield(entry)))return {};
+    auto action=entry;action.hand=normalizedHand(entry,hand);return action;
+}
+inline std::optional<Selection::Commit> releaseToHand(Selection& selection,const Group& group,std::size_t groupID,Hand hand,bool controller) {
+    if(!selection.held())return {};
+    if(selection.index()>=group.entries.size()||!entryForHand(group.entries[selection.index()],hand)){selection.cancel();return {};}
+    auto commit=selection.release(group,groupID);
+    if(commit){commit->hand=hand;commit->browsed=true;commit->controller=controller;}
+    return commit;
+}
 }

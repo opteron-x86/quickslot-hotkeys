@@ -6,12 +6,41 @@
 #include "CallSite.h"
 #include <iostream>
 #include <source_location>
+#ifdef _WIN32
+#include "PlayerInput.h"
+#endif
 using namespace quickslot;
 unsigned checks=0;
 void check(bool pass,const char* message,std::source_location at=std::source_location::current()) {
     if(!pass)throw std::runtime_error(std::string(message)+" at "+std::to_string(at.line()));++checks;
 }
 int main()try {
+#ifdef _WIN32
+    struct PlayerLayout {REL::Version version;std::size_t flags;};
+    for(const auto& layout:std::array<PlayerLayout,14>{{
+        {{1,5,97,0},0xBD8},{{1,6,317,0},0xBD8},{{1,6,318,0},0xBD8},{{1,6,353,0},0xBD8},{{1,6,628,0},0xBD8},
+        {{1,6,629,0},0xBE0},{{1,6,640,0},0xBE0},{{1,6,659,0},0xBE0},{{1,6,1130,0},0xBE0},{{1,6,1170,0},0xBE0},{{1,6,1179,0},0xBE0},
+        {{1,7,99,0},0xBE8},{{1,7,104,0},0xBE8},{{1,4,15,0},0x12D0}
+    }}) {
+        check(REL::Module::mock(layout.version),"Runtime layout fixture initialized");
+        alignas(RE::PlayerCharacter) std::array<std::uint8_t,0x1400> memory{};
+        const auto* player=reinterpret_cast<const RE::PlayerCharacter*>(memory.data());
+        check(reinterpret_cast<const std::uint8_t*>(&player->GetPlayerFlags())-memory.data()==layout.flags,"Player flags accessor selects this runtime's offset");
+        for(const auto offset:{0xBD8,0xBE0,0xBE8,0x12D0})memory[offset+2]=0x08;
+        memory[layout.flags+2]=0;
+        check(!playerAIControlled(player),"Other runtime offsets cannot suppress player input");
+        memory.fill(0);memory[layout.flags+2]=0xf7;
+        check(!playerAIControlled(player),"Adjacent player flags do not claim scene input");
+        memory[layout.flags+2]|=0x08;
+        const auto before=memory;
+        check(playerAIControlled(player),"SetAIDriven's package flag yields player input");
+        check(memory==before,"Reading input ownership leaves engine state intact");
+        memory[layout.flags+2]&=0xf7;
+        check(!playerAIControlled(player),"Clearing AI control restores player input");
+        REL::Module::reset();
+    }
+    check(!playerAIControlled(nullptr),"Missing player is safe to inspect during load transitions");
+#endif
     for(const auto v:std::array<RuntimeVersion,13>{{{1,5,97},{1,6,317},{1,6,318},{1,6,353},{1,6,629},{1,6,640},{1,6,659},{1,6,1130},{1,6,1170},{1,6,1179},{1,7,99},{1,7,104},{1,4,15}}})
         check(v.supported(),"Release runtimes pass the loader policy");
     for(const auto v:std::array<RuntimeVersion,6>{{{1,5,80},{1,6,316},{1,4,14},{1,9,32},{1,8,0},{2,0,0}}})check(!v.supported(),"Unsupported engine families are rejected");

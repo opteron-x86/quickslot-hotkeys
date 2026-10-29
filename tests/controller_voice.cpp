@@ -206,20 +206,21 @@ int main()try {
         check(navigation.button(PadButton::up,false,false,menuOptions,!blocked,true).action==PadAction::none,"Opening a menu during a held group prevents delayed activation");
     }
     check(!gameplayMenuOpen([](auto name){return name=="HUD Menu"||name=="Quickslot"||name=="QuickslotSelectionPause";}),"HUD and Quickslot's own overlays do not block gameplay");
-    for(const std::string_view foreground:{"LootMenu","CustomMenu","TestModalMenu"})
+    check(!gameplayMenuOpen([](auto name){return name=="OstimSceneMenu"||name=="OstimAlignMenu";}),"Idle OStim overlays leave gameplay available");
+    for(const std::string_view foreground:{"LootMenu","CustomMenu","TestModalMenu","OstimSceneMenu"})
     for(const auto codes:{PadCodeSet::xinput,PadCodeSet::orbis})for(const auto mode:{GroupMode::browse,GroupMode::cycle}) {
         Options menuOptions;menuOptions.groupModes[0]=mode;
         ControllerInput navigation;Selection choosing;Group items;
         Entry sword;sword.form=1;items.add(sword);Entry potion;potion.kind=Kind::potion;potion.form=2;items.add(potion);
         bool menuOpen=true;
-        const auto allowed=[&]{return !gameplayMenuOpen([&](auto name){return menuOpen&&name==foreground;})&&
+        const auto allowed=[&]{return !(menuOpen&&foreground=="OstimSceneMenu")&&!gameplayMenuOpen([&](auto name){return (menuOpen||foreground=="OstimSceneMenu")&&name==foreground;})&&
             !(menuOpen&&foreground=="TestModalMenu"&&menuFlagsBlock(false,false,false,true));};
         for(unsigned i=1;i<unsigned(PadButton::count);++i) {
             const auto button=padButton(padCodes(codes)[i],codes);
             const auto down=navigation.button(button,true,true,menuOptions,allowed(),false);
             const auto repeat=navigation.button(button,true,false,menuOptions,allowed(),false);
             const auto up=navigation.button(button,false,false,menuOptions,allowed(),false);
-            check(!down.consumed&&!repeat.consumed&&!up.consumed&&down.action==PadAction::none&&repeat.action==PadAction::none&&up.action==PadAction::none,"Foreground menus receive controller presses, repeats and releases in both group modes");
+            check(!down.consumed&&!repeat.consumed&&!up.consumed&&down.action==PadAction::none&&repeat.action==PadAction::none&&up.action==PadAction::none,"Menus and player scenes receive controller presses, repeats and releases in both group modes");
         }
         const auto trigger=padButton(padCodes(codes)[unsigned(PadButton::up)],codes);
         navigation.button(trigger,true,true,menuOptions,allowed(),false);menuOpen=false;

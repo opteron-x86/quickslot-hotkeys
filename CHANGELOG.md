@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Quickslot yields controls to UIExtensions and custom modal menus, including unpaused menus.
+- Quickslot yields controls and hides its HUD during scenes that take control of the player, including OStim. Controls resume when the scene returns control to the player.
 
 ## 0.12.0
 

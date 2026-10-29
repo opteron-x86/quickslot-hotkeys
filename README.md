@@ -81,6 +81,8 @@ While browsing, moving and reordering reserve their assigned modifiers. Set both
 
 Controller modifiers are configured per binding. Hold the modifier first; release the group button to select. Releasing the modifier cancels browsing. Other assigned chords, such as B + D-pad, stay available to other mods. **Modifier buttons** controls which held buttons suppress unmodified group bindings.
 
+Choose **Modifier** and **Button** in either order when editing a controller or VR binding. A complete, valid combination becomes active immediately. During an unfinished edit, the current binding stays active; **Cancel** restores its fields. Selecting **None** for **Button** clears the binding.
+
 Under **Controls → Controller → Browsing actions**, remap cancel, unequip, previous and next, including optional modifier chords. **Enable previous / next buttons** controls the last two actions. For example, assign X as a group modifier and Y to **Unequip highlighted entry**.
 
 XInput and native PS4 input are supported. Steam Input can supply XInput. Skyrim must recognize the controller first.

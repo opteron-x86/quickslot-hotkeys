@@ -90,6 +90,8 @@ static std::string shortcutName(unsigned scan,unsigned modifiers) {
     return (modifiers?modifierName(modifiers)+" + ":std::string{})+scanName(scan);
 }
 void Editor::beginSession(const EditorState& state) {
+    if(session_!=state.session||restoreSerial_!=state.restoreSerial||vrMode_!=state.vr)padDrafts_.clear();
+    std::erase_if(padDrafts_,[&](const auto& draft){return draft.first<Arsenal::count&&!groupVisible(state.options,draft.first);});
     controllerMode_=state.controller;vrMode_=state.vr;
     if(!controllerMode_){pointerMode_=false;pointerAxis_={};if(pointerDown_){ImGui::GetIO().AddMouseButtonEvent(0,false);pointerDown_=false;}}
     auto& inputIO=ImGui::GetIO();inputIO.ConfigFlags|=ImGuiConfigFlags_NavEnableGamepad|ImGuiConfigFlags_NavEnableKeyboard;
@@ -876,21 +878,35 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             auto& editorBinding=state.vr?options.vrEditor:options.controllerEditor;
             auto& browseStick=state.vr?options.vrStick:options.controllerStick;
             const auto chooseButton=[&](const char* id,PadButton& value) {
+                bool selected=false;
                 ImGui::SetNextItemWidth(px(155));
                 if(ImGui::BeginCombo(id,padLabel(value,style).c_str())){
-                    for(unsigned b=0;b<unsigned(PadButton::count);++b)if((!state.vr||validVRButton(PadButton(b)))&&ImGui::Selectable(padLabel(PadButton(b),style).c_str(),unsigned(value)==b)){value=PadButton(b);changed=true;}
+                    for(unsigned b=0;b<unsigned(PadButton::count);++b)if((!state.vr||validVRButton(PadButton(b)))&&ImGui::Selectable(padLabel(PadButton(b),style).c_str(),unsigned(value)==b)){value=PadButton(b);selected=true;}
                     ImGui::EndCombo();
                 }
+                return selected;
             };
             const auto padBinding=[&](PadBinding& value,const char* name,unsigned index) {
-                const auto old=value;
-                chooseButton(("##pad modifier"+std::to_string(index)).c_str(),value.modifier);ImGui::SameLine();chooseButton(("##pad button"+std::to_string(index)).c_str(),value.button);ImGui::SameLine();ImGui::TextUnformatted(name);
-                if(value!=old) {
-                    bool duplicate=value.button!=PadButton::none&& &value!=&editorBinding&&value==editorBinding;
-                    for(std::size_t i=0;i<options.groupCount;++i){const auto& other=groups[options.groupOrder[i]];if(&other!=&value&&value.button!=PadButton::none&&other==value)duplicate=true;}
-                    if(!state.vr)for(const auto& other:options.controllerActions)if(&other!=&value&&value.button!=PadButton::none&&other==value)duplicate=true;
-                    if(value.button==PadButton::none)value.modifier=PadButton::none;
-                    if(duplicate||!validPadBinding(value)){value=old;hint_=duplicate?tr("Button combination already assigned"):tr("Choose different buttons");}else hint_.clear();
+                if(const auto draft=padDrafts_.find(index);draft!=padDrafts_.end()&&draft->second.original!=value)padDrafts_.erase(draft);
+                auto choice=padDrafts_.contains(index)?padDrafts_.at(index).value:value;
+                const bool modifierChanged=chooseButton(("##pad modifier"+std::to_string(index)).c_str(),choice.modifier);ImGui::SameLine();
+                const bool buttonChanged=chooseButton(("##pad button"+std::to_string(index)).c_str(),choice.button);ImGui::SameLine();ImGui::TextUnformatted(name);
+                if(buttonChanged&&choice.button==PadButton::none)choice={};
+                if(modifierChanged||buttonChanged) {
+                    if(choice==value)padDrafts_.erase(index);
+                    else padDrafts_[index]={value,choice};
+                }
+                if(padDrafts_.contains(index)) {
+                    bool duplicate=choice.button!=PadButton::none&& &value!=&editorBinding&&choice==editorBinding;
+                    for(std::size_t i=0;i<options.groupCount;++i){const auto& other=groups[options.groupOrder[i]];if(&other!=&value&&choice.button!=PadButton::none&&other==choice)duplicate=true;}
+                    if(!state.vr)for(const auto& other:options.controllerActions)if(&other!=&value&&choice.button!=PadButton::none&&other==choice)duplicate=true;
+                    const char* problem=choice.button==PadButton::none&&choice.modifier!=PadButton::none?tr("Choose a button to complete the binding"):
+                        duplicate?tr("Button combination already assigned"):!validPadBinding(choice)?tr("Choose different buttons"):nullptr;
+                    if(!problem){value=choice;changed=true;padDrafts_.erase(index);hint_.clear();}
+                    else {
+                        ImGui::TextWrapped("%s",problem);ImGui::SameLine();
+                        if(UI::Button(("Cancel##pad draft"+std::to_string(index)).c_str()))padDrafts_.erase(index);
+                    }
                 }
             };
             UI::TextDisabled("Modifier");ImGui::SameLine(px(175));UI::TextDisabled("Button");
@@ -905,11 +921,11 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 for(unsigned i=0;i<options.controllerActions.size();++i)padBinding(options.controllerActions[i],tr(names[i]),100+i);
                 UI::TextWrapped("A button used as an explicit modifier does not also trigger a single-button browsing action. Rebind that action or use a chord.");
                 if(UI::Button("Use bumpers for hands")) {
-                    if(useBumpersForHands(options)){changed=true;hint_.clear();}
+                    if(useBumpersForHands(options)){changed=true;hint_.clear();padDrafts_.clear();}
                     else hint_=tr("Bumpers are used by a group, editor or modifier binding. Choose different hand buttons or rebind those first.");
                 }
                 UI::TextWrapped("Hand actions equip immediately for this use. The bumper preset replaces bumper browsing; the stick can still browse.");
-                if(UI::Button("Reset controller actions")){options.controllerActions=defaultControllerActions;changed=true;}
+                if(UI::Button("Reset controller actions")){options.controllerActions=defaultControllerActions;changed=true;padDrafts_.clear();}
             }
             if(!state.vr&&UI::CollapsingHeader("Modifier buttons")) {
                 for(unsigned b=1;b<unsigned(PadButton::count);++b) {

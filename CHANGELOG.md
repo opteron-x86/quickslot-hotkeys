@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Controller and VR bindings accept modifier-first and button-first editing, with inline guidance and cancellation for unfinished combinations.
 - Switching PNGII icons on in the editor keeps the interface responsive while artwork loads.
 
 ## 0.13.1

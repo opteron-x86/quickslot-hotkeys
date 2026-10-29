@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Tap-to-cycle keeps one-handed weapon copies equipped in the opposite hand by default. Smart weapons choose the strongest eligible copy. Configure this under **Controls → General → Keep the other hand equipped while cycling**.
 - Switching PNGII icons on in the editor keeps the interface responsive while artwork loads.
 
 ## 0.13.1

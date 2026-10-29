@@ -41,10 +41,12 @@ inline bool preferredEquipment(const Entry& rule,const EquipmentCandidate& a,con
     };
     return a.damage>b.damage||(a.damage==b.damage&&tie(a)<tie(b));
 }
-inline const EquipmentCandidate* chooseEquipment(const Entry& rule,const std::vector<EquipmentCandidate>& candidates) {
+inline const EquipmentCandidate* chooseEquipment(const Entry& rule,const std::vector<EquipmentCandidate>& candidates,bool keepOtherHand=false) {
     const EquipmentCandidate* best=nullptr;
-    for(const auto& c:candidates)if(equipmentMatches(rule,c))
+    for(const auto& c:candidates)if(equipmentMatches(rule,c)) {
+        if(keepOtherHand&&movesOtherHandWeapon(c.entry,rule.hand==Hand::left?c.leftEquipped:c.rightEquipped,rule.hand==Hand::left?c.rightEquipped:c.leftEquipped))continue;
         if(!best||preferredEquipment(rule,c,*best))best=&c;
+    }
     return best;
 }
 inline bool hasSmartEquipment(const Entry& entry) {

@@ -103,7 +103,7 @@ inline std::string encodeOptions(Options o) {
     Json modes=Json::array();for(const auto mode:o.groupModes)modes.push_back(unsigned(mode));
     Json selectorBindings=Json::array();for(const auto b:o.selectorBindings)selectorBindings.push_back(Json::array({b.key,b.modifiers}));
     Json controllerActions=Json::array();for(const auto b:o.controllerActions)controllerActions.push_back(binding(b));
-    return Json{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"themeAdjustments",tweaks},
+    return Json{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"themeAdjustments",tweaks},
         {"pngiiIcons",o.pngiiIcons},{"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
         {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},
         {"groupCaptureRightHotkey",o.groupCaptureRightHotkey},{"groupCaptureLeftHotkey",o.groupCaptureLeftHotkey},{"groupMoveHotkey",o.groupMoveHotkey},
@@ -131,6 +131,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.editorKey=j.at("editorKey").get<unsigned>();o.groupCount=j.at("groupCount").get<std::size_t>();
     o.editorModifiers=j.at("editorModifiers").get<decltype(o.editorModifiers)>();
     o.groupOrder=j.at("groupOrder").get<decltype(o.groupOrder)>();
+    o.cycleKeepOtherHand=j.value("cycleKeepOtherHand",true);
     o.skipEmpty=j.at("skipEmpty").get<decltype(o.skipEmpty)>();o.menuCapture=j.at("menuCapture").get<decltype(o.menuCapture)>();o.selectionSpeed=j.at("selectionSpeed").get<decltype(o.selectionSpeed)>();
     o.voiceHotkey=j.at("voiceHotkey").get<decltype(o.voiceHotkey)>();o.shoutCharge=j.at("shoutCharge").get<decltype(o.shoutCharge)>();
     o.controllerEnabled=j.at("controllerEnabled").get<decltype(o.controllerEnabled)>();o.controllerBumpers=j.at("controllerBumpers").get<decltype(o.controllerBumpers)>();

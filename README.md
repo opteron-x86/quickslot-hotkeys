@@ -37,6 +37,8 @@ Choose a behavior for each group:
 - **Hold to browse:** tap equips or uses the remembered entry; hold, browse and release chooses another.
 - **Tap to cycle:** the first press when returning to a group recalls its selection. Further presses advance and equip.
 
+**Keep the other hand equipped while cycling**, under **Controls → General**, starts enabled. Tap-to-cycle skips one-handed weapon copies held in the opposite hand. Smart weapons choose the strongest eligible copy. This applies to manual and Favorites-linked groups. Browsing hand actions can move a weapon between hands; turn the option off to allow those transfers during cycling too.
+
 Groups containing consumables use tap-to-use and hold-to-choose. Browsing a potion readies it; the next tap uses one dose. Powers and shouts support activation from the group hotkey, with configurable shout charge.
 
 Smart weapons rank by physical damage, including tempering and player modifiers. Smart shields rank by armor; smart ammo ranks by damage. Smart potions offer strongest, weakest and best fit for missing health, magicka or stamina. Regeneration potions offer strongest or weakest.

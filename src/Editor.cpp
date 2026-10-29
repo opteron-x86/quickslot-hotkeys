@@ -801,6 +801,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(controlsPage_==0){
             label(tr("SELECTION"));
             changed|=UI::Checkbox("Skip unavailable items",&options.skipEmpty);
+            changed|=UI::Checkbox("Keep the other hand equipped while cycling",&options.cycleKeepOtherHand);
+            if(ImGui::IsItemHovered())UI::SetTooltip("Tap-to-cycle skips one-handed weapon copies held in the other hand. Smart weapons choose an eligible copy. Browsing hand actions can move a weapon between hands.");
             changed|=UI::Checkbox("Add from Inventory / Magic",&options.menuCapture);
             if(ImGui::IsItemHovered())UI::SetTooltip("Disable to leave Inventory / Magic capture to another mod. Capture also requires its right- or left-hand shortcut to be enabled under Keyboard.");
             label(tr("Game speed while selecting"));int timeMode=int(selectionClock(options.selectionSpeed));ImGui::SetNextItemWidth(px(300));

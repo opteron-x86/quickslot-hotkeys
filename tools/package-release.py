@@ -39,7 +39,7 @@ def validate_runtime(files):
 def validate_tests(report, dll, state, release):
     expected = {'plugin', 'runtime_vr', 'smart_equipment', 'shortcut_library', 'interactions',
                 'localization', 'dx_state', 'controller_voice', 'icon', 'live', 'features',
-                'hand_actions', 'advanced', 'consumable', 'smf'}
+                'hand_actions', 'advanced', 'consumable', 'smf', 'pngii'}
     if report.get('passed') is not True or set(report.get('cases', {})) != expected:
         raise ValueError('All Windows probes must pass before packaging')
     if any(v.get('returncode') != 0 for v in report['cases'].values()):

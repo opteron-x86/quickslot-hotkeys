@@ -4,6 +4,8 @@
 #include "DXIsolation.h"
 #include "Assets.h"
 #include "I4Icons.h"
+#include "I4Policy.h"
+#include "PNGIIIcons.h"
 #include "VROverlay.h"
 #include <imgui_impl_dx11.h>
 #include <windows.h>
@@ -20,6 +22,7 @@ struct Graphics {
     ImGuiContext* imgui=nullptr;ID3D11Device* device=nullptr;
     std::unique_ptr<preview::DXIsolation> isolation;
     std::unique_ptr<I4Icons> i4;
+    std::unique_ptr<PNGIIIcons> pngii;
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> keyTexture;
     std::map<std::string,Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> themeTextures;
     Hud hud;Editor editor;bool backend=false;double previous=0;
@@ -35,7 +38,19 @@ struct Graphics {
         gameWindow=desc.OutputWindow;device=d;
         isolation=std::make_unique<preview::DXIsolation>(d,c);
         i4=std::make_unique<I4Icons>(d,c);
-        hud.setItemIconProvider([this](const Entry& entry){return i4->find(entry);});
+        pngii=std::make_unique<PNGIIIcons>(d,[](const std::string& path) {
+            auto resource=path;std::replace(resource.begin(),resource.end(),'/','\\');
+            RE::BSResourceNiBinaryStream stream(resource);
+            if(!stream.good()||!stream.stream||!stream.stream->totalSize||stream.stream->totalSize>16*1024*1024)return std::vector<unsigned char>{};
+            std::vector<unsigned char> bytes(stream.stream->totalSize);
+            if(!stream.read(bytes.data(),unsigned(bytes.size())))bytes.clear();
+            return bytes;
+        },[](std::string_view message){SKSE::log::info("{}",message);},[](std::function<void()> task){SKSE::GetTaskInterface()->AddUITask(std::move(task));});
+        hud.setItemIconProvider([this](const Entry& entry){
+            auto fallback=i4->find(entry);
+            if(const auto label=i4->label(entry))if(auto icon=pngii->find(i4HasForm(entry)?entry.form:0,*label))return icon;
+            return fallback;
+        });
         IMGUI_CHECKVERSION();imgui=ImGui::CreateContext();ImGui::SetCurrentContext(imgui);
         auto& io=ImGui::GetIO();io.IniFilename=nullptr;io.LogFilename=nullptr;
         io.ConfigFlags|=ImGuiConfigFlags_NoMouseCursorChange;io.MouseDrawCursor=false;
@@ -91,6 +106,7 @@ std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& optio
         if(!r.graphics){r.graphics=std::make_unique<Graphics>();r.graphics->initialize(device,context,swap);}
         auto& g=*r.graphics;ImGui::SetCurrentContext(g.imgui);
         g.i4->beginFrame();
+        g.pngii->beginFrame(editor?editor->options.pngiiIcons:options.pngiiIcons,itemIconGeneration());
         localization().select(options.language);
         const bool vr=REL::Module::IsVR();
         preview::DXIsolation::Frame isolated(*g.isolation,!vr);

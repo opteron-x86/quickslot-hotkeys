@@ -104,7 +104,7 @@ inline std::string encodeOptions(Options o) {
     Json selectorBindings=Json::array();for(const auto b:o.selectorBindings)selectorBindings.push_back(Json::array({b.key,b.modifiers}));
     Json controllerActions=Json::array();for(const auto b:o.controllerActions)controllerActions.push_back(binding(b));
     return Json{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"themeAdjustments",tweaks},
-        {"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
+        {"pngiiIcons",o.pngiiIcons},{"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
         {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},
         {"groupCaptureRightHotkey",o.groupCaptureRightHotkey},{"groupCaptureLeftHotkey",o.groupCaptureLeftHotkey},{"groupMoveHotkey",o.groupMoveHotkey},
         {"selectorReorderHotkey",o.selectorReorderHotkey},{"selectorUnequipHotkey",o.selectorUnequipHotkey},{"selectorRemoveHotkey",o.selectorRemoveHotkey},
@@ -176,6 +176,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.vrEditor=binding(j.at("vrEditor"));
     o.vrStick=j.at("vrStick").get<decltype(o.vrStick)>();
     o.itemIconColor=j.at("itemIconColor").get<decltype(o.itemIconColor)>();
+    o.pngiiIcons=j.value("pngiiIcons",true);
     o.layout=j.at("layout").get<unsigned>();o.shape=j.at("shape").get<unsigned>();o.selector=j.at("selector").get<unsigned>();
     o.scale=j.at("scale").get<float>();o.opacity=j.at("opacity").get<float>();o.spacing=j.at("spacing").get<float>();
     o.textScale=j.value("textScale",1.f);o.placementSpacing=j.value("placementSpacing",1u);o.placementFrame=j.value("placementFrame",0u);o.placementGridSize=j.value("placementGridSize",16.f);

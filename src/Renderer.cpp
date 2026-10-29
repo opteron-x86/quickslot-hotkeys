@@ -6,6 +6,7 @@
 #include "I4Icons.h"
 #include "I4Policy.h"
 #include "PNGIIIcons.h"
+#include "UIIconTasks.h"
 #include "VROverlay.h"
 #include <imgui_impl_dx11.h>
 #include <windows.h>
@@ -18,6 +19,7 @@ struct Guard {
     ~Guard(){ImGui::SetCurrentContext(previous);}
 };
 std::atomic<HWND> gameWindow{nullptr};
+UIIconTasks& uiIconTasks(){static auto* tasks=new UIIconTasks;return *tasks;}
 struct Graphics {
     ImGuiContext* imgui=nullptr;ID3D11Device* device=nullptr;
     std::unique_ptr<preview::DXIsolation> isolation;
@@ -45,7 +47,7 @@ struct Graphics {
             std::vector<unsigned char> bytes(stream.stream->totalSize);
             if(!stream.read(bytes.data(),unsigned(bytes.size())))bytes.clear();
             return bytes;
-        },[](std::string_view message){SKSE::log::info("{}",message);},[](std::function<void()> task){SKSE::GetTaskInterface()->AddUITask(std::move(task));});
+        },[](std::string_view message){SKSE::log::info("{}",message);},[](std::function<void()> task){uiIconTasks().post(std::move(task));});
         hud.setItemIconProvider([this](const Entry& entry){
             auto fallback=i4->find(entry);
             if(const auto label=i4->label(entry))if(auto icon=pngii->find(i4HasForm(entry)?entry.form:0,*label))return icon;
@@ -81,6 +83,10 @@ struct Graphics {
 struct Renderer {std::unique_ptr<Graphics> graphics;double retryAfter=0;};
 
 Renderer& renderer(){static auto* value=new Renderer;return *value;}
+}
+void runUIIconTasks() {
+    try{uiIconTasks().run();}
+    catch(const std::exception& error){SKSE::log::error("PNGII UI icon lookup failed: {}",error.what());}
 }
 bool renderHasFocus() {
     if(REL::Module::IsVR())return vrOverlayReady();

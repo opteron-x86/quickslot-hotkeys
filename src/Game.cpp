@@ -48,6 +48,7 @@ public:
            !Game::get().allowHudMenuTransition())return RE::UI_MESSAGE_RESULTS::kIgnore;
         return RuntimeMenu::ProcessMessage(message);
     }
+    void AdvanceMovie(float interval,std::uint32_t time)override{RuntimeMenu::AdvanceMovie(interval,time);runUIIconTasks();}
     void PostDisplay()override{if(!REL::Module::IsVR())Game::get().draw();}
     static RE::IMenu* create(){return new Menu;}
 };
@@ -66,6 +67,7 @@ public:
 class EditorMenu final : public RuntimeMenu {
 public:
     EditorMenu():RuntimeMenu(editorMenuName){depthPriority=12;inputContext=RE::UserEvents::INPUT_CONTEXT_ID::kMenuMode;menuFlags.set(RE::UI_MENU_FLAGS::kPausesGame,RE::UI_MENU_FLAGS::kUsesMenuContext,RE::UI_MENU_FLAGS::kModal,RE::UI_MENU_FLAGS::kDisablePauseMenu,RE::UI_MENU_FLAGS::kRequiresUpdate,RE::UI_MENU_FLAGS::kCustomRendering);}
+    void AdvanceMovie(float interval,std::uint32_t time)override{RuntimeMenu::AdvanceMovie(interval,time);runUIIconTasks();}
     void PostDisplay()override{if(!REL::Module::IsVR())Game::get().draw(true);}
     static RE::IMenu* create(){return new EditorMenu;}
 };

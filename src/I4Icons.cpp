@@ -123,7 +123,8 @@ struct I4Icons::Impl {
     std::map<std::string,RE::GPtr<RE::GFxMovieDef>> movies;
     std::deque<Entry> pending;
     std::uint64_t generation=0,frame=0;
-    bool available=false,reported=false;
+    std::optional<unsigned> reportedAPI;
+    bool available=false,reported=false,captureReported=false;
     Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c),isolation(d,c){
         if(!isolation.available())throw std::runtime_error("I4 icons require D3D11 context-state support");
     }
@@ -132,61 +133,88 @@ struct I4Icons::Impl {
     template<class Map> void trim(Map& values,std::size_t limit) {
         while(values.size()>=limit)values.erase(std::min_element(values.begin(),values.end(),[](const auto& a,const auto& b){return a.second.used<b.second.used;}));
     }
-    ComPtr<ID3D11ShaderResourceView> upload(const std::vector<std::uint8_t>& pixels) {
+    ComPtr<ID3D11ShaderResourceView> upload(const std::vector<std::uint8_t>& pixels,HRESULT& status) {
         D3D11_TEXTURE2D_DESC desc{};desc.Width=desc.Height=iconSize;desc.ArraySize=desc.MipLevels=1;
         desc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;desc.SampleDesc.Count=1;desc.Usage=D3D11_USAGE_IMMUTABLE;desc.BindFlags=D3D11_BIND_SHADER_RESOURCE;
         D3D11_SUBRESOURCE_DATA data{pixels.data(),iconSize*4,0};ComPtr<ID3D11Texture2D> texture;ComPtr<ID3D11ShaderResourceView> view;
-        if(SUCCEEDED(device->CreateTexture2D(&desc,&data,&texture)))device->CreateShaderResourceView(texture.Get(),nullptr,&view);
+        status=device->CreateTexture2D(&desc,&data,&texture);
+        if(SUCCEEDED(status))status=device->CreateShaderResourceView(texture.Get(),nullptr,&view);
         return view;
     }
     Texture render(const Spec& spec) {
         Texture result;result.used=frame;
-        auto* manager=RE::BSScaleformManager::GetSingleton();if(!manager||!manager->loader)return result;
+        const auto fail=[&](std::string_view reason) {
+            SKSE::log::warn("I4 icon unavailable: {} [{}]; {}",spec.source,spec.label,reason);return result;
+        };
+        const auto failDX=[&](std::string_view stage,HRESULT status) {
+            return fail(std::format("stage={} (HRESULT=0x{:08X}, device_status=0x{:08X})",stage,std::uint32_t(status),std::uint32_t(device->GetDeviceRemovedReason())));
+        };
+        auto* manager=RE::BSScaleformManager::GetSingleton();if(!manager||!manager->loader)return fail("stage=scaleform_loader");
         if(!movies.contains(spec.source)) {
             if(movies.size()>=32)movies.erase(movies.begin());
             const auto flags=RE::GFxLoader::LoadConstants(RE::GFxLoader::kLoadWaitCompletion|RE::GFxLoader::kLoadKeepBindData|RE::GFxLoader::kLoadQuietOpen);
-            movies[spec.source]=own(manager->loader->CreateMovie(spec.source.c_str(),flags));
+            auto definition=own(manager->loader->CreateMovie(spec.source.c_str(),flags));
+            if(definition)SKSE::log::info("I4 icon source loaded: {} (SWF {}, {}x{}, {} frames)",spec.source,definition->GetVersion(),definition->GetWidth(),definition->GetHeight(),definition->GetFrameCount());
+            movies[spec.source]=std::move(definition);
         }
-        const auto& definition=movies.at(spec.source);if(!definition)return result;
-        auto movie=own(definition->CreateInstance());if(!movie)return result;
+        const auto& definition=movies.at(spec.source);
+        if(!definition)return fail(std::format("stage=load_movie (resource_exists={})",RE::BSScaleformManager::FileExists(spec.source.c_str())));
+        auto movie=own(definition->CreateInstance());if(!movie)return fail("stage=create_instance");
         movie->SetBackgroundAlpha(0);movie->SetViewScaleMode(RE::GFxMovieView::ScaleModeType::kNoScale);
         movie->SetViewAlignment(RE::GFxMovieView::AlignType::kTopLeft);
         movie->SetViewport(iconSize,iconSize,0,0,iconSize,iconSize,RE::GViewport::kRenderTextureAlpha);
-        if(!movie->GotoLabeledFrame(spec.label.c_str()))return result;
+        if(!movie->GotoLabeledFrame(spec.label.c_str()))return fail("stage=select_frame");
         movie->SetPlayState(RE::GFxMovie::PlayState::kStopped);
         RE::GFxValue root,bounds;
-        if(!movie->GetVariable(&root,"_root")||!root.IsDisplayObject())return result;
+        if(!movie->GetVariable(&root,"_root"))return fail("stage=get_root");
+        if(!root.IsDisplayObject())return fail(std::format("stage=root_type (type={})",unsigned(root.GetType())));
         movie->Advance(0);
         root.SetMember("_x",0.0);root.SetMember("_y",0.0);root.SetMember("_xscale",100.0);root.SetMember("_yscale",100.0);
-        if(!root.Invoke("getBounds",&bounds,&root,1)||!bounds.IsObject())return result;
-        const auto fit=fitI4Icon(number(bounds,"xMin"),number(bounds,"yMin"),number(bounds,"xMax"),number(bounds,"yMax"),iconSize);
-        if(!fit)return result;
+        if(!root.Invoke("getBounds",&bounds,&root,1))return fail("stage=get_bounds");
+        if(!bounds.IsObject())return fail(std::format("stage=bounds_type (type={})",unsigned(bounds.GetType())));
+        const auto left=number(bounds,"xMin"),top=number(bounds,"yMin"),right=number(bounds,"xMax"),bottom=number(bounds,"yMax");
+        const auto fit=fitI4Icon(left,top,right,bottom,iconSize);
+        if(!fit)return fail(std::format("stage=fit_bounds (left={}, top={}, right={}, bottom={})",left,top,right,bottom));
         RE::GFxValue::DisplayInfo display;display.SetPosition(fit->x,fit->y);display.SetScale(fit->scale*100,fit->scale*100);display.SetAlpha(100);display.SetVisible(true);
-        if(!root.SetDisplayInfo(display))return result;
+        if(!root.SetDisplayInfo(display))return fail("stage=display_transform");
 
         D3D11_TEXTURE2D_DESC desc{};desc.Width=desc.Height=iconSize;desc.ArraySize=desc.MipLevels=1;
         desc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;desc.SampleDesc.Count=1;desc.BindFlags=D3D11_BIND_RENDER_TARGET;
         ComPtr<ID3D11Texture2D> target,staging;ComPtr<ID3D11RenderTargetView> view;
-        if(FAILED(device->CreateTexture2D(&desc,nullptr,&target))||FAILED(device->CreateRenderTargetView(target.Get(),nullptr,&view)))return result;
+        auto status=device->CreateTexture2D(&desc,nullptr,&target);
+        if(FAILED(status))return failDX("create_target_texture",status);
+        status=device->CreateRenderTargetView(target.Get(),nullptr,&view);
+        if(FAILED(status))return failDX("create_target_view",status);
         desc.BindFlags=0;desc.Usage=D3D11_USAGE_STAGING;desc.CPUAccessFlags=D3D11_CPU_ACCESS_READ;
-        if(FAILED(device->CreateTexture2D(&desc,nullptr,&staging)))return result;
+        status=device->CreateTexture2D(&desc,nullptr,&staging);
+        if(FAILED(status))return failDX("create_readback_texture",status);
+        bool targetPreserved=false;
         {
             DXContextState::Frame saved(isolation);
             ID3D11RenderTargetView* targets[]{view.Get()};context->OMSetRenderTargets(1,targets,nullptr);
             const D3D11_VIEWPORT viewport{0,0,float(iconSize),float(iconSize),0,1};context->RSSetViewports(1,&viewport);
             const float clear[]{0,0,0,0};context->ClearRenderTargetView(view.Get(),clear);
             movie->Display();
+            ComPtr<ID3D11RenderTargetView> boundTarget;context->OMGetRenderTargets(1,&boundTarget,nullptr);
+            targetPreserved=boundTarget.Get()==view.Get();
             context->CopyResource(staging.Get(),target.Get());
         }
         std::vector<std::uint8_t> pixels(iconSize*iconSize*4);
         D3D11_MAPPED_SUBRESOURCE mapped{};
-        if(FAILED(context->Map(staging.Get(),0,D3D11_MAP_READ,0,&mapped)))return result;
+        status=context->Map(staging.Get(),0,D3D11_MAP_READ,0,&mapped);
+        if(FAILED(status))return failDX("readback",status);
         for(unsigned y=0;y<iconSize;++y)std::memcpy(pixels.data()+y*iconSize*4,static_cast<const std::uint8_t*>(mapped.pData)+y*mapped.RowPitch,iconSize*4);
         context->Unmap(staging.Get(),0);
-        if(!straightenI4Pixels(pixels))return result;
-        result.original=upload(pixels);
+        unsigned coloredPixels=0;
+        for(std::size_t i=0;i<pixels.size();i+=4)coloredPixels+=bool(pixels[i]||pixels[i+1]||pixels[i+2]);
+        if(!straightenI4Pixels(pixels))return fail(std::format("stage=empty_alpha (colored_pixels={}, target_preserved={}, bounds={},{},{},{}, device_status=0x{:08X})",coloredPixels,targetPreserved,left,top,right,bottom,std::uint32_t(device->GetDeviceRemovedReason())));
+        result.original=upload(pixels,status);
+        if(FAILED(status))return failDX("upload_original",status);
         for(std::size_t i=0;i<pixels.size();i+=4)pixels[i]=pixels[i+1]=pixels[i+2]=255;
-        result.mask=upload(pixels);return result;
+        result.mask=upload(pixels,status);
+        if(FAILED(status))return failDX("upload_mask",status);
+        if(!captureReported){SKSE::log::info("I4 icon capture ready: {} [{}], {}x{} pixels",spec.source,spec.label,iconSize,iconSize);captureReported=true;}
+        return result;
     }
     static Spec category(const Entry& entry){return {i4DefaultSource,i4DefaultLabel(entry),{}};}
     static Spec placeholder(){return {i4DefaultSource,"default_misc",{}};}
@@ -204,7 +232,6 @@ struct I4Icons::Impl {
     }
     void capture(const Spec& spec) {
         trim(textures,maxTextures);auto texture=render(spec);
-        if(!texture.original||!texture.mask)SKSE::log::warn("I4 icon unavailable: {} [{}]",spec.source,spec.label);
         textures.emplace(key(spec),std::move(texture));
     }
     void beginFrame() {
@@ -214,13 +241,21 @@ struct I4Icons::Impl {
         auto* ui=RE::UI::GetSingleton();if(!ui)return;
         const auto hud=ui->GetMenu<RE::HUDMenu>();if(!hud||!hud->uiMovie)return;
         auto& movie=*hud->uiMovie;
-        available=movie.IsAvailable(processEntry)&&movie.IsAvailable("skse.ExtendForm");
-        if(!reported) {
+        const bool processAvailable=movie.IsAvailable(processEntry),extendAvailable=movie.IsAvailable("skse.ExtendForm");
+        available=processAvailable&&extendAvailable;
+        const unsigned api=unsigned(processAvailable)|(unsigned(extendAvailable)<<1);
+        if(reportedAPI!=api) {
+            reportedAPI=api;
+            SKSE::log::info("I4 icon APIs: ProcessEntry={}, SKSE ExtendForm={}",processAvailable,extendAvailable);
             if(available)SKSE::log::info("I4 icon provider ready");
-            else {
-                SKSE::log::error("Quickslot requires I4 1.1.0 or newer: ProcessEntry API unavailable");
-                SKSE::GetTaskInterface()->AddTask([]{RE::DebugMessageBox("Quickslot requires Inventory Interface Information Injector (I4) 1.1.0 or newer. Install I4 for your Skyrim version and restart the game.");});
-            }
+        }
+        if(!available&&!reported) {
+            const char* message=!processAvailable&&!extendAvailable?
+                "Quickslot could not access the SKSE and I4 icon APIs. Check that SKSE and I4 1.1.0 or newer loaded successfully. See Quickslot.log for details.":
+                !processAvailable?"Quickslot could not access I4's ProcessEntry icon API. Install I4 1.1.0 or newer for your Skyrim version and check InventoryInjector.log.":
+                "Quickslot could not access SKSE's ExtendForm API. Check that SKSE matches your Skyrim executable and review your SKSE log.";
+            SKSE::log::error("{}",message);
+            SKSE::GetTaskInterface()->AddTask([message]{RE::DebugMessageBox(message);});
             reported=true;
         }
         if(!available){pending.clear();return;}

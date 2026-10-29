@@ -7,6 +7,7 @@
 #include <limits>
 using Microsoft::WRL::ComPtr;
 void check(bool value,const char* why){if(!value)throw std::runtime_error(why);}
+#include "dx_capture.h"
 namespace {
 struct Instance {
     unsigned released=0;
@@ -51,6 +52,7 @@ int main()try {
     HRESULT result=D3D11CreateDevice(nullptr,D3D_DRIVER_TYPE_HARDWARE,nullptr,0,levels,1,D3D11_SDK_VERSION,&device,&level,&context);
     if(FAILED(result))result=D3D11CreateDevice(nullptr,D3D_DRIVER_TYPE_WARP,nullptr,0,levels,1,D3D11_SDK_VERSION,&device,&level,&context);
     check(SUCCEEDED(result),"Create a D3D11 test device");
+    iconCapturePixels(device.Get(),context.Get());
     D3D11_TEXTURE2D_DESC desc{};desc.Width=320;desc.Height=180;desc.MipLevels=desc.ArraySize=1;desc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;desc.SampleDesc.Count=1;desc.BindFlags=D3D11_BIND_RENDER_TARGET;
     ComPtr<ID3D11Texture2D> texture,other;ComPtr<ID3D11RenderTargetView> target,second;
     check(SUCCEEDED(device->CreateTexture2D(&desc,nullptr,&texture))&&SUCCEEDED(device->CreateRenderTargetView(texture.Get(),nullptr,&target)),"Create target");

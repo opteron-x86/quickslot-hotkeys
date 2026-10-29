@@ -1,9 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.13.0
 
-- Improved I4 dependency detection, with in-game messages identifying missing plugins or icon APIs.
-- Added detailed logging for missing I4 icons.
+- Improved compatibility with I4 ports, with in-game dependency messages and detailed missing-icon logs.
 - Groups, selectors and equipment share a 0–128 spacing range, with compact layouts at zero and wider gaps at higher values.
 - Horizontal equipment spacing follows the width of each item's icon and labels.
 - Equipment supports horizontal, vertical, diamond, cross, circle and staggered-cross arrangements, layout presets and optional item names.
@@ -11,6 +10,8 @@
 - Quickslot yields controls to UIExtensions and custom modal menus, including unpaused menus.
 - Quickslot yields controls and hides its HUD during scenes that take control of the player, including OStim. Controls resume when the scene returns control to the player.
 - Display matching PNG and SVG artwork from PNG Icon Injector in the widget, browser, equipment display and editor preview. Configure **Use PNGII icons** and **Icon color** under **Appearance → Style**. I4 supplies the remaining icons.
+
+**Skyrim 1.5.97:** Icon rendering compatibility is provisional. If icons remain blank, use [Quickslot 0.11.0](https://github.com/opteron-x86/quickslot-hotkeys/releases/tag/v0.11.0) and report the problem in [issue #25](https://github.com/opteron-x86/quickslot-hotkeys/issues/25).
 
 ## 0.12.0
 

@@ -985,6 +985,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 label(tr("Icon size"));ImGui::SetNextItemWidth(-1);tuned|=UI::SliderFloat("##Icon size",&tweak.iconScale,.65f,1.2f,"%.2fx");
                 if(tuned){options.themeAdjustments[options.themeId]=tweak;changed=true;}
                 combo("Icon color","##item icon color",options.itemIconColor,"Original\0Theme\0White\0");
+                changed|=UI::Checkbox("Use PNGII icons",&options.pngiiIcons);
+                if(ImGui::IsItemHovered())UI::SetTooltip("Use matching artwork from PNG Icon Injector. I4 supplies the remaining icons.");
                 if(options.itemIconColor==1)changed|=UI::Checkbox("Tint magic icons",&options.coloredMagic);
                 changed|=UI::Checkbox("Key icons",&options.keyIcons);
                 changed|=UI::Checkbox("Show poisoned weapons",&options.showPoison);

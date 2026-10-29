@@ -110,6 +110,7 @@ std::optional<Spec> resolve(RE::GFxMovieView& movie,const Entry& entry) {
 }
 }
 void invalidateI4Icons(){++iconGeneration;}
+std::uint64_t itemIconGeneration(){return iconGeneration.load();}
 
 struct I4Icons::Impl {
     ComPtr<ID3D11Device> device;
@@ -257,4 +258,11 @@ I4Icons::I4Icons(ID3D11Device* d,ID3D11DeviceContext* c):impl_(std::make_unique<
 I4Icons::~I4Icons()=default;
 void I4Icons::beginFrame(){impl_->beginFrame();}
 std::optional<ItemIcon> I4Icons::find(const Entry& entry){return impl_->find(entry);}
+std::optional<std::string_view> I4Icons::label(const Entry& entry)const {
+    if(!impl_->available)return {};
+    if(!i4HasForm(entry))return i4DefaultLabel(entry);
+    const auto found=impl_->forms.find(i4RequestKey(entry));
+    if(found!=impl_->forms.end()&&found->second.spec)return found->second.spec->label;
+    return {};
+}
 }

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Groups, selectors and equipment share a 0–128 spacing range, with compact layouts at zero and wider gaps at higher values.
+- Horizontal equipment spacing follows the width of each item's icon and labels.
+- Equipment supports horizontal, vertical, diamond, cross, circle and staggered-cross arrangements, layout presets and optional item names.
+- Appearance previews have adjustable zoom and a **Fit preview** button.
 - Quickslot yields controls to UIExtensions and custom modal menus, including unpaused menus.
 - Quickslot yields controls and hides its HUD during scenes that take control of the player, including OStim. Controls resume when the scene returns control to the player.
 

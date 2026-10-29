@@ -21,6 +21,12 @@ inline unsigned entryHands(const Entry& e,bool equipped) {
 }
 inline bool twoHandedDisplay(const EquippedDisplay& state){return state.hands[0]&&state.hands[0]->entry.twoHanded;}
 inline unsigned equipmentRows(const EquippedDisplay& state,const Options& options={}){return (twoHandedDisplay(state)?3u:4u)+(options.showEquipmentAmmo?1u:0u);}
+template<class Draw> void forEachEquipmentRow(const EquippedDisplay& state,const Options& options,Draw draw) {
+    if(twoHandedDisplay(state))draw("Both hands",state.hands[0]);
+    else {draw("Right hand",state.hands[0]);draw("Left hand",state.hands[1]);}
+    if(options.showEquipmentAmmo)draw("Ammunition",state.ammo);
+    draw("Consumable",state.consumable);draw("Power / shout",state.voice);
+}
 inline bool equipmentDimmed(const Row& row){return !row.available||row.powerUsed||row.cooldown>0;}
 inline int compatibleAmmoCount(bool crossbow,std::optional<bool> bolt,int count) {
     return bolt&&*bolt==crossbow?std::max(0,count):0;

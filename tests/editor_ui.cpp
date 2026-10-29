@@ -1,4 +1,5 @@
 #include "Editor.h"
+#include "EquippedState.h"
 #include "EditorFixture.h"
 #include "UiProbe.h"
 #include "Layout.h"
@@ -188,13 +189,14 @@ int main(int argc,char** argv)try {
     click("Spacing");click("Custom");check(!probe::find("Grid size").empty(),"Custom spacing exposes its size control");
     click("Undo");check(state.options.placementSpacing==2,"Grid density supports Undo");
 
-    const auto freeBefore=state.options;const auto freeGeometry=hudGeometry(freeBefore,io.DisplaySize.x,io.DisplaySize.y);
+    const auto currentGeometry=[&](const Options& look){return hudGeometry(look,io.DisplaySize.x,io.DisplaySize.y,equipmentRows(state.equippedDisplay,look),{},state.rows[state.draft.active].size());};
+    const auto freeBefore=state.options;const auto freeGeometry=currentGeometry(freeBefore);
     mouse(probe::one("Drag selector").rect.GetCenter());frame({{EditorInputType::key,42,true},{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,13,9}});frame({{EditorInputType::button,0,false},{EditorInputType::key,42,false}});frame();
     check(std::abs(state.options.selectorX-(freeBefore.selectorX+13/(io.DisplaySize.x-16-freeGeometry.selectorWidth*freeGeometry.scale)))<.0001f,"Shift moves freely without grid quantization");
     click("Back");click("##selector dock");click("Above widget");click("Position");
-    const auto docked=hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y);click("Selector");
-    const auto detached=hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y);
+    const auto docked=currentGeometry(state.options);click("Selector");
+    const auto detached=currentGeometry(state.options);
     check(state.options.selectorDock==4&&std::abs(docked.origin.x+docked.selectorOrigin.x*docked.scale-detached.origin.x-detached.selectorOrigin.x*detached.scale)<.001f&&std::abs(docked.origin.y+docked.selectorOrigin.y*docked.scale-detached.origin.y-detached.selectorOrigin.y*detached.scale)<.001f,"Detaching the selector preserves its visible location");
     click("Back");click("Style");const auto textSize=state.options.textScale;
     mouse(probe::one("##Text size").rect.GetCenter());frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();
@@ -449,17 +451,38 @@ int main(int argc,char** argv)try {
     padKey(PadButton::a);padKey(PadButton::left);padKey(PadButton::a);
     check(!editor.controllerPointer(),"D-pad returns from the pointer to focused navigation");
     click("Back");click("Equipment");click("##equipment visibility");click("Show always");
+    const auto equipmentBefore=encodeOptions(state.options);
+    const std::array<const char*,3> equipmentPresets{"Cross layout","Diamond layout","Circle layout"};
+    for(unsigned preset=0;preset<3;++preset) {
+        click(equipmentPresets[preset]);
+        check(state.options.equipmentLayout==(preset==0?5u:preset==1?2u:4u)&&!state.options.equipmentShowText,"Equipment presets apply compact matching arrangements");
+        click("Show equipment names");check(state.options.equipmentShowText,"Equipment names can be enabled on preset tiles");
+        click("Undo");check(!state.options.equipmentShowText,"Equipment name visibility supports Undo");
+        click("Undo");check(encodeOptions(state.options)==equipmentBefore,"Equipment presets support Undo as one change");
+    }
+    const std::array<const char*,6> equipmentLayouts{"Horizontal","Vertical","Diamond","Cross","Circle","Staggered cross"};
+    for(unsigned layout:{0u,2u,3u,4u,5u}) {
+        click("##equipment layout");click(equipmentLayouts[layout]);check(state.options.equipmentLayout==layout,"Every equipment arrangement can be selected in the editor");
+        click("Undo");check(encodeOptions(state.options)==equipmentBefore,"Equipment arrangements support Undo");
+    }
     const float groupScale=state.options.scale;
-    const auto changeSlider=[&](const char* label){const auto r=probe::one(label).rect;mouse({r.Min.x+r.GetWidth()*.8f,r.GetCenter().y});frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();};
+    const auto changeSlider=[&](const char* label){
+        for(unsigned attempt=0;attempt<24;++attempt) {
+            const auto item=probe::one(label);auto* window=ImGui::FindWindowByName(item.window.c_str());
+            if(!window||window->InnerClipRect.Contains(item.rect.GetCenter()))break;
+            const auto clip=window->InnerClipRect;mouse(clip.GetCenter());frame({{EditorInputType::wheel,0,false,0,item.rect.GetCenter().y>clip.Max.y?-2.f:2.f}});frame();
+        }
+        const auto r=probe::one(label).rect;mouse({r.Min.x+r.GetWidth()*.8f,r.GetCenter().y});frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();};
+    changeSlider("##Preview zoom");click("Fit preview");check(encodeOptions(state.options)==equipmentBefore,"Preview magnification and Fit leave saved HUD settings intact");
     changeSlider("##Scale");check(state.options.equipmentScale>1.4f&&state.options.scale==groupScale,"Equipment Scale changes independently of group size");
     click("Undo");check(state.options.equipmentScale==1,"Equipment Scale supports Undo");
     changeSlider("##Text size");check(state.options.equipmentTextScale>1.2f&&state.options.textScale==1,"Equipment Text size changes independently of other text");
     click("Undo");check(state.options.equipmentTextScale==1,"Equipment Text size supports Undo");
     const auto groupSpacing=state.options.spacing,selectorSpacing=state.options.selectorSpacing;
-    changeSlider("##Spacing");check(state.options.equipmentSpacing>3&&state.options.spacing==groupSpacing&&state.options.selectorSpacing==selectorSpacing,"Equipment Spacing applies live without changing groups or selector");
-    click("Undo");check(state.options.equipmentSpacing==1,"Equipment Spacing supports Undo");
-    click("Groups");changeSlider("##Spacing");check(state.options.spacing>30&&state.options.equipmentSpacing==1,"Groups use their own Spacing control");click("Undo");
-    click("Selector");changeSlider("##Spacing");check(state.options.selectorSpacing>24&&state.options.spacing==groupSpacing,"Selector uses its own Spacing control");click("Undo");click("Equipment");
+    changeSlider("##Spacing");check(state.options.equipmentSpacing>100&&state.options.spacing==groupSpacing&&state.options.selectorSpacing==selectorSpacing,"Equipment Spacing applies live without changing groups or selector");
+    click("Undo");check(state.options.equipmentSpacing==8,"Equipment Spacing supports Undo");
+    click("Groups");changeSlider("##Spacing");check(state.options.spacing>100&&state.options.equipmentSpacing==8,"Groups use their own Spacing control");click("Undo");
+    click("Selector");changeSlider("##Spacing");check(state.options.selectorSpacing>100&&state.options.spacing==groupSpacing,"Selector uses its own Spacing control");click("Undo");click("Equipment");
     click("Position");check(!probe::find("Scale").empty(),"Equipment placement exposes its independent scale");
     const auto oldEquipmentScale=state.options.equipmentScale;changeSlider("Scale");check(state.options.equipmentScale!=oldEquipmentScale&&state.options.scale==groupScale,"Position Scale affects only the selected equipment widget");
     click("Back");click("Close");
@@ -506,11 +529,11 @@ int main(int argc,char** argv)try {
     click("##equipment visibility");click("Dim when idle");check(state.options.equipmentDim,"Equipment dim mode applies immediately");
     click("Undo");check(!state.options.equipmentDim&&state.options.showEquipment,"Equipment visibility supports Undo");
     click("##equipment style");click("Circles");click("##equipment layout");click("Horizontal");click("##equipment text");click("Bottom");
-    check(state.options.equipmentStyle==1&&state.options.equipmentLayout==1&&state.options.equipmentTextPosition==1,"Shape, arrangement and text position apply live");
+    check(state.options.equipmentStyle==1&&state.options.equipmentLayout==0&&state.options.equipmentTextPosition==1,"Shape, arrangement and text position apply live");
     click("##equipment style");click("Diamonds");check(state.options.equipmentStyle==2,"Diamond equipment icons available");
     click("##equipment style");click("Squares");check(state.options.equipmentStyle==3,"Square equipment icons available");
     click("##equipment style");click("Text only");check(state.options.equipmentStyle==4&&probe::find("##equipment text").empty(),"Text-only hides irrelevant icon text-position control");
-    click("##equipment style");click("List");check(state.options.equipmentStyle==0&&probe::find("##equipment layout").empty(),"List retains its compact vertical layout");
+    click("##equipment style");click("List");check(state.options.equipmentStyle==0&&!probe::find("##equipment layout").empty(),"List supports the equipment arrangements");
     click("Position");check(!probe::find("Drag equipment").empty(),"Independent equipment placement has a bounding box");
     const auto oldWidget=Point{state.options.positionX,state.options.positionY};
     const auto eqBox=probe::one("Drag equipment").rect;mouse(eqBox.GetCenter());frame({{EditorInputType::button,0,true}});
@@ -562,8 +585,8 @@ int main(int argc,char** argv)try {
     check(bothBounds.equipment.valid&&bothBounds.equipment.height()<equipmentGeometry(visibility,io.DisplaySize.x,io.DisplaySize.y,4).height*equipmentGeometry(visibility,io.DisplaySize.x,io.DisplaySize.y,4).scale,"Two-handed equipment uses one compact row");
     hidden.equipment.hands[0]->entry.twoHanded=false;hidden.editorPreview=hidden.placementPreview=true;
     visibility.showEquipmentAmmo=true;Entry ammunition;ammunition.kind=Kind::ammo;ammunition.name="Dwarven Bolts";hidden.equipment.ammo=Row{ammunition,true,true,{},147};
-    for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<2;++layout)for(unsigned position=0;position<4;++position)
-        for(const ImVec2 screen:{ImVec2{1280,720},ImVec2{3840,2160}})for(float spacing:{0.f,4.f}) {
+    for(unsigned style=0;style<5;++style)for(unsigned layout=0;layout<6;++layout)for(unsigned position=0;position<4;++position)
+        for(const ImVec2 screen:{ImVec2{1280,720},ImVec2{3840,2160}})for(float spacing:{0.f,128.f}) {
             io.DisplaySize=screen;visibility.equipmentStyle=style;visibility.equipmentLayout=layout;visibility.equipmentTextPosition=position;
             visibility.equipmentX=visibility.equipmentY=1;visibility.textScale=1.5f;visibility.equipmentScale=2;visibility.equipmentTextScale=1.5f;
             visibility.equipmentSpacing=spacing;
@@ -584,7 +607,7 @@ int main(int argc,char** argv)try {
     unsigned alpha=0;for(const auto& v:ImGui::GetBackgroundDrawList()->VtxBuffer)alpha=std::max(alpha,unsigned(v.col>>24));
     check(alpha>0&&alpha<80,"Equipment uses its own rendered opacity");
     hidden.visible=false;independent=renderBounds(224);check(!independent.widget.valid&&!independent.equipment.valid,"Blocking menus hide both independent displays");
-    Snapshot fixed;fixed.visible=true;fixed.groups[0]={unarmedEntry(),1,true,true};
+    Snapshot fixed;fixed.visible=true;fixed.previewZoom=.25f;fixed.groups[0]={unarmedEntry(),1,true,true};
     for(unsigned layout=0;layout<6;++layout)for(unsigned shape=0;shape<4;++shape)for(bool preview:{false,true})
         for(const ImVec2 screen:{ImVec2{1280,720},ImVec2{3840,2160}}) {
             io.DisplaySize=screen;fixed.editorPreview=preview;
@@ -596,6 +619,7 @@ int main(int argc,char** argv)try {
             for(unsigned i=0;i<4;++i) {
                 const auto dw=std::abs(tight.tiles[i].width()-loose.tiles[i].width()),dh=std::abs(tight.tiles[i].height()-loose.tiles[i].height());
                 // Glyph edges snap to whole pixels; text above the frame can round its top bound.
+                if(dw>=.02f||dh>=1.01f)std::cerr<<"Rendered group size: layout="<<layout<<" shape="<<shape<<" preview="<<preview<<" screen="<<screen.x<<'x'<<screen.y<<" dw="<<dw<<" dh="<<dh<<'\n';
                 check(dw<.02f&&dh<1.01f,"Rendered tile dimensions stay fixed within text pixel snapping when group spacing changes");
             }
             const auto distance=[](const HudBounds& b){const auto& a=b.tiles[0];const auto& c=b.tiles[1];return std::hypot(a.min.x+a.max.x-c.min.x-c.max.x,a.min.y+a.max.y-c.min.y-c.max.y)*.5f;};

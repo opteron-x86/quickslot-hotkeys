@@ -241,6 +241,16 @@ void Hud::initialize(const std::string& directory) {
     };
     for(const auto& t:themes_.all())skins_[t.id]={packFont(t.font,sans),packFont(t.titleFont.empty()?t.font:t.titleFont,medium),0};
 }
+EquipmentMetrics Hud::equipmentMetrics(const EquippedDisplay& state,const Options& o)const {
+    EquipmentMetrics metrics;auto* font=bodyFont(o);if(!font)return metrics;
+    metrics.measured=true;unsigned index=0;const float t=o.textScale*o.equipmentTextScale;
+    forEachEquipmentRow(state,o,[&](const char* role,const std::optional<Row>& row) {
+        const auto name=equipmentTextName(row,o.equipmentStyle!=4,o);
+        metrics.textWidths[index++]=std::max(font->CalcTextSizeA(11.5f*t,FLT_MAX,0,tr(role)).x,
+            font->CalcTextSizeA(17*t,FLT_MAX,0,name.c_str()).x)+2;
+    });
+    return metrics;
+}
 void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,ImVec2 viewport,ImDrawList* list,HudBounds* bounds) {
     if(bounds)*bounds={};
     const auto displacement=motion_.update(state,o,now);const auto visibility=fade_.update(state,o,now);
@@ -248,8 +258,9 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     if(visibility<=0&&equipmentAlpha<=0)return;
     const bool notification=!state.notice.empty()&&now<state.noticeUntil;
     const auto screen=viewport.x>0&&viewport.y>0?viewport:ImGui::GetIO().DisplaySize;
-    auto geometry=hudGeometry(o,screen.x,screen.y,equipmentRows(state.equipment,o));
-    if(state.editorPreview&&!state.placementPreview&&list){const auto display=ImGui::GetIO().DisplaySize;geometry=previewGeometry(o,display.x,display.y,screen.x,screen.y,state.browsing,!state.selectorOnly,state.equipmentOnly,equipmentRows(state.equipment,o));}
+    const auto metrics=equipmentMetrics(state.equipment,o);
+    auto geometry=hudGeometry(o,screen.x,screen.y,equipmentRows(state.equipment,o),metrics,state.rows.size());
+    if(state.editorPreview&&!state.placementPreview&&list){const auto display=ImGui::GetIO().DisplaySize;geometry=previewGeometry(o,display.x,display.y,screen.x,screen.y,state.browsing,!state.selectorOnly,state.equipmentOnly,equipmentRows(state.equipment,o),metrics,state.rows.size(),state.previewZoom);}
     const float scale=geometry.scale;
     const auto& theme=themes_.get(o.themeId);const auto& skin=skins_.at(theme.id);
     Paint p{list?list:ImGui::GetBackgroundDrawList(),
@@ -273,15 +284,15 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             else if(row.equipped)nodePaint.diamond(marker,y+r*.7f,3.5f,ivory);
             nodePaint.badge(x+r*.58f,y+r*.5f,row.entry,row.quantity,row.cooldown,selected?15:12,false,row.weapon);
         };
-        const auto layout=selectorGeometry(o);
+        const auto layout=selectorGeometry(o,n,displacement);
         if(active) {
             if(o.selector==2) {
                 const auto visible=std::min(n,std::size_t(8));
                 for(std::size_t i=0;i<visible;++i) {
                     const auto offset=i<=visible/2?std::ptrdiff_t(i):std::ptrdiff_t(i)-std::ptrdiff_t(visible);
                     const auto at=std::size_t((std::ptrdiff_t(index)+offset+std::ptrdiff_t(n))%std::ptrdiff_t(n));
-                    const float angle=-pi*.5f+(float(i)+displacement)*2*pi/float(visible);
-                    node(state.rows[at],center+layout.ringRadiusX*std::cos(angle),layout.centerY+layout.ringRadiusY*std::sin(angle),i==0?29.f:22.f,i==0,o.selectorShape?o.selectorShape:1u,i==0?1.f:.72f);
+                    const auto p=layout.ring[i];
+                    node(state.rows[at],p.x,p.y,i==0?29.f:22.f,i==0,selectorTileShape(o),i==0?1.f:.72f);
                 }
             } else {
                 p.d->PushClipRect(p.p(0,-32),p.p(layout.width,layout.ruleY-2),true);
@@ -302,11 +313,8 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                         else if(!row.available&&!isStack(row.entry)){q.circle(53,y+15,4,IM_COL32(22,18,18,240),true);q.line(50,y+18,56,y+12,blood,1.4f);}
                         q.badge(35,y+8,row.entry,row.quantity,row.cooldown,11,false,row.weapon);
                     } else {
-                        const float r=distance<1?40-12*distance:std::max(18.f,28-7*(distance-1));
-                        const float step=distance<=1?distance*(68+o.selectorSpacing):68+o.selectorSpacing+(distance-1)*(49+o.selectorSpacing);
-                        const float shift=position<0?-step:step;
-                        node(row,o.selector==3?center:center+shift,layout.centerY+(o.selector==3?shift:o.selector==1?distance*13.f:0),r,offset==0,
-                             o.selectorShape?o.selectorShape:o.selector==0?2u:1u,opacity);
+                        const auto positionOffset=selectorOffset(o,position);
+                        node(row,center+positionOffset.x,layout.centerY+positionOffset.y,selectorRadius(distance),offset==0,selectorTileShape(o),opacity);
                     }
                 }
                 if(n>1&&o.selector<2){p.line(16,layout.centerY-3,11,layout.centerY+2,muted);p.line(11,layout.centerY+2,16,layout.centerY+7,muted);p.line(geometry.selectorWidth-16,layout.centerY-3,geometry.selectorWidth-11,layout.centerY+2,muted);p.line(geometry.selectorWidth-11,layout.centerY+2,geometry.selectorWidth-16,layout.centerY+7,muted);}
@@ -421,7 +429,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         auto panel=p;const auto& box=geometry.equipment;
         panel.origin={origin.x+box.origin.x,origin.y+box.origin.y};panel.scale=box.scale;panel.alpha=o.opacity*equipmentAlpha;
         const float width=box.width,height=box.height,t=o.textScale*o.equipmentTextScale;
-        if(o.equipmentStyle==0) {
+        if(o.equipmentStyle==0&&o.equipmentLayout==1) {
             const auto shade=panel.color(dark,.72f*panel.tweaks.frameOpacity);
             panel.d->AddRectFilledMultiColor(panel.p(0,0),panel.p(width,height),shade,shade&0x00ffffff,shade&0x00ffffff,shade);
             if(panel.themeTexture)panel.d->AddImage(panel.themeTexture,panel.p(0,0),panel.p(width,height),{.80f,.16f},{.96f,.78f},panel.color(IM_COL32_WHITE,.12f*panel.tweaks.frameOpacity));
@@ -429,8 +437,9 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         }
         unsigned slot=0;
         const auto drawRow=[&](const char* role,const std::optional<Row>& row) {
-            const auto cell=box.cells[slot++];const float x=cell.x+box.icon.x,y=cell.y+box.icon.y;
-            if(o.equipmentStyle==0&&slot>1)panel.d->AddLine(panel.p(45,cell.y),panel.p(width-8,cell.y),panel.color(theme.border,.32f*panel.tweaks.frameOpacity));
+            const auto cell=box.cells[slot++];const float x=cell.origin.x+cell.icon.x,y=cell.origin.y+cell.icon.y;
+            if(o.equipmentStyle==0&&o.equipmentLayout==1&&slot>1)panel.d->AddLine(panel.p(45,cell.origin.y-o.equipmentSpacing*.5f),panel.p(width-8,cell.origin.y-o.equipmentSpacing*.5f),panel.color(theme.border,.32f*panel.tweaks.frameOpacity));
+            if(o.equipmentStyle==0&&o.equipmentLayout!=1)panel.frame(cell.origin.x,cell.origin.y,cell.width,cell.height,false);
             if(o.equipmentStyle>0&&o.equipmentStyle<4)panel.tile(x,y,28,false,o.equipmentStyle==2?3u:o.equipmentStyle==3?2u:1u);
             auto item=panel;if(row&&equipmentDimmed(*row))item.alpha*=.4f;
             if(box.iconSize>0) {
@@ -441,15 +450,14 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 }
                 else panel.text(x,y-8*t,"—",16*t,muted,false,0,true);
             }
-            const bool right=o.equipmentStyle>0&&o.equipmentStyle<4&&o.equipmentTextPosition==2;
-            const float tx=cell.x+box.text.x+(right?box.textWidth:0),ty=cell.y+box.text.y;
-            panel.text(tx,ty,tr(role),11.5f*t,silver,false,box.textWidth,box.centered,right);
-            item.text(tx,ty+16*t,equipmentTextName(row,box.iconSize>0,o),17*t,ivory,false,box.textWidth,box.centered,right);
+            if(o.equipmentShowText||o.equipmentStyle==0||o.equipmentStyle==4) {
+                const bool right=o.equipmentStyle>0&&o.equipmentStyle<4&&o.equipmentTextPosition==2;
+                const float tx=cell.origin.x+cell.text.x+(right?cell.textWidth:0),ty=cell.origin.y+cell.text.y;
+                panel.text(tx,ty,tr(role),11.5f*t,silver,false,cell.textWidth,cell.centered,right);
+                item.text(tx,ty+16*t,equipmentTextName(row,box.iconSize>0,o),17*t,ivory,false,cell.textWidth,cell.centered,right);
+            }
         };
-        if(twoHandedDisplay(state.equipment))drawRow("Both hands",state.equipment.hands[0]);
-        else {drawRow("Right hand",state.equipment.hands[0]);drawRow("Left hand",state.equipment.hands[1]);}
-        if(o.showEquipmentAmmo)drawRow("Ammunition",state.equipment.ammo);
-        drawRow("Consumable",state.equipment.consumable);drawRow("Power / shout",state.equipment.voice);
+        forEachEquipmentRow(state.equipment,o,drawRow);
         if(bounds)collect(start,bounds->equipment);
     }
     if(notification&&visibility>0) {

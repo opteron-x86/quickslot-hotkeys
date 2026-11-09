@@ -517,6 +517,7 @@ RE::TESObjectREFR::InventoryItemMap inventoryFor(const Arsenal& arsenal,RE::Play
         smart|=e.kind==Kind::smartPotion;weapons|=e.kind==Kind::smartWeapon;ammo|=e.kind==Kind::smartAmmo;
         if(isInventory(e)&&!e.unresolved)forms.insert(e.form);
     });
+    if(arsenal.rememberedConsumable){const auto& entry=*arsenal.rememberedConsumable;smart|=entry.kind==Kind::smartPotion;if(entry.form)forms.insert(entry.form);}
     for(bool left:{false,true})if(auto* form=player->GetEquippedObject(left))forms.insert(form->GetFormID());
     if(auto* current=equippedAmmo(player))forms.insert(current->GetFormID());
     if(forms.empty()&&!smart&&!weapons&&!ammo&&!favorites)return {};
@@ -752,7 +753,7 @@ bool Game::initialize() {
     return true;
 }
 bool Game::quickLootAllowed(std::optional<bool> controller)const {
-    const bool source=controller.value_or(released_?released_->commit.controller:pending_?pending_->commit.controller:selectionController_);
+    const bool source=controller.value_or(consumableRequest_?consumableRequest_->controller:released_?released_->commit.controller:pending_?pending_->commit.controller:selectionController_);
     return source?options_.quickLootController:options_.quickLootKeyboard;
 }
 bool Game::allowed(MenuPurpose purpose,std::optional<bool> controller)const {
@@ -780,7 +781,7 @@ void Game::selectionTime(bool selecting) {
     static REL::Relocation<float*> current{RELOCATION_ID(511882,388442)},target{RELOCATION_ID(511883,388443)};
     if(const auto change=selectionTime_.update(wants,options_.selectionSpeed,*current,*target)){*current=change->first;*target=change->second;}
 }
-void Game::cancel(){selectionTime(false);selection_.cancel();controller_.cancel();pending_.reset();released_.reset();stopVoice();}
+void Game::cancel(){selectionTime(false);selection_.cancel();controller_.cancel();pending_.reset();released_.reset();consumableRequest_.reset();stopVoice();}
 void Game::notice(std::string text,bool visible){log::info("{}",text);snapshot_.notice=visible?std::move(text):"";snapshot_.noticeUntil=visible?clockNow()+3.5:0;}
 void Game::publish(){
     snapshot_.vr=REL::Module::IsVR();snapshot_.controller=controllerLast_&&options_.controllerEnabled;snapshot_.activeGroup=arsenal_.active;
@@ -841,7 +842,7 @@ void Game::activate(std::size_t group) {
 }
 void Game::queueUnequip(std::optional<std::size_t> index,bool controller) {
     selectionController_=controller;
-    pending_.reset();released_.reset();selectionTime(false);const auto& group=arsenal_.current();
+    pending_.reset();released_.reset();consumableRequest_.reset();selectionTime(false);const auto& group=arsenal_.current();
     if(auto commit=selection_.request(group,arsenal_.active,index.value_or(group.selected))) {
         commit->controller=controller;released_=Released{*commit,true};
     }
@@ -851,7 +852,7 @@ void Game::queueHand(Hand hand,bool controller) {
     if(!selection_.held()||selection_.index()>=arsenal_.current().entries.size())return;
     const auto index=selection_.index();
     if(!entryForHand(arsenal_.current().entries[index],hand)){cancel();notice(tr("This item cannot use that hand"));return;}
-    selectionTime(false);controller_.cancel();pending_.reset();released_.reset();
+    selectionTime(false);controller_.cancel();pending_.reset();released_.reset();consumableRequest_.reset();
     if(auto commit=releaseToHand(selection_,arsenal_.current(),arsenal_.active,hand,controller)) {
         selectionController_=controller;released_=Released{*commit};snapshot_.revealUntil=clockNow()+2;
     }
@@ -979,6 +980,7 @@ bool Game::consumeController(RE::InputEvent* event) {
             finishSelection();
         }break;
     case PadAction::cancel:cancel();notice(tr("Selection cancelled"),false);break;
+    case PadAction::useConsumable:queueConsumable(true);break;
     case PadAction::previous:cycleSelection(-1);break;
     case PadAction::next:cycleSelection(1);break;
     case PadAction::unequip:queueUnequip(selection_.index(),true);break;
@@ -1047,6 +1049,11 @@ bool Game::consume(RE::InputEvent* event) {
             *owned=true;cancel();editorRequested_=true;
             SKSE::GetTaskInterface()->AddTask([this]{openEditor();});return true;
         }
+    }
+    if(keyboard&&button->IsDown()) {
+        auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
+        const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
+        if(consumableShortcutMatches(options_,code,modifiers)){*owned=true;queueConsumable(false);return true;}
     }
     const auto key=std::find(options_.keys.begin(),options_.keys.end(),code);
     if(keyboard&&code&&key!=options_.keys.end()&&groupVisible(options_,std::size_t(key-options_.keys.begin()))&&button->IsDown()) {
@@ -1139,7 +1146,7 @@ void Game::dispatch(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent**
                     if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
                 }
             } else if(!pad||!devices->IsGamepadEnabled()) {
-                if(selectionController_&&(selection_.held()||released_||pending_||voice_.active()))cancel();
+                if(selectionController_&&(selection_.held()||released_||pending_||consumableRequest_||voice_.active()))cancel();
                 if(controllerConnected_&&editor_.open){for(unsigned b=1;b<unsigned(PadButton::count);++b)editorInput_.push_back({EditorInputType::pad,b,false});for(unsigned s=0;s<2;++s)editorInput_.push_back({EditorInputType::stick,s,false,0,0});}
                 if(controllerConnected_)log::info("Controller disconnected");
                 controllerConnected_=false;
@@ -1203,6 +1210,7 @@ void Game::tick() {
             if(voice_.active())progressVoice();
             const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing)dirty_=true;selectionTime(selection_.browsing());
 
+            if(consumableRequest_&&!ui->IsMenuOpen(pauseMenuName)){const auto request=*consumableRequest_;consumableRequest_.reset();useConsumable(request.entry,request.controller);}
             if(released_&&!ui->IsMenuOpen(pauseMenuName)) {const auto action=*released_;released_.reset();equip(action.commit,action.unequip);}
         }
 
@@ -1392,11 +1400,12 @@ void Game::refresh() {
             if(j==group.selected){
                 tile.entry=resolved.row.entry;tile.iconEntry=resolved.row.iconEntry;tile.available=available;tile.equipped=resolved.row.equipped;tile.quantity=resolved.row.quantity;tile.cooldown=resolved.row.cooldown;tile.weapon=resolved.row.weapon;
                 tile.voice=isVoice(entry)&&tile.equipped;
-                tile.consumable=i==consumableGroup;
+                tile.consumable=i==consumableGroup&&isConsumable(entry)&&(!arsenal_.rememberedConsumable||sameFavorite(entry,*arsenal_.rememberedConsumable));
                 if(tile.consumable){snapshot_.equipment.consumable=resolved.row;if(resolved.item.available())snapshot_.equipment.consumable->entry=resolved.action;}
             }
         }
     }
+    if(arsenal_.rememberedConsumable){const auto resolved=resolveShortcut(*arsenal_.rememberedConsumable,player,inventory,potions,deficits);snapshot_.equipment.consumable=resolved.row;if(resolved.item.available())snapshot_.equipment.consumable->entry=resolved.action;}
     dirty_=false;
 }
 void Game::startVoice(const Entry& entry) {
@@ -1439,6 +1448,39 @@ void Game::progressVoice() {
     if(released){log::info("Native voice release: {:08X}, {:.3f}s, handler accepted {}",voiceForm_,elapsed,accepted);if(!accepted)stopVoice();else {voice_.cancel();voiceForm_=0;}dirty_=true;}
     else if(!accepted){stopVoice();notice(tr("Voice action interrupted"));}
 }
+void Game::queueConsumable(bool controller) {
+    if(voice_.active()){notice(tr("Voice action in progress"));return;}
+    if(released_&&accepts(released_->commit)&&!released_->unequip) {
+        const auto& commit=released_->commit;
+        if(isConsumable(arsenal_.groups[commit.group].entries[commit.index])) {
+            arsenal_.groups[commit.group].selected=commit.index;rememberConsumable(arsenal_,commit.group,commit.index);
+        }
+    }
+    cancel();selectionController_=controller;
+    if(!arsenal_.rememberedConsumable){notice(tr("Select a consumable first"));return;}
+    consumableRequest_=ConsumableRequest{*arsenal_.rememberedConsumable,controller};
+}
+bool Game::useConsumable(const Entry& saved,bool controller) {
+    if(!isConsumable(saved)||!allowed(MenuPurpose::input,controller))return false;
+    auto* player=RE::PlayerCharacter::GetSingleton();
+    if(player->IsAttacking()||player->IsStaggering()){notice(tr("Finish your current action, then try again"));return false;}
+    drainAnimation();
+    if(use_.animating()){snapshot_.notice=tr("Drinking…");snapshot_.noticeUntil=clockNow()+1;return false;}
+    const auto inventory=inventoryFor(arsenal_,player);const auto deficits=actorDeficits(player);
+    const auto resolved=resolveShortcut(saved,player,inventory,potionCandidates(inventory),deficits);
+    const auto& entry=resolved.action;const auto& item=resolved.item;
+    if(!resolved.row.available){notice(resolved.row.detail.empty()?tr("Out of stock — ")+entryLabel(entry):resolved.row.detail);dirty_=true;return false;}
+    if(saved.kind==Kind::smartPotion&&!saved.effect&&saved.policy==2&&deficits[saved.resource]<.01f){notice(tr("Already full — ")+saved.name);return false;}
+    auto* manager=RE::ActorEquipManager::GetSingleton();
+    if(!manager){notice(tr("Equipment system is not ready"));return false;}
+    if(!use_.begin(clockNow(),item.quantity,entry.kind==Kind::poison,entry.kind==Kind::potion&&GetModuleHandleW(L"UAPNG.dll"))){snapshot_.notice=use_.animating()?tr("Drinking…"):tr("Waiting for consumable use…");snapshot_.noticeUntil=clockNow()+1;return false;}
+    if(saved.kind==Kind::smartPotion)log::info("Smart choice: {} -> {} ({:08X}), missing {:.1f}",saved.name,entry.name,entry.form,deficits[saved.resource]);
+    usedEntry_=entry;nextUsePoll_=clockNow()+.1;pending_.reset();
+    notice((entry.kind==Kind::poison?tr("Confirm poisoning — "):tr("Using — "))+entry.name,entry.kind==Kind::poison);
+    log::info("Native use requested: {:08X}, kind {}, count {}",entry.form,unsigned(entry.kind),item.quantity);
+    manager->EquipObject(player,item.object,nullptr,1,nullptr,false,false,true,false);
+    dirty_=true;return true;
+}
 void Game::equip(const Selection::Commit& commit,bool unequip) {
     std::scoped_lock lock(mutex_);
     if(!accepts(commit)||!allowed(MenuPurpose::input,commit.controller))return;
@@ -1453,6 +1495,10 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         if(!unequip&&action==SelectionAction::none)return;
         if(!unequip&&action==SelectionAction::select) {
             arsenal_.current().selected=commit.index;rememberConsumable(arsenal_,commit.group,commit.index);pending_.reset();notice(tr("Selected — ")+saved.name,false);dirty_=true;refresh();publish();return;
+        }
+        if(!unequip&&isConsumable(saved)) {
+            if(useConsumable(saved,commit.controller)){arsenal_.current().selected=commit.index;rememberConsumable(arsenal_,commit.group,commit.index);dirty_=true;refresh();publish();}
+            return;
         }
         if(player->IsAttacking()||player->IsStaggering()){notice(tr("Finish your current action, then try again"));return;}
         drainAnimation();
@@ -1477,19 +1523,6 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         if(unequip&&isConsumable(entry)){notice(tr("Consumable selected"),false);return;}
         if(!resolved.row.available){notice(resolved.row.detail.empty()?(isStack(entry)?tr("Out of stock — "):tr("Unavailable — "))+entryLabel(entry):resolved.row.detail);dirty_=true;return;}
         if(castVoice&&(item.cooldown>0||item.powerUsed)){notice(item.cooldown>0?tr("Shout recharging"):tr("Power recharging"));dirty_=true;return;}
-        if(saved.kind==Kind::smartPotion&&!saved.effect&&saved.policy==2&&deficits[saved.resource]<.01f){notice(tr("Already full — ")+saved.name);return;}
-        if(isConsumable(entry)) {
-            auto* manager=RE::ActorEquipManager::GetSingleton();
-            if(!manager)throw std::runtime_error("Equipment system is not ready");
-            if(!use_.begin(clockNow(),item.quantity,entry.kind==Kind::poison,entry.kind==Kind::potion&&GetModuleHandleW(L"UAPNG.dll"))){snapshot_.notice=use_.animating()?tr("Drinking…"):tr("Waiting for consumable use…");snapshot_.noticeUntil=clockNow()+1;return;}
-            if(saved.kind==Kind::smartPotion)log::info("Smart choice: {} -> {} ({:08X}), missing {:.1f}",saved.name,entry.name,entry.form,deficits[saved.resource]);
-            usedEntry_=entry;nextUsePoll_=clockNow()+.1;pending_.reset();arsenal_.current().selected=commit.index;rememberConsumable(arsenal_,commit.group,commit.index);
-
-            notice((entry.kind==Kind::poison?tr("Confirm poisoning — "):tr("Using — "))+entry.name,entry.kind==Kind::poison);
-            log::info("Native use requested: {:08X}, kind {}, count {}",entry.form,unsigned(entry.kind),item.quantity);
-            manager->EquipObject(player,item.object,nullptr,1,nullptr,false,false,true,false);
-            dirty_=true;refresh();publish();return;
-        }
         if(unequip&&!item.equipped){notice(tr("Already unequipped — ")+entryLabel(entry),false);return;}
         if(!unequip&&item.equipped){arsenal_.current().selected=commit.index;if(castVoice)startVoice(entry);else notice(isHandAction(entry)?handName(entry)+tr(" already empty"):tr("Ready — ")+entryLabel(entry),false);dirty_=true;refresh();publish();return;}
         if(keepOtherHand&&movesOtherHandWeapon(entry,item.equipped,item.otherEquipped)){notice(tr("Weapons in the other hand skipped"));dirty_=true;return;}
@@ -1784,6 +1817,7 @@ void Game::refreshEditor() {
             if(i==consumableGroup&&rows.size()-1==editor_.draft.groups[i].selected){editor_.equippedDisplay.consumable=resolved.row;if(resolved.item.available())editor_.equippedDisplay.consumable->entry=resolved.action;}
         }
     }
+    if(editor_.draft.rememberedConsumable){const auto resolved=resolveShortcut(*editor_.draft.rememberedConsumable,player,inventory,potions,editor_.deficits);editor_.equippedDisplay.consumable=resolved.row;if(resolved.item.available())editor_.equippedDisplay.consumable->entry=resolved.action;}
     dirty_=false;
 }
 std::optional<Entry> Game::captureCandidate(std::uint64_t candidate,Hand hand) {

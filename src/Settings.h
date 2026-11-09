@@ -35,6 +35,7 @@ inline void sanitizeOptions(Options& o) {
             std::find(selectorAssigned.begin(),selectorAssigned.end(),binding.key)!=selectorAssigned.end())binding={};
         if(!binding.key)binding.modifiers=0;else selectorAssigned.push_back(binding.key);
     }
+    if(!assignConsumableBinding(o,o.consumableKey))o.consumableKey={};
     std::vector<int> mouseAssigned;
     for(auto& button:o.mouseActions) {
         if(button< -1||button>4||std::find(mouseAssigned.begin(),mouseAssigned.end(),button)!=mouseAssigned.end())button=-1;
@@ -56,6 +57,7 @@ inline void sanitizeOptions(Options& o) {
         if(!validPadBinding(binding)||std::find(actionAssigned.begin(),actionAssigned.end(),binding)!=actionAssigned.end())binding={};
         if(binding.button!=PadButton::none)actionAssigned.push_back(binding);
     }
+    if(!validPadBinding(o.controllerUse)||o.controllerUse==o.controllerEditor||std::any_of(o.groupOrder.begin(),o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),[&](auto id){return o.controllerGroups[id]==o.controllerUse;})||std::find(actionAssigned.begin(),actionAssigned.end(),o.controllerUse)!=actionAssigned.end())o.controllerUse={};
     o.vrStick=std::min(o.vrStick,2u);
     const auto validVR=[](PadBinding b){return validPadBinding(b)&&validVRButton(b.button)&&validVRButton(b.modifier);};
     if(!validVR(o.vrEditor))o.vrEditor={};
@@ -65,6 +67,7 @@ inline void sanitizeOptions(Options& o) {
         if(!validVR(b)||(b.button!=PadButton::none&&std::find(vrAssigned.begin(),vrAssigned.end(),b)!=vrAssigned.end()))b={};
         if(b.button!=PadButton::none)vrAssigned.push_back(b);
     }
+    if(!validVR(o.vrUse)||o.vrUse==o.vrEditor||std::any_of(o.groupOrder.begin(),o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),[&](auto id){return o.vrGroups[id]==o.vrUse;}))o.vrUse={};
     o.layout=std::min(o.layout,5u);o.shape=std::min(o.shape,3u);o.selector=std::min(o.selector,4u);
     o.selectorDock=std::min(o.selectorDock,4u);o.selectorShape=std::min(o.selectorShape,3u);
     o.itemIconColor=std::min(o.itemIconColor,2u);
@@ -110,6 +113,7 @@ inline std::string encodeOptions(Options o) {
         {"selectorReorderHotkey",o.selectorReorderHotkey},{"selectorUnequipHotkey",o.selectorUnequipHotkey},{"selectorRemoveHotkey",o.selectorRemoveHotkey},
         {"mouseActions",o.mouseActions},{"groupModifiers",o.groupModifiers},{"selectorBindings",selectorBindings},{"allowUnusedModifiers",o.allowUnusedModifiers},{"controllerActions",controllerActions},
         {"controllerEnabled",o.controllerEnabled},{"controllerBumpers",o.controllerBumpers},{"controllerStyle",o.controllerStyle},{"controllerStick",o.controllerStick},{"controllerDeadzone",o.controllerDeadzone},{"controllerGroups",padGroups},{"controllerEditor",binding(o.controllerEditor)},
+        {"separateConsumableUse",o.separateConsumableUse},{"consumableKey",Json::array({o.consumableKey.key,o.consumableKey.modifiers})},{"controllerUse",binding(o.controllerUse)},{"vrUse",binding(o.vrUse)},
         {"groupModes",modes},{"autoSort",o.autoSort},{"controllerModifiers",o.controllerModifiers},{"vrGroups",vrGroups},{"vrEditor",binding(o.vrEditor)},{"vrStick",o.vrStick},
         {"showEquipment",o.showEquipment},{"showEquipmentAmmo",o.showEquipmentAmmo},{"equipmentX",o.equipmentX},{"equipmentY",o.equipmentY},{"hideEmptyGroups",o.hideEmptyGroups},{"inactiveGroups",o.inactiveGroups},{"inactiveGroupOpacity",o.inactiveGroupOpacity},
         {"equipmentDim",o.equipmentDim},{"equipmentFadeDelay",o.equipmentFadeDelay},{"equipmentIdleOpacity",o.equipmentIdleOpacity},
@@ -148,6 +152,8 @@ inline Options decodeOptions(const std::string& bytes) {
         if(!bindings.is_array()||(bindings.size()!=5&&bindings.size()!=o.selectorBindings.size()))throw std::runtime_error("Invalid keyboard actions");
         for(unsigned i=0;i<bindings.size();++i){const auto b=bindings[i].get<std::array<unsigned,2>>();o.selectorBindings[i]={b[0],b[1]};}
     }
+    o.separateConsumableUse=j.value("separateConsumableUse",o.separateConsumableUse);
+    if(j.contains("consumableKey")){const auto b=j.at("consumableKey").get<std::array<unsigned,2>>();o.consumableKey={b[0],b[1]};}
     if(j.contains("groupModes")) {
         const auto modes=j.at("groupModes").get<std::array<unsigned,Arsenal::count>>();
         for(std::size_t i=0;i<Arsenal::count;++i)o.groupModes[i]=GroupMode(modes[i]);
@@ -173,6 +179,8 @@ inline Options decodeOptions(const std::string& bytes) {
     }
     {const auto& groups=j.at("controllerGroups");if(!groups.is_array()||groups.size()!=Arsenal::count)throw std::runtime_error("Invalid controller bindings");for(std::size_t i=0;i<Arsenal::count;++i)o.controllerGroups[i]=binding(groups[i]);}
     o.controllerEditor=binding(j.at("controllerEditor"));
+    if(j.contains("controllerUse"))o.controllerUse=binding(j.at("controllerUse"));
+    if(j.contains("vrUse"))o.vrUse=binding(j.at("vrUse"));
     {const auto& groups=j.at("vrGroups");if(!groups.is_array()||groups.size()!=Arsenal::count)throw std::runtime_error("Invalid VR bindings");for(std::size_t i=0;i<Arsenal::count;++i)o.vrGroups[i]=binding(groups[i]);}
     o.vrEditor=binding(j.at("vrEditor"));
     o.vrStick=j.at("vrStick").get<decltype(o.vrStick)>();

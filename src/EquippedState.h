@@ -3,6 +3,7 @@
 
 namespace quickslot {
 inline std::size_t selectedConsumableGroup(const Arsenal& a) {
+    if(a.rememberedConsumable)return a.consumableGroup;
     const auto valid=[&](std::size_t g){return g<Arsenal::count&&a.groups[g].selected<a.groups[g].entries.size()&&isConsumable(a.groups[g].entries[a.groups[g].selected]);};
     if(valid(a.consumableGroup))return a.consumableGroup;
     if(valid(a.active))return a.active;
@@ -10,7 +11,7 @@ inline std::size_t selectedConsumableGroup(const Arsenal& a) {
     return Arsenal::count;
 }
 inline void rememberConsumable(Arsenal& a,std::size_t group,std::size_t index) {
-    if(group<Arsenal::count&&index<a.groups[group].entries.size()&&isConsumable(a.groups[group].entries[index]))a.consumableGroup=group;
+    if(group<Arsenal::count&&index<a.groups[group].entries.size()&&isConsumable(a.groups[group].entries[index])){a.consumableGroup=group;a.rememberedConsumable=a.groups[group].entries[index];}
 }
 inline unsigned entryHands(const Entry& e,bool equipped) {
     if(!equipped)return 0;

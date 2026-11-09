@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a configurable **Use selected consumable** action for keyboard, controller and VR, plus a group setting for selecting consumables with cycling or browsing. The equipment widget retains the last selected consumable across groups.
 - Groups offer **Tap to cycle / hold to browse**, with taps committed on release and held selection in both directions.
 - Favorites groups can combine multiple categories, such as weapons and shields/torches, in one list.
 - Controller and VR bindings allow Modifier and Button to be selected in either order.

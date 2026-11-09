@@ -296,6 +296,11 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
     for(const auto press:downs_) {
         const auto scan=press.scan;
         if(binding_!=-1) {
+            if(binding_==-3) {
+                if(modifierForScan(scan))continue;
+                if(!assignConsumableBinding(options,scan==1?KeyBinding{}:KeyBinding{scan,press.modifiers})){hint_=tr("Key already assigned");continue;}
+                changed=true;binding_=-1;hint_.clear();break;
+            }
             if(binding_>=100) {
                 if(modifierForScan(scan))continue;
                 if(!assignSelectorBinding(options,KeyboardAction(binding_-100),scan==1?KeyBinding{}:KeyBinding{scan,press.modifiers})){hint_=tr("Key already assigned");continue;}
@@ -327,9 +332,9 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
     padDowns_.clear();
     downs_.clear();
     const auto bindButton=[&](int index,unsigned key,const char* id) {
-        const auto text=(binding_==index?std::string(tr("Press a key…")):shortcutName(key,index==-2?options.editorModifiers:0))+id;
-        const float width=index==-2?std::max(px(150),ImGui::CalcTextSize(text.c_str(),nullptr,true).x+px(20)):px(95);
-        if(UI::Button(text.c_str(),{width,0})){binding_=index;hint_=tr(index==-2?"Press a key · Esc cancels":"Press a key · Esc clears · Used group keys swap");}
+        const auto text=(binding_==index?std::string(tr("Press a key…")):shortcutName(key,index==-2?options.editorModifiers:index==-3?options.consumableKey.modifiers:0))+id;
+        const float width=index< -1?std::max(px(150),ImGui::CalcTextSize(text.c_str(),nullptr,true).x+px(20)):px(95);
+        if(UI::Button(text.c_str(),{width,0})){binding_=index;hint_=tr(index==-2?"Press a key · Esc cancels":index==-3?"Press a key · Esc clears":"Press a key · Esc clears · Used group keys swap");}
         if(index>=0) {
             ImGui::SameLine();ImGui::BeginDisabled(!key);
             if(UI::Button((std::string("Clear")+id).c_str())){options.keys[std::size_t(index)]=0;binding_=-1;hint_.clear();changed=true;}
@@ -527,11 +532,15 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             ImGui::EndDisabled();
             ImGui::SameLine();ImGui::SetNextItemWidth(px(280));
             const bool consumables=hasConsumables(group);int mode=int(groupMode(options,state.draft,groupID));
-            ImGui::BeginDisabled(consumables);
+            ImGui::BeginDisabled(consumables&&!options.separateConsumableUse[groupID]);
             if(UI::Combo("##group mode",&mode,"Hold to browse\0Tap to cycle\0Tap to cycle / hold to browse\0")){options.groupModes[groupID]=GroupMode(mode);changed=true;}
-            if(mode==int(GroupMode::cycleBrowse)&&ImGui::IsItemHovered())ImGui::SetTooltip("%s",tr("Tap and release to cycle. Hold to browse, then release to equip the highlighted entry."));
+            if(mode==int(GroupMode::cycleBrowse)&&ImGui::IsItemHovered())ImGui::SetTooltip("%s",tr("Tap and release to cycle. Hold to browse, then release to select the highlighted entry."));
             ImGui::EndDisabled();
-            if(consumables&&ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))ImGui::SetTooltip("%s",tr("Consumables: tap to use, hold to browse"));
+            if(consumables&&!options.separateConsumableUse[groupID]&&ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))ImGui::SetTooltip("%s",tr("Consumables: tap to use, hold to browse"));
+            if(consumables||group.automatic()||options.separateConsumableUse[groupID]) {
+                int use=options.separateConsumableUse[groupID]?1:0;ImGui::SetNextItemWidth(px(280));
+                if(UI::Combo("Consumables",&use,"Tap to use\0Use selected consumable action\0")){options.separateConsumableUse[groupID]=use==1;normalizeGroupModes(options,state.draft);changed=true;}
+            }
             const auto builtCommand=[&] {
                 auto c=command(shortcut_.kind==Kind::combo?EditAction::saveCombination:EditAction::saveShortcut,groupID,shortcutIndex_.value_or(0));
                 c.shortcut=shortcut_;c.components=comboCandidates_;c.replace=shortcutIndex_.has_value();c.libraryID=editingLibrary_;
@@ -831,6 +840,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             for(std::size_t i=0;i<options.groupCount;++i){const auto id=options.groupOrder[i];ImGui::PushID(int(id));bindButton(int(id),options.keys[id],"##control binding");ImGui::SameLine();ImGui::TextUnformatted(options.names[id].c_str());ImGui::PopID();}
             ImGui::Separator();label(tr("Editor"));bindButton(-2,options.editorKey,"##editor binding");
             ImGui::SameLine();if(UI::Button("Clear##editor binding")){options.editorKey=options.editorModifiers=0;binding_=-1;changed=true;hint_.clear();}
+            label(tr("Use selected consumable"));bindButton(-3,options.consumableKey.key,"##consumable binding");ImGui::SameLine();
+            if(UI::Button("Clear##consumable binding")){assignConsumableBinding(options,{});binding_=-1;changed=true;hint_.clear();}
             ImGui::Separator();label(tr("Actions"));
             UI::TextWrapped("Configure each action in one place. Choose None or clear a binding to disable it.");
             if(UI::Button("Remap actions…"))ImGui::OpenPopup("Keyboard action bindings");
@@ -887,6 +898,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             const auto style=state.vr?2u:options.controllerStyle;
             auto& groups=state.vr?options.vrGroups:options.controllerGroups;
             auto& editorBinding=state.vr?options.vrEditor:options.controllerEditor;
+            auto& useBinding=state.vr?options.vrUse:options.controllerUse;
             auto& browseStick=state.vr?options.vrStick:options.controllerStick;
             const auto chooseButton=[&](const char* id,PadButton& value) {
                 bool selected=false;
@@ -909,7 +921,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 }
                 if(padDrafts_.contains(index)) {
                     if(choice.button==PadButton::none&&choice.modifier!=PadButton::none)return;
-                    bool duplicate=choice.button!=PadButton::none&& &value!=&editorBinding&&choice==editorBinding;
+                    bool duplicate=choice.button!=PadButton::none&& ((&value!=&editorBinding&&choice==editorBinding)||(&value!=&useBinding&&choice==useBinding));
                     for(std::size_t i=0;i<options.groupCount;++i){const auto& other=groups[options.groupOrder[i]];if(&other!=&value&&choice.button!=PadButton::none&&other==choice)duplicate=true;}
                     if(!state.vr)for(const auto& other:options.controllerActions)if(&other!=&value&&choice.button!=PadButton::none&&other==choice)duplicate=true;
                     const char* problem=duplicate?tr("Button combination already assigned"):!validPadBinding(choice)?tr("Choose different buttons"):nullptr;
@@ -923,6 +935,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             UI::TextDisabled("Modifier");ImGui::SameLine(px(175));UI::TextDisabled("Button");
             for(std::size_t i=0;i<options.groupCount;++i){const auto id=options.groupOrder[i];padBinding(groups[id],options.names[id].c_str(),unsigned(id));}
             ImGui::Separator();padBinding(editorBinding,tr("Open editor"),8);
+            padBinding(useBinding,tr("Use selected consumable"),9);
             int stick=int(browseStick);ImGui::SetNextItemWidth(px(220));if(UI::Combo("Browse with",&stick,state.vr?"Off-hand stick / pad\0Main-hand stick / pad\0Off\0":"Left stick\0Right stick\0Off\0")){browseStick=unsigned(stick);changed=true;}
             if(!state.vr)changed|=UI::Checkbox("Enable previous / next buttons",&options.controllerBumpers);
             ImGui::SetNextItemWidth(px(220));changed|=UI::SliderFloat("Stick deadzone",&options.controllerDeadzone,.2f,.9f,"%.2f");

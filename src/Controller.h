@@ -2,7 +2,7 @@
 #include "Model.h"
 
 namespace quickslot {
-enum class PadAction {none,press,release,cancel,previous,next,unequip,editor,rightHand,leftHand};
+enum class PadAction {none,press,release,cancel,previous,next,unequip,editor,rightHand,leftHand,useConsumable};
 struct PadResult {bool consumed=false;PadAction action=PadAction::none;std::size_t group=0;};
 class ControllerInput {
     std::array<bool,unsigned(PadButton::count)> down_{},owned_{};
@@ -48,7 +48,7 @@ public:
         if(!allowed||!o.controllerEnabled||!fresh)return {};
         unsigned modifiers=o.controllerModifiers;
         if(!vr) {
-            modifiers|=padButtonMask(o.controllerEditor.modifier);
+            modifiers|=padButtonMask(o.controllerEditor.modifier)|padButtonMask(o.controllerUse.modifier);
             for(std::size_t p=0;p<o.groupCount;++p)modifiers|=padButtonMask(o.controllerGroups[o.groupOrder[p]].modifier);
             for(const auto binding:o.controllerActions)modifiers|=padButtonMask(binding.modifier);
         }
@@ -70,6 +70,7 @@ public:
         };
 
         if(const auto group=groupBinding(true))return *group;
+        if(matches(vr?o.vrUse:o.controllerUse)){owned_[n]=true;cancel();return {true,PadAction::useConsumable};}
         if(selecting) {
             if(vr) {
                 if(b==PadButton::b){owned_[n]=true;cancel();return {true,PadAction::cancel};}
@@ -79,7 +80,7 @@ public:
                     if(binding.button==PadButton::none||binding.button!=b||(binding.modifier!=PadButton::none&&!down(binding.modifier)))return false;
                     if(active_&&(b==active_->button||b==active_->modifier))return false;
                     if(binding.modifier==PadButton::none) {
-                        if(o.controllerEditor.modifier==b)return false;
+                        if(o.controllerEditor.modifier==b||o.controllerUse.modifier==b)return false;
                         for(std::size_t p=0;p<o.groupCount;++p)if(o.controllerGroups[o.groupOrder[p]].modifier==b)return false;
                         for(const auto other:o.controllerActions)if(other.modifier==b)return false;
                     }

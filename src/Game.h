@@ -74,6 +74,10 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     std::optional<Pending> pending_;
     struct Released {Selection::Commit commit;bool unequip=false;};
     std::optional<Released> released_;
+    struct ConsumableRequest {Entry entry;bool controller=false;};
+    std::optional<ConsumableRequest> consumableRequest_;
+    void queueConsumable(bool controller);
+    bool useConsumable(const Entry&,bool controller);
     ConsumableUse use_;
     Entry usedEntry_;
     double nextStatus_=0,nextUsePoll_=0,nextFavorites_=0;

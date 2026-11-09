@@ -26,6 +26,7 @@ double clockNow();
 std::filesystem::path dataDirectory();
 std::vector<EditCommand> renderHud(const Snapshot&,const Options&,const EditorState*,const std::vector<EditorInput>&);
 bool renderHasFocus();
+void runUIIconTasks();
 class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
                    public RE::BSTEventSink<RE::TESContainerChangedEvent>,
                    public RE::BSTEventSink<RE::TESUniqueIDChangeEvent>,

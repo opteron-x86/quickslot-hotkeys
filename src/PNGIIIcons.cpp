@@ -17,7 +17,7 @@ struct PNGIIIcons::Impl {
     Log log;
     UITask schedule;
     const PNGII::API::InterfaceV1* api=nullptr;
-    bool discovered=false,enabled=false,reported=false;
+    bool discovered=false,enabled=false,reported=false,queryReported=false;
     std::uint64_t frame=0,generation=0,retryAfter=0,epoch=0;
     struct Request {std::uint32_t form;std::string label,key;};
     struct Reply {Request request;PNGIIQuery query;std::uint64_t epoch;};
@@ -52,6 +52,7 @@ struct PNGIIIcons::Impl {
     Texture load(const std::string& path) {
         Texture result;result.used=frame;
         ImageAsset image;
+        if(!reported)log(std::format("PNGII loading artwork: {}",path));
         try{image=decodePNGIIImage(path,read(path));}catch(const std::exception&){}
         if(image) {
             result.original=upload(image);
@@ -64,7 +65,7 @@ struct PNGIIIcons::Impl {
     }
     void beginFrame(bool use,std::uint64_t currentGeneration) {
         ++frame;
-        if(enabled!=use||generation!=currentGeneration){++epoch;matches.clear();textures.clear();pending.clear();inFlight.clear();retryAfter=0;generation=currentGeneration;}
+        if(enabled!=use||generation!=currentGeneration){++epoch;matches.clear();textures.clear();pending.clear();inFlight.clear();retryAfter=0;generation=currentGeneration;queryReported=false;}
         enabled=use;if(!enabled)return;
         if(!discovered)discover();
         if(!api)return;
@@ -85,9 +86,13 @@ struct PNGIIIcons::Impl {
             if(match==matches.end()) {
                 if(frame<retryAfter||inFlight.size()>=8){pending.push_front(std::move(request));break;}
                 if(!inFlight.insert(request.key).second)continue;
-                schedule([receiver=std::weak_ptr(inbox),request=std::move(request),provider=api,requestEpoch=epoch]()mutable {
+                const bool trace=!queryReported;queryReported=true;
+                if(trace)log("PNGII icon lookup queued for menu update");
+                schedule([receiver=std::weak_ptr(inbox),request=std::move(request),provider=api,requestEpoch=epoch,trace,log=log]()mutable {
                     if(auto target=receiver.lock()) {
+                        if(trace)log(std::format("PNGII icon lookup started: {:08X} [{}]",request.form,request.label));
                         auto query=queryPNGII(provider,request.form,request.label);
+                        if(trace)log(std::format("PNGII icon lookup completed: status {}, path {}",unsigned(query.result),query.path));
                         std::scoped_lock lock(target->mutex);
                         target->replies.push_back({std::move(request),std::move(query),requestEpoch});
                     }

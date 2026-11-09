@@ -5,9 +5,13 @@
 #include "Settings.h"
 #include "Presets.h"
 #include "pngii_fixture.h"
+#include "UIIconTasks.h"
+#include <chrono>
 #include <cstring>
+#include <future>
 #include <iostream>
 #include <stdexcept>
+#include <thread>
 
 inline void pngiiCheck(bool value,const char* why){if(!value)throw std::runtime_error(why);}
 namespace pngii_test {
@@ -17,6 +21,26 @@ inline std::uint32_t seenForm=0;
 inline std::string seenLabel;
 inline std::int32_t seenSoul=0;
 inline PNGII::API::Result result=PNGII::API::Result::kSuccess;
+inline void uiTaskChecks() {
+    using namespace std::chrono_literals;
+    quickslot::UIIconTasks tasks;
+    unsigned completed=0;
+    tasks.post([&]{++completed;tasks.post([&]{++completed;});});
+    tasks.run();pngiiCheck(completed==1,"UI updates defer work posted during a callback");
+    tasks.run();pngiiCheck(completed==2,"The next UI update completes deferred work");
+
+    std::promise<void> entered,release;
+    const auto released=release.get_future().share();
+    tasks.post([&]{entered.set_value();released.wait();});
+    std::thread ui([&]{tasks.run();});
+    entered.get_future().wait();
+    auto render=std::async(std::launch::async,[&]{tasks.post([&]{++completed;});});
+    const bool responsive=render.wait_for(1s)==std::future_status::ready;
+    release.set_value();ui.join();render.get();
+    pngiiCheck(responsive,"Rendering can queue icons while a UI callback waits for the engine");
+    pngiiCheck(completed==2,"Concurrent submissions wait for the next UI update");
+    tasks.run();pngiiCheck(completed==3,"Concurrent submissions run once on the UI thread");
+}
 inline PNGII::API::Result resolve(std::uint32_t form,const char* label,std::int32_t soul,char* output,std::uint32_t capacity,std::uint32_t* required)noexcept {
     ++calls;seenForm=form;seenLabel=label;seenSoul=soul;*required=0;if(capacity)output[0]=0;
     if(form==90){*required=0xffffffff;return PNGII::API::Result::kBufferTooSmall;}
@@ -28,6 +52,7 @@ inline PNGII::API::Result resolve(std::uint32_t form,const char* label,std::int3
     std::memcpy(output,selected.c_str(),*required);return result;
 }
 inline void checks() {
+    uiTaskChecks();
     using namespace quickslot;using Result=PNGII::API::Result;
     const PNGII::API::InterfaceV1 api{1,sizeof(api),resolve};
     selected="Interface/PNGIconInjector/Pack/sword.png";

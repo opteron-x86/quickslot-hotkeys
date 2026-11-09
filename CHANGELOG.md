@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Switching PNGII icons on in the editor keeps the interface responsive while artwork loads.
+
 ## 0.13.1
 
 - Skyrim's console keeps its mouse pointer when opened during gameplay or after using the Quickslot editor.

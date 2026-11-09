@@ -22,7 +22,7 @@ int main(int argc,char** argv)try {
     auto status=D3D11CreateDevice(nullptr,D3D_DRIVER_TYPE_HARDWARE,nullptr,0,nullptr,0,D3D11_SDK_VERSION,&device,&level,&context);
     if(FAILED(status))status=D3D11CreateDevice(nullptr,D3D_DRIVER_TYPE_WARP,nullptr,0,nullptr,0,D3D11_SDK_VERSION,&device,&level,&context);
     pngiiCheck(SUCCEEDED(status),"Create icon upload device");
-    std::map<std::string,unsigned> reads;std::vector<std::string> logs;std::vector<std::function<void()>> tasks;
+    std::map<std::string,unsigned> reads;std::vector<std::string> logs;UIIconTasks tasks;unsigned queued=0;
     const auto read=[&](const std::string& path) {
         ++reads[path];
         if(path.ends_with("icon.png"))return std::vector<unsigned char>(pngiiPNG.begin(),pngiiPNG.end());
@@ -32,16 +32,16 @@ int main(int argc,char** argv)try {
         return std::vector<unsigned char>{};
     };
     const auto log=[&](std::string_view message){logs.emplace_back(message);};
-    const auto schedule=[&](std::function<void()> task){tasks.push_back(std::move(task));};
-    const auto drain=[&]{auto work=std::move(tasks);tasks.clear();std::thread ui([work=std::move(work)]{for(const auto& task:work)task();});ui.join();};
+    const auto schedule=[&](std::function<void()> task){++queued;tasks.post(std::move(task));};
+    const auto drain=[&]{queued=0;std::thread ui([&]{tasks.run();});ui.join();};
     const auto tick=[&](PNGIIIcons& icons,std::uint64_t generation=0){icons.beginFrame(true,generation);drain();};
     {
         PNGIIIcons absent(device.Get(),read,log,schedule);tick(absent);
-        pngiiCheck(!absent.find(1,"weapon_custom")&&reads.empty()&&tasks.empty(),"Absent provider leaves I4 available");
+        pngiiCheck(!absent.find(1,"weapon_custom")&&reads.empty()&&!queued,"Absent provider leaves I4 available");
     }
     for(int i=1;i<=2;++i) {
         const auto module=LoadLibraryW(std::filesystem::path(argv[i]).c_str());pngiiCheck(module!=nullptr,"Load incompatible fixture");
-        {PNGIIIcons old(device.Get(),read,log,schedule);tick(old);pngiiCheck(!old.find(1,"weapon_custom")&&tasks.empty(),"Legacy and incompatible API fall back");}
+        {PNGIIIcons old(device.Get(),read,log,schedule);tick(old);pngiiCheck(!old.find(1,"weapon_custom")&&!queued,"Legacy and incompatible API fall back");}
         FreeLibrary(module);
     }
     const auto module=LoadLibraryW(std::filesystem::path(argv[3]).c_str());pngiiCheck(module!=nullptr,"Load provider fixture");
@@ -50,7 +50,7 @@ int main(int argc,char** argv)try {
     {
         PNGIIIcons icons(device.Get(),read,log,schedule);tick(icons);
         pngiiCheck(!icons.find(1,"weapon_custom")&&calls()==0,"Drawing queues queries for the UI thread");
-        icons.beginFrame(true,0);pngiiCheck(calls()==0&&!tasks.empty(),"Query waits for UI task execution");drain();tick(icons);
+        icons.beginFrame(true,0);pngiiCheck(calls()==0&&queued,"Query waits for UI task execution");drain();tick(icons);
         pngiiCheck(!icons.find(1,"weapon_custom")&&reads.empty(),"Not-ready provider uses I4 while waiting");ready(true);
         for(unsigned frame=0;frame<20;++frame)tick(icons);
         const auto png=icons.find(1,"weapon_custom");pngiiCheck(bool(png)&&!png->rgb,"Provider becomes ready and preserves original colors");
@@ -69,13 +69,13 @@ int main(int argc,char** argv)try {
         const auto queried=calls();for(unsigned f=0;f<20;++f){icons.find(2,"weapon_custom");icons.find(3,"weapon_custom");icons.find(4,"weapon_custom");tick(icons);}
         pngiiCheck(calls()==queried&&reads["Interface/PNGIconInjector/Test/missing.png"]==1,"Misses and failed images are cached");
         icons.beginFrame(true,1);icons.find(1,"weapon_custom");icons.beginFrame(true,1);
-        pngiiCheck(!tasks.empty(),"Queue lookup before save transition");icons.beginFrame(true,2);drain();icons.beginFrame(true,2);
+        pngiiCheck(queued,"Queue lookup before save transition");icons.beginFrame(true,2);drain();icons.beginFrame(true,2);
         pngiiCheck(!icons.find(1,"weapon_custom"),"Replies from the previous save are discarded");
         for(unsigned f=0;f<3;++f)tick(icons,2);pngiiCheck(bool(icons.find(1,"weapon_custom")),"New save resolves fresh artwork");
         icons.beginFrame(false,2);pngiiCheck(!icons.find(1,"weapon_custom"),"Disabling PNGII immediately returns to I4");
         tick(icons,2);icons.find(1,"weapon_custom");for(unsigned f=0;f<3;++f)tick(icons,2);
         pngiiCheck(bool(icons.find(1,"weapon_custom")),"Re-enabling PNGII refreshes matches");
-        icons.beginFrame(true,3);icons.find(1,"weapon_custom");icons.beginFrame(true,3);pngiiCheck(!tasks.empty(),"Queue before renderer destruction");
+        icons.beginFrame(true,3);icons.find(1,"weapon_custom");icons.beginFrame(true,3);pngiiCheck(queued,"Queue before renderer destruction");
     }
     const auto beforeDestruction=calls();drain();pngiiCheck(calls()==beforeDestruction,"Destroyed renderer cancels pending UI queries");
     FreeLibrary(module);

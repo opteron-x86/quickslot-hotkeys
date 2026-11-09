@@ -78,6 +78,9 @@ inline bool isStack(const Entry& e){return isConsumable(e)||e.kind==Kind::torch|
 inline bool isVoice(const Entry& e){return e.kind==Kind::power||e.kind==Kind::lesserPower||e.kind==Kind::shout;}
 inline bool isInventory(const Entry& e){return !isSmartEquipment(e)&&!e.spell&&!isVoice(e)&&!isHandAction(e)&&e.kind!=Kind::smartPotion&&e.kind!=Kind::combo;}
 inline bool tracksInstance(const Entry& e){return isInventory(e)&&!isStack(e);}
+inline bool movesOtherHandWeapon(const Entry& e,bool equipped,bool otherEquipped) {
+    return e.kind<=Kind::staff&&!e.twoHanded&&!e.spell&&otherEquipped&&!equipped;
+}
 template<class E,class F> void eachLeaf(E& e,const F& f){if(e.kind==Kind::combo){for(auto& part:e.parts)f(part);}else f(e);}
 inline bool pairable(const Entry& e){return e.kind==Kind::smartWeapon?validSmartEquipment(e)&&!e.twoHanded:e.kind==Kind::emptyHand?validHandAction(e):!isHandAction(e)&&!isSmartEquipment(e)&&!e.unresolved&&e.form&&!isConsumable(e)&&!isVoice(e)&&e.kind!=Kind::combo&&e.kind!=Kind::ammo&&!e.twoHanded;}
 inline bool validPair(const Entry& right,const Entry& left) {
@@ -221,7 +224,7 @@ public:
     void cancel() { held_=false;browsing_=false;++token_; }
 };
 struct WeaponStatus {bool poisoned=false;int ammunition=-1;};
-struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry; };
+struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry;bool cycleBlocked=false; };
 inline const Entry& rowIconEntry(const Row& row){return row.iconEntry?*row.iconEntry:row.entry;}
 struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=false,equipped=false;int quantity=0;float cooldown=0;bool voice=false,consumable=false;WeaponStatus weapon;std::optional<Entry> iconEntry;};
 struct EquippedDisplay {
@@ -270,7 +273,7 @@ struct Options {
     std::array<std::size_t,Arsenal::count> groupOrder{0,1,2,3,4,5,6,7};
     std::array<GroupMode,Arsenal::count> groupModes{};
     std::array<bool,Arsenal::count> autoSort{};
-    bool skipEmpty=false,menuCapture=true;
+    bool skipEmpty=false,menuCapture=true,cycleKeepOtherHand=true;
     bool groupCaptureRightHotkey=true,groupCaptureLeftHotkey=true,groupMoveHotkey=true;
     bool groupUnequipHotkey=true,groupRemoveHotkey=true;
     bool selectorReorderHotkey=true,selectorUnequipHotkey=true,selectorRemoveHotkey=true;
@@ -457,6 +460,20 @@ public:
 inline std::size_t cycleEntry(const Group& group,const std::vector<bool>& available,bool skipEmpty,bool recall) {
     if(recall&&(!skipEmpty||available.size()!=group.entries.size()||(group.selected<available.size()&&available[group.selected])))return group.selected;
     return nextEntry(group,available,skipEmpty);
+}
+inline std::optional<std::size_t> cycleEntry(const Group& group,const std::vector<bool>& available,bool skipEmpty,bool recall,const std::vector<bool>& blocked) {
+    if(group.entries.empty())return {};
+    if(blocked.size()!=group.entries.size())return cycleEntry(group,available,skipEmpty,recall);
+    const auto start=(group.selected+(recall?0:1))%group.entries.size();
+    for(std::size_t step=0;step<group.entries.size();++step) {
+        const auto index=(start+step)%group.entries.size();
+        if(!blocked[index]&&(!skipEmpty||available.size()!=group.entries.size()||available[index]))return index;
+    }
+    if(group.selected<blocked.size()&&!blocked[group.selected])return group.selected;
+    return {};
+}
+inline bool keepOtherHandWhenCycling(const Options& options,const Selection::Commit& commit,bool unequip=false) {
+    return options.cycleKeepOtherHand&&commit.cycling&&!commit.hand&&!unequip;
 }
 enum class SelectionAction {none,select,equip,use};
 inline SelectionAction selectionAction(const Entry& e,const Selection::Commit& c,const Options& o) {

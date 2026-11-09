@@ -897,11 +897,11 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     else padDrafts_[index]={value,choice};
                 }
                 if(padDrafts_.contains(index)) {
+                    if(choice.button==PadButton::none&&choice.modifier!=PadButton::none)return;
                     bool duplicate=choice.button!=PadButton::none&& &value!=&editorBinding&&choice==editorBinding;
                     for(std::size_t i=0;i<options.groupCount;++i){const auto& other=groups[options.groupOrder[i]];if(&other!=&value&&choice.button!=PadButton::none&&other==choice)duplicate=true;}
                     if(!state.vr)for(const auto& other:options.controllerActions)if(&other!=&value&&choice.button!=PadButton::none&&other==choice)duplicate=true;
-                    const char* problem=choice.button==PadButton::none&&choice.modifier!=PadButton::none?tr("Choose a button to complete the binding"):
-                        duplicate?tr("Button combination already assigned"):!validPadBinding(choice)?tr("Choose different buttons"):nullptr;
+                    const char* problem=duplicate?tr("Button combination already assigned"):!validPadBinding(choice)?tr("Choose different buttons"):nullptr;
                     if(!problem){value=choice;changed=true;padDrafts_.erase(index);hint_.clear();}
                     else {
                         ImGui::TextWrapped("%s",problem);ImGui::SameLine();

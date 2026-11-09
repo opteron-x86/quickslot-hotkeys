@@ -728,7 +728,7 @@ int main(int argc,char** argv)try {
     choosePad("button",0,PadButton::none);choosePad("modifier",0,PadButton::rt);frame();frame();
     check(state.options.controllerGroups[0]==PadBinding{},"An unfinished modifier stays out of active settings");
     check(decodeOptions(encodeOptions(state.options)).controllerGroups[0]==PadBinding{},"Saving while a chord is unfinished preserves a valid disabled binding");
-    check(!probe::find("Cancel##pad draft0").empty(),"An unfinished controller binding can be cancelled");
+    check(probe::find("Cancel##pad draft0").empty(),"An unfinished binding stays in its fields without an extra control");
     choosePad("button",0,PadButton::x);
     check(state.options.controllerGroups[0]==PadBinding{PadButton::x,PadButton::rt},"Modifier-first editing completes across multiple frames");
     click("Undo");check(state.options.controllerGroups[0]==PadBinding{}&&probe::find("Cancel##pad draft0").empty(),"Undo restores the binding before the complete chord");

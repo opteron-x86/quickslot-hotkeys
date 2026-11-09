@@ -128,6 +128,69 @@ int main()try {
     recall.activate(1);check(tap(0,group,{true,false,true},true)==2,"Skipping unavailable recalls the next available choice");
     recall.activate(1);check(tap(0,group,{false,false,false},true)==2,"All unavailable keeps the remembered slot");
     Group empty;check(tap(3,empty)==0&&tap(3,empty)==0,"Empty groups never produce an out-of-range cycle");
+    {
+        Options protectedOptions;
+        check(protectedOptions.cycleKeepOtherHand,"Cycling protection starts enabled");
+        auto legacy=Json::parse(encodeOptions(protectedOptions));legacy.erase("cycleKeepOtherHand");
+        check(decodeOptions(legacy.dump()).cycleKeepOtherHand,"Existing settings enable cycling protection");
+        protectedOptions.cycleKeepOtherHand=false;
+        check(!decodeOptions(encodeOptions(protectedOptions)).cycleKeepOtherHand,"Opting out survives saved settings");
+        importAppearance(protectedOptions,Options{});
+        check(!protectedOptions.cycleKeepOtherHand,"Appearance imports preserve cycling protection preference");
+        const auto setup=exportPreset(Arsenal{},protectedOptions,false,[](auto){return Json{};});
+        check(!importPreset(setup,Arsenal{},Options{},false,[](const auto&,auto id){return id;}).options.cycleKeepOtherHand,"Complete presets restore the cycling protection preference");
+
+        Group weapons;auto held=sword;held.form=100;held.owner=20;held.unique=1;held.hand=Hand::left;
+        auto spare=held;spare.unique=2;auto dagger=held;dagger.form=101;dagger.kind=Kind::dagger;dagger.unique=3;
+        weapons.add(held);weapons.add(spare);weapons.add(dagger);weapons.selected=0;
+        const std::vector<bool> blocked{movesOtherHandWeapon(held,false,true),movesOtherHandWeapon(spare,false,false),movesOtherHandWeapon(dagger,true,false)};
+        check(blocked==std::vector<bool>({true,false,false}),"Only the exact occupied copy is blocked; same-form spare and target-hand copy remain eligible");
+        for(bool skip:{false,true}) {
+            check(cycleEntry(weapons,{true,true,true},skip,true,blocked)==1,"Recall skips an occupied copy with either unavailable-item setting");
+            check(cycleEntry(weapons,{true,true,true},skip,false,blocked)==1,"Advance skips an occupied copy");
+            weapons.selected=2;
+            check(cycleEntry(weapons,{true,true,true},skip,false,blocked)==1,"Wraparound skips the opposite-hand copy");
+            weapons.selected=0;
+        }
+        check(cycleEntry(weapons,{true,false,true},true,true,blocked)==2,"Protection composes with skipping unavailable entries");
+        check(cycleEntry(weapons,{true,false,true},false,true,blocked)==1,"Unavailable entries retain their configured cycling behavior");
+        check(!cycleEntry(weapons,{true,false,false},true,true,blocked),"No eligible available weapon produces no cycle action");
+        weapons.selected=1;
+        check(cycleEntry(weapons,{false,false,false},true,false,blocked)==1,"Unavailable unoccupied selection retains the existing fallback");
+        check(!cycleEntry(weapons,{true,true,true},false,false,{true,true,true}),"An all-occupied group cannot produce a transfer");
+        check(!cycleEntry(empty,{},false,true,{}),"Empty protected groups cannot produce a commit");
+        for(bool skip:{false,true})for(bool remember:{false,true})for(std::size_t selected=0;selected<3;++selected) {
+            weapons.selected=selected;
+            check(cycleEntry(weapons,{true,false,true},skip,remember,{false,false,false})==cycleEntry(weapons,{true,false,true},skip,remember),"Unblocked groups preserve recall and advance behavior");
+        }
+        weapons.selected=0;
+        Group favorites;setFavoriteSource(favorites,FavoriteSource::weapons,Hand::left);
+        refreshFavorites(favorites,{dagger,spare,held});
+        check(favorites.entries.size()==3&&favorites.entries[0].same(held)&&favorites.entries[1].same(spare),"Favorites preserve separate copies and their requested hand");
+        check(cycleEntry(favorites,{true,true,true},false,true,blocked)==1,"Favorites-linked groups skip the occupied copy after generating their entries");
+        Selection protectedSelection;auto previous=protectedSelection.requestCycle(weapons,0,1);
+        auto latest=protectedSelection.requestCycle(weapons,0,2);
+        check(!protectedSelection.accepts(*previous,weapons)&&protectedSelection.accepts(*latest,weapons),"Rapid protected taps retain only the latest equipment request");
+        protectedSelection.cancel();check(!protectedSelection.accepts(*latest,weapons),"A blocked tap can cancel queued equipment");
+        protectedOptions.cycleKeepOtherHand=true;
+        for(bool pad:{false,true}) {
+            latest->controller=pad;
+            check(keepOtherHandWhenCycling(protectedOptions,*latest),"Keyboard and controller cycle commits receive protection");
+            check(!keepOtherHandWhenCycling(protectedOptions,*latest,true),"Explicit unequip remains available");
+            latest->hand=Hand::left;
+            check(!keepOtherHandWhenCycling(protectedOptions,*latest),"An explicit browsing hand choice can transfer the copy");
+            latest->hand.reset();latest->cycling=false;latest->browsed=true;
+            check(!keepOtherHandWhenCycling(protectedOptions,*latest),"Browse selection keeps deliberate hand-transfer behavior");
+            latest->cycling=true;latest->browsed=false;
+        }
+        protectedOptions.cycleKeepOtherHand=false;check(!keepOtherHandWhenCycling(protectedOptions,*latest),"Disabling protection permits normal cycle transfers");
+        check(!movesOtherHandWeapon(held,false,false)&&movesOtherHandWeapon(held,false,true),"A fresh equipment check detects a copy occupied after selection");
+        check(!movesOtherHandWeapon(held,true,true),"A weapon already in its requested hand stays eligible");
+        for(auto kind:{Kind::sword,Kind::dagger,Kind::axe,Kind::mace,Kind::staff}) {auto item=held;item.kind=kind;check(movesOtherHandWeapon(item,false,true),"One-handed physical weapon families receive protection");}
+        for(auto kind:{Kind::spell,Kind::shield,Kind::torch,Kind::ammo,Kind::combo,Kind::emptyHand,Kind::unarmed}) {auto item=held;item.kind=kind;check(!movesOtherHandWeapon(item,false,true),"Spells and deliberate multi-hand actions retain their behavior");}
+        auto twoHanded=held;twoHanded.twoHanded=true;check(!movesOtherHandWeapon(twoHanded,false,true),"Two-handed equipment retains both-hand behavior");
+        auto spellCopy=held;spellCopy.spell=true;check(!movesOtherHandWeapon(spellCopy,false,true),"Spells remain usable in both hands");
+    }
     group.selected=0;
     for(const bool pad:{false,true}) {
         Selection selection;

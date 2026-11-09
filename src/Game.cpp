@@ -452,17 +452,20 @@ WeaponStatus readWeaponStatus(RE::TESBoundObject* object,RE::ExtraDataList* extr
     return status;
 }
 ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory,
-                                    const std::vector<PotionCandidate>& potions,const std::array<float,3>& deficits,const std::vector<NativeEquipment>* equipment=nullptr) {
+                                    const std::vector<PotionCandidate>& potions,const std::array<float,3>& deficits,const std::vector<NativeEquipment>* equipment=nullptr,bool keepOtherHand=false) {
     ShortcutResolution result;result.action=entry;
     if(isSmartEquipment(entry)) {
         result.row.entry=entry;result.row.entry.name=smartEquipmentName(entry);result.row.entry.icon=smartEquipmentIcon(entry);
         const auto generated=equipment?std::vector<NativeEquipment>{}:equipmentCandidates(player,inventory);const auto& native=equipment?*equipment:generated;const auto choices=equipmentChoices(native);
-        if(const auto* chosen=chooseEquipment(entry,choices)) {
+        if(const auto* chosen=chooseEquipment(entry,choices,keepOtherHand)) {
             const auto& pick=native[std::size_t(chosen-choices.data())];result.action=chosen->entry;result.action.hand=entry.hand;
             result.item=resolveEquipment(entry,pick);
             result.row=makeRow(entry,result.item);result.row.entry.name=smartEquipmentName(entry);result.row.entry.icon=baseIcon(chosen->entry);
             result.row.detail=chosen->entry.name+(entry.kind==Kind::smartAmmo?" ×"+std::to_string(chosen->count):"");
-        }else result.row.detail=entry.kind==Kind::smartAmmo?tr("No matching ammo"):smartShield(entry)?tr("No matching shield"):tr("No matching weapon");
+        }else {
+            result.row.cycleBlocked=keepOtherHand&&chooseEquipment(entry,choices);
+            result.row.detail=result.row.cycleBlocked?tr("Matching weapons are held in the other hand"):entry.kind==Kind::smartAmmo?tr("No matching ammo"):smartShield(entry)?tr("No matching shield"):tr("No matching weapon");
+        }
     } else if(entry.kind==Kind::smartPotion) {
         result.row.entry=entry;result.row.entry.icon=smartIcon(entry.resource);
         if(const auto* bottle=choosePotion(entry,potions,deficits[std::min(entry.resource,2u)])) {
@@ -496,6 +499,7 @@ ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* playe
         result.row.equipped&=result.row.available;
         if(!entry.parts.empty())result.row.entry.icon=baseIcon(result.row.entry.parts[0]);
     } else {result.item=resolve(entry,player,inventory);result.row=makeRow(entry,result.item);result.row.entry.icon=visualIcon(entry.unresolved?nullptr:RE::TESForm::LookupByID(entry.form));}
+    result.row.cycleBlocked|=keepOtherHand&&movesOtherHandWeapon(result.action,result.item.equipped,result.item.otherEquipped);
     if(entry.kind!=Kind::combo)result.row.weapon=readWeaponStatus(result.item.object,result.item.extra,player,inventory);
     if(!isSmartEquipment(entry)&&entry.kind!=Kind::smartPotion&&entry.kind!=Kind::combo&&!isHandAction(entry)) {
         if(auto* form=RE::TESForm::LookupByID(entry.form)) {
@@ -881,13 +885,16 @@ void Game::beginSelection(std::size_t group,bool controller) {
     selectionController_=controller;
     const bool recall=groupRecall_.activate(group);
     if(groupMode(options_,arsenal_,group)==GroupMode::cycle) {
-        if(dirty_)refresh();
-        std::vector<bool> available;for(const auto& row:snapshot_.rows)available.push_back(row.available);
-        const auto index=cycleEntry(arsenal_.current(),available,options_.skipEmpty,recall);
-        if(auto commit=selection_.requestCycle(arsenal_.current(),group,index)) {
+        if(dirty_||options_.cycleKeepOtherHand)refresh();
+        std::vector<bool> available,blocked;for(const auto& row:snapshot_.rows){available.push_back(row.available);blocked.push_back(row.cycleBlocked);}
+        const auto index=cycleEntry(arsenal_.current(),available,options_.skipEmpty,recall,blocked);
+        if(!index) {
+            cancel();
+            if(!arsenal_.current().entries.empty())notice(tr("Weapons in the other hand skipped"));
+        }else if(auto commit=selection_.requestCycle(arsenal_.current(),group,*index)) {
             commit->controller=controller;
-            arsenal_.current().selected=index;released_=Released{*commit};
-            log::info("Cycle {}: group {}, entry {}",recall?"recall":"advance",group+1,index+1);
+            arsenal_.current().selected=*index;released_=Released{*commit};
+            log::info("Cycle {}: group {}, entry {}",recall?"recall":"advance",group+1,*index+1);
         }
 
         controller_.cancel();
@@ -1362,7 +1369,7 @@ void Game::refresh() {
     for(std::size_t i=0;i<Arsenal::count;++i) {
         auto& group=arsenal_.groups[i];auto& tile=snapshot_.groups[i];tile={};tile.count=group.entries.size();
         for(std::size_t j=0;j<group.entries.size();++j) {
-            auto& entry=group.entries[j];const auto resolved=resolveShortcut(entry,player,inventory,potions,deficits,&equipment);const auto& item=resolved.item;
+            auto& entry=group.entries[j];const auto resolved=resolveShortcut(entry,player,inventory,potions,deficits,&equipment,options_.cycleKeepOtherHand&&groupMode(options_,arsenal_,i)==GroupMode::cycle);const auto& item=resolved.item;
             entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo)entry.parts=resolved.row.entry.parts;
             const bool available=resolved.row.available;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
@@ -1442,7 +1449,9 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
             equipPairStep(commit,0,unequip);return;
         }
         auto inventory=inventoryFor(arsenal_,player);const auto deficits=actorDeficits(player);
-        auto resolved=resolveShortcut(saved,player,inventory,potionCandidates(inventory),deficits);
+        const bool keepOtherHand=keepOtherHandWhenCycling(options_,commit,unequip);
+        auto resolved=resolveShortcut(saved,player,inventory,potionCandidates(inventory),deficits,nullptr,keepOtherHand);
+        if(resolved.row.cycleBlocked){notice(tr("Weapons in the other hand skipped"));dirty_=true;return;}
         auto entry=resolved.action;auto item=resolved.item;
         if(saved.kind==Kind::smartWeapon&&item.available()) {
             auto* extra=item.extra?item.extra:materializePlainCopy(player,item.object);
@@ -1471,6 +1480,7 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         }
         if(unequip&&!item.equipped){notice(tr("Already unequipped — ")+entryLabel(entry),false);return;}
         if(!unequip&&item.equipped){arsenal_.current().selected=commit.index;if(castVoice)startVoice(entry);else notice(isHandAction(entry)?handName(entry)+tr(" already empty"):tr("Ready — ")+entryLabel(entry),false);dirty_=true;refresh();publish();return;}
+        if(keepOtherHand&&movesOtherHandWeapon(entry,item.equipped,item.otherEquipped)){notice(tr("Weapons in the other hand skipped"));dirty_=true;return;}
         const bool move=!unequip&&item.otherEquipped;
 
         changeEquipment(player,entry,item,unequip||move,move);
@@ -1754,7 +1764,7 @@ void Game::refreshEditor() {
     for(std::size_t i=0;i<Arsenal::count;++i) {
         auto& rows=editor_.rows[i];rows.clear();
         for(auto& entry:editor_.draft.groups[i].entries) {
-            const auto resolved=resolveShortcut(entry,player,inventory,potions,editor_.deficits,&equipment);const auto& item=resolved.item;
+            const auto resolved=resolveShortcut(entry,player,inventory,potions,editor_.deficits,&equipment,editor_.options.cycleKeepOtherHand&&groupMode(editor_.options,editor_.draft,i)==GroupMode::cycle);const auto& item=resolved.item;
             entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo)entry.parts=resolved.row.entry.parts;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             rows.push_back(resolved.row);

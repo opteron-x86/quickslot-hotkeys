@@ -36,6 +36,25 @@ int main()try {
     check(chooseEquipment(rule,copies)==&copies[1],"Tie preference follows chosen hand");
     copies[1].count=0;check(chooseEquipment(rule,copies)==&copies[0],"Dropped or exhausted winner is replaced");
     copies[0].damage=std::numeric_limits<float>::quiet_NaN();check(!chooseEquipment(rule,copies),"Invalid and empty candidates cannot win");
+    {
+        const auto left=smartEquipmentEntry(false,unsigned(WeaponFamily::sword),Hand::left);
+        auto occupied=a,free=b;occupied.damage=100;occupied.rightEquipped=true;free.damage=20;
+        std::vector<EquipmentCandidate> weapons{occupied,free};
+        check(chooseEquipment(left,weapons)==&weapons[0],"Unprotected smart selection may deliberately transfer the strongest copy");
+        check(chooseEquipment(left,weapons,true)==&weapons[1],"Protected smart selection ranks the free exact copy above an occupied stronger copy");
+        weapons[1].entry.owner=0;weapons[1].entry.unique=0;weapons[1].count=2;
+        check(chooseEquipment(left,weapons,true)==&weapons[1],"A spare plain copy of the same base form remains eligible");
+        weapons[1].count=0;check(!chooseEquipment(left,weapons,true),"A single opposite-hand copy produces no protected smart choice");
+        weapons[1]=free;weapons[1].leftEquipped=true;
+        check(chooseEquipment(left,weapons,true)==&weapons[1],"The target hand's current copy remains eligible");
+        auto right=left;right.hand=Hand::right;weapons[0].rightEquipped=false;weapons[0].leftEquipped=true;weapons[1].leftEquipped=false;
+        check(chooseEquipment(right,weapons,true)==&weapons[1],"Right-hand cycling also protects the left hand");
+        weapons[1].rightEquipped=true;weapons[1].damage=100;weapons[0].leftEquipped=false;
+        check(chooseEquipment(right,weapons,true)==&weapons[1],"Equal scores retain the target hand's equipped copy");
+        auto great=occupied;great.entry.twoHanded=true;great.entry.kind=Kind::greatsword;great.family=WeaponFamily::greatsword;
+        std::vector<EquipmentCandidate> twoHanded{great};
+        check(chooseEquipment(smartEquipmentEntry(false,unsigned(WeaponFamily::greatsword)),twoHanded,true)==&twoHanded[0],"Two-handed smart rules keep their normal equipment behavior");
+    }
     EquipmentCandidate arrow,bolt;arrow.entry.form=30;arrow.entry.kind=Kind::ammo;arrow.entry.icon=Icon::arrow;arrow.damage=9;arrow.count=20;
     bolt=arrow;bolt.entry.form=31;bolt.entry.icon=Icon::bolt;bolt.damage=99;
     const std::vector<EquipmentCandidate> ammo{arrow,bolt};

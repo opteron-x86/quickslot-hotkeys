@@ -18,7 +18,7 @@ inline void importAppearance(Options& target,const Options& source) {
     const auto previous=target;target=source;
     target.language=previous.language;target.keys=previous.keys;target.names=previous.names;target.groupCount=previous.groupCount;target.groupOrder=previous.groupOrder;
     target.editorKey=previous.editorKey;target.editorModifiers=previous.editorModifiers;
-    target.skipEmpty=previous.skipEmpty;
+    target.skipEmpty=previous.skipEmpty;target.cycleKeepOtherHand=previous.cycleKeepOtherHand;
     target.menuCapture=previous.menuCapture;target.selectionSpeed=previous.selectionSpeed;
     target.groupUnequipHotkey=previous.groupUnequipHotkey;target.groupRemoveHotkey=previous.groupRemoveHotkey;
     target.groupCaptureRightHotkey=previous.groupCaptureRightHotkey;target.groupCaptureLeftHotkey=previous.groupCaptureLeftHotkey;target.groupMoveHotkey=previous.groupMoveHotkey;

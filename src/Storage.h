@@ -34,6 +34,7 @@ inline std::string encode(const Group& g) {
     Json result{{"schema",groupSchema},{"selected",g.automatic()?g.manualSelected:g.selected},{"entries",entries}};
     if(g.automatic()||!g.excludedFavorites.empty()||g.rememberedFavorite||g.favoriteHand!=Hand::right) {
         Json favorites{{"source",unsigned(g.source)},{"hand",unsigned(g.favoriteHand)},{"excluded",Json::array()}};
+        if(g.source==FavoriteSource::selected)favorites["categories"]=g.favoriteCategories;
         for(const auto& e:g.excludedFavorites)favorites["excluded"].push_back(encodeEntry(e));
         if(g.automatic()&&g.selected<g.entries.size())favorites["remembered"]=encodeEntry(g.entries[g.selected]);
         else if(g.rememberedFavorite)favorites["remembered"]=encodeEntry(*g.rememberedFavorite);
@@ -112,7 +113,12 @@ inline Group decode(const std::string& bytes,const std::function<bool(std::uint3
         const auto& f=j.at("favorites");
         if(!f.at("source").is_number_unsigned()||f.at("source").get<std::uint64_t>()>=unsigned(FavoriteSource::count)||
            !f.at("hand").is_number_unsigned()||f.at("hand").get<std::uint64_t>()>1||!f.at("excluded").is_array()||f.at("excluded").size()>Group::exclusionLimit)throw std::runtime_error("Invalid Favorites source");
-        setFavoriteSource(g,FavoriteSource(f.at("source").get<unsigned>()),Hand(f.at("hand").get<unsigned>()));
+        const auto source=FavoriteSource(f.at("source").get<unsigned>());unsigned categories=0;
+        if(source==FavoriteSource::selected) {
+            if(!f.at("categories").is_number_unsigned()||f.at("categories").get<std::uint64_t>()>allFavoriteCategories)throw std::runtime_error("Invalid Favorites categories");
+            categories=f.at("categories").get<unsigned>();
+        }
+        setFavoriteSource(g,source,Hand(f.at("hand").get<unsigned>()),categories);
         const auto read=[&](const Json& value){auto e=decodeEntry(value,resolve);if(isReusable(e)||e.shortcut)throw std::runtime_error("Invalid Favorite reference");return e;};
         for(const auto& value:f.at("excluded"))g.excludedFavorites.push_back(read(value));
         if(f.contains("remembered"))g.rememberedFavorite=read(f.at("remembered"));

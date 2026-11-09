@@ -94,7 +94,7 @@ struct SelectorArrow {int delta=0;bool reorder=false;};
 inline SelectorArrow selectorArrow(unsigned scan,bool ctrl) {
     return {scan==203?-1:scan==205?1:0,ctrl};
 }
-enum class FavoriteSource : unsigned {manual,all,weapons,spells,potions,poisons,food,ammo,scrolls,voice,offhand,count};
+enum class FavoriteSource : unsigned {manual,all,weapons,spells,potions,poisons,food,ammo,scrolls,voice,offhand,selected,count};
 inline bool sameFavorite(const Entry& a,const Entry& b){auto other=b;other.hand=a.hand;return a.same(other);}
 struct Group {
     static constexpr std::size_t limit=16;
@@ -103,6 +103,7 @@ struct Group {
     std::size_t selected=0;
     std::uint64_t revision=0;
     FavoriteSource source=FavoriteSource::manual;
+    unsigned favoriteCategories=0;
     Hand favoriteHand=Hand::right;
     std::vector<Entry> manualEntries,excludedFavorites;
     std::size_t manualSelected=0;

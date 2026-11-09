@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Groups offer **Tap to cycle / hold to browse**, with taps committed on release and held selection in both directions.
 - Favorites groups can combine multiple categories, such as weapons and shields/torches, in one list.
 - Controller and VR bindings allow Modifier and Button to be selected in either order.
 - Tap-to-cycle keeps one-handed weapon copies equipped in the opposite hand by default. Smart weapons choose the strongest eligible copy. Configure this under **Controls → General → Keep the other hand equipped while cycling**.

@@ -43,7 +43,7 @@ inline void sanitizeOptions(Options& o) {
     o.selectionSpeed=std::isfinite(o.selectionSpeed)?(o.selectionSpeed==0?0:std::clamp(o.selectionSpeed,.1f,1.f)):1.f;
     o.controllerStyle=std::min(o.controllerStyle,1u);o.controllerStick=std::min(o.controllerStick,2u);
     o.controllerModifiers&=allPadButtons;
-    for(auto& mode:o.groupModes)if(unsigned(mode)>unsigned(GroupMode::cycle))mode=GroupMode::browse;
+    for(auto& mode:o.groupModes)if(unsigned(mode)>unsigned(GroupMode::cycleBrowse))mode=GroupMode::browse;
     if(!validPadBinding(o.controllerEditor))o.controllerEditor={};
     std::vector<PadBinding> padAssigned;if(o.controllerEditor.button!=PadButton::none)padAssigned.push_back(o.controllerEditor);
     for(const auto id:o.groupOrder) {

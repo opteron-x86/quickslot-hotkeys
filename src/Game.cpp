@@ -883,8 +883,9 @@ void Game::queueMove(std::size_t target) {
 }
 void Game::beginSelection(std::size_t group,bool controller) {
     selectionController_=controller;
-    const bool recall=groupRecall_.activate(group);
-    if(groupMode(options_,arsenal_,group)==GroupMode::cycle) {
+    const auto mode=groupMode(options_,arsenal_,group);
+    if(mode==GroupMode::cycle) {
+        const bool recall=groupRecall_.activate(group);
         if(dirty_||options_.cycleKeepOtherHand)refresh();
         std::vector<bool> available,blocked;for(const auto& row:snapshot_.rows){available.push_back(row.available);blocked.push_back(row.cycleBlocked);}
         const auto index=cycleEntry(arsenal_.current(),available,options_.skipEmpty,recall,blocked);
@@ -898,12 +899,23 @@ void Game::beginSelection(std::size_t group,bool controller) {
         }
 
         controller_.cancel();
-    } else selection_.press(clockNow(),arsenal_.current(),group);
+    } else {
+        if(mode==GroupMode::browse)groupRecall_.activate(group);
+        selection_.press(clockNow(),arsenal_.current(),group,mode==GroupMode::cycleBrowse);
+    }
     dirty_=true;
 }
 void Game::finishSelection() {
     selection_.tick(clockNow());
+    if(selection_.held()&&selection_.tapCycles()&&!selection_.browsing()&&(dirty_||options_.cycleKeepOtherHand))refresh();
     if(auto commit=selection_.release(arsenal_.current(),arsenal_.active)) {
+        const bool recall=groupRecall_.activate(arsenal_.active);
+        if(commit->cycling) {
+            std::vector<bool> available,blocked;for(const auto& row:snapshot_.rows){available.push_back(row.available);blocked.push_back(row.cycleBlocked);}
+            const auto index=cycleEntry(arsenal_.current(),available,options_.skipEmpty,recall,blocked);
+            if(!index){cancel();if(!arsenal_.current().entries.empty())notice(tr("Weapons in the other hand skipped"));return;}
+            commit->index=*index;arsenal_.current().selected=*index;
+        }
         commit->controller=selectionController_;
         released_=Released{*commit};snapshot_.revealUntil=clockNow()+2;
     }
@@ -1097,7 +1109,7 @@ void Game::dispatch(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent**
             if(!allowed())cancel();
             if(!REL::Module::IsVR())if(auto* devices=RE::BSInputDeviceManager::GetSingleton();devices&&devices->IsGamepadEnabled())
                 if(auto* pad=devices->GetGamepad())controller_.observe(readPadState(pad));
-            selection_.tick(clockNow());selectionTime(selection_.browsing());
+            const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing)dirty_=true;selectionTime(selection_.browsing());
         }
         filterEvents(events?*events:nullptr,[&](RE::InputEvent* e){
                 std::scoped_lock lock(mutex_);const bool consumed=consume(e);
@@ -1189,7 +1201,7 @@ void Game::tick() {
         auto* ui=RE::UI::GetSingleton();
         if(inputAllowed) {
             if(voice_.active())progressVoice();
-            selection_.tick(clockNow());selectionTime(selection_.browsing());
+            const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing)dirty_=true;selectionTime(selection_.browsing());
 
             if(released_&&!ui->IsMenuOpen(pauseMenuName)) {const auto action=*released_;released_.reset();equip(action.commit,action.unequip);}
         }
@@ -1369,7 +1381,7 @@ void Game::refresh() {
     for(std::size_t i=0;i<Arsenal::count;++i) {
         auto& group=arsenal_.groups[i];auto& tile=snapshot_.groups[i];tile={};tile.count=group.entries.size();
         for(std::size_t j=0;j<group.entries.size();++j) {
-            auto& entry=group.entries[j];const auto resolved=resolveShortcut(entry,player,inventory,potions,deficits,&equipment,options_.cycleKeepOtherHand&&groupMode(options_,arsenal_,i)==GroupMode::cycle);const auto& item=resolved.item;
+            auto& entry=group.entries[j];const auto resolved=resolveShortcut(entry,player,inventory,potions,deficits,&equipment,options_.cycleKeepOtherHand&&cyclesOnTap(groupMode(options_,arsenal_,i))&&!(selection_.browsing()&&selection_.group()==i));const auto& item=resolved.item;
             entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo)entry.parts=resolved.row.entry.parts;
             const bool available=resolved.row.available;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
@@ -1764,7 +1776,7 @@ void Game::refreshEditor() {
     for(std::size_t i=0;i<Arsenal::count;++i) {
         auto& rows=editor_.rows[i];rows.clear();
         for(auto& entry:editor_.draft.groups[i].entries) {
-            const auto resolved=resolveShortcut(entry,player,inventory,potions,editor_.deficits,&equipment,editor_.options.cycleKeepOtherHand&&groupMode(editor_.options,editor_.draft,i)==GroupMode::cycle);const auto& item=resolved.item;
+            const auto resolved=resolveShortcut(entry,player,inventory,potions,editor_.deficits,&equipment,editor_.options.cycleKeepOtherHand&&cyclesOnTap(groupMode(editor_.options,editor_.draft,i)));const auto& item=resolved.item;
             entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo)entry.parts=resolved.row.entry.parts;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             rows.push_back(resolved.row);

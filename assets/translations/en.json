@@ -2,6 +2,8 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "Tap to cycle / hold to browse": "Tap to cycle / hold to browse",
+    "Tap and release to cycle. Hold to browse, then release to equip the highlighted entry.": "Tap and release to cycle. Hold to browse, then release to equip the highlighted entry.",
     "All Favorites": "All Favorites",
     "Favorite ammo": "Favorite ammo",
     "Favorite categories": "Favorite categories",

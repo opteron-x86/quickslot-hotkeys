@@ -176,7 +176,7 @@ template<class A,class F> void eachSavedEntry(A& arsenal,const F& f) {
 }
 
 class Selection {
-    bool held_=false,browsing_=false;
+    bool held_=false,browsing_=false,tapCycles_=false;
     double started_=0;
     std::size_t index_=0,group_=0;
     std::uint64_t token_=0,revision_=0;
@@ -186,12 +186,13 @@ public:
     bool held() const { return held_; }
     bool browsing() const { return browsing_; }
     bool canBrowse() const { return held_; }
+    bool tapCycles() const { return tapCycles_; }
     std::size_t index() const { return index_; }
     std::size_t group() const { return group_; }
     std::uint64_t token() const { return token_; }
-    void press(double now,const Group& g,std::size_t group=0) {
+    void press(double now,const Group& g,std::size_t group=0,bool tapCycles=false) {
         if(held_&&group_==group)return;
-        ++token_;held_=true;browsing_=false;started_=now;index_=g.selected;revision_=g.revision;group_=group;
+        ++token_;held_=true;browsing_=false;tapCycles_=tapCycles;started_=now;index_=g.selected;revision_=g.revision;group_=group;
     }
     void tick(double now) { if(held_&&now-started_>=holdSeconds)browsing_=true; }
     void cycle(int delta,const Group& g) {
@@ -210,7 +211,7 @@ public:
         if(!held_||group!=group_)return {};
         const bool valid=g.revision==revision_&&index_<g.entries.size(),browsed=browsing_;held_=false;browsing_=false;
         if(!valid){++token_;return {};}
-        return Commit{index_,token_,revision_,group_,browsed};
+        return Commit{index_,token_,revision_,group_,browsed,false,tapCycles_&&!browsed};
     }
     std::optional<Commit> request(const Group& g,std::size_t group,std::size_t index) {
         cancel();group_=group;index_=index;revision_=g.revision;
@@ -265,7 +266,8 @@ template<class IsDown> inline unsigned keyboardModifiers(IsDown down) {
            ((down(29)||down(157))?keyModifier::ctrl:0u)|
            ((down(56)||down(184))?keyModifier::alt:0u);
 }
-enum class GroupMode : unsigned {browse,cycle};
+enum class GroupMode : unsigned {browse,cycle,cycleBrowse};
+inline bool cyclesOnTap(GroupMode mode){return mode==GroupMode::cycle||mode==GroupMode::cycleBrowse;}
 struct Options {
     std::array<unsigned,Arsenal::count> keys{2,3,4,5,6,7,8,9};
     std::array<std::string,Arsenal::count> names{"Arsenal","Group 2","Group 3","Group 4","Group 5","Group 6","Group 7","Group 8"};

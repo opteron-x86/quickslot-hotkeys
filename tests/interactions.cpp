@@ -213,6 +213,47 @@ int main()try {
         check(!selection.accepts(previous,group)&&selection.accepts(*c,group),"Rapid cycles invalidate earlier queued equipment");
         selection.cancel();check(!selection.accepts(*c,group),"Menu/focus cancellation invalidates pending cycle");
     }
+    for(bool controller:{false,true})for(double threshold:{.1,.18,.8}) {
+        Selection gesture;gesture.holdSeconds=threshold;GroupRecall memory;
+        Group items=group;items.selected=0;
+        const auto finish=[&](double now)->std::optional<Selection::Commit> {
+            gesture.tick(now);auto result=gesture.release(items);
+            if(result){result->controller=controller;const bool first=memory.activate(0);if(result->cycling)result->index=cycleEntry(items,{true,true,true},true,first);items.selected=result->index;}
+            return result;
+        };
+        gesture.press(1,items,0,true);gesture.tick(1+threshold*.5);
+        check(gesture.held()&&!gesture.browsing()&&items.selected==0,"Combined mode waits for release and keeps the current selection while pressed");
+        auto first=finish(1+threshold*.5);check(first&&first->cycling&&!first->browsed&&first->index==0,"First combined tap recalls the remembered item");
+        gesture.press(2,items,0,true);auto second=finish(2+threshold*.5);
+        check(second&&second->cycling&&second->index==1&&!gesture.accepts(*first,items)&&!finish(3),"Another tap advances once and invalidates the previous queued action");
+        gesture.press(4,items,0,true);gesture.tick(4+threshold+.001);
+        check(gesture.browsing()&&gesture.index()==1&&items.selected==1,"A hold browses the current item before any equip occurs");
+        gesture.cycle(-1,items);auto held=finish(5);
+        check(held&&held->browsed&&!held->cycling&&held->index==0,"Hold browsing can move backwards and commits once on release");
+        check(keepOtherHandWhenCycling(o,*second)&&!keepOtherHandWhenCycling(o,*held),"Combined taps protect the opposite hand while explicit browsing chooses the highlighted copy");
+        gesture.press(6,items,0,true);gesture.cycle(1,items);auto early=finish(6+threshold*.5);
+        check(early&&early->browsed&&!early->cycling&&early->index==1,"Navigation before the hold threshold explicitly begins browsing");
+        gesture.press(7,items,0,true);gesture.cancel();check(!finish(8),"Focus or menu cancellation prevents a combined tap or hold from committing");
+        gesture.press(9,items,0,true);++items.revision;check(!finish(9+threshold*.5),"Membership changes invalidate a deferred tap");
+        Options saved;saved.groupModes[0]=GroupMode::cycleBrowse;
+        check(decodeOptions(encodeOptions(saved)).groupModes[0]==GroupMode::cycleBrowse,"Combined mode persists in settings");
+        const auto preset=exportPreset(Arsenal{},saved,false,[](auto id){return Json{{"file","Test.esp"},{"local",id}};});
+        check(importPreset(preset,Arsenal{},Options{},false,[](const auto&,auto id){return id;}).options.groupModes[0]==GroupMode::cycleBrowse,"Complete presets retain combined mode");
+    }
+    for(bool vr:{false,true})for(bool hold:{false,true})for(bool loseModifier:{false,true}) {
+        const auto main=vr?PadButton::rt:PadButton::up;
+        Options controls;controls.groupModes[0]=GroupMode::cycleBrowse;controls.controllerGroups[0]=controls.vrGroups[0]={main,PadButton::lb};
+        ControllerInput input;Selection choosing;input.button(PadButton::lb,true,true,controls,true,false,vr);
+        const auto pressed=input.button(main,true,true,controls,true,false,vr);
+        check(pressed.action==PadAction::press,"Controller and VR chords begin a deferred group gesture");
+        choosing.press(1,group,0,true);choosing.tick(hold?2:1.01);
+        check(input.button(main,true,false,controls,true,true,vr).action==PadAction::none,"Held group button repeats do not commit a cycle");
+        if(loseModifier){const auto lost=input.button(PadButton::lb,false,false,controls,true,true,vr);check(lost.action==PadAction::cancel,"Releasing the chord modifier cancels the deferred gesture");choosing.cancel();}
+        const auto released=input.button(main,false,false,controls,true,choosing.held(),vr);
+        const auto committed=released.action==PadAction::release?choosing.release(group):std::nullopt;
+        check(loseModifier?!committed:committed&&committed->cycling==!hold&&committed->browsed==hold,"Controller and VR main-button release commits exactly the completed tap or hold");
+        check(!input.owned(main),"Deferred gestures balance controller button ownership");
+    }
     Selection selection;selection.press(1,group);selection.cycle(1,group);auto commit=selection.release(group);
     check(commit->browsed,"Early wheel movement is browsing");
     ++group.revision;check(!selection.accepts(*commit,group),"Edits invalidate released actions");

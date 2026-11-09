@@ -2,6 +2,7 @@
 #include "EditorModel.h"
 #include "Hud.h"
 #include <array>
+#include <map>
 
 namespace quickslot {
 std::string scanName(unsigned scan);
@@ -31,6 +32,8 @@ class Editor {
     };
     std::optional<OrderSelection> orderSelection_;
     int filter_=0,binding_=-1,tab_=0,placementTarget_=0,controlsPage_=0;
+    struct PadDraft {PadBinding original,value;};
+    std::map<unsigned,PadDraft> padDrafts_;
     bool placement_=false,previewOpen_=true;
     int placementPanelTarget_=-1;
     bool placementPanelRight_=false;

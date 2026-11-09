@@ -467,7 +467,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(textField("##Group name","",names_[groupID])){options.names[groupID]=names_[groupID].data();changed=true;}
             ImGui::SameLine();UI::TextDisabled("Key");ImGui::SameLine();bindButton(int(groupID),options.keys[groupID],"##group binding");
             ImGui::SetNextItemWidth(px(235));
-            if(ImGui::BeginCombo("##group source",tr(favoriteSourceName(group.source)))) {
+            if(ImGui::BeginCombo("##group source",tr(favoriteSourceName(group.source)),ImGuiComboFlags_HeightLarge)) {
                 for(unsigned i=0;i<=unsigned(FavoriteSource::all);++i)if(ImGui::Selectable(tr(favoriteSourceName(FavoriteSource(i))),i==unsigned(group.source))) {
                     auto c=command(EditAction::favoriteSource,groupID);c.source=FavoriteSource(i);c.hand=group.favoriteHand;emit(c);
                 }

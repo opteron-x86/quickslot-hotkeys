@@ -738,6 +738,21 @@ int main(int argc,char** argv)try {
     click("##group source");click("Manual");
     manualAfter=Json::parse(encode(state.draft.current()));manualAfter.erase("favorites");
     check(manualAfter==Json::parse(manualBefore),"Multiple category edits preserve the original manual group");
+    for(bool vr:{false,true}) {
+        state=fixture::editor();state.session=session++;state.controller=true;state.vr=vr;io.DisplaySize={1280,720};frame();frame();
+        click("Groups##main");click("Items");padKey(PadButton::up);padKey(PadButton::a);
+        const auto selectCategory=[&](const char* label) {
+            for(unsigned step=0;step<16;++step) {
+                const auto items=probe::find(label);
+                if(!items.empty()&&ImGui::GetCurrentContext()->NavId==items[0].id){padKey(PadButton::a);return;}
+                padKey(PadButton::down);
+            }
+            check(false,"Controller can reach each Favorites checkbox");
+        };
+        selectCategory("Favorite weapons");selectCategory("Favorite shields / torches");
+        check(favoriteCategoryMask(state.draft.current())==mixedCategories&&state.draft.current().entries.size()==7,"Controller and VR navigation select multiple categories at 720p");
+        padKey(PadButton::b);check(state.open&&ImGui::GetCurrentContext()->OpenPopupStack.empty(),"Controller cancel closes the category picker and retains selections");
+    }
     state=fixture::editor();state.session=session++;state.controller=true;io.DisplaySize={1600,900};frame();frame();
     click("Controls");click("Controller");
     const auto choosePad=[&](const char* field,unsigned index,PadButton value) {

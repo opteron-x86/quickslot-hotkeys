@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.14.0
 
 - Added a configurable **Use selected consumable** action for keyboard, controller and VR, plus a group setting for selecting consumables with cycling or browsing. The equipment widget retains the last selected consumable across groups.
 - Groups offer **Tap to cycle / hold to browse**, with taps committed on release and held selection in both directions.
@@ -8,6 +8,8 @@
 - Controller and VR bindings allow Modifier and Button to be selected in either order.
 - Tap-to-cycle keeps one-handed weapon copies equipped in the opposite hand by default. Smart weapons choose the strongest eligible copy. Configure this under **Controls → General → Keep the other hand equipped while cycling**.
 - Switching PNGII icons on in the editor keeps the interface responsive while artwork loads.
+
+Updating: install the complete release package and keep your settings and presets. Select the new group behaviors in **Groups** and bind **Use selected consumable** under **Controls**.
 
 ## 0.13.1
 

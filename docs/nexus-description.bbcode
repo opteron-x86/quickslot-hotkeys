@@ -6,10 +6,11 @@ Equipment and consumable shortcut groups with a configurable HUD. Tap a group ke
 [list]
 [*]Up to eight groups for weapons, armor, shields, spells, scrolls, potions, poisons, food, powers, shouts and ammo.
 [*]Searchable hand combinations, including smart weapons and shields.
-[*]Category groups populated automatically from Skyrim Favorites.
+[*]Groups populated automatically from one or more Skyrim Favorites categories.
 [*]Hand selection while browsing, with keyboard, mouse and controller bindings.
 [*]Smart weapons by physical damage, shields by armor, ammo by damage and potions by strength or best fit.
-[*]Hold-to-browse and tap-to-cycle group modes.
+[*]Hold-to-browse, tap-to-cycle and combined tap-to-cycle/hold-to-browse group modes.
+[*]A dedicated consumable binding for using the last selected potion, food or poison.
 [*]Keyboard, XInput, PS4 and experimental VR controls with configurable modifiers.
 [*]Independent equipment display with quantity badges, poison indicators, bow ammunition counts, shout timers and power dimming.
 [*]Separate keyboard/mouse and controller options for using Quickslot while QuickLoot is open.
@@ -26,7 +27,7 @@ Equipment and consumable shortcut groups with a configurable HUD. Tap a group ke
 [*]VR: SKSEVR, [url=https://github.com/alandtse/skyrim_vr_address_library]VR Address Library[/url], [url=https://github.com/Odie/skyui-vr]SkyUI VR[/url] and [url=https://www.nexusmods.com/skyrimspecialedition/mods/183466]ImGui VR Helper 1.9.4+[/url].
 [/list]
 
-Optional integrations: [url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url], ImGui Icons and Skyrim Souls RE.
+Optional integrations: [url=https://github.com/rijosan87/PNGII]PNG Icon Injector[/url] with icon API v1, [url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url], ImGui Icons and Skyrim Souls RE.
 
 [b]Controls[/b]
 
@@ -40,13 +41,19 @@ Configure bindings under Controls. Keyboard actions use None or Clear to disable
 
 While browsing, choose Equip in right/left hand to equip the highlighted weapon or spell for the current use. Mouse-button and bumper presets are available in the binding settings.
 
-Tap-to-cycle recalls the selected item when returning to a group and advances on further taps. Consumable groups use tap-to-use and hold-to-choose.
+Tap-to-cycle recalls the selected item when returning to a group and advances on further taps. [b]Tap to cycle / hold to browse[/b] cycles on a short release and opens the selector when held. [b]Keep the other hand equipped while cycling[/b], under Controls → General, starts enabled and skips weapon copies held in the opposite hand.
+
+Consumable groups start with tap-to-use and hold-to-choose. Set [b]Consumables → Use selected consumable action[/b] to cycle or browse consumables, then use a separate binding to consume one dose. Bind [b]Use selected consumable[/b] under Controls → Keyboard or Controller. The action starts unbound and uses the last explicitly selected consumable across groups; the equipment display shows that selection.
+
+In Groups, open the Manual dropdown and check the Favorites categories to include. For example, combine Favorite weapons with Favorite shields / torches. The group displays matching favorites once each, in alphabetical order.
 
 [b]Appearance[/b]
 
 Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Adjust frame and icon style, text, spacing and visibility. Position each display by dragging its outline or adjusting X/Y; Shift enables free movement.
 
 Item icons use your installed I4 packs. Original displays their colors; Theme and White apply the selected tint. Smart shortcuts show the item currently selected, combinations show both items, and hand actions use a gauntlet.
+
+Enable [b]Use PNGII icons[/b] under Appearance → Style to display matching artwork from PNG Icon Injector. I4 supplies the remaining icons.
 
 Enable Show equipped ammunition under Appearance → Equipment to display equipped arrows or bolts and their current count.
 
@@ -62,4 +69,4 @@ For bug reports, include Quickslot.log, the game version and reproduction steps.
 
 [b]Credits[/b]
 
-Item artwork was supplied by the mod author. Frame/font attribution and dependency notices are included in the licenses folder.
+Item artwork comes from your installed I4 and PNGII packs. Frame/font attribution and dependency notices are included in the licenses folder.

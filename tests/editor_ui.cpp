@@ -373,6 +373,9 @@ int main(int argc,char** argv)try {
         check(state.draft.current().entries.back().parts[0].name=="Imperial Sword (Superior)"&&state.draft.current().entries.back().parts[1].kind==Kind::emptyHand,"Current equipment creates a combination directly");
         click("##group mode");click("Tap to cycle");
         check(state.options.groupModes[0]==GroupMode::cycle,"Group mode applies live at every resolution");
+        click("##group mode");click("Tap to cycle / hold to browse");
+        check(state.options.groupModes[0]==GroupMode::cycleBrowse,"Combined mode is selectable at every editor resolution");
+        click("Undo");check(state.options.groupModes[0]==GroupMode::cycle,"Undo restores the previous cycle mode");
         check(probe::find("Controller tap").empty()&&probe::find("Hold action").empty(),"Independent overrides are absent");
         click("2   Offhand\n     1 / 16");check(state.options.groupModes[1]==GroupMode::browse,"Mode does not leak to other groups");
         click("Undo");check(state.options.groupModes[0]==GroupMode::browse,"Mode change supports Undo");

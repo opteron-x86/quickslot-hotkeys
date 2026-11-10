@@ -525,10 +525,11 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 ImGui::EndPopup();
             }
             ImGui::EndDisabled();
-            ImGui::SameLine();ImGui::SetNextItemWidth(px(180));
+            ImGui::SameLine();ImGui::SetNextItemWidth(px(280));
             const bool consumables=hasConsumables(group);int mode=int(groupMode(options,state.draft,groupID));
             ImGui::BeginDisabled(consumables);
-            if(UI::Combo("##group mode",&mode,"Hold to browse\0Tap to cycle\0")){options.groupModes[groupID]=GroupMode(mode);changed=true;}
+            if(UI::Combo("##group mode",&mode,"Hold to browse\0Tap to cycle\0Tap to cycle / hold to browse\0")){options.groupModes[groupID]=GroupMode(mode);changed=true;}
+            if(mode==int(GroupMode::cycleBrowse)&&ImGui::IsItemHovered())ImGui::SetTooltip("%s",tr("Tap and release to cycle. Hold to browse, then release to equip the highlighted entry."));
             ImGui::EndDisabled();
             if(consumables&&ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))ImGui::SetTooltip("%s",tr("Consumables: tap to use, hold to browse"));
             const auto builtCommand=[&] {

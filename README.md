@@ -36,6 +36,7 @@ Choose a behavior for each group:
 
 - **Hold to browse:** tap equips or uses the remembered entry; hold, browse and release chooses another.
 - **Tap to cycle:** the first press when returning to a group recalls its selection. Further presses advance and equip.
+- **Tap to cycle / hold to browse:** tap and release to recall or advance. Hold to open the selector, browse in either direction and release to equip the highlighted entry. The hold delay uses `HoldMilliseconds` in `Quickslot.ini`.
 
 **Keep the other hand equipped while cycling**, under **Controls → General**, starts enabled. Tap-to-cycle skips one-handed weapon copies held in the opposite hand. Smart weapons choose the strongest eligible copy. This applies to manual and Favorites-linked groups. Browsing hand actions can move a weapon between hands; turn the option off to allow those transfers during cycling too.
 

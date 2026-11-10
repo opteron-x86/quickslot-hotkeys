@@ -243,7 +243,7 @@ int main()try {
     check(!gameplayMenuOpen([](auto name){return name=="HUD Menu"||name=="Quickslot"||name=="QuickslotSelectionPause";}),"HUD and Quickslot's own overlays do not block gameplay");
     check(!gameplayMenuOpen([](auto name){return name=="OstimSceneMenu"||name=="OstimAlignMenu";}),"Idle OStim overlays leave gameplay available");
     for(const std::string_view foreground:{"LootMenu","CustomMenu","TestModalMenu","OstimSceneMenu"})
-    for(const auto codes:{PadCodeSet::xinput,PadCodeSet::orbis})for(const auto mode:{GroupMode::browse,GroupMode::cycle}) {
+    for(const auto codes:{PadCodeSet::xinput,PadCodeSet::orbis})for(const auto mode:{GroupMode::browse,GroupMode::cycle,GroupMode::cycleBrowse}) {
         Options menuOptions;menuOptions.groupModes[0]=mode;
         ControllerInput navigation;Selection choosing;Group items;
         Entry sword;sword.form=1;items.add(sword);Entry potion;potion.kind=Kind::potion;potion.form=2;items.add(potion);

@@ -38,6 +38,7 @@ inline bool updateShortcut(Arsenal& a,std::uint32_t id,Entry entry) {
     auto* saved=libraryShortcut(a,id);if(!saved||!isReusable(entry)||(entry.kind!=saved->kind&&!(isHandAction(entry)&&isHandAction(*saved))))return false;
     entry.shortcut=id;for(auto& part:entry.parts)part.shortcut=0;
     *saved=entry;
+    if(a.rememberedConsumable&&a.rememberedConsumable->shortcut==id)a.rememberedConsumable=entry;
     for(auto& group:a.groups) {
         bool changed=false;for(auto& value:group.savedEntries())if(value.shortcut==id){value=entry;changed=true;}
         if(changed)++group.revision;
@@ -65,6 +66,7 @@ inline bool deleteShortcut(Arsenal& a,std::uint32_t id) {
             selected=entries.empty()?0:std::min(selected,entries.size()-1);++g.revision;
         }
     }
+    if(a.rememberedConsumable&&a.rememberedConsumable->shortcut==id)a.rememberedConsumable.reset();
     std::erase_if(a.shortcuts,[&](const auto& e){return e.shortcut==id;});return true;
 }
 inline bool shortcutMatches(const Entry& entry,const std::string& search,int filter) {

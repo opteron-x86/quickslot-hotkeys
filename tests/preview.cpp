@@ -136,10 +136,11 @@ int main(int argc,char** argv) {
         if(scene=="v04-circles"){layoutPreset(options,2);options.themeId="silver";}
         if(scene=="v04-ring"){options.selector=2;options.selectorShape=1;options.selectorSpacing=0;}
     }
-    if(scene=="editor-consumables") {
+    if(scene=="editor-consumables"||scene=="editor-consumables-dedicated") {
         editing.catalog.erase(editing.catalog.begin(),editing.catalog.begin()+10);
         editing.draft.groups[0]={};for(unsigned i=0;i<4;++i)editing.draft.groups[0].add(editing.catalog[i].entry);
         editing.options.groupCount=4;layoutPreset(editing.options,0);editing.options.names[0]="Supplies";fixture::rows(editing);
+        if(scene=="editor-consumables-dedicated"){editing.options.separateConsumableUse[0]=true;editing.options.groupModes[0]=GroupMode::cycleBrowse;}
     }
     if(scene.starts_with("v05-")||scene.starts_with("v06-")||scene=="editor-smart"||scene=="editor-combinations"||scene.starts_with("editor-behavior")) {
         options.groupCount=4;layoutPreset(options,0);options.scale=1.2f;

@@ -149,6 +149,7 @@ struct Arsenal {
     std::vector<Entry> shortcuts;
     std::size_t active=0;
     std::size_t consumableGroup=count;
+    std::optional<Entry> rememberedConsumable;
     Group& current(){return groups[active];}
     const Group& current()const{return groups[active];}
     std::size_t size()const{std::size_t total=0;for(const auto& group:groups)total+=group.entries.size();return total;}
@@ -173,6 +174,7 @@ template<class G,class F> void eachGroupEntry(G& group,const F& f) {
 template<class A,class F> void eachSavedEntry(A& arsenal,const F& f) {
     for(auto& group:arsenal.groups)eachGroupEntry(group,f);
     for(auto& entry:arsenal.shortcuts)f(entry);
+    if(arsenal.rememberedConsumable)f(*arsenal.rememberedConsumable);
 }
 
 class Selection {
@@ -275,7 +277,9 @@ struct Options {
     std::size_t groupCount=3;
     std::array<std::size_t,Arsenal::count> groupOrder{0,1,2,3,4,5,6,7};
     std::array<GroupMode,Arsenal::count> groupModes{};
-    std::array<bool,Arsenal::count> autoSort{};
+    std::array<bool,Arsenal::count> autoSort{},separateConsumableUse{};
+    KeyBinding consumableKey;
+    PadBinding controllerUse,vrUse;
     bool skipEmpty=false,menuCapture=true,cycleKeepOtherHand=true;
     bool groupCaptureRightHotkey=true,groupCaptureLeftHotkey=true,groupMoveHotkey=true;
     bool groupUnequipHotkey=true,groupRemoveHotkey=true;
@@ -410,10 +414,10 @@ inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,unsigned mod
     return {};
 }
 inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,bool ctrl){return selectorKeyAction(o,scan,ctrl?keyModifier::ctrl:0u);}
-inline bool selectorKeyReserved(const Options& o,unsigned key){for(unsigned i=0;key&&i<o.selectorBindings.size();++i)if(selectorBinding(o,KeyboardAction(i)).key==key)return true;return false;}
+inline bool selectorKeyReserved(const Options& o,unsigned key){if(key&&key==o.consumableKey.key)return true;for(unsigned i=0;key&&i<o.selectorBindings.size();++i)if(selectorBinding(o,KeyboardAction(i)).key==key)return true;return false;}
 inline bool assignSelectorBinding(Options& o,KeyboardAction action,KeyBinding binding) {
     if(action>=KeyboardAction::count||binding.key>255||modifierForScan(binding.key)||(binding.modifiers&~keyModifier::all))return false;
-    if(binding.key&&(binding.key==o.editorKey||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
+    if(binding.key&&(binding.key==o.editorKey||binding.key==o.consumableKey.key||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
     if(!binding.key)binding.modifiers=0;
     const auto index=unsigned(action);
     for(unsigned i=0;i<o.selectorBindings.size();++i)if(!selectorActionEnabled(o,KeyboardAction(i)))o.selectorBindings[i]={};
@@ -421,6 +425,16 @@ inline bool assignSelectorBinding(Options& o,KeyboardAction action,KeyBinding bi
         o.selectorBindings[i]=o.selectorBindings[index];setSelectorActionEnabled(o,KeyboardAction(i),o.selectorBindings[i].key!=0);
     }
     o.selectorBindings[index]=binding;setSelectorActionEnabled(o,action,binding.key!=0);return true;
+}
+inline bool assignConsumableBinding(Options& o,KeyBinding binding) {
+    if(binding.key>255||modifierForScan(binding.key)||(binding.modifiers&~keyModifier::all))return false;
+    if(binding.key&&(binding.key==o.editorKey||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
+    for(unsigned i=0;binding.key&&i<o.selectorBindings.size();++i)if(selectorBinding(o,KeyboardAction(i)).key==binding.key)return false;
+    if(!binding.key)binding.modifiers=0;
+    o.consumableKey=binding;return true;
+}
+inline bool consumableShortcutMatches(const Options& o,unsigned key,unsigned modifiers) {
+    return o.consumableKey.key&&o.consumableKey.key==key&&o.consumableKey.modifiers==modifiers;
 }
 inline bool hasConsumables(const Group& group){return std::any_of(group.entries.begin(),group.entries.end(),isConsumable);}
 inline bool assignMouseAction(Options& o,MouseAction action,int button) {
@@ -431,7 +445,7 @@ inline bool assignMouseAction(Options& o,MouseAction action,int button) {
 }
 inline bool useBumpersForHands(Options& o) {
     const auto conflict=[](PadBinding b){return b.button==PadButton::lb||b.button==PadButton::rb||b.modifier==PadButton::lb||b.modifier==PadButton::rb;};
-    if(conflict(o.controllerEditor))return false;
+    if(conflict(o.controllerEditor)||conflict(o.controllerUse))return false;
     for(std::size_t i=0;i<o.groupCount;++i)if(conflict(o.controllerGroups[o.groupOrder[i]]))return false;
     for(const auto b:o.controllerActions)if(b.modifier==PadButton::lb||b.modifier==PadButton::rb)return false;
     for(auto& b:o.controllerActions)if(b==PadBinding{PadButton::lb}||b==PadBinding{PadButton::rb})b={};
@@ -439,10 +453,10 @@ inline bool useBumpersForHands(Options& o) {
     o.controllerActions[unsigned(ControllerAction::leftHand)]={PadButton::lb};return true;
 }
 inline GroupMode groupMode(const Options& o,const Arsenal& a,std::size_t group) {
-    return group<Arsenal::count&&!hasConsumables(a.groups[group])?o.groupModes[group]:GroupMode::browse;
+    return group<Arsenal::count&&(!hasConsumables(a.groups[group])||o.separateConsumableUse[group])?o.groupModes[group]:GroupMode::browse;
 }
 inline void normalizeGroupModes(Options& o,const Arsenal& a) {
-    for(std::size_t g=0;g<Arsenal::count;++g)if(hasConsumables(a.groups[g]))o.groupModes[g]=GroupMode::browse;
+    for(std::size_t g=0;g<Arsenal::count;++g)if(hasConsumables(a.groups[g])&&!o.separateConsumableUse[g])o.groupModes[g]=GroupMode::browse;
 }
 inline std::size_t nextEntry(const Group& group,const std::vector<bool>& available,bool skipEmpty) {
     if(group.entries.empty())return 0;
@@ -481,7 +495,7 @@ inline bool keepOtherHandWhenCycling(const Options& options,const Selection::Com
 enum class SelectionAction {none,select,equip,use};
 inline SelectionAction selectionAction(const Entry& e,const Selection::Commit& c,const Options& o) {
     if(c.group>=Arsenal::count)return SelectionAction::none;
-    if(isConsumable(e))return c.browsed||c.cycling?SelectionAction::select:SelectionAction::use;
+    if(isConsumable(e))return o.separateConsumableUse[c.group]||c.browsed||c.cycling?SelectionAction::select:SelectionAction::use;
     if(isVoice(e))return o.voiceHotkey&&!c.browsed&&!c.cycling?SelectionAction::use:SelectionAction::equip;
     return SelectionAction::equip;
 }
@@ -494,13 +508,13 @@ inline void resetGroup(Arsenal& a,Options& o,std::size_t id) {
     auto& g=a.groups[id];const auto revision=g.revision+1;g={};g.revision=revision;
     o.names[id]="Group "+std::to_string(id+1);
     o.keys[id]=0;o.controllerGroups[id]={};o.vrGroups[id]={};
-    o.groupModes[id]=GroupMode::browse;o.autoSort[id]=false;
-    if(a.consumableGroup==id)a.consumableGroup=Arsenal::count;
+    o.groupModes[id]=GroupMode::browse;o.autoSort[id]=false;o.separateConsumableUse[id]=false;
+    if(a.consumableGroup==id){a.consumableGroup=Arsenal::count;a.rememberedConsumable.reset();}
 }
 template<class Binding> Binding nextGroupBinding(const Options& o,std::array<Binding,Arsenal::count>& bindings,
-                                                const std::array<Binding,Arsenal::count>& defaults,Binding editor) {
+                                                const std::array<Binding,Arsenal::count>& defaults,Binding editor,Binding use={}) {
     for(const auto candidate:defaults) {
-        if(candidate==Binding{}||candidate==editor)continue;
+        if(candidate==Binding{}||candidate==editor||candidate==use)continue;
         if(std::any_of(o.groupOrder.begin(),o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),[&](auto id){return bindings[id]==candidate;}))continue;
         // Hidden slots do not reserve defaults; release any stale duplicate there.
         for(auto& binding:bindings)if(binding==candidate)binding={};
@@ -520,9 +534,9 @@ inline bool addGroup(Arsenal& a,Options& o) {
     if(o.groupCount>=Arsenal::count)return false;
     const auto id=o.groupOrder[o.groupCount];resetGroup(a,o,id);
     const Options defaults;
-    o.keys[id]=nextGroupBinding(o,o.keys,defaults.keys,o.editorKey);
-    o.controllerGroups[id]=nextGroupBinding(o,o.controllerGroups,defaults.controllerGroups,o.controllerEditor);
-    o.vrGroups[id]=nextGroupBinding(o,o.vrGroups,defaults.vrGroups,o.vrEditor);
+    o.keys[id]=nextGroupBinding(o,o.keys,defaults.keys,o.editorKey,o.consumableKey.key);
+    o.controllerGroups[id]=nextGroupBinding(o,o.controllerGroups,defaults.controllerGroups,o.controllerEditor,o.controllerUse);
+    o.vrGroups[id]=nextGroupBinding(o,o.vrGroups,defaults.vrGroups,o.vrEditor,o.vrUse);
     o.names[id]="Group "+std::to_string(o.keys[id]?o.keys[id]-1:o.groupCount+1);
     ++o.groupCount;a.active=id;return true;
 }

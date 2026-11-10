@@ -807,5 +807,24 @@ int main(int argc,char** argv)try {
     choosePad("modifier",0,PadButton::start);choosePad("button",0,PadButton::lt);
     check(state.options.vrGroups[0]==PadBinding{PadButton::lt,PadButton::start},"VR can replace a chord through temporarily equal fields");
     check(state.options.controllerGroups==desktopBefore&&decodeOptions(encodeOptions(state.options)).vrGroups==state.options.vrGroups,"Completed VR bindings persist independently of desktop bindings");
+    for(bool vr:{false,true}) {
+        state=fixture::editor();state.session=session++;state.controller=true;state.vr=vr;frame();frame();click("Controls");click("Controller");
+        choosePad("modifier",9,PadButton::rb);
+        check((vr?state.options.vrUse:state.options.controllerUse)==PadBinding{}&&probe::find("Cancel##pad draft9").empty(),"Use-action modifier can be chosen before its button");
+        choosePad("button",9,PadButton::y);
+        check((vr?state.options.vrUse:state.options.controllerUse)==PadBinding{PadButton::y,PadButton::rb},"Controller and VR use actions accept an independent binding");
+        click("Undo");check((vr?state.options.vrUse:state.options.controllerUse)==PadBinding{},"Undo restores the dedicated use binding");
+    }
+    state=fixture::editor();state.session=session++;state.draft.groups[0].add(state.catalog[10].entry);fixture::rows(state);frame();frame();
+    click("Controls");click("Keyboard");click("None##consumable binding");key(35);
+    check(state.options.consumableKey==KeyBinding{35,0}&&decodeOptions(encodeOptions(state.options)).consumableKey.key==35,"Keyboard use binding applies and persists through the editor");
+    click("Clear##consumable binding");check(!state.options.consumableKey.key,"The use key can be cleared");click("Undo");check(state.options.consumableKey.key==35,"Undo restores the use key");
+    click("Groups##main");check(probe::one("##group mode").disabled,"Tap-to-use consumables keep the existing group behavior");
+    click("Consumables");click("Use selected consumable action");
+    check(state.options.separateConsumableUse[0]&&!probe::one("##group mode").disabled,"Separate use unlocks group cycling modes");
+    click("##group mode");click("Tap to cycle / hold to browse");
+    check(state.options.groupModes[0]==GroupMode::cycleBrowse,"Consumables can combine tap-to-cycle with hold-to-browse");
+    click("Consumables");click("Tap to use");check(!state.options.separateConsumableUse[0]&&state.options.groupModes[0]==GroupMode::browse,"Tap-to-use restores the legacy consumable gesture");
+    click("Undo");check(state.options.separateConsumableUse[0]&&state.options.groupModes[0]==GroupMode::cycleBrowse,"Undo restores consumable behavior and its group mode together");
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

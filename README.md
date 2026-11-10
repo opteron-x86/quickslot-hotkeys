@@ -36,11 +36,15 @@ Choose a behavior for each group:
 
 - **Hold to browse:** tap equips or uses the remembered entry; hold, browse and release chooses another.
 - **Tap to cycle:** the first press when returning to a group recalls its selection. Further presses advance and equip.
-- **Tap to cycle / hold to browse:** tap and release to recall or advance. Hold to open the selector, browse in either direction and release to equip the highlighted entry. The hold delay uses `HoldMilliseconds` in `Quickslot.ini`.
+- **Tap to cycle / hold to browse:** tap and release to recall or advance. Hold to open the selector, browse in either direction and release to select the highlighted entry. The hold delay uses `HoldMilliseconds` in `Quickslot.ini`.
 
 **Keep the other hand equipped while cycling**, under **Controls → General**, starts enabled. Tap-to-cycle skips one-handed weapon copies held in the opposite hand. Smart weapons choose the strongest eligible copy. This applies to manual and Favorites-linked groups. Browsing hand actions can move a weapon between hands; turn the option off to allow those transfers during cycling too.
 
-Groups containing consumables use tap-to-use and hold-to-choose. Browsing a potion readies it; the next tap uses one dose. Powers and shouts support activation from the group hotkey, with configurable shout charge.
+Groups containing consumables start with **Consumables → Tap to use**. Browsing a potion readies it; the next tap uses one dose. Choose **Use selected consumable action** to select potions, food, poisons and smart potions with the group binding, then use a separate binding to consume one dose. This setting enables every group behavior, including tap-to-cycle with hold-to-browse. Equipment in mixed groups equips normally.
+
+Bind **Use selected consumable** under **Controls → Keyboard** or **Controls → Controller**; VR has its own binding. The action starts unbound. Select a consumable through a group first. The action uses the last explicitly selected consumable across groups, including after selecting equipment. The equipment widget shows that selection. Depletion preserves the selection for restocking; smart potions choose a matching potion when used. Poison use opens Skyrim’s confirmation. Further doses require a new press after the current use finishes. Bindings, group behavior and the selected consumable persist with saves and complete presets.
+
+Powers and shouts support activation from the group hotkey, with configurable shout charge.
 
 Smart weapons rank by physical damage, including tempering and player modifiers. Smart shields rank by armor; smart ammo ranks by damage. Smart potions offer strongest, weakest and best fit for missing health, magicka or stamina. Regeneration potions offer strongest or weakest.
 

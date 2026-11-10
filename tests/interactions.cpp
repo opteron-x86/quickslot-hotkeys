@@ -303,8 +303,70 @@ int main()try {
     check(selectedConsumableGroup(a)==0,"Last chosen consumable survives another group");
     const auto loaded=decodeArsenal(encodeArsenal(a),[](auto id,auto& mapped){mapped=id;return true;});
     check(loaded.consumableGroup==0&&selectedConsumableGroup(loaded)==0,"Consumable choice saved");
-    group.selected=0;check(selectedConsumableGroup(a)==1,"Invalidated consumable falls back");
+    group.selected=0;check(selectedConsumableGroup(a)==0&&a.rememberedConsumable&&isConsumable(*a.rememberedConsumable),"Selecting equipment preserves the last explicitly selected consumable");
 
+    {
+        Arsenal setup;Options controls;setup.presetIdentity="same";auto& mixed=setup.groups[0];
+        Entry drink=potion;drink.form=901;drink.name="Health";mixed.add(drink);mixed.add(sword);
+        controls.groupModes[0]=GroupMode::cycleBrowse;normalizeGroupModes(controls,setup);
+        check(groupMode(controls,setup,0)==GroupMode::browse,"Existing consumable groups keep tap-to-use behavior");
+        controls.separateConsumableUse[0]=true;controls.groupModes[0]=GroupMode::cycleBrowse;normalizeGroupModes(controls,setup);
+        check(groupMode(controls,setup,0)==GroupMode::cycleBrowse,"Separate use enables combined cycling and browsing for mixed groups");
+        Selection selection;const auto tap=selection.request(mixed,0,0);
+        for(const auto kind:{Kind::potion,Kind::food,Kind::poison,Kind::smartPotion}) {auto item=drink;item.kind=kind;check(selectionAction(item,*tap,controls)==SelectionAction::select,"Group activation selects each consumable type in separate-use mode");}
+        check(selectionAction(sword,*tap,controls)==SelectionAction::equip,"Mixed-group equipment keeps its normal equip action");
+        rememberConsumable(setup,0,0);mixed.selected=1;setup.active=1;
+        check(setup.rememberedConsumable->same(drink)&&selectedConsumableGroup(setup)==0,"Last selected consumable survives equipment selection and another active group");
+        auto other=drink;other.form=902;other.name="Stamina";setup.groups[1].add(other);rememberConsumable(setup,1,0);
+        check(setup.rememberedConsumable->same(other),"An explicit selection in another consumable group becomes the use target");
+        setup.groups[1].entries.clear();
+        check(setup.rememberedConsumable->same(other),"Depletion or a Favorites refresh retains the selected consumable for restocking");
+        const auto identity=[](auto id,auto& mapped){mapped=id;return true;};
+        const auto stored=encodeArsenal(setup);auto restored=decodeArsenal(stored,identity);
+        check(restored.rememberedConsumable->same(other),"Save/load restores the selected consumable independently of generated membership");
+        check(assignConsumableBinding(controls,{35,keyModifier::ctrl}),"A dedicated keyboard action accepts a modifier chord");
+        check(consumableShortcutMatches(controls,35,keyModifier::ctrl)&&!consumableShortcutMatches(controls,35,0)&&!consumableShortcutMatches(controls,35,keyModifier::ctrl|keyModifier::alt),"The dedicated key requires its configured modifier combination");
+        controls.controllerUse={PadButton::y,PadButton::rt};controls.vrUse={PadButton::y,PadButton::rb};
+        const auto round=decodeOptions(encodeOptions(controls));
+        check(round.consumableKey==controls.consumableKey&&round.controllerUse==controls.controllerUse&&round.vrUse==controls.vrUse&&round.separateConsumableUse==controls.separateConsumableUse,"All device bindings and per-group use choices persist");
+        const auto preset=exportPreset(setup,controls,false,[](auto id){return Json{{"file","Test.esp"},{"local",id}};});
+        const auto imported=importPreset(preset,setup,Options{},false,[](const auto&,auto id){return id;});
+        check(imported.arsenal.rememberedConsumable->same(other)&&imported.options.consumableKey==controls.consumableKey&&imported.options.separateConsumableUse[0],"Complete presets preserve the consumable target and controls");
+        Options appearance;importAppearance(appearance,controls);check(!appearance.consumableKey.key&&!appearance.separateConsumableUse[0],"Appearance imports preserve gameplay bindings and consumable behavior");
+        auto legacy=Json::parse(encodeOptions(controls));for(const auto field:{"consumableKey","controllerUse","vrUse","separateConsumableUse"})legacy.erase(field);
+        const auto old=decodeOptions(legacy.dump());check(!old.consumableKey.key&&old.controllerUse==PadBinding{}&&old.vrUse==PadBinding{}&&!old.separateConsumableUse[0],"Older settings keep the new action unbound and legacy use behavior");
+        check(!assignConsumableBinding(controls,{controls.keys[0]})&&!assignConsumableBinding(controls,{controls.editorKey})&&!assignConsumableBinding(controls,{203}),"The use key cannot replace group, editor or browsing keys");
+        check(!assignGroupKey(controls,0,35)&&!assignSelectorBinding(controls,KeyboardAction::next,{35}),"Other bindings reserve the dedicated use key");
+        controls.controllerUse=controls.controllerGroups[0];controls.vrUse=controls.vrEditor;sanitizeOptions(controls);
+        check(controls.controllerUse==PadBinding{}&&controls.vrUse==PadBinding{},"Conflicting controller and VR use chords are cleared during validation");
+        Arsenal growing;Options reserved;reserved.keys[3]=0;
+        check(assignConsumableBinding(reserved,{5}),"A cleared group key can be assigned to use");
+        reserved.controllerUse={PadButton::left};reserved.vrUse=reserved.vrGroups[3];
+        sanitizeOptions(reserved);
+        check(reserved.controllerUse==PadBinding{PadButton::left}&&reserved.vrUse==reserved.vrGroups[3],"Hidden group defaults do not reserve controller use bindings");
+        check(addGroup(growing,reserved)&&reserved.keys[3]!=reserved.consumableKey.key&&reserved.controllerGroups[3]!=reserved.controllerUse&&reserved.vrGroups[3]!=reserved.vrUse,"Adding a group preserves dedicated use bindings on every device");
+        Entry smart;smart.kind=Kind::smartPotion;smart.name="Health rule";const auto id=rememberShortcut(setup,smart);addShortcut(setup,2,id);rememberConsumable(setup,2,0);
+        smart.policy=1;updateShortcut(setup,id,smart);check(setup.rememberedConsumable->policy==1,"The selected smart potion follows shared rule edits");
+        deleteShortcut(setup,id);check(!setup.rememberedConsumable,"Deleting a selected smart rule clears the use target");
+        rememberConsumable(setup,0,0);resetGroup(setup,controls,0);check(!setup.rememberedConsumable&&!controls.separateConsumableUse[0],"Removing the source group resets the selected consumable and behavior");
+        auto invalid=Json::parse(stored);invalid["rememberedConsumable"]=encodeEntry(sword);bool rejected=false;
+        try{decodeArsenal(invalid.dump(),identity);}catch(...){rejected=true;}check(rejected,"Saved use targets must be consumables");
+    }
+    for(bool vr:{false,true})for(bool allowed:{false,true}) {
+        Options controls;ControllerInput input;const PadBinding binding{PadButton::y,PadButton::rb};
+        (vr?controls.vrUse:controls.controllerUse)=binding;
+        input.button(binding.modifier,true,true,controls,allowed,false,vr);
+        const auto down=input.button(binding.button,true,true,controls,allowed,false,vr);
+        check((down.action==PadAction::useConsumable)==allowed,"Controller and VR use chords activate only in allowed gameplay");
+        check(input.button(binding.button,true,false,controls,allowed,false,vr).action==PadAction::none,"Held use buttons do not repeat consumption");
+        const auto up=input.button(binding.button,false,false,controls,allowed,false,vr);
+        check(up.action==PadAction::none&&up.consumed==allowed&&!input.owned(binding.button),"Use action releases are balanced without a second activation");
+    }
+    {
+        Options controls;controls.vrUse={PadButton::rt};ControllerInput input;
+        input.button(PadButton::lb,true,true,controls,true,false,true);
+        check(input.button(PadButton::rt,true,true,controls,true,false,true).action==PadAction::press,"Explicit VR group chords take priority over a plain use trigger");
+    }
     Snapshot s;s.visible=true;s.groups[0]={sword,3,true,false};s.groups[1]={spell,2,true,true};
     visual.inactiveGroups=1;check(groupVisibility(s,visual,0,5)==visual.inactiveGroupOpacity,"Inactive card dimmed");
     check(groupVisibility(s,visual,1,5)==1,"Equipped card stays visible");

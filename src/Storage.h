@@ -130,6 +130,7 @@ inline std::string encodeArsenal(const Arsenal& arsenal) {
     Json shortcuts=Json::array();for(const auto& e:arsenal.shortcuts)shortcuts.push_back(encodeEntry(e));
     Json result{{"schema",arsenalSchema},{"presetIdentity",arsenal.presetIdentity},{"active",arsenal.active},{"groups",groups},{"shortcuts",shortcuts}};
     if(arsenal.consumableGroup<Arsenal::count)result["consumableGroup"]=arsenal.consumableGroup;
+    if(arsenal.rememberedConsumable)result["rememberedConsumable"]=encodeEntry(*arsenal.rememberedConsumable);
     return result.dump();
 }
 inline Arsenal decodeArsenal(const std::string& bytes,const std::function<bool(std::uint32_t,std::uint32_t&)>& resolve) {
@@ -154,6 +155,12 @@ inline Arsenal decodeArsenal(const std::string& bytes,const std::function<bool(s
     for(const auto& group:arsenal.groups)for(const auto& e:group.savedEntries())if(e.shortcut) {
         const auto* definition=libraryShortcut(arsenal,e.shortcut);
         if(!definition||e.kind!=definition->kind)throw std::runtime_error("Invalid shortcut reference");
+    }
+    if(j.contains("rememberedConsumable")) {
+        auto entry=decodeEntry(j.at("rememberedConsumable"),resolve);
+        if(!isConsumable(entry))throw std::runtime_error("Invalid selected consumable");
+        if(entry.shortcut){const auto* definition=libraryShortcut(arsenal,entry.shortcut);if(!definition||!isConsumable(*definition))throw std::runtime_error("Invalid selected consumable shortcut");entry=*definition;}
+        arsenal.rememberedConsumable=std::move(entry);
     }
     collectShortcuts(arsenal);
     return arsenal;

@@ -714,7 +714,7 @@ int main(int argc,char** argv)try {
     click("Undo");check(state.options.quickLootKeyboard&&!state.options.quickLootController,"QuickLoot changes support Undo");
 
     click("Groups##main");const auto manualBefore=encode(state.draft.current());
-    click("##group source");click("Favorite weapons");
+    click("##group source");click("Favorite weapons");key(1);
     check(state.draft.current().automatic()&&!state.draft.current().entries.empty(),"Editor links a group to favorite weapons");
     check(probe::one("Sort A–Z").disabled&&probe::one("Change hand").disabled&&probe::one("Clear group").disabled,"Manual editing is visibly disabled for generated groups");
     click("##entry",0);click("Exclude");check(state.draft.current().excludedFavorites.size()==1,"Generated rows can be excluded through the editor");
@@ -723,6 +723,36 @@ int main(int argc,char** argv)try {
     auto manualAfter=Json::parse(encode(state.draft.current()));manualAfter.erase("favorites");
     check(manualAfter==Json::parse(manualBefore),"Returning to Manual restores the pre-link group");
     click("Undo");check(state.draft.current().automatic(),"Source changes support editor Undo");
+    click("##group source");click("Favorite shields / torches");key(1);
+    const auto mixedCategories=favoriteCategoryBit(FavoriteSource::weapons)|favoriteCategoryBit(FavoriteSource::offhand);
+    check(favoriteCategoryMask(state.draft.current())==mixedCategories&&state.draft.current().entries.size()==7,"The source picker combines weapons with shields and torches");
+    click("Default hand");click("Left");
+    check(favoriteCategoryMask(state.draft.current())==mixedCategories&&state.draft.current().favoriteHand==Hand::left,"Changing default hand preserves multiple categories");
+    click("##group source");click("Favorite weapons");click("Favorite shields / torches");key(1);
+    check(state.draft.current().automatic()&&state.draft.current().entries.empty()&&!favoriteCategoryMask(state.draft.current()),"Clearing every checkbox leaves an empty Favorites group");
+    click("Undo");check(state.draft.current().source==FavoriteSource::offhand&&state.draft.current().entries.size()==2,"Undo restores the last selected category");
+    click("##group source");click("All Favorites");
+    check(favoriteCategoryMask(state.draft.current())==allFavoriteCategories&&state.draft.current().entries.size()==state.catalog.size(),"All Favorites enables every category");
+    click("##group source");click("Favorite potions");key(1);
+    check(favoriteCategoryMask(state.draft.current())==(allFavoriteCategories^favoriteCategoryBit(FavoriteSource::potions))&&state.draft.current().entries.size()==state.catalog.size()-1,"A category can be removed from All Favorites");
+    click("##group source");click("Manual");
+    manualAfter=Json::parse(encode(state.draft.current()));manualAfter.erase("favorites");
+    check(manualAfter==Json::parse(manualBefore),"Multiple category edits preserve the original manual group");
+    for(bool vr:{false,true}) {
+        state=fixture::editor();state.session=session++;state.controller=true;state.vr=vr;io.DisplaySize={1280,720};frame();frame();
+        click("Groups##main");click("Items");padKey(PadButton::up);padKey(PadButton::a);
+        const auto selectCategory=[&](const char* label) {
+            for(unsigned step=0;step<16;++step) {
+                const auto items=probe::find(label);
+                if(!items.empty()&&ImGui::GetCurrentContext()->NavId==items[0].id){padKey(PadButton::a);return;}
+                padKey(PadButton::down);
+            }
+            check(false,"Controller can reach each Favorites checkbox");
+        };
+        selectCategory("Favorite weapons");selectCategory("Favorite shields / torches");
+        check(favoriteCategoryMask(state.draft.current())==mixedCategories&&state.draft.current().entries.size()==7,"Controller and VR navigation select multiple categories at 720p");
+        padKey(PadButton::b);check(state.open&&ImGui::GetCurrentContext()->OpenPopupStack.empty(),"Controller cancel closes the category picker and retains selections");
+    }
     state=fixture::editor();state.session=session++;state.controller=true;io.DisplaySize={1600,900};frame();frame();
     click("Controls");click("Controller");
     const auto choosePad=[&](const char* field,unsigned index,PadButton value) {

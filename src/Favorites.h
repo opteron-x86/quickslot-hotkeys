@@ -5,8 +5,20 @@
 
 namespace quickslot {
 inline const char* favoriteSourceName(FavoriteSource source) {
-    constexpr const char* names[]{"Manual","All Favorites","Favorite weapons","Favorite spells","Favorite potions","Favorite poisons","Favorite food","Favorite ammo","Favorite scrolls","Favorite powers / shouts","Favorite shields / torches"};
+    constexpr const char* names[]{"Manual","All Favorites","Favorite weapons","Favorite spells","Favorite potions","Favorite poisons","Favorite food","Favorite ammo","Favorite scrolls","Favorite powers / shouts","Favorite shields / torches","Favorite categories"};
     return unsigned(source)<unsigned(FavoriteSource::count)?names[unsigned(source)]:names[0];
+}
+inline constexpr unsigned allFavoriteCategories=(1u<<(unsigned(FavoriteSource::offhand)-unsigned(FavoriteSource::weapons)+1))-1;
+inline constexpr unsigned favoriteCategoryBit(FavoriteSource source) {
+    return source>=FavoriteSource::weapons&&source<=FavoriteSource::offhand?1u<<(unsigned(source)-unsigned(FavoriteSource::weapons)):0;
+}
+inline unsigned favoriteCategoryMask(const Group& group) {
+    return group.source==FavoriteSource::all?allFavoriteCategories:group.source==FavoriteSource::selected?group.favoriteCategories:favoriteCategoryBit(group.source);
+}
+inline FavoriteSource favoriteSourceForCategories(unsigned categories) {
+    if(categories==allFavoriteCategories)return FavoriteSource::all;
+    if(std::has_single_bit(categories)&&categories<=allFavoriteCategories)return FavoriteSource(unsigned(FavoriteSource::weapons)+std::countr_zero(categories));
+    return FavoriteSource::selected;
 }
 inline bool favoriteMatches(FavoriteSource source,const Entry& e) {
     if(e.unresolved||!e.form||isReusable(e))return false;
@@ -24,13 +36,24 @@ inline bool favoriteMatches(FavoriteSource source,const Entry& e) {
     default:return false;
     }
 }
-inline bool setFavoriteSource(Group& group,FavoriteSource source,Hand hand) {
-    if(source>=FavoriteSource::count||unsigned(hand)>1||(source==group.source&&hand==group.favoriteHand))return false;
+inline bool favoriteMatches(const Group& group,const Entry& entry) {
+    if(group.source!=FavoriteSource::selected)return favoriteMatches(group.source,entry);
+    for(unsigned i=unsigned(FavoriteSource::weapons);i<=unsigned(FavoriteSource::offhand);++i)
+        if((group.favoriteCategories&favoriteCategoryBit(FavoriteSource(i)))&&favoriteMatches(FavoriteSource(i),entry))return true;
+    return false;
+}
+inline bool setFavoriteSource(Group& group,FavoriteSource source,Hand hand,unsigned categories=0) {
+    if(source>=FavoriteSource::count||unsigned(hand)>1||(categories&~allFavoriteCategories))return false;
+    if(source!=FavoriteSource::selected)categories=0;
+    if(source==group.source&&hand==group.favoriteHand&&categories==group.favoriteCategories)return false;
     if(!group.automatic()&&source!=FavoriteSource::manual){group.manualEntries=std::move(group.entries);group.manualSelected=group.selected;}
     else if(group.automatic()&&group.selected<group.entries.size())group.rememberedFavorite=group.entries[group.selected];
     if(source==FavoriteSource::manual&&group.automatic()){group.entries=std::move(group.manualEntries);group.manualEntries.clear();group.selected=group.manualSelected;}
     else if(source!=FavoriteSource::manual){group.entries.clear();group.selected=0;}
-    group.source=source;group.favoriteHand=hand;++group.revision;return true;
+    group.source=source;group.favoriteHand=hand;group.favoriteCategories=categories;++group.revision;return true;
+}
+inline bool setFavoriteCategories(Group& group,unsigned categories,Hand hand) {
+    return setFavoriteSource(group,favoriteSourceForCategories(categories),hand,categories);
 }
 inline bool refreshFavorites(Group& group,const std::vector<Entry>& favorites) {
     if(!group.automatic())return false;
@@ -38,7 +61,7 @@ inline bool refreshFavorites(Group& group,const std::vector<Entry>& favorites) {
     std::vector<Entry> entries;
     std::set<std::tuple<std::uint32_t,std::uint32_t,std::uint16_t,std::uint64_t,Kind>> seen;
     for(auto entry:favorites) {
-        if(!favoriteMatches(group.source,entry)||std::any_of(group.excludedFavorites.begin(),group.excludedFavorites.end(),[&](const auto& e){return sameFavorite(e,entry);}))continue;
+        if(!favoriteMatches(group,entry)||std::any_of(group.excludedFavorites.begin(),group.excludedFavorites.end(),[&](const auto& e){return sameFavorite(e,entry);}))continue;
         entry.hand=normalizedHand(entry,group.favoriteHand);entry.shortcut=0;
         if(seen.emplace(entry.form,entry.owner,entry.unique,entry.recipe,entry.kind).second)entries.push_back(std::move(entry));
     }

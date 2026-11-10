@@ -526,7 +526,7 @@ RE::TESObjectREFR::InventoryItemMap inventoryFor(const Arsenal& arsenal,RE::Play
 bool syncFavoriteGroups(Arsenal& arsenal,RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
     if(!hasFavoriteGroups(arsenal))return false;
     std::vector<Entry> favorites;
-    const auto needed=[&](const Entry& entry){return std::any_of(arsenal.groups.begin(),arsenal.groups.end(),[&](const auto& group){return favoriteMatches(group.source,entry);});};
+    const auto needed=[&](const Entry& entry){return std::any_of(arsenal.groups.begin(),arsenal.groups.end(),[&](const auto& group){return favoriteMatches(group,entry);});};
     for(const auto& [object,data]:inventory) {
         if(data.first<=0||!data.second||!data.second->IsFavorited())continue;
         Entry base;base.form=object->GetFormID();if(!identify(object,base)||!needed(base))continue;base.name=gameName(object->GetName());

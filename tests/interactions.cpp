@@ -579,6 +579,62 @@ int main()try {
         }
     }
     {
+        const auto identity=[](std::uint32_t id,std::uint32_t& mapped){mapped=id;return true;};
+        const auto weapons=favoriteCategoryBit(FavoriteSource::weapons),offhand=favoriteCategoryBit(FavoriteSource::offhand);
+        Arsenal arsenal;Options options;arsenal.presetIdentity="favorites-test";auto& group=arsenal.groups[0];
+        Entry manual;manual.form=42;manual.owner=0x14;manual.unique=1;manual.name="Manual sword";group.add(manual);
+        std::vector<Entry> favorites;
+        for(unsigned i=0;i<24;++i){auto e=manual;e.form=100+i;e.unique=std::uint16_t(10+i);e.name="Weapon "+std::to_string(100+i);favorites.push_back(e);}
+        auto copy=favorites.front();copy.unique=99;favorites.push_back(copy);favorites.push_back(favorites.front());
+        Entry shield;shield.form=300;shield.kind=Kind::shield;shield.name="A shield";favorites.push_back(shield);
+        Entry torch;torch.form=301;torch.kind=Kind::torch;torch.name="Torch";favorites.push_back(torch);
+        Entry bow;bow.form=302;bow.kind=Kind::bow;bow.twoHanded=true;bow.name="Bow";favorites.push_back(bow);
+        Entry potion;potion.form=303;potion.kind=Kind::potion;potion.name="Potion";favorites.push_back(potion);
+        check(setFavoriteCategories(group,weapons|offhand,Hand::right)&&refreshFavorites(group,favorites),"Multiple categories populate a Favorites group");
+        check(group.entries.size()==28&&group.manualEntries.size()==1,"Combined categories include every matching identity beyond 16 and deduplicate repeated inventory entries");
+        check(group.entries.front().kind==Kind::shield&&group.entries[1].kind==Kind::bow&&group.entries[2].kind==Kind::torch,"Combined categories share one alphabetical list");
+        check(group.entries[0].hand==Hand::left&&group.entries[1].hand==Hand::right&&group.entries[2].hand==Hand::left&&group.entries.back().hand==Hand::right,"Mixed groups apply shield, torch, two-handed and default-hand rules");
+        group.selected=20;const auto remembered=group.entries[group.selected];
+        Selection browse;browse.press(1,group);const auto queued=browse.release(group);
+        check(setFavoriteCategories(group,weapons|offhand|favoriteCategoryBit(FavoriteSource::potions),Hand::left)&&refreshFavorites(group,favorites),"Adding another category refreshes membership");
+        check(sameFavorite(group.entries[group.selected],remembered)&&!browse.accepts(*queued,group),"Category changes retain selected identity and invalidate an old queued index");
+        check(std::all_of(group.entries.begin(),group.entries.end(),[](const auto& e){return e.hand==normalizedHand(e,Hand::left);}),"Changing default hand applies equipment restrictions throughout the combined group");
+        group.selected=0;const auto excluded=group.entries.front();group.remove();refreshFavorites(group,favorites);
+        const auto mask=favoriteCategoryMask(group);
+        const auto saved=encodeArsenal(arsenal);auto loaded=decodeArsenal(saved,identity);auto& restored=loaded.groups[0];refreshFavorites(restored,favorites);
+        check(favoriteCategoryMask(restored)==mask&&restored.excludedFavorites.size()==1&&restored.manualEntries[0].same(manual)&&restored.entries.size()==group.entries.size(),"Save/load preserves selected categories, exclusions and hidden manual entries");
+        check(sameFavorite(restored.entries[restored.selected],group.entries[group.selected]),"Save/load retains the selected favorite in a combined group");
+        const auto preset=exportPreset(arsenal,options,false,[](auto id){return Json{{"file","Favorites.esp"},{"local",id}};});
+        const auto imported=importPreset(preset,arsenal,options,false,[](const auto&,auto id){return id;});
+        check(favoriteCategoryMask(imported.arsenal.groups[0])==mask&&imported.arsenal.groups[0].manualEntries[0].same(manual),"Complete presets retain combined categories and manual contents");
+        Arsenal otherCharacter;otherCharacter.presetIdentity="another-character";
+        const auto foreign=importPreset(preset,otherCharacter,options,false,[](const auto&,auto id){return id;});
+        check(favoriteCategoryMask(foreign.arsenal.groups[0])==mask&&foreign.arsenal.groups[0].manualEntries[0].unresolved,"Another character imports the category selection with unresolved exact manual copies");
+        EditHistory history;history.begin(arsenal,options);history.prepare(arsenal,options);
+        setFavoriteCategories(group,0,Hand::left);refreshFavorites(group,favorites);history.finish(true,false,1);
+        check(group.automatic()&&group.entries.empty()&&group.manualEntries.size()==1&&group.excludedFavorites.size()==1,"Clearing all categories leaves an empty linked group and keeps its saved contents");
+        const auto empty=decode(encode(group),identity);check(empty.automatic()&&!favoriteCategoryMask(empty),"An empty category selection survives save/load");
+        check(history.undo(arsenal,options)&&favoriteCategoryMask(arsenal.groups[0])==mask,"Undo restores the combined category selection");
+        auto& current=arsenal.groups[0];setFavoriteCategories(current,allFavoriteCategories,Hand::right);refreshFavorites(current,favorites);
+        check(current.source==FavoriteSource::all&&current.entries.size()==28&&!favoriteMatches(Group{},manual),"All Favorites selects every category while Manual accepts no generated entries");
+        check(std::none_of(current.entries.begin(),current.entries.end(),[&](const auto& e){return sameFavorite(e,excluded);}),"All Favorites retains group exclusions");
+        setFavoriteCategories(current,0,Hand::right);setFavoriteSource(current,FavoriteSource::manual,Hand::right);
+        check(current.entries.size()==1&&current.entries[0].same(manual),"Manual restores saved entries after an empty category selection");
+        for(unsigned i=1;i<=unsigned(FavoriteSource::offhand);++i) {
+            Group legacy;legacy.add(manual);setFavoriteSource(legacy,FavoriteSource(i),Hand::left);
+            const auto bytes=encode(legacy);check(!Json::parse(bytes)["favorites"].contains("categories"),"Legacy single-category saves retain their original representation");
+            auto migrated=decode(bytes,identity);refreshFavorites(migrated,favorites);
+            check(migrated.source==FavoriteSource(i)&&migrated.manualEntries[0].same(manual)&&std::all_of(migrated.entries.begin(),migrated.entries.end(),[&](const auto& e){return favoriteMatches(FavoriteSource(i),e);}),"Every legacy source preserves its category and manual contents");
+        }
+        for(const auto bad:{Json(-1),Json(1.5),Json("3"),Json(512u),Json(UINT64_MAX),Json(nullptr)}) {
+            auto invalid=Json::parse(saved);invalid["groups"][0]["favorites"]["categories"]=bad;bool rejected=false;
+            try{decodeArsenal(invalid.dump(),identity);}catch(...){rejected=true;}check(rejected,"Invalid category masks are rejected before narrowing");
+        }
+        auto missing=Json::parse(saved);missing["groups"][0]["favorites"].erase("categories");bool rejected=false;
+        try{decodeArsenal(missing.dump(),identity);}catch(...){rejected=true;}check(rejected,"A combined source requires a category selection");
+        const auto before=encode(current);check(!setFavoriteCategories(current,allFavoriteCategories+1,Hand::right)&&encode(current)==before,"Invalid category edits leave the group intact");
+    }
+    {
         Group favorites;setFavoriteSource(favorites,FavoriteSource::weapons,Hand::right);
         std::vector<Entry> weapons;
         for(unsigned i=0;i<40;++i){Entry e;e.form=500+i;e.owner=0x14;e.unique=std::uint16_t(i);e.name="Weapon "+std::to_string(100+i);weapons.push_back(e);}

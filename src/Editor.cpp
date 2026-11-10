@@ -467,15 +467,23 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(textField("##Group name","",names_[groupID])){options.names[groupID]=names_[groupID].data();changed=true;}
             ImGui::SameLine();UI::TextDisabled("Key");ImGui::SameLine();bindButton(int(groupID),options.keys[groupID],"##group binding");
             ImGui::SetNextItemWidth(px(235));
-            if(ImGui::BeginCombo("##group source",tr(favoriteSourceName(group.source)))) {
-                for(unsigned i=0;i<unsigned(FavoriteSource::count);++i)if(ImGui::Selectable(tr(favoriteSourceName(FavoriteSource(i))),i==unsigned(group.source))) {
+            if(ImGui::BeginCombo("##group source",tr(favoriteSourceName(group.source)),ImGuiComboFlags_HeightLarge)) {
+                for(unsigned i=0;i<=unsigned(FavoriteSource::all);++i)if(ImGui::Selectable(tr(favoriteSourceName(FavoriteSource(i))),i==unsigned(group.source))) {
                     auto c=command(EditAction::favoriteSource,groupID);c.source=FavoriteSource(i);c.hand=group.favoriteHand;emit(c);
+                }
+                ImGui::Separator();
+                for(unsigned i=unsigned(FavoriteSource::weapons);i<=unsigned(FavoriteSource::offhand);++i) {
+                    const auto bit=favoriteCategoryBit(FavoriteSource(i));const auto categories=favoriteCategoryMask(group);bool selected=(categories&bit)!=0;
+                    if(UI::Checkbox(favoriteSourceName(FavoriteSource(i)),&selected)) {
+                        auto c=command(EditAction::favoriteSource,groupID);c.favoriteCategories=categories^bit;
+                        c.source=favoriteSourceForCategories(c.favoriteCategories);c.hand=group.favoriteHand;emit(c);
+                    }
                 }
                 ImGui::EndCombo();
             }
             if(group.automatic()) {
                 ImGui::SameLine();ImGui::SetNextItemWidth(px(140));int hand=int(group.favoriteHand);
-                if(UI::Combo("Default hand",&hand,"Right\0Left\0")){auto c=command(EditAction::favoriteSource,groupID);c.source=group.source;c.hand=Hand(hand);emit(c);}
+                if(UI::Combo("Default hand",&hand,"Right\0Left\0")){auto c=command(EditAction::favoriteSource,groupID);c.source=group.source;c.favoriteCategories=group.favoriteCategories;c.hand=Hand(hand);emit(c);}
             }
             const auto loadDefinition=[&](const Entry& entry) {
                 shortcut_=entry;comboCandidates_={};

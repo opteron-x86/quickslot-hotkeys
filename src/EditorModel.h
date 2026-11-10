@@ -32,6 +32,7 @@ struct EditCommand {
     std::size_t group=0,index=0,target=0;
     Hand hand=Hand::right;
     FavoriteSource source=FavoriteSource::manual;
+    unsigned favoriteCategories=0;
     Options options;
     bool hasSettings=false,continuous=false;
     Entry shortcut;
@@ -87,7 +88,7 @@ template<class Capture> std::optional<Entry> composeCombination(const EditorStat
     return entry;
 }
 inline bool editStructure(Arsenal& a,Options& o,const EditCommand& c) {
-    if(c.action==EditAction::favoriteSource&&c.group<Arsenal::count)return setFavoriteSource(a.groups[c.group],c.source,c.hand);
+    if(c.action==EditAction::favoriteSource&&c.group<Arsenal::count)return setFavoriteSource(a.groups[c.group],c.source,c.hand,c.favoriteCategories);
     if(c.action==EditAction::resetFavoriteExclusions&&c.group<Arsenal::count) {
         auto& g=a.groups[c.group];if(g.excludedFavorites.empty())return false;g.excludedFavorites.clear();++g.revision;return true;
     }

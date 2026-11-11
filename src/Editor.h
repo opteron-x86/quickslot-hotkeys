@@ -38,7 +38,10 @@ class Editor {
     int placementPanelTarget_=-1;
     bool placementPanelRight_=false;
     std::string hint_;
-    ImVec2 mouse_{},dragStart_{};
+    ImVec2 mouse_{},dragStart_{},nudge_{};
+    // Position mode: dragging re-anchors to the nearest of the nine anchors until one is chosen by hand.
+    bool autoAnchor_=true;
+    float scaleStart_=1,scaleReach_=1;
     int appearancePage_=0,previewMode_=0,previewFittedMode_=-1,exportScope_=0;
     float previewZoom_=100;
     unsigned presetParts_=1;

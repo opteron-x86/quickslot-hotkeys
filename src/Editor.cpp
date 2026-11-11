@@ -118,7 +118,7 @@ void Editor::beginSession(const EditorState& state) {
         }
         return;
     }
-    restoreSerial_=state.restoreSerial;orderSelection_.reset();previewFittedMode_=-1;presetCheckRevision_=~0ull;
+    restoreSerial_=state.restoreSerial;orderSelection_.reset();previewFittedMode_=-1;presetCheckRevision_=~0ull;autoAnchor_=true;nudge_={};
     session_=state.session;catalogVersion_=state.catalogVersion;candidate_=0;selected_=0;binding_=-1;placement_=false;placementPanelTarget_=-1;returnTextFocus_=0;hint_.clear();downs_.clear();
     search_.fill(0);keys_.fill(false);padKeys_.fill(false);padDowns_.clear();pointerMode_=pointerDown_=false;pointerAxis_={};filter_=0;shortcutIndex_.reset();editingLibrary_=0;shortcutGroup_=Arsenal::count;shortcut_=smartEntry(0,0,0);comboName_.fill(0);builder_=0;comboCandidates_={};handSearch_={};
     for(std::size_t i=0;i<Arsenal::count;++i)std::snprintf(names_[i].data(),names_[i].size(),"%s",state.options.names[i].c_str());
@@ -135,6 +135,11 @@ void Editor::input(const std::vector<EditorInput>& events) {
             if(e.code==1&&e.down&&ImGui::IsPopupOpen(nullptr,ImGuiPopupFlags_AnyPopupId|ImGuiPopupFlags_AnyPopupLevel))dismissingPopup_=true;
             if(e.code<keys_.size())keys_[e.code]=e.down;
             if(e.down)downs_.push_back({e.code,keyboardModifiers([&](unsigned scan){return keys_[scan];})});
+            if(placement_&&!io.WantTextInput&&(e.code==200||e.code==208||e.code==203||e.code==205)) {
+                // Arrow keys move the selected element in Position mode.
+                if(e.down){const float step=keys_[42]||keys_[54]?10.f:1.f;nudge_.x+=e.code==203?-step:e.code==205?step:0;nudge_.y+=e.code==200?-step:e.code==208?step:0;}
+                break;
+            }
             if(const auto key=imguiKey(e.code);key!=ImGuiKey_None)io.AddKeyEvent(key,e.down);
             if(e.code==29||e.code==157)io.AddKeyEvent(ImGuiMod_Ctrl,keys_[29]||keys_[157]);
             if(e.code==42||e.code==54)io.AddKeyEvent(ImGuiMod_Shift,keys_[42]||keys_[54]);
@@ -150,6 +155,10 @@ void Editor::input(const std::vector<EditorInput>& events) {
         case EditorInputType::pad: {
             if(e.code==0||e.code>=unsigned(PadButton::count))break;
             padKeys_[e.code]=e.down;if(e.down)padDowns_.push_back(PadButton(e.code));
+            if(placement_&&padKeys_[unsigned(PadButton::lb)]&&e.code>=unsigned(PadButton::up)&&e.code<=unsigned(PadButton::left)) {
+                if(e.down){nudge_.x+=e.code==unsigned(PadButton::left)?-1.f:e.code==unsigned(PadButton::right)?1.f:0;nudge_.y+=e.code==unsigned(PadButton::up)?-1.f:e.code==unsigned(PadButton::down)?1.f:0;}
+                break;
+            }
             if(e.down&&e.code>=unsigned(PadButton::up)&&e.code<=unsigned(PadButton::left))navigation();
             if(!vrMode_&&e.code==unsigned(PadButton::a)&&(pointerMode_||pointerDown_)) {
                 pointerDown_=e.down;io.AddMouseButtonEvent(0,e.down);io.AddKeyEvent(ImGuiKey_GamepadFaceDown,false);break;
@@ -354,6 +363,56 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         }
     };
     auto& io=ImGui::GetIO();
+    // Placement helpers shared by Position mode and the Placement sections of the Appearance pages.
+    std::optional<HudGeometry> measured;
+    const auto liveGeometry=[&]()->const HudGeometry& {
+        if(!measured)measured=hudGeometry(options,screen.x,screen.y,equipmentRows(snapshot.equipment,options),hud.equipmentMetrics(snapshot.equipment,options),snapshot.rows.size());
+        return *measured;
+    };
+    const auto placementOf=[&](int target){return elementPlacement(options,liveGeometry(),target,screen.x,screen.y);};
+    const auto setPlacement=[&](int target,Anchored placement){placeElement(options,target,placement);changed=true;};
+    // Moves an element's corner to a screen point. Its anchor follows the nearest of the nine while automatic anchoring is on.
+    const auto setCorner=[&](int target,Point corner) {
+        const auto& g=liveGeometry();const auto anchor=options.*elementSlots[target].anchor;
+        setPlacement(target,anchorFor(corner,elementExtent(g,target),options,screen.x,screen.y,autoAnchor_?std::nullopt:std::optional(anchor)));
+    };
+    const auto setAnchorArea=[&](unsigned area) {
+        // Elements keep their distance from the old area's edges, so they move with the new one.
+        for(int target=0;target<3;++target)if(target!=1||options.selectorDock==4)placeElement(options,target,placementOf(target));
+        options.anchorFrame=area;changed=true;
+    };
+    const auto placementControls=[&](int target) {
+        const auto& g=liveGeometry();auto placement=placementOf(target);
+        const float cell=ImGui::GetFrameHeight()*.7f,gap=px(3),side=ImGui::GetFrameHeight(),pixel=resolutionScale(screen.y);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,{gap,gap});ImGui::BeginGroup();
+        for(unsigned n=0;n<9;++n) {
+            if(n%3)ImGui::SameLine();const bool active=placement.anchor==n;
+            if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_SliderGrab));
+            ImGui::PushID(int(n));
+            if(ImGui::Button("##anchor",{cell,cell})){setPlacement(target,anchorFor(elementCorner(g,target),elementExtent(g,target),options,screen.x,screen.y,n));autoAnchor_=false;}
+            ImGui::PopID();if(active)ImGui::PopStyleColor();
+        }
+        ImGui::EndGroup();ImGui::PopStyleVar();
+        if(ImGui::IsItemHovered())UI::SetTooltip("The anchor is the point of the screen this element holds on to. It keeps its distance from that point when its size or the resolution changes.");
+        ImGui::SameLine(0,px(12));ImGui::BeginGroup();
+        const auto axis=[&](const char* name,float Anchored::*member,float limit) {
+            ImGui::AlignTextToFramePadding();label(name);ImGui::SameLine(0,px(8));
+            const auto key=std::string("##")+name;float value=std::round(placement.*member);
+            ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat,true);
+            if(ImGui::Button(("-"+key).c_str(),{side,side})){placement.*member=value-1;setPlacement(target,placement);}
+            ImGui::SameLine(0,px(4));ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-side-px(4)));
+            if(UI::SliderFloat(key.c_str(),&value,-limit,limit,"%.0f px")){placement.*member=value;setPlacement(target,placement);}
+            ImGui::SameLine(0,px(4));if(ImGui::Button(("+"+key).c_str(),{side,side})){placement.*member=std::round(placement.*member)+1;setPlacement(target,placement);}
+            ImGui::PopItemFlag();
+        };
+        axis("X",&Anchored::x,std::round(screen.x/pixel));axis("Y",&Anchored::y,std::round(screen.y/pixel));
+        ImGui::EndGroup();
+        const float half=(ImGui::GetContentRegionAvail().x-px(4))*.5f;
+        if(UI::Button("Center horizontally",{half,0})){placement.anchor=placement.anchor/3*3+1;placement.x=0;setPlacement(target,placement);autoAnchor_=false;}
+        ImGui::SameLine(0,px(4));
+        if(UI::Button("Center vertically",{half,0})){placement.anchor=placement.anchor%3+3;placement.y=0;setPlacement(target,placement);autoAnchor_=false;}
+    };
+    if(!placement_)nudge_={};
     if(placement_) {
         snapshot.placementPreview=true;
         const auto frame=placementFrame(options,screen.x,screen.y);
@@ -368,23 +427,24 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             guides->AddLine({frame.min.x,centerY},{frame.max.x,centerY},axis,px(1.5f));
             if(options.placementFrame)guides->AddRect({frame.min.x,frame.min.y},{frame.max.x,frame.max.y},axis);
         }
+        if(options.anchorFrame){const auto area=anchorArea(options,screen.x,screen.y);guides->AddRect({area.min.x,area.min.y},{area.max.x,area.max.y},IM_COL32(120,208,230,150),0,0,px(1.5f));}
         HudBounds bounds;hud.draw(snapshot,options,now,{},{},nullptr,&bounds);
-        const auto geometry=hudGeometry(options,screen.x,screen.y,equipmentRows(snapshot.equipment,options),hud.equipmentMetrics(snapshot.equipment,options),snapshot.rows.size());
+        const auto geometry=liveGeometry();
         const auto detachSelector=[&] {
             if(options.selectorDock==4)return;
-            const auto corner=selectorCorner(geometry),extent=selectorExtent(geometry);
-            options.selectorX=std::clamp((corner.x-8)/std::max(1.f,screen.x-16-extent.x),0.f,1.f);
-            options.selectorY=std::clamp((corner.y-8)/std::max(1.f,screen.y-16-extent.y),0.f,1.f);
-            options.selectorDock=4;changed=true;
+            setPlacement(1,anchorFor(selectorCorner(geometry),selectorExtent(geometry),options,screen.x,screen.y));options.selectorDock=4;
         };
         const auto targetBox=[&](int target)->const Bounds&{return target==2?bounds.equipment:target==1?bounds.selector:bounds.widget;};
-        const auto targetPosition=[&](int target){return Point{target==2?options.equipmentX:target==1?options.selectorX:options.positionX,target==2?options.equipmentY:target==1?options.selectorY:options.positionY};};
-        const auto targetSize=[&](int target){return target==2?Point{geometry.equipment.width*geometry.equipment.scale,geometry.equipment.height*geometry.equipment.scale}:
-            target==1?selectorExtent(geometry):Point{geometry.width*geometry.scale,geometry.height*geometry.scale};};
+        const auto targetSize=[&](int target){return elementExtent(geometry,target);};
+        // Dragging and snapping work on each element's position as a proportion of the free screen space.
+        const auto targetPosition=[&](int target) {
+            const auto corner=elementCorner(geometry,target),extent=targetSize(target);
+            return Point{std::clamp((corner.x-8)/std::max(1.f,screen.x-16-extent.x),0.f,1.f),std::clamp((corner.y-8)/std::max(1.f,screen.y-16-extent.y),0.f,1.f)};
+        };
         const auto move=[&](int target,float x,float y,bool snapX=true,bool snapY=true) {
             const auto& box=targetBox(target);const auto extent=targetSize(target);
             const auto& other=targetBox(target==0?1:0);
-            const auto corner=target==2?geometry.equipment.origin:target==1?selectorCorner(geometry):geometry.origin;
+            const auto corner=elementCorner(geometry,target);
             const float originX=corner.x,originY=corner.y;
             if(options.placementSnap&&!io.KeyShift&&box.valid) {
                 const bool alignOther=other.valid&&(target!=0||options.selectorDock==4);
@@ -397,9 +457,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(snapX&&horizontal.aligned)guides->AddLine({horizontal.guide,0},{horizontal.guide,screen.y},color);
                 if(snapY&&vertical.aligned)guides->AddLine({0,vertical.guide},{screen.x,vertical.guide},color);
             }
-            if(target==2){options.equipmentX=x;options.equipmentY=y;}
-            else if(target==1){options.selectorX=x;options.selectorY=y;}else{options.positionX=x;options.positionY=y;}changed=true;
+            setCorner(target,{8+std::max(0.f,screen.x-16-extent.x)*x,8+std::max(0.f,screen.y-16-extent.y)*y});
         };
+        if(placementTarget_==1)detachSelector();
+        if(placementTarget_==2&&!options.showEquipment)placementTarget_=0;
         for(int target=0;target<3;++target) {
             const auto& box=targetBox(target);if(!box.valid)continue;
             const bool active=placementTarget_==target;
@@ -423,7 +484,38 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         }
         for(const auto& box:bounds.tiles)if(box.valid)guides->AddRect({box.min.x,box.min.y},{box.max.x,box.max.y},IM_COL32(225,224,218,50));
         const auto& selected=targetBox(placementTarget_);
-        const float panelWidth=std::min(px(330),screen.x-px(40));
+        // The selector shares the widget's scale until it is given its own under Appearance.
+        const auto scaleMember=placementTarget_==2?&Options::equipmentScale:placementTarget_==1&&!options.selectorScaleLinked?&Options::selectorScale:&Options::scale;
+        if(selected.valid) {
+            // A handle on the corner farthest from the anchor resizes the element; the anchored point stays where it is.
+            const auto placement=placementOf(placementTarget_);const auto at=anchorPoint(placement.anchor);
+            const auto corner=elementCorner(geometry,placementTarget_),extent=targetSize(placementTarget_);
+            const ImVec2 pivot{corner.x+at.x*extent.x,corner.y+at.y*extent.y},grip{corner.x+(at.x>.5f?0:extent.x),corner.y+(at.y>.5f?0:extent.y)};
+            const float reach=px(8);
+            auto* front=ImGui::GetForegroundDrawList();
+            front->AddRectFilled({grip.x-reach*.6f,grip.y-reach*.6f},{grip.x+reach*.6f,grip.y+reach*.6f},IM_COL32(120,208,230,240));
+            front->AddCircleFilled(pivot,px(3.5f),IM_COL32(245,239,219,230));
+            ImGui::SetNextWindowPos({grip.x-reach,grip.y-reach});ImGui::SetNextWindowSize({reach*2,reach*2});
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,{0,0});ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize,{1,1});
+            ImGui::Begin("##scale placement",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoBackground|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoNav);
+            ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());   // the handle stays above the element it resizes
+            ImGui::InvisibleButton("Scale handle",{reach*2,reach*2});
+            if(ImGui::IsItemActivated()) {
+                if(options.*elementSlots[placementTarget_].anchor>=unanchored)setPlacement(placementTarget_,placement);
+                scaleStart_=options.*scaleMember;scaleReach_=std::max(px(8),std::hypot(grip.x-pivot.x,grip.y-pivot.y));
+            }
+            if(ImGui::IsItemActive()&&ImGui::IsMouseDragging(ImGuiMouseButton_Left,0)) {
+                const auto& range=setting(scaleMember);const auto mouse=ImGui::GetMousePos();
+                options.*scaleMember=std::clamp(scaleStart_*std::hypot(mouse.x-pivot.x,mouse.y-pivot.y)/scaleReach_,range.low,range.high);changed=true;
+            }
+            if(ImGui::IsItemHovered()||ImGui::IsItemActive())ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNWSE);
+            ImGui::End();ImGui::PopStyleVar(2);
+        }
+        if(nudge_.x!=0||nudge_.y!=0) {
+            auto placement=placementOf(placementTarget_);placement.x=std::round(placement.x)+nudge_.x;placement.y=std::round(placement.y)+nudge_.y;
+            setPlacement(placementTarget_,placement);nudge_={};
+        }
+        const float panelWidth=std::min(px(350),screen.x-px(40));
         if(placementPanelTarget_!=placementTarget_){placementPanelTarget_=placementTarget_;placementPanelRight_=selected.min.x+selected.width()*.5f<screen.x*.5f;}
         const float panelX=placementPanelRight_?screen.x-panelWidth-px(20):px(20);
         ImGui::SetNextWindowPos({panelX,px(20)},ImGuiCond_Always);ImGui::SetNextWindowSize({panelWidth,0});
@@ -431,24 +523,23 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         if(UI::RadioButton("Widget",placementTarget_==0))placementTarget_=0;ImGui::SameLine();
         if(UI::RadioButton("Selector",placementTarget_==1)){placementTarget_=1;detachSelector();previewOpen_=true;}
         if(options.showEquipment){ImGui::SameLine();if(UI::RadioButton("Equipment",placementTarget_==2))placementTarget_=2;}
-        const auto pos=targetPosition(placementTarget_);float x=pos.x,y=pos.y;
-        ImGui::SetNextItemWidth(-px(40));const bool movedX=UI::SliderFloat("X",&x,0,1,"%.3f");
-        ImGui::SetNextItemWidth(-px(40));const bool movedY=UI::SliderFloat("Y",&y,0,1,"%.3f");
-        if(movedX||movedY)move(placementTarget_,x,y,movedX,movedY);
+        placementControls(placementTarget_);
+        UI::Checkbox("Pick the nearest anchor when dragging",&autoAnchor_);
+        {
+            const auto& range=setting(scaleMember);float percent=options.*scaleMember*100;ImGui::SetNextItemWidth(-px(90));
+            if(UI::SliderFloat("Scale",&percent,range.low*100,range.high*100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){if(options.*elementSlots[placementTarget_].anchor>=unanchored)placeElement(options,placementTarget_,placementOf(placementTarget_));options.*scaleMember=percent/100;changed=true;}
+        }
+        ImGui::Separator();
         changed|=UI::Checkbox("Grid",&options.placementGrid);ImGui::SameLine();changed|=UI::Checkbox("Snap to grid",&options.placementSnap);
-        int spacing=int(options.placementSpacing),gridFrame=int(options.placementFrame);
+        int spacing=int(options.placementSpacing),gridFrame=int(options.placementFrame),area=int(options.anchorFrame);
         ImGui::SetNextItemWidth(-px(90));if(UI::Combo("Spacing",&spacing,"Fine\0Normal\0Coarse\0Custom\0")){options.placementSpacing=unsigned(spacing);changed=true;}
         if(options.placementSpacing==3){ImGui::SetNextItemWidth(-px(90));changed|=UI::SliderFloat("Grid size",&options.placementGridSize,4,128,"%.0f");}
         ImGui::SetNextItemWidth(-px(90));if(UI::Combo("Grid frame",&gridFrame,"Full screen\0" "16:9\0" "2:1\0" "21:9\0")){options.placementFrame=unsigned(gridFrame);changed=true;}
-        ImGui::SetNextItemWidth(-px(90));
-        {
-            // The selector shares the widget's scale until it is given its own under Appearance.
-            const auto member=placementTarget_==2?&Options::equipmentScale:placementTarget_==1&&!options.selectorScaleLinked?&Options::selectorScale:&Options::scale;
-            const auto& range=setting(member);float percent=options.*member*100;
-            if(UI::SliderFloat("Scale",&percent,range.low*100,range.high*100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){options.*member=percent/100;changed=true;}
-        }
+        ImGui::SetNextItemWidth(-px(90));if(UI::Combo("Screen area",&area,"Full screen\0" "16:9\0" "2:1\0" "21:9\0"))setAnchorArea(unsigned(area));
+        if(ImGui::IsItemHovered())UI::SetTooltip("Anchors hold on to this area. On an ultrawide screen, 16:9 keeps the HUD within the central part of the screen.");
         if(UI::Checkbox("Show open selector",&previewOpen_)&&!previewOpen_)placementTarget_=0;
-        if(state.controller&&!state.vr)UI::TextWrapped("Right stick: cursor · %s: drag",padLabel(PadButton::a,options.controllerStyle).c_str());
+        UI::TextWrapped("Arrow keys: move 1 px · Shift: 10 px");
+        if(state.controller&&!state.vr)UI::TextWrapped("Right stick: cursor · %s: drag · %s + D-pad: move 1 px",padLabel(PadButton::a,options.controllerStyle).c_str(),padLabel(PadButton::lb,options.controllerStyle).c_str());
         if(UI::Button("Back",{-1,0}))placement_=false;
         if(UI::Button("Close",{-1,0}))emit(command(EditAction::close,state.draft.active));
         ImGui::BeginDisabled(!state.canUndo);if(UI::Button("Undo",{-1,0}))emit(command(EditAction::undo,state.draft.active));ImGui::EndDisabled();
@@ -1209,7 +1300,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(heading("Size")) {
                     number("Scale",&Options::scale);number("Text size",&Options::textScale);number("Opacity",&Options::opacity);
                 }
-                if(heading("Placement"))place(0);
+                if(heading("Placement")){placementControls(0);place(0);}
                 if(heading("Content")) {
                     flag("Show group names",&Options::showLabels);flag("Show keys",&Options::showKeys);
                     if(options.shape==0)flag("Show card item names",&Options::showCardNames);
@@ -1245,6 +1336,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(heading("Placement")) {
                     choice("Position","##selector dock",&Options::selectorDock,"Above widget\0Below widget\0Left of widget\0Right of widget\0Independent\0");
                     if(options.selectorDock!=4)number("Distance",&Options::selectorGap);
+                    else placementControls(1);
                     place(options.selectorDock==4?1:0);
                 }
                 if(heading("Content")) {
@@ -1268,7 +1360,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     number("Scale",&Options::equipmentScale);number("Text size",&Options::equipmentTextScale);number("Opacity",&Options::equipmentOpacity);
                 }
                 if(heading("Placement")) {
-                    number("X",&Options::equipmentX);number("Y",&Options::equipmentY);
+                    placementControls(2);
                     if(options.showEquipment)place(2);
                 }
                 if(heading("Content")) {
@@ -1291,6 +1383,11 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 }
                 flag("Interface sounds",&Options::uiSounds);
                 if(ImGui::IsItemHovered())UI::SetTooltip("Plays Skyrim's menu sounds when the selector opens, moves and cancels.");
+                {
+                    rowLabel("Screen area");int area=int(options.anchorFrame);ImGui::SetNextItemWidth(-1);
+                    if(UI::Combo("##screen area",&area,"Full screen\0" "16:9\0" "2:1\0" "21:9\0"))setAnchorArea(unsigned(area));
+                    if(ImGui::IsItemHovered())UI::SetTooltip("Anchors hold on to this area. On an ultrawide screen, 16:9 keeps the HUD within the central part of the screen.");
+                }
                 flag("Animate opening and fading",&Options::animateHud);
                 if(ImGui::IsItemHovered())UI::SetTooltip("Eases the widget in, opens and closes the selector, and pulses a group when its item equips or is used.");
                 resetPage(Section::general);

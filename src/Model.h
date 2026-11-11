@@ -378,6 +378,13 @@ struct Options {
     unsigned vrStick=1;
     float selectionSpeed=1;
 
+    // Placement of the widget, the independent selector and the equipment display. An anchored element rests a point of
+    // itself on the matching point of the screen area, moved by an offset in 1080p pixels. Anchor values run 0-8 across
+    // then down (top-left to bottom-right); unanchored elements use their proportional position fields instead.
+    unsigned anchor=9,selectorAnchor=9,equipmentAnchor=9;
+    float offsetX=0,offsetY=0,selectorOffsetX=0,selectorOffsetY=0,equipmentOffsetX=0,equipmentOffsetY=0;
+    // The screen area anchors refer to: the full screen or a centered 16:9, 2:1 or 21:9 frame.
+    unsigned anchorFrame=0;
     unsigned layout=0,shape=0,selector=0,selectorShape=0;
     float spacing=14,positionX=1,positionY=1;
     float selectorSpacing=16;

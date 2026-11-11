@@ -183,17 +183,22 @@ int main(int argc,char** argv)try {
     click("##widget visibility");click("Fade when idle");check(state.options.fadeIdle&&state.options.idleOpacity>0,"Partial fading remains available");
     click("Selector");click("Animate scrolling");check(!state.options.animateScroll,"Animation can be disabled immediately");
     click("##selector dock");click("Independent");check(state.options.selectorDock==4,"Selector can be detached through settings");
+    const auto currentGeometry=[&](const Options& look){return hudGeometry(look,io.DisplaySize.x,io.DisplaySize.y,equipmentRows(state.equippedDisplay,look),{},state.rows[state.draft.active].size());};
+    const auto cornerOf=[&](int target){return elementCorner(currentGeometry(state.options),target);};
+    const auto near=[](Point a,Point b,float slack=.05f){return std::abs(a.x-b.x)<slack&&std::abs(a.y-b.y)<slack;};
     click("Position");check(!probe::find("Drag widget").empty(),"Full-screen placement opens");
+    check(state.options.anchor==unanchored,"Opening Position mode leaves an untouched widget as it was");
+    const auto untouched=cornerOf(0);
     const auto dragArea=probe::one("Drag widget").rect;mouse(dragArea.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,-60,-40}});frame({{EditorInputType::button,0,false}});frame();
-    check(state.options.positionX<1&&state.options.positionY<1,"Dragging changes actual HUD anchor");
-    const auto widgetPosition=ImVec2{state.options.positionX,state.options.positionY};
+    check(near(cornerOf(0),{untouched.x-60,untouched.y-40},1)&&state.options.anchor==8&&state.options.offsetX<0&&state.options.offsetY<0,"Dragging moves the widget by the dragged distance and anchors it to the nearest corner");
+    const auto widgetPosition=cornerOf(0);
     click("Selector");check(!probe::find("Drag selector").empty(),"Selector has its own full-screen drag target");
-    const auto selectorPosition=ImVec2{state.options.selectorX,state.options.selectorY};mouse(probe::one("Drag selector").rect.GetCenter());frame({{EditorInputType::button,0,true}});
+    const auto selectorPosition=cornerOf(1);mouse(probe::one("Drag selector").rect.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,-70,-35}});frame({{EditorInputType::button,0,false}});frame();
-    check(state.options.selectorX<selectorPosition.x&&state.options.selectorY<selectorPosition.y&&state.options.positionX==widgetPosition.x&&state.options.positionY==widgetPosition.y,"Dragging selector preserves the widget anchor");
+    check(cornerOf(1).x<selectorPosition.x&&cornerOf(1).y<selectorPosition.y&&near(cornerOf(0),widgetPosition)&&state.options.selectorAnchor<unanchored,"Dragging the selector anchors it and leaves the widget in place");
     click("Grid");click("Snap to grid");check(state.options.placementGrid&&state.options.placementSnap,"Placement grid and snapping toggle independently");
-    check(!probe::find("X").empty()&&!probe::find("Y").empty(),"Placement exposes both axes");
+    check(!probe::find("##X").empty()&&!probe::find("##Y").empty()&&probe::find("##anchor").size()==9,"Placement exposes both axes and the nine anchors");
     mouse(probe::one("Drag selector").rect.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,-101,-77}});frame({{EditorInputType::button,0,false}});frame();
     const auto snappedBox=probe::one("Drag selector").rect;const float gridStep=placementGridStep(state.options,io.DisplaySize.y);
@@ -207,11 +212,51 @@ int main(int argc,char** argv)try {
     click("Spacing");click("Custom");check(!probe::find("Grid size").empty(),"Custom spacing exposes its size control");
     click("Undo");check(state.options.placementSpacing==2,"Grid density supports Undo");
 
-    const auto currentGeometry=[&](const Options& look){return hudGeometry(look,io.DisplaySize.x,io.DisplaySize.y,equipmentRows(state.equippedDisplay,look),{},state.rows[state.draft.active].size());};
-    const auto freeBefore=state.options;const auto freeGeometry=currentGeometry(freeBefore);
+    const auto freeCorner=cornerOf(1);
     mouse(probe::one("Drag selector").rect.GetCenter());frame({{EditorInputType::key,42,true},{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,13,9}});frame({{EditorInputType::button,0,false},{EditorInputType::key,42,false}});frame();
-    check(std::abs(state.options.selectorX-(freeBefore.selectorX+13/(io.DisplaySize.x-16-freeGeometry.selectorWidth*freeGeometry.scale)))<.0001f,"Shift moves freely without grid quantization");
+    check(near(cornerOf(1),{freeCorner.x+13,freeCorner.y+9}),"Shift moves freely without grid quantization");
+    {
+        // Anchors, offsets, nudging and the scale handle.
+        click("Grid");click("Snap to grid");click("Widget");
+        const auto pixel=resolutionScale(io.DisplaySize.y);const auto before=cornerOf(0);const auto size=elementExtent(currentGeometry(state.options),0);
+        click("##anchor",0);check(state.options.anchor==0&&near(cornerOf(0),before),"Choosing an anchor keeps the widget where it is");
+        check(std::abs(state.options.offsetX*pixel-before.x)<.05f&&std::abs(state.options.offsetY*pixel-before.y)<.05f,"Offsets are measured from the chosen anchor");
+        click("##anchor",8);check(state.options.anchor==8&&near(cornerOf(0),before),"Returning to the corner anchor keeps the position");
+        const float offset=state.options.offsetX;click("+##X");check(state.options.offsetX==std::round(offset)+1,"The plus button moves one pixel");
+        click("-##X");click("-##X");check(state.options.offsetX==std::round(offset)-1,"The minus button moves one pixel back");
+        const auto stepped=state.options;key(205);key(208);check(state.options.offsetX==stepped.offsetX+1&&state.options.offsetY==std::round(stepped.offsetY)+1,"Arrow keys move the selected element one pixel");
+        frame({{EditorInputType::key,42,true}});key(203);frame({{EditorInputType::key,42,false}});check(state.options.offsetX==stepped.offsetX-9,"Shift with an arrow key moves ten pixels");
+        click("Center horizontally");
+        {const auto g=currentGeometry(state.options);check(state.options.anchor==7&&state.options.offsetX==0&&std::abs(g.origin.x+g.width*g.scale*.5f-io.DisplaySize.x*.5f)<.05f,"Center horizontally anchors the widget to the middle of the screen");}
+        click("Center vertically");
+        {const auto g=currentGeometry(state.options);check(state.options.anchor==4&&std::abs(g.origin.y+g.height*g.scale*.5f-io.DisplaySize.y*.5f)<.05f,"Center vertically completes a centered anchor");}
+        const float scaleBefore=state.options.scale;const auto centered=currentGeometry(state.options);
+        const auto grip=probe::one("Scale handle").rect.GetCenter();mouse(grip);frame({{EditorInputType::button,0,true}});
+        frame({{EditorInputType::move,0,false,40,30}});frame({{EditorInputType::button,0,false}});frame();
+        {const auto grown=currentGeometry(state.options);
+            check(state.options.scale>scaleBefore&&std::abs(grown.origin.x+grown.width*grown.scale*.5f-centered.origin.x-centered.width*centered.scale*.5f)<.05f,"Dragging the scale handle resizes the widget around its anchor");}
+        click("Undo");if(state.options.scale!=scaleBefore)click("Undo");check(state.options.scale==scaleBefore,"Resizing supports Undo");
+        click("##anchor",8);
+        {
+            const auto wide=ImVec2{2580,1080},normal=io.DisplaySize;io.DisplaySize=wide;frame();frame();
+            auto placed=state.options;placed.anchor=8;placed.offsetX=-40;placed.offsetY=-30;
+            const auto full=hudGeometry(placed,wide.x,wide.y);placed.anchorFrame=1;const auto safe=hudGeometry(placed,wide.x,wide.y);
+            check(std::abs(full.origin.x-safe.origin.x-(2580-1920)*.5f)<.05f&&full.origin.y==safe.origin.y,"A 16:9 screen area keeps anchored elements within the central part of an ultrawide screen");
+            const auto shown=cornerOf(0);click("Screen area");click("16:9");
+            check(state.options.anchorFrame==1&&std::abs(shown.x-cornerOf(0).x-(2580-1920)*.5f)<.05f,"Changing the screen area moves the HUD with it");
+            click("Undo");check(state.options.anchorFrame==0&&near(cornerOf(0),shown),"The screen area supports Undo");
+            io.DisplaySize=normal;frame();frame();
+        }
+        for(const float height:{720.f,1080.f,2160.f}) {
+            auto placed=state.options;placed.anchor=8;placed.offsetX=-40;placed.offsetY=-30;const float width=height*16/9,unit=resolutionScale(height);
+            const auto small=hudGeometry(placed,width,height);placed.scale=2;const auto large=hudGeometry(placed,width,height);
+            check(std::abs(width-(small.origin.x+small.width*small.scale)-40*unit)<.05f&&std::abs(height-(small.origin.y+small.height*small.scale)-30*unit)<.05f,"An anchored corner keeps its offset at every resolution");
+            check(std::abs(large.origin.x+large.width*large.scale-small.origin.x-small.width*small.scale)<.05f&&large.origin.x<small.origin.x,"A larger widget grows away from its anchored corner");
+        }
+        click("Grid");click("Snap to grid");click("Selector");
+        (void)size;
+    }
     click("Back");click("##selector dock");click("Above widget");click("Position");
     const auto docked=currentGeometry(state.options);click("Selector");
     const auto detached=currentGeometry(state.options);
@@ -518,13 +563,17 @@ int main(int argc,char** argv)try {
     padKey(PadButton::a);click("Clear text");padKey(PadButton::b);
     check(!probe::find("Healing").empty()&&probe::find("Flames").empty(),"Cancelling nested text edit preserves the parent filter and picker");
     padKey(PadButton::b);click("Appearance");click("Widget");click("Position");
-    click("Widget");const auto beforeDrag=ImVec2{state.options.positionX,state.options.positionY};
+    click("Widget");const auto beforeDrag=elementCorner(hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y),0);
     pointAt(probe::one("Drag widget").rect.GetCenter());
     frame({{EditorInputType::pad,unsigned(PadButton::a),true},{EditorInputType::stick,1,false,-.8f,.5f}});
     for(unsigned i=0;i<15;++i)frame();
     frame({{EditorInputType::stick,1,false,0,0},{EditorInputType::pad,unsigned(PadButton::a),false}});frame();
-    check(state.options.positionX<beforeDrag.x&&state.options.positionY<beforeDrag.y&&!io.MouseDown[0],"Right stick plus held A drags widget bounds and releases cleanly");
-    pointAt(probe::one("X").rect.GetCenter());padKey(PadButton::a);
+    {const auto dragged=elementCorner(hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y),0);
+        check(dragged.x<beforeDrag.x&&dragged.y<beforeDrag.y&&!io.MouseDown[0],"Right stick plus held A drags widget bounds and releases cleanly");
+        frame({{EditorInputType::pad,unsigned(PadButton::lb),true}});padKey(PadButton::left);padKey(PadButton::up);frame({{EditorInputType::pad,unsigned(PadButton::lb),false}});frame();
+        const auto nudged=elementCorner(hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y),0);
+        check(nudged.x<dragged.x&&nudged.y<dragged.y&&dragged.x-nudged.x<2.5f&&dragged.y-nudged.y<2.5f&&!probe::find("Drag widget").empty(),"The left shoulder button with the D-pad moves the widget one pixel");}
+    pointAt(probe::one("##X").rect.GetCenter());padKey(PadButton::a);
     padKey(PadButton::a);padKey(PadButton::left);padKey(PadButton::a);
     check(!editor.controllerPointer(),"D-pad returns from the pointer to focused navigation");
     click("Back");click("Equipment");click("##equipment visibility");click("Show always");
@@ -612,10 +661,11 @@ int main(int argc,char** argv)try {
     click("##equipment style");click("Text only");check(state.options.equipmentStyle==4&&probe::find("##equipment text").empty(),"Text-only hides irrelevant icon text-position control");
     click("##equipment style");click("List");check(state.options.equipmentStyle==0&&!probe::find("##equipment layout").empty(),"List supports the equipment arrangements");
     click("Position");check(!probe::find("Drag equipment").empty(),"Independent equipment placement has a bounding box");
-    const auto oldWidget=Point{state.options.positionX,state.options.positionY};
+    const auto oldWidget=elementCorner(hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y),0);
     const auto eqBox=probe::one("Drag equipment").rect;mouse(eqBox.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,120,-60}});frame({{EditorInputType::button,0,false}});frame();
-    check(state.options.equipmentX!=Options{}.equipmentX&&state.options.positionX==oldWidget.x&&state.options.positionY==oldWidget.y,"Dragging equipment leaves widget position unchanged");
+    {const auto widgetNow=elementCorner(hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y),0);
+        check(state.options.equipmentAnchor<unanchored&&widgetNow.x==oldWidget.x&&widgetNow.y==oldWidget.y,"Dragging equipment leaves widget position unchanged");}
     click("Grid");click("Snap to grid");click("Equipment");
     const auto snapStart=probe::one("Drag equipment").rect;mouse(snapStart.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,47,29}});frame({{EditorInputType::button,0,false}});frame();

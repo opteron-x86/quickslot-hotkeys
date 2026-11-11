@@ -9,6 +9,9 @@
 - **Show keys** has one control, under **Appearance → Widget**.
 - **Appearance** has a page for each part of the HUD — **Theme**, **Widget**, **Selector**, **Equipment** and **General** — with the same Layout, Size, Placement, Content and Visibility sections on each. Language, interface sounds and animation are under **General**.
 - The selector can have its own scale: turn off **Appearance → Selector → Match widget scale**. The widget, selector and equipment display each have their own **Text size** and **Opacity**, and **Scale** now ranges from 25% to 300%. Existing settings keep the sizes and opacity they had.
+- Placement uses anchors. Each element holds on to one of nine points of the screen with an X/Y offset in pixels, so it keeps its place when its size, group count or the resolution changes. Existing positions stay where they are and become anchored the first time you move them.
+- **Position** mode adds a resize handle on the selected element, one-pixel moves with the arrow keys (Shift for ten) or LB + D-pad, **Center horizontally** / **Center vertically**, an anchor picker and pixel X/Y controls. The same anchor and X/Y controls are on each element's page.
+- **Screen area** anchors the HUD to a centered 16:9, 2:1 or 21:9 area for ultrawide screens.
 - Every slider shows its value in percent, pixels or seconds, has **−** and **+** buttons that move one step, and a reset mark that restores its default. **Reset page** restores a whole page. Each reset is one Undo step.
 - **Presets → Keep settings with this character** stores controls, group names and appearance in that character's saves. Other characters keep the shared settings file.
 - **Return to previous selection** re-equips the entry you selected before your current one, and pressing it again swaps back. Bind a key under **Controls → Keyboard**, or enable **Controls → General → Double-tap a group to return to the previous selection**.

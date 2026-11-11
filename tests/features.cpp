@@ -137,6 +137,33 @@ int main()try {
         Options huge;huge.selectorScaleLinked=false;huge.selectorScale=3;huge.scale=3;const auto g=hudGeometry(huge,1280,720);
         check(g.width*g.scale<=1264.1f&&g.height*g.scale<=704.1f&&selectorExtent(g).x<=1264.1f&&selectorExtent(g).y<=704.1f,"The largest scales still fit a 720p screen");
     }
+    for(const auto screen:{Point{1280,720},Point{1920,1080},Point{2560,1080},Point{3840,2160}})for(unsigned area=0;area<4;++area)for(float fx:{0.f,.2f,.5f,.8f,1.f})for(float fy:{0.f,.35f,.5f,.9f,1.f}) {
+        Options placed;placed.anchorFrame=area;const Point size{340,120};
+        const auto corner=placedCorner(unanchored,0,0,fx,fy,size,placed,screen.x,screen.y);
+        const auto anchored=anchorFor(corner,size,placed,screen.x,screen.y);
+        const auto again=placedCorner(anchored.anchor,anchored.x,anchored.y,fx,fy,size,placed,screen.x,screen.y);
+        check(anchored.anchor<unanchored&&std::abs(again.x-corner.x)<.01f&&std::abs(again.y-corner.y)<.01f,"Anchoring an element leaves it exactly where it was");
+        for(unsigned chosen=0;chosen<9;++chosen) {
+            const auto fixed=anchorFor(corner,size,placed,screen.x,screen.y,chosen);const auto same=placedCorner(fixed.anchor,fixed.x,fixed.y,0,0,size,placed,screen.x,screen.y);
+            check(fixed.anchor==chosen&&std::abs(same.x-corner.x)<.01f&&std::abs(same.y-corner.y)<.01f,"Any of the nine anchors can hold the same position");
+        }
+        if(area==0&&(fx==0||fx==.5f||fx==1)&&(fy==0||fy==.5f||fy==1))check(anchored.anchor==unsigned(fx*2)+3*unsigned(fy*2),"Corners, edges and the center pick their own anchor");
+    }
+    {
+        Options fresh;const auto g=hudGeometry(fresh,1920,1080);const auto shown=elementPlacement(fresh,g,0,1920,1080);
+        check(fresh.anchor==unanchored&&shown.anchor==8&&std::abs(shown.x+8)<.01f&&std::abs(shown.y+8)<.01f,"A new installation shows its bottom-right position as an anchor and offset");
+        auto anchored=fresh;placeElement(anchored,0,shown);const auto after=hudGeometry(anchored,1920,1080);
+        check(std::abs(after.origin.x-g.origin.x)<.01f&&std::abs(after.origin.y-g.origin.y)<.01f,"Saving that anchor keeps the widget in place");
+        anchored.selectorDock=4;placeElement(anchored,1,{4,25,-40});placeElement(anchored,2,{6,30,-190});anchored.anchorFrame=1;
+        const auto saved=decodeOptions(encodeOptions(anchored));
+        check(saved.anchor==8&&saved.selectorAnchor==4&&saved.selectorOffsetX==25&&saved.selectorOffsetY==-40&&saved.equipmentAnchor==6&&saved.equipmentOffsetY==-190&&saved.anchorFrame==1,"Anchors, offsets and the screen area persist");
+        auto earlier=Json::parse(encodeOptions(anchored));for(const char* added:{"anchor","offsetX","offsetY","selectorAnchor","selectorOffsetX","selectorOffsetY","equipmentAnchor","equipmentOffsetX","equipmentOffsetY","anchorFrame"})earlier.erase(added);
+        earlier["positionX"]=.3f;earlier["positionY"]=.6f;const auto loaded=decodeOptions(earlier.dump());
+        check(loaded.anchor==unanchored&&loaded.selectorAnchor==unanchored&&loaded.equipmentAnchor==unanchored&&loaded.positionX==.3f&&loaded.positionY==.6f,"Settings saved before anchors keep their proportional positions");
+        Options wild;wild.anchor=77;wild.offsetX=1e9f;wild.offsetY=NAN;wild.anchorFrame=12;sanitizeOptions(wild);
+        check(wild.anchor==unanchored&&wild.offsetX==8000&&wild.offsetY==0&&wild.anchorFrame==3,"Invalid placement values are bounded");
+        Options look;importAppearance(look,anchored);check(look.anchor==8&&look.selectorAnchor==4&&look.anchorFrame==1,"Appearance presets carry anchored placement");
+    }
     textOptions.textScale=1.35f;textOptions.placementSpacing=3;textOptions.placementFrame=2;textOptions.placementGridSize=27;
     const auto textReload=decodeOptions(encodeOptions(textOptions));
     check(textReload.textScale==1.35f&&textReload.placementSpacing==3&&textReload.placementFrame==2&&textReload.placementGridSize==27,"Text and grid settings persist");

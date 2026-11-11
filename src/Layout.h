@@ -145,6 +145,37 @@ inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,fl
     s.hintY=s.pagerY+8+12*text+10;
     s.height=o.showHints?s.hintY+13*text+4:s.pagerY+8+12*text+4;return s;
 }
+// Placement. An anchored element rests a point of itself on the matching point of the screen area, moved by an
+// offset in 1080p pixels, so it grows and shrinks away from that point. An unanchored element's position is a
+// proportion of the free screen space. Both keep the element at least 8 pixels inside the screen.
+constexpr unsigned unanchored=9;
+inline float resolutionScale(float screenY){return std::clamp(screenY/1080.f,.75f,3.f);}
+inline Bounds aspectFrame(unsigned choice,float width,float height) {
+    if(!choice)return {{0,0},{width,height},true};
+    const float aspect=choice==1?16.f/9:choice==2?2.f:21.f/9;
+    const float w=std::min(width,height*aspect),h=std::min(height,width/aspect);
+    return {{(width-w)*.5f,(height-h)*.5f},{(width+w)*.5f,(height+h)*.5f},true};
+}
+inline Bounds placementFrame(const Options& o,float width,float height){return aspectFrame(o.placementFrame,width,height);}
+inline Bounds anchorArea(const Options& o,float width,float height){return aspectFrame(o.anchorFrame,width,height);}
+inline Point anchorPoint(unsigned anchor){return {float(anchor%3)*.5f,float(anchor/3)*.5f};}
+inline Point placedCorner(unsigned anchor,float x,float y,float proportionX,float proportionY,Point size,const Options& o,float screenX,float screenY) {
+    if(anchor>=unanchored)return {8+std::max(0.f,screenX-16-size.x)*proportionX,8+std::max(0.f,screenY-16-size.y)*proportionY};
+    const auto area=anchorArea(o,screenX,screenY);const auto at=anchorPoint(anchor);const float pixel=resolutionScale(screenY);
+    return {std::clamp(area.min.x+at.x*(area.width()-size.x)+x*pixel,8.f,std::max(8.f,screenX-8-size.x)),
+        std::clamp(area.min.y+at.y*(area.height()-size.y)+y*pixel,8.f,std::max(8.f,screenY-8-size.y))};
+}
+struct Anchored {unsigned anchor=unanchored;float x=0,y=0;};
+// The anchor and offset that put an element's corner where it is; the nearest of the nine anchors unless one is given.
+inline Anchored anchorFor(Point corner,Point size,const Options& o,float screenX,float screenY,std::optional<unsigned> anchor={}) {
+    const auto area=anchorArea(o,screenX,screenY);const float pixel=resolutionScale(screenY);
+    if(!anchor||*anchor>=unanchored) {
+        const auto third=[](float center,float low,float span){const float f=span>0?(center-low)/span:.5f;return f<1.f/3?0u:f<2.f/3?1u:2u;};
+        anchor=third(corner.x+size.x*.5f,area.min.x,area.width())+3*third(corner.y+size.y*.5f,area.min.y,area.height());
+    }
+    const auto at=anchorPoint(*anchor);
+    return {*anchor,(corner.x-area.min.x-at.x*(area.width()-size.x))/pixel,(corner.y-area.min.y-at.y*(area.height()-size.y))/pixel};
+}
 struct EquipmentMetrics {std::array<float,5> textWidths{};bool measured=false;};
 struct EquipmentCell {Point origin,icon,text;float width=0,height=0,textWidth=0;bool centered=false;};
 struct EquipmentGeometry {
@@ -188,8 +219,8 @@ inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float 
     const auto arranged=arrangeTiles(sizes,o.equipmentLayout,o.equipmentSpacing,shape);
     g.width=arranged.width+8;g.height=arranged.height+8;
     for(unsigned i=0;i<rows;++i)g.cells[i].origin={4+arranged.centers[i].x-sizes[i].x*.5f,4+arranged.centers[i].y-sizes[i].y*.5f};
-    g.scale=std::max(.05f,std::min({o.equipmentScale*std::clamp(screenY/1080.f,.75f,3.f),(screenX-16)/g.width,(screenY-16)/g.height}));
-    g.origin={8+std::max(0.f,screenX-16-g.width*g.scale)*o.equipmentX,8+std::max(0.f,screenY-16-g.height*g.scale)*o.equipmentY};
+    g.scale=std::max(.05f,std::min({o.equipmentScale*resolutionScale(screenY),(screenX-16)/g.width,(screenY-16)/g.height}));
+    g.origin=placedCorner(o.equipmentAnchor,o.equipmentOffsetX,o.equipmentOffsetY,o.equipmentX,o.equipmentY,{g.width*g.scale,g.height*g.scale},o,screenX,screenY);
     return g;
 }
 // selectorOrigin is where the selector's content starts, in widget units from origin; its box begins 32 selector units above.
@@ -198,16 +229,16 @@ inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsi
     HudGeometry g;g.equipment=equipmentGeometry(o,screenX,screenY,rows,metrics);g.groups=groupGeometry(o);g.width=g.groups.width;g.captionHeight=15*hudTextFactor(o)+8;
     g.groupOrigin={0,o.shape==0?3.f:0.f};g.height=g.groups.height+g.groupOrigin.y;
     const auto selectorLayout=selectorGeometry(o,selectorCount);g.selectorHeight=selectorLayout.height;g.selectorWidth=selectorLayout.width;
-    const float sh=g.selectorHeight+32,resolutionScale=std::clamp(screenY/1080.f,.75f,3.f);
+    const float sh=g.selectorHeight+32,resolutionScale=quickslot::resolutionScale(screenY);
     const bool linked=o.selectorScaleLinked;
     g.scale=std::max(.05f,std::min({o.scale*resolutionScale,(screenX-16)/(linked?std::max(g.width,g.selectorWidth):g.width),
         (screenY-16)/(linked?std::max(g.height,sh):g.height)}));
     g.selectorScale=linked?g.scale:std::max(.05f,std::min({o.selectorScale*resolutionScale,(screenX-16)/g.selectorWidth,(screenY-16)/sh}));
     const float w=g.width*g.scale,h=g.height*g.scale,sw=g.selectorWidth*g.selectorScale,soh=sh*g.selectorScale,gap=o.selectorGap*g.scale;
-    g.origin={8+std::max(0.f,screenX-16-w)*o.positionX,8+std::max(0.f,screenY-16-h)*o.positionY};
+    g.origin=placedCorner(o.anchor,o.offsetX,o.offsetY,o.positionX,o.positionY,{w,h},o,screenX,screenY);
     const auto clamp=[&](Point p){return Point{std::clamp(p.x,8.f,std::max(8.f,screenX-8-sw)),std::clamp(p.y,8.f,std::max(8.f,screenY-8-soh))};};
     Point selector;
-    if(o.selectorDock==4)selector={8+std::max(0.f,screenX-16-sw)*o.selectorX,8+std::max(0.f,screenY-16-soh)*o.selectorY};
+    if(o.selectorDock==4)selector=placedCorner(o.selectorAnchor,o.selectorOffsetX,o.selectorOffsetY,o.selectorX,o.selectorY,{sw,soh},o,screenX,screenY);
     else {
         const std::array<Point,4> docks{{{g.origin.x+(w-sw)*.5f,g.origin.y-gap-soh},{g.origin.x+(w-sw)*.5f,g.origin.y+h+gap},
             {g.origin.x-gap-sw,g.origin.y+(h-soh)*.5f},{g.origin.x+w+gap,g.origin.y+(h-soh)*.5f}}};
@@ -230,6 +261,21 @@ inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsi
 // The selector's box on screen: its top-left corner and its size.
 inline Point selectorCorner(const HudGeometry& g){return {g.origin.x+g.selectorOrigin.x*g.scale,g.origin.y+g.selectorOrigin.y*g.scale-32*g.selectorScale};}
 inline Point selectorExtent(const HudGeometry& g){return {g.selectorWidth*g.selectorScale,(g.selectorHeight+32)*g.selectorScale};}
+// The three placeable elements: 0 widget, 1 selector, 2 equipment display.
+struct ElementSlot {unsigned Options::*anchor;float Options::*x;float Options::*y;};
+inline constexpr ElementSlot elementSlots[]{{&Options::anchor,&Options::offsetX,&Options::offsetY},
+    {&Options::selectorAnchor,&Options::selectorOffsetX,&Options::selectorOffsetY},{&Options::equipmentAnchor,&Options::equipmentOffsetX,&Options::equipmentOffsetY}};
+inline Point elementCorner(const HudGeometry& g,int element){return element==2?g.equipment.origin:element==1?selectorCorner(g):g.origin;}
+inline Point elementExtent(const HudGeometry& g,int element) {
+    return element==2?Point{g.equipment.width*g.equipment.scale,g.equipment.height*g.equipment.scale}:element==1?selectorExtent(g):Point{g.width*g.scale,g.height*g.scale};
+}
+// An element's anchor and offset: the saved ones, or for an unanchored element those that match where it sits now.
+inline Anchored elementPlacement(const Options& o,const HudGeometry& g,int element,float screenX,float screenY) {
+    const auto& slot=elementSlots[element];
+    if(o.*slot.anchor<unanchored)return {o.*slot.anchor,o.*slot.x,o.*slot.y};
+    return anchorFor(elementCorner(g,element),elementExtent(g,element),o,screenX,screenY);
+}
+inline void placeElement(Options& o,int element,Anchored placement){const auto& slot=elementSlots[element];o.*slot.anchor=placement.anchor;o.*slot.x=placement.x;o.*slot.y=placement.y;}
 struct EditorGeometry {float scale=1,width=1220,height=800;};
 inline EditorGeometry editorGeometry(const Options&,float screenX,float screenY) {
     EditorGeometry g;
@@ -239,12 +285,6 @@ inline EditorGeometry editorGeometry(const Options&,float screenX,float screenY)
 inline float placementGridStep(const Options& o,float screenHeight) {
     const float size=o.placementSpacing==0?8:o.placementSpacing==1?16:o.placementSpacing==2?32:o.placementGridSize;
     return size*std::max(.5f,screenHeight/1080.f);
-}
-inline Bounds placementFrame(const Options& o,float width,float height) {
-    if(!o.placementFrame)return {{0,0},{width,height},true};
-    const float aspect=o.placementFrame==1?16.f/9:o.placementFrame==2?2.f:21.f/9;
-    const float w=std::min(width,height*aspect),h=std::min(height,width/aspect);
-    return {{(width-w)*.5f,(height-h)*.5f},{(width+w)*.5f,(height+h)*.5f},true};
 }
 struct SnapAxis {float value=0,guide=0;bool aligned=false;};
 

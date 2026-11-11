@@ -103,6 +103,8 @@ inline Point selectorOffset(const Options& o,float position) {
 struct SelectorGeometry {
     float width=420,height=155,centerY=16,ruleY=67,nameY=76,statusY=104,pagerY=132,hintY=154,listPitch=0,listHeight=46;
     std::vector<Point> ring;
+    // Wheel selectors: the center the slots surround and their distance from it.
+    Point hub;float reach=0;
 };
 inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,float phase=0) {
     const float text=hudTextFactor(o);SelectorGeometry s;
@@ -117,6 +119,15 @@ inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,fl
         s.width=std::max(260*std::max(1.f,text),extent+24);s.ring=ring.centers;
         Point pivot;for(const auto p:s.ring){pivot.x+=p.x/float(visible);pivot.y+=p.y/float(visible);}
         for(auto& p:s.ring){p.x+=s.width*.5f-pivot.x;p.y+=extent*.5f-24-pivot.y;}
+        s.ruleY=extent-24+18;
+    } else if(o.selector==wheelSelector) {
+        // Every entry keeps a fixed slot around the hub, starting at the top and running clockwise.
+        const auto slots=std::clamp(count,std::size_t(1),Group::limit);constexpr float pi=3.141592654f;
+        const float footprint=selectorTileShape(o)==2?50*std::sqrt(2.f):50;
+        s.reach=slots>1?std::max(62.f,(footprint+o.selectorSpacing)/(2*std::sin(pi/float(slots)))):0;
+        const float extent=2*(s.reach+31);
+        s.width=std::max(260*std::max(1.f,text),extent+24);s.hub={s.width*.5f,extent*.5f-24};
+        for(std::size_t i=0;i<slots;++i){const float angle=-pi*.5f+float(i)*2*pi/float(slots);s.ring.push_back({s.hub.x+std::cos(angle)*s.reach,s.hub.y+std::sin(angle)*s.reach});}
         s.ruleY=extent-24+18;
     } else if(o.selector==3) {
         const float reach=selectorOffset(o,side).y+selectorRadius(side);

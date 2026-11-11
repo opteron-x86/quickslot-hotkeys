@@ -223,6 +223,12 @@ public:
     std::optional<Commit> requestCycle(const Group& g,std::size_t group,std::size_t index) {
         auto commit=request(g,group,index);if(commit)commit->cycling=true;return commit;
     }
+    // Moves the highlight straight to an entry, as a wheel selector does.
+    void point(std::size_t index,const Group& g) {
+        if(!canBrowse())return;
+        if(g.revision!=revision_){cancel();return;}
+        browsing_=true;if(index<g.entries.size())index_=index;
+    }
     void rebase(const Group& g,std::size_t index){index_=index;revision_=g.revision;browsing_=held_;}
     bool accepts(const Commit& c,const Group& g,std::size_t group=0) const { return c.group==group&&c.token==token_&&c.revision==g.revision&&c.index<g.entries.size(); }
     void cancel() { held_=false;browsing_=false;++token_; }
@@ -245,6 +251,30 @@ public:
     }
     void cancel(){commit_.reset();}
 };
+inline constexpr unsigned wheelSelector=5;
+// The wheel slot a direction points at. Slot 0 is at the top and slots run clockwise; y grows upward.
+inline std::optional<std::size_t> wheelIndex(float x,float y,std::size_t count,float deadzone) {
+    if(!count||!std::isfinite(x)||!std::isfinite(y)||std::hypot(x,y)<deadzone)return {};
+    constexpr float turn=6.283185307f;
+    float angle=std::atan2(x,y);if(angle<0)angle+=turn;
+    return std::size_t(std::floor(angle/turn*float(count)+.5f))%count;
+}
+// Gathers mouse movement into a direction for the wheel selector.
+class WheelPointer {
+    float x_=0,y_=0;
+public:
+    static constexpr float reach=90,threshold=28;
+    void reset(){x_=y_=0;}
+    void move(float dx,float dy) {
+        if(!std::isfinite(dx)||!std::isfinite(dy))return;
+        x_+=dx;y_+=dy;
+        if(const float length=std::hypot(x_,y_);length>reach){x_*=reach/length;y_*=reach/length;}
+    }
+    // Screen y grows downward.
+    std::optional<std::size_t> index(std::size_t count)const{return wheelIndex(x_,-y_,count,threshold);}
+    float x()const{return x_/reach;}
+    float y()const{return y_/reach;}
+};
 struct WeaponStatus {bool poisoned=false;int ammunition=-1;};
 struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry;bool cycleBlocked=false; };
 inline const Entry& rowIconEntry(const Row& row){return row.iconEntry?*row.iconEntry:row.entry;}
@@ -258,6 +288,8 @@ struct Snapshot {
     std::array<GroupTile,Arsenal::count> groups;
     std::size_t activeGroup=0;
     std::size_t selected=0,preview=0;
+    // Where the player is pointing on a wheel selector, each axis from -1 to 1 with y downward.
+    float pointerX=0,pointerY=0;
     bool visible=false,browsing=false,inCombat=false,editorPreview=false,selectorOnly=false,controller=false,vr=false,weaponsDrawn=false;
     std::uint64_t interaction=0;
     std::string notice;

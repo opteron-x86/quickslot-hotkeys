@@ -803,6 +803,7 @@ void Game::notice(std::string text,bool visible){log::info("{}",text);snapshot_.
 void Game::publish(){
     snapshot_.vr=REL::Module::IsVR();snapshot_.controller=controllerLast_&&options_.controllerEnabled;snapshot_.activeGroup=arsenal_.active;
     snapshot_.holding=selection_.held();snapshot_.selected=arsenal_.current().selected;snapshot_.preview=cycleConfirm_.active()?cycleConfirm_.index():selection_.index();snapshot_.browsing=selection_.browsing()||cycleConfirm_.active();snapshot_.visible=allowed(MenuPurpose::hud);
+    snapshot_.pointerX=wheelOpen()?wheelX_:0;snapshot_.pointerY=wheelOpen()?wheelY_:0;
     snapshot_.inCombat=snapshot_.weaponsDrawn=false;
     if(snapshot_.visible)if(auto* player=RE::PlayerCharacter::GetSingleton()) {
         snapshot_.inCombat=player->IsInCombat();snapshot_.weaponsDrawn=player->AsActorState()->IsWeaponDrawn();
@@ -901,7 +902,7 @@ void Game::queueMove(std::size_t target) {
     });
 }
 void Game::beginSelection(std::size_t group,bool controller) {
-    selectionController_=controller;
+    selectionController_=controller;wheelPointer_.reset();wheelX_=wheelY_=0;
     const auto mode=groupMode(options_,arsenal_,group);
     if(mode==GroupMode::cycle) {
         const bool recall=groupRecall_.activate(group);
@@ -947,6 +948,16 @@ void Game::commitCycle(const Selection::Commit& commit) {
     else {selectionTime(true);sound("UIMenuPrevNext");}
 }
 void Game::sound(const char* id){if(options_.uiSounds)RE::PlaySound(id);}
+bool Game::wheelOpen()const{return options_.selector==wheelSelector&&selection_.canBrowse();}
+// Wheel selectors highlight the entry the stick or mouse points at.
+void Game::pointSelection(float x,float y,std::optional<std::size_t> index) {
+    wheelX_=std::clamp(x,-1.f,1.f);wheelY_=std::clamp(y,-1.f,1.f);
+    if(!index||!selection_.canBrowse())return;
+    const auto before=selection_.index();const bool opened=selection_.browsing();
+    selection_.point(*index,arsenal_.current());
+    if(selection_.held()&&(selection_.index()!=before||!opened)){sound("UIMenuPrevNext");dirty_=true;}
+    selectionTime(selection_.browsing());
+}
 void Game::cycleSelection(int delta) {
     if(!selection_.canBrowse())return;
     const auto before=selection_.index();
@@ -977,7 +988,8 @@ bool Game::consumeController(RE::InputEvent* event) {
         const bool captured=captureGameplayStick(stickOwned_[index],neutral,browsing,inputTaken);
         if(browsing) {
 
-            if(!vr)if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
+            if(!vr&&wheelOpen())pointSelection(axis.x,-axis.y,wheelIndex(axis.x,axis.y,arsenal_.current().entries.size(),options_.controllerDeadzone));
+            else if(!vr)if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
 
             if(auto* controls=RE::PlayerControls::GetSingleton()) {
                 if(right)controls->data.lookInputVec={};else controls->data.moveInputVec={};
@@ -1047,6 +1059,11 @@ bool Game::consume(RE::InputEvent* event) {
         }
         if(editorInput_.size()>2048){editorInput_.clear();SKSE::GetTaskInterface()->AddTask([this]{std::scoped_lock lock(mutex_);closeEditor("input queue overflow");});}
         return captured;
+    }
+    // An open wheel takes mouse movement as its pointer; the camera stays still.
+    if(auto* move=event->AsMouseMoveEvent();move&&!selectionController_&&selection_.browsing()&&wheelOpen()&&allowed(MenuPurpose::input,false)) {
+        wheelPointer_.move(float(move->mouseInputX),float(move->mouseInputY));
+        pointSelection(wheelPointer_.x(),wheelPointer_.y(),wheelPointer_.index(arsenal_.current().entries.size()));return true;
     }
     auto* button=event?event->AsButtonEvent():nullptr;if(!button)return false;
     const auto code=button->GetIDCode();const bool keyboard=event->device==RE::INPUT_DEVICE::kKeyboard,mouse=event->device==RE::INPUT_DEVICE::kMouse;
@@ -1183,7 +1200,8 @@ void Game::dispatch(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent**
                 if(!controllerConnected_){if(selectionController_)cancel();controller_.reset();stickOwned_.fill(false);}
                 else if(options_.controllerEnabled&&selection_.canBrowse()&&options_.vrStick<2&&allowed(MenuPurpose::input,true)) {
                     const auto axis=readVRAxis(devices,options_.vrStick==1);
-                    if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
+                    if(wheelOpen())pointSelection(axis.x,-axis.y,wheelIndex(axis.x,axis.y,arsenal_.current().entries.size(),options_.controllerDeadzone));
+                    else if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
                 }
             } else if(!pad||!devices->IsGamepadEnabled()) {
                 if(selectionController_&&(selection_.held()||released_||pending_||consumableRequest_||voice_.active()))cancel();

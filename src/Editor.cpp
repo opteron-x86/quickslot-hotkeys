@@ -1073,7 +1073,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 changed|=UI::Checkbox("Show group names",&options.showLabels);changed|=UI::Checkbox("Show keys",&options.showKeys);
                 if(options.shape==0)changed|=UI::Checkbox("Show card item names",&options.showCardNames);
             } else if(appearancePage_==2) {
-                combo("Arrangement","##selector",options.selector,"Horizontal strip\0Arc\0Ring\0Vertical strip\0List\0");
+                combo("Arrangement","##selector",options.selector,"Horizontal strip\0Arc\0Ring\0Vertical strip\0List\0Wheel\0");
+                if(options.selector==wheelSelector)UI::TextWrapped("Every item keeps its place on the wheel. Point at one with the browsing stick or the mouse; scrolling and previous / next still step.");
                 if(options.selector!=4)combo("Item shape","##selector shape",options.selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
                 slider("Spacing",options.selectorSpacing,0,128);
                 combo("Position","##selector dock",options.selectorDock,"Above widget\0Below widget\0Left of widget\0Right of widget\0Independent\0");

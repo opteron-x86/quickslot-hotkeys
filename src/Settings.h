@@ -70,7 +70,7 @@ inline void sanitizeOptions(Options& o) {
         if(b.button!=PadButton::none)vrAssigned.push_back(b);
     }
     if(!validVR(o.vrUse)||o.vrUse==o.vrEditor||std::any_of(o.groupOrder.begin(),o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),[&](auto id){return o.vrGroups[id]==o.vrUse;}))o.vrUse={};
-    o.layout=std::min(o.layout,5u);o.shape=std::min(o.shape,3u);o.selector=std::min(o.selector,4u);
+    o.layout=std::min(o.layout,5u);o.shape=std::min(o.shape,3u);o.selector=std::min(o.selector,wheelSelector);
     o.selectorDock=std::min(o.selectorDock,4u);o.selectorShape=std::min(o.selectorShape,3u);
     o.itemIconColor=std::min(o.itemIconColor,2u);
     const auto finite=[](float v,float fallback,float min,float max){return std::isfinite(v)?std::clamp(v,min,max):fallback;};

@@ -79,6 +79,8 @@ int main(int argc,char** argv) {
         options.groupCount=3;options.showEquipment=true;options.equipmentStyle=number(3,0);options.equipmentX=.03f;options.equipmentY=.1f;options.scale=1.3f;
         snapshot.groups[1].equipped=true;snapshot.rows[1].equipped=true;
         snapshot.equipment.hands[0]=snapshot.rows[0];snapshot.equipment.hands[1]=snapshot.rows[1];
+        // A wheel shows best with a fuller group.
+        if(options.selector==wheelSelector){for(const char* name:{"Ebony Dagger","Flames","Daedric Mace","Healing"}){auto row=snapshot.rows[snapshot.rows.size()%2];row.entry.name=name;row.equipped=false;snapshot.rows.push_back(row);}snapshot.preview=2;snapshot.pointerX=.6f;snapshot.pointerY=.8f;}
     }
     if(scene.starts_with("oathvein")) {
         options.layout=2;options.shape=1;options.selector=1;options.groupCount=4;options.scale=1.3f;
@@ -371,6 +373,7 @@ int main(int argc,char** argv) {
     EditHistory history;history.begin(editing.draft,editing.options);
     // QUICKSLOT_PREVIEW_THEME shows any scene, including the editor, under another theme.
     if(const char* theme=std::getenv("QUICKSLOT_PREVIEW_THEME");theme&&*theme)options.themeId=editing.options.themeId=theme;
+    const auto started=SDL_GetTicks64();   // HUD stills wait for the opening motion to settle
     bool running=true;int frames=0,previewStep=0,scrollAttempts=0,settled=0,keyboardStep=0;ImVec2 tabPoint{};
     while(running) {
         SDL_Event event;while(SDL_PollEvent(&event)) {
@@ -421,7 +424,7 @@ int main(int argc,char** argv) {
         else hud.draw(snapshot,options,double(SDL_GetTicks64())/1000.);
         ImGui::Render();int fw,fh;SDL_GL_GetDrawableSize(window,&fw,&fh);glViewport(0,0,fw,fh);glClear(GL_COLOR_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        if(!output.empty()&&(editorScene?settled>=8:frames>=16)) {
+        if(!output.empty()&&(editorScene?settled>=8:frames>=16&&SDL_GetTicks64()-started>=500)) {
             std::vector<unsigned char> pixels(fw*fh*4),flipped(pixels.size());
             glReadPixels(0,0,fw,fh,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
             for(int y=0;y<fh;++y)std::copy_n(pixels.data()+(fh-1-y)*fw*4,fw*4,flipped.data()+y*fw*4);

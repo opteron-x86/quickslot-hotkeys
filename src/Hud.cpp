@@ -366,7 +366,21 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         };
         const auto layout=selectorGeometry(o,n,displacement);
         if(active) {
-            if(o.selector==2) {
+            if(o.selector==wheelSelector) {
+                for(std::size_t i=0;i<n&&i<layout.ring.size();++i) {
+                    const auto slot=layout.ring[i];
+                    node(state.rows[i],slot.x,slot.y,i==index?29.f:21.f,i==index,selectorTileShape(o),i==index?1.f:.8f);
+                }
+                if(n>1&&index<layout.ring.size()) {
+                    // The hub shows where the player points and which slot that selects.
+                    const auto hub=layout.hub,slot=layout.ring[index];const float length=std::hypot(slot.x-hub.x,slot.y-hub.y);
+                    const Point toward{(slot.x-hub.x)/length,(slot.y-hub.y)/length};const float inner=std::max(14.f,layout.reach-44);
+                    p.circle(hub.x,hub.y,10,muted,false,.8f);
+                    p.line(hub.x+toward.x*12,hub.y+toward.y*12,hub.x+toward.x*inner,hub.y+toward.y*inner,p.accent(),1.4f);
+                    p.diamond(hub.x+toward.x*inner,hub.y+toward.y*inner,2.6f,selectionMark);
+                    p.circle(hub.x+state.pointerX*9,hub.y+state.pointerY*9,2.4f,ivory,true);
+                }
+            } else if(o.selector==2) {
                 const auto visible=std::min(n,std::size_t(8));
                 for(std::size_t i=0;i<visible;++i) {
                     const auto offset=i<=visible/2?std::ptrdiff_t(i):std::ptrdiff_t(i)-std::ptrdiff_t(visible);
@@ -402,9 +416,10 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 if(n>1&&o.selector==3){p.line(center-70,layout.centerY-37,center-65,layout.centerY-42,muted);p.line(center-65,layout.centerY-42,center-60,layout.centerY-37,muted);p.line(center-70,layout.centerY+37,center-65,layout.centerY+42,muted);p.line(center-65,layout.centerY+42,center-60,layout.centerY+37,muted);}
                 p.d->PopClipRect();
             }
-            p.rule(center,layout.ruleY,o.selector==2?42.f:58.f);
-            const float nameWidth=o.selector==2?238*std::max(1.f,text):layout.width-24;
-            p.label(center,layout.nameY,displayName(active->entry),o.selector==2?20.f:23.f,active->available?ivory:muted,true,nameWidth,true);
+            p.rule(center,layout.ruleY,o.selector==2||o.selector==wheelSelector?42.f:58.f);
+            const bool round=o.selector==2||o.selector==wheelSelector;
+            const float nameWidth=round?238*std::max(1.f,text):layout.width-24;
+            p.label(center,layout.nameY,displayName(active->entry),round?20.f:23.f,active->available?ivory:muted,true,nameWidth,true);
             p.label(center,layout.statusY,rowStatus(*active),13,active->available?silver:depletedMark,false,layout.width-24,true);
             if(n>1) {
                 const auto dots=std::min(n,std::size_t(16)),first=std::min(index>dots/2?index-dots/2:0,n-dots);
@@ -428,7 +443,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     if(cancel.empty()&&o.mouseActions[0]>=0)cancel=tr(mouseButtonName(o.mouseActions[0]));
                     if(!cancel.empty())cancel+="  "+std::string(tr("cancel"));
                 }
-                const std::string browse=state.controller?(state.vr?tr("Stick / pad  choose"):tr("Stick / buttons  choose")):tr("Scroll  choose");
+                const std::string browse=o.selector==wheelSelector?(state.controller?tr("Stick  point"):tr("Mouse  point")):state.controller?(state.vr?tr("Stick / pad  choose"):tr("Stick / buttons  choose")):tr("Scroll  choose");
                 p.label(center,layout.hintY,browse+(cancel.empty()?std::string{}:"   ·   "+cancel),13,silver,false,layout.width-24,true);
             }
         } else {

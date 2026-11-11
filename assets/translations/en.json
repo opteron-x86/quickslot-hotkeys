@@ -2,6 +2,10 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "Wheel": "Wheel",
+    "Stick  point": "Stick  point",
+    "Mouse  point": "Mouse  point",
+    "Every item keeps its place on the wheel. Point at one with the browsing stick or the mouse; scrolling and previous / next still step.": "Every item keeps its place on the wheel. Point at one with the browsing stick or the mouse; scrolling and previous / next still step.",
     "Equipped marker size": "Equipped marker size",
     "Custom equipped color": "Custom equipped color",
     "Animate opening and fading": "Animate opening and fading",

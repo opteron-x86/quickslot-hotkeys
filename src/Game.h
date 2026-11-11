@@ -79,6 +79,10 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     CycleConfirm cycleConfirm_;
     void commitCycle(const Selection::Commit&);
     void sound(const char* descriptor);
+    WheelPointer wheelPointer_;
+    float wheelX_=0,wheelY_=0;
+    bool wheelOpen()const;
+    void pointSelection(float x,float y,std::optional<std::size_t> index);
     struct ConsumableRequest {Entry entry;bool controller=false;};
     std::optional<ConsumableRequest> consumableRequest_;
     void queueConsumable(bool controller);

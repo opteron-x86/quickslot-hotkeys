@@ -797,6 +797,28 @@ int main()try {
         check(!felt.animateHud&&!felt.uiSounds&&felt.equippedMarkerScale==2.5f&&felt.customEquippedColor&&felt.equippedColor[2]==1.f,"Motion, sound and equipped-marker settings persist inside their ranges");
         Options quiet;quiet.uiSounds=false;Options skin;skin.equippedMarkerScale=2;importAppearance(quiet,skin);
         check(!quiet.uiSounds&&quiet.equippedMarkerScale==2,"Appearance presets carry the marker size and leave sounds in place");
+        check(wheelIndex(0,1,8,.3f)==std::size_t(0)&&wheelIndex(1,0,8,.3f)==std::size_t(2)&&wheelIndex(0,-1,8,.3f)==std::size_t(4)&&wheelIndex(-1,0,8,.3f)==std::size_t(6),"Wheel slots run clockwise from the top");
+        check(wheelIndex(-.1f,1,8,.3f)==std::size_t(0)&&wheelIndex(.7f,.7f,8,.3f)==std::size_t(1)&&wheelIndex(-.7f,.7f,8,.3f)==std::size_t(7),"Directions select the nearest slot and wrap at the top");
+        check(!wheelIndex(.1f,.1f,8,.3f)&&!wheelIndex(1,0,0,.3f)&&wheelIndex(1,0,1,.3f)==std::size_t(0)&&wheelIndex(0,-1,3,.3f)==std::size_t(2),"A resting stick selects nothing; any count maps cleanly");
+        WheelPointer pointer;pointer.move(5,5);check(!pointer.index(4),"Small mouse movement leaves the highlight in place");
+        pointer.move(60,0);check(pointer.index(4)==std::size_t(1),"Moving the mouse right points at the right slot");
+        pointer.move(-400,0);check(pointer.index(4)==std::size_t(3)&&pointer.x()>=-1.f,"The pointer has limited reach so a reversal responds at once");
+        pointer.move(90,-400);check(pointer.index(4)==std::size_t(0),"Moving the mouse up points at the top slot");
+        pointer.reset();check(!pointer.index(4)&&pointer.x()==0,"Each selection starts from the hub");
+        Selection wheel;wheel.press(20,cycle,0);wheel.point(2,cycle);
+        check(wheel.browsing()&&wheel.index()==2,"Pointing opens the selector on the chosen entry");
+        wheel.point(9,cycle);check(wheel.index()==2,"Pointing past the entries keeps the highlight");
+        const auto pointed=wheel.release(cycle,0);check(pointed&&pointed->index==2&&pointed->browsed,"Releasing equips the pointed entry");
+        wheel.press(21,cycle,0);cycle.add(Entry{.form=0x600,.owner=0x14,.unique=9,.name="New blade"});wheel.point(1,cycle);check(!wheel.held(),"A changed group cancels pointing");
+        Options round;round.selector=wheelSelector;round.selectorSpacing=8;
+        for(const std::size_t count:{std::size_t(1),std::size_t(2),std::size_t(5),std::size_t(16)}) {
+            const auto layout=selectorGeometry(round,count);bool clear=layout.ring.size()==count;
+            for(std::size_t i=0;i<count;++i)for(std::size_t j=0;j<i;++j)clear&=std::hypot(layout.ring[i].x-layout.ring[j].x,layout.ring[i].y-layout.ring[j].y)>=50+round.selectorSpacing-.01f;
+            for(const auto slot:layout.ring)clear&=slot.x-29>=0&&slot.x+29<=layout.width&&slot.y+29<layout.ruleY;
+            check(clear,"Wheel slots stay apart and inside the selector for every group size");
+        }
+        check(std::abs(selectorGeometry(round,6).ring[0].x-selectorGeometry(round,6).hub.x)<.01f&&selectorGeometry(round,6).ring[0].y<selectorGeometry(round,6).hub.y,"The first wheel slot sits at the top");
+        round.selector=9;sanitizeOptions(round);check(round.selector==wheelSelector,"The wheel is the last selector style");
         Options imported;imported.holdDelay=.5f;imported.cycleDelay=2;Options look;look.themeId="edge";importAppearance(imported,look);
         check(imported.themeId=="edge"&&imported.holdDelay==.5f&&imported.cycleDelay==2,"Appearance presets leave timing settings in place");
     }

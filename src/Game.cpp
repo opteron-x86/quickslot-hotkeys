@@ -726,11 +726,11 @@ bool Game::initialize() {
                 if(!recovered)throw std::runtime_error("Settings file is unreadable");
                 options_=recovered->options;
                 for(const auto& key:recovered->reset)log::warn("Editor setting '{}' could not be read; using its default",key);
-                if(!recovered->reset.empty())loadNotice_=tr("Some Quickslot settings could not be read and use their defaults");
+                if(!recovered->reset.empty())loadNotice_="Some Quickslot settings could not be read and use their defaults";
                 log::info("Loaded editor settings with {} defaults restored",recovered->reset.size());
             }
         }
-    }catch(const std::exception& e){log::warn("Editor settings ignored; using INI defaults: {}",e.what());loadNotice_=tr("Quickslot settings could not be read and use their defaults");}
+    }catch(const std::exception& e){log::warn("Editor settings ignored; using INI defaults: {}",e.what());loadNotice_="Quickslot settings could not be read and use their defaults";}
     if(options_.holdDelay<=0)options_.holdDelay=iniHold;
     selection_.holdSeconds=options_.holdDelay;sharedOptions_=options_;
     localization().select(options_.language);
@@ -828,7 +828,8 @@ void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEdito
     if(arsenal_.presetIdentity.empty()){GUID id{};if(SUCCEEDED(CoCreateGuid(&id))){char key[40];std::snprintf(key,sizeof(key),"%08lx%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",id.Data1,id.Data2,id.Data3,id.Data4[0],id.Data4[1],id.Data4[2],id.Data4[3],id.Data4[4],id.Data4[5],id.Data4[6],id.Data4[7]);arsenal_.presetIdentity=key;}}
     if(auto* devices=RE::BSInputDeviceManager::GetSingleton())controllerLast_=controllerConnected_=REL::Module::IsVR()||devices->IsGamepadEnabled();
     revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);menuAPI().publishGroups(unsigned(options_.groupCount));dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);
-    if(!loadNotice_.empty()){notice(loadNotice_);snapshot_.noticeUntil=clockNow()+10;RE::SendHUDMessage::ShowHUDMessage(loadNotice_.c_str());loadNotice_.clear();}}
+    // Load notices hold English keys; they are translated here, once the language is known.
+    if(!loadNotice_.empty()){const std::string text=tr(loadNotice_.c_str());notice(text);snapshot_.noticeUntil=clockNow()+10;RE::SendHUDMessage::ShowHUDMessage(text.c_str());loadNotice_.clear();}}
 void Game::reset(bool clear) {
     invalidateI4Icons();
     std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;
@@ -931,7 +932,7 @@ void Game::finishSelection() {
     selection_.tick(clockNow());
     if(selection_.held()&&selection_.tapCycles()&&!selection_.browsing()&&(dirty_||options_.cycleKeepOtherHand))refresh();
     if(auto commit=selection_.release(arsenal_.current(),arsenal_.active)) {
-        if(options_.doubleTapSwap&&!commit->browsed&&!commit->hand) {
+        if(options_.doubleTapSwap&&!commit->browsed&&!commit->cycling&&!commit->hand) {
             // A second quick tap of the same group returns to the earlier selection.
             const auto now=clockNow();const bool second=lastTapGroup_==arsenal_.active&&now-lastTapAt_<=doubleTapSeconds;
             lastTapGroup_=arsenal_.active;lastTapAt_=second?0:now;
@@ -2147,26 +2148,26 @@ void Game::load(SKSE::SerializationInterface* serial) {
             std::string bytes(length,'\0');
             if(serial->ReadRecordData(bytes.data(),length)!=length){log::error("Load failed: truncated character settings");continue;}
             const auto recovered=recoverOptions(bytes);
-            if(!recovered){log::error("Load failed: this character's settings are unreadable; using the shared settings");loadNotice_=tr("Quickslot settings could not be read and use their defaults");continue;}
+            if(!recovered){log::error("Load failed: this character's settings are unreadable; using the shared settings");loadNotice_="Quickslot settings could not be read and use their defaults";continue;}
             options_=recovered->options;characterSettings_=true;optionsReplaced();
             log::info("Loaded this character's own settings ({} defaults restored)",recovered->reset.size());continue;
         }
         if(type!=recordType||found)continue;
         found=true;
-        if(length>8388608){log::error("Load failed: group record exceeds limit ({} bytes)",length);loadNotice_=tr("Quickslot could not read this save's groups");continue;}
+        if(length>8388608){log::error("Load failed: group record exceeds limit ({} bytes)",length);loadNotice_="Quickslot could not read this save's groups";continue;}
         std::string bytes(length,'\0');
-        if(serial->ReadRecordData(bytes.data(),length)!=length){log::error("Load failed: truncated group record");loadNotice_=tr("Quickslot could not read this save's groups");continue;}
+        if(serial->ReadRecordData(bytes.data(),length)!=length){log::error("Load failed: truncated group record");loadNotice_="Quickslot could not read this save's groups";continue;}
         const auto recovered=version==arsenalSchema?recoverArsenal(bytes,[&](std::uint32_t oldID,std::uint32_t& newID){return serial->ResolveFormID(oldID,newID);}):std::nullopt;
         if(!recovered) {
             log::error("Load failed: group record (schema {}, {} bytes) is unreadable by this build; keeping it in the save",version,length);
             preservedRecord_.emplace(version,std::move(bytes));
-            loadNotice_=tr("Quickslot could not read this save's groups. They stay in the save until you create new ones.");
+            loadNotice_="Quickslot could not read this save's groups. They stay in the save until you create new ones.";
             continue;
         }
         arsenal_=recovered->arsenal;
         if(recovered->dropped) {
             log::warn("Load repaired: {} unreadable shortcuts removed; {} entries kept",recovered->dropped,arsenal_.size());
-            loadNotice_=tr("Quickslot restored your groups; some shortcuts could not be read");
+            loadNotice_="Quickslot restored your groups; some shortcuts could not be read";
         }
     }
 }

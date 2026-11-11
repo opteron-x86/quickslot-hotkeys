@@ -1296,6 +1296,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     flag("Key icons",&Options::keyIcons);
                 }
                 if(heading("Equipped marker")) {
+                    choice("Equipped highlight","##equipped highlight",&Options::equippedHighlight,"Marker only\0Outline\0Tint\0Outline and tint\0");
+                    if(ImGui::IsItemHovered())UI::SetTooltip("Marks the tile of an equipped item with an outline or a tint in the equipped color.");
                     number("Equipped marker size",&Options::equippedMarkerScale);
                     flag("Custom equipped color",&Options::customEquippedColor);
                     if(options.customEquippedColor){ImGui::SameLine();changed|=ImGui::ColorEdit3("##equipped color",options.equippedColor.data(),ImGuiColorEditFlags_NoInputs);}

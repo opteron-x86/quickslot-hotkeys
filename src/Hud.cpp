@@ -180,6 +180,25 @@ struct Paint {
         else if(shape==3){const float r=w*.5f+grow*1.4f;const ImVec2 points[]{p(cx,cy-r),p(cx+r,cy),p(cx,cy+r),p(cx-r,cy)};d->AddPolyline(points,4,c,ImDrawFlags_Closed,width);}
         else d->AddRect(p(x-grow,y-grow),p(x+w+grow,y+h+grow),c,2*scale,0,width);
     }
+    // Marks an equipped tile in the equipped color: an outline, a tint over the frame, or both.
+    // Shapes: 1 circle, 3 diamond, otherwise rectangle.
+    void equippedHighlight(float x,float y,float w,float h,unsigned shape) {
+        const unsigned mode=options.equippedHighlight;if(!mode)return;
+        const bool outline=mode!=2,tinted=mode!=1;const float cx=x+w*.5f,cy=y+h*.5f,r=w*.5f;
+        const auto tint=color(equippedMark,.24f),halo=color(equippedMark,.28f),edge=color(equippedMark);
+        const float thin=std::max(1.5f,1.8f*scale),wide=std::max(3.f,5*scale);
+        if(shape==1) {
+            if(tinted)d->AddCircleFilled(p(cx,cy),r*scale,tint,48);
+            if(outline){d->AddCircle(p(cx,cy),r*scale,halo,48,wide);d->AddCircle(p(cx,cy),r*scale,edge,48,thin);}
+        } else if(shape==3) {
+            const ImVec2 points[]{p(cx,cy-r),p(cx+r,cy),p(cx,cy+r),p(cx-r,cy)};
+            if(tinted)d->AddConvexPolyFilled(points,4,tint);
+            if(outline){d->AddPolyline(points,4,halo,ImDrawFlags_Closed,wide);d->AddPolyline(points,4,edge,ImDrawFlags_Closed,thin);}
+        } else {
+            if(tinted)d->AddRectFilled(p(x,y),p(x+w,y+h),tint,2*scale);
+            if(outline){d->AddRect(p(x,y),p(x+w,y+h),halo,2*scale,0,wide);d->AddRect(p(x,y),p(x+w,y+h),edge,2*scale,0,thin);}
+        }
+    }
     // A clockwise shade over an icon covering the remaining share of a cooldown.
     void sweep(float x,float y,float r,float fraction) {
         if(!(fraction>0))return;
@@ -503,14 +522,15 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         const bool previewing=selected&&state.browsing;
         const auto hands=entry?entryHands(*entry,equipped):0;
 
-        const bool emphasized=equipped;
+        // An equipped highlight takes the place of the accent line a frame draws for its equipped item.
+        const bool emphasized=equipped&&!o.equippedHighlight;
         const bool ready=entry&&isConsumable(*entry)&&tile.consumable&&(!previewing||state.preview==state.selected);
         if(o.shape==0) {
             // A mirrored card has its icon on the right, its text right-aligned and its key on the left.
             const bool wide=o.showCardNames||o.showLabels,mirror=o.mirrorCards&&wide;const float side=mirror?-1.f:1.f;
             const float width=geometry.groups.tileWidth,iconX=x+(!wide?width*.5f:mirror?width-25.f:25.f);
             const float h=geometry.groups.tileHeight-7,cy=y+3+h*.5f,textX=mirror?x+width-51:x+51;
-            q.frame(x,y+3,width,h,emphasized);q.pulse(x,y+3,width,h,0,pulse);
+            q.frame(x,y+3,width,h,emphasized);if(equipped)q.equippedHighlight(x,y+3,width,h,0);q.pulse(x,y+3,width,h,0,pulse);
             if(entry){q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted);q.sweep(iconX,cy,18*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));}
             else q.text(iconX,cy-15,"+",24,muted,false,0,true);
             const float block=(o.showLabels&&o.showCardNames?26*text+4:14*text),top=cy-block*.5f;
@@ -530,9 +550,9 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             const float cy=y+(o.shape==1?37.f:o.shape==2?50.f:44.f);
             const float markerX=cx+(entry&&(isStack(*entry)||cooldown>0||(o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned))?-1.f:1.f)*(o.shape==1?21.f:o.shape==2?28.f:0.f);
             const float markerY=cy+(o.shape==1?21.f:o.shape==2?25.f:30.f);
-            if(o.shape==1){q.medallion(cx,cy,29,emphasized);q.pulse(cx-29,cy-29,58,58,1,pulse);}
-            else if(o.shape==2){q.frame(cx-41,y,82,100,emphasized,o.layout==5?(i==0?0u:i==2?1u:2u):1u);q.pulse(cx-41,y,82,100,0,pulse);}
-            else {q.lozenge(cx,cy,42,emphasized);q.pulse(cx-42,cy-42,84,84,3,pulse);}
+            if(o.shape==1){q.medallion(cx,cy,29,emphasized);if(equipped)q.equippedHighlight(cx-29,cy-29,58,58,1);q.pulse(cx-29,cy-29,58,58,1,pulse);}
+            else if(o.shape==2){q.frame(cx-41,y,82,100,emphasized,o.layout==5?(i==0?0u:i==2?1u:2u):1u);if(equipped)q.equippedHighlight(cx-41,y,82,100,0);q.pulse(cx-41,y,82,100,0,pulse);}
+            else {q.lozenge(cx,cy,42,emphasized);if(equipped)q.equippedHighlight(cx-42,cy-42,84,84,3);q.pulse(cx-42,cy-42,84,84,3,pulse);}
             if(entry) {
                 const float iconY=cy+(o.shape==3?6.f:0.f),iconSize=o.shape==2?54.f:o.shape==3?36.f:40.f;
                 q.icon(cx,iconY,iconSize,*artwork,available?q.itemColor(*artwork):muted);

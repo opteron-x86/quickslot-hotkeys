@@ -418,6 +418,7 @@ struct Options {
     // animateHud eases the HUD in, opens and closes the selector, and pulses a tile when its item equips.
     bool animateHud=true,uiSounds=true;
     float equippedMarkerScale=1;
+    unsigned equippedHighlight=0;   // 0 marker only, 1 outline, 2 tint, 3 outline and tint
     bool customEquippedColor=false;
     std::array<float,3> equippedColor{.91f,.9f,.87f};
     float fadeDelay=4,idleOpacity=.35f;

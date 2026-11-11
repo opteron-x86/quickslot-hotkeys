@@ -14,6 +14,7 @@
 - **Screen area** anchors the HUD to a centered 16:9, 2:1 or 21:9 area for ultrawide screens.
 - New layout options: a **Grid** arrangement with **Columns**, **Card width**, **Mirror cards**, **Tile size** for circle, square and diamond tiles, 3–9 **Visible items** in strip, arc and list selectors, and a **Wheel radius**.
 - New color and size options under **Appearance → Theme**: one **Icon size** for every theme, **Background opacity** for the inside of frames, **Custom text color** and **Custom selection color**. Each group can have its own **Color** from the **Groups** tab.
+- **Appearance → Theme → Equipped highlight** marks the tile of an equipped item with an outline, a tint or both, in the equipped color.
 - Every slider shows its value in percent, pixels or seconds, has **−** and **+** buttons that move one step, and a reset mark that restores its default. **Reset page** restores a whole page. Each reset is one Undo step.
 - **Presets → Keep settings with this character** stores controls, group names and appearance in that character's saves. Other characters keep the shared settings file.
 - **Return to previous selection** re-equips the entry you selected before your current one, and pressing it again swaps back. Bind a key under **Controls → Keyboard**, or enable **Controls → General → Double-tap a group to return to the previous selection**.

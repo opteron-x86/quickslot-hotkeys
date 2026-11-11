@@ -55,6 +55,7 @@ inline constexpr FloatSetting floatSettings[]{
 };
 inline constexpr ChoiceSetting choiceSettings[]{
     {"itemIconColor",&Options::itemIconColor,2,Section::theme},
+    {"equippedHighlight",&Options::equippedHighlight,3,Section::theme,true},
     {"anchor",&Options::anchor,9,Section::widget,true},
     {"layout",&Options::layout,6,Section::widget},
     {"shape",&Options::shape,3,Section::widget},

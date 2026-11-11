@@ -2,6 +2,12 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "Equipped highlight": "Equipped highlight",
+    "Marker only": "Marker only",
+    "Outline": "Outline",
+    "Tint": "Tint",
+    "Outline and tint": "Outline and tint",
+    "Marks the tile of an equipped item with an outline or a tint in the equipped color.": "Marks the tile of an equipped item with an outline or a tint in the equipped color.",
     "Input device presets": "Input device presets",
     "Keyboard and mouse": "Keyboard and mouse",
     "(missing)": "(missing)",

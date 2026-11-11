@@ -153,6 +153,8 @@ int main(int argc,char** argv)try {
     click("##item icon color");click("White");check(state.options.itemIconColor==2,"White tint applies immediately");
     click("Undo");check(state.options.itemIconColor==1,"Atlas tint change is undoable");
     click("##item icon color");click("Theme");check(state.options.itemIconColor==1,"Theme tint can be chosen");
+    click("##equipped highlight");click("Outline and tint");check(state.options.equippedHighlight==3,"The equipped highlight applies immediately");
+    click("##reset Equipped highlight");check(state.options.equippedHighlight==0,"The equipped highlight resets to the marker alone");
     const bool colored=state.options.coloredMagic;click("Tint magic icons");check(state.options.coloredMagic!=colored,"Magic coloring is independent of the frame theme");
     for(const auto& pair:std::vector<std::pair<const char*,const char*>>{{"Oathvein","oathvein"},{"Vel'dun","veldun"},{"Norden","norden"},{"Edge","edge"},{"Untarnished","untarnished"},{"Nordic","nordic"},{"Dear Diary Dark","dear-diary-dark"}}) {
         click("##theme");click(pair.first);check(state.options.themeId==pair.second,"External theme is selectable through the real ImGui picker");
@@ -757,6 +759,18 @@ int main(int argc,char** argv)try {
         check(!small.tiles.empty()&&large.tiles.size()==small.tiles.size()&&std::abs(large.tiles[0].width()-small.tiles[0].width()*2)<4,"Rendered tiles follow the tile size");
         Options mirrored;mirrored.mirrorCards=true;const auto flipped=drawn(mirrored),straight=drawn(Options{});
         check(!flipped.tiles.empty()&&std::abs(flipped.tiles[0].width()-straight.tiles[0].width())<2&&std::abs(flipped.tiles[0].height()-straight.tiles[0].height())<2,"Mirrored cards keep their size");
+        Snapshot worn;worn.visible=true;worn.editorPreview=true;worn.groups[0]={unarmedEntry(),1,true,true};worn.groups[1]={unarmedEntry(),1,true,false};
+        // Counts what is drawn in a custom equipped color no theme uses.
+        const auto marked=[&](unsigned shape,unsigned mode,bool equipped) {
+            Options look;look.shape=shape;look.showLabels=false;look.customEquippedColor=true;look.equippedColor={1,0,1};look.equippedHighlight=mode;worn.groups[0].equipped=equipped;
+            ImGui::NewFrame();hud.draw(worn,look,300,{}, {},nullptr,nullptr);ImGui::Render();
+            unsigned count=0;for(const auto& v:ImGui::GetBackgroundDrawList()->VtxBuffer)if((v.col&0xffffff)==0xff00ff&&(v.col>>24))++count;return count;
+        };
+        for(unsigned shape=0;shape<4;++shape) {
+            const auto marker=marked(shape,0,true),outline=marked(shape,1,true),tint=marked(shape,2,true);
+            check(outline>marker&&tint>marker&&marked(shape,3,true)>std::max(outline,tint),"An equipped tile gains an outline, a tint or both in the equipped color on every tile shape");
+            check(marked(shape,3,false)==0,"Tiles without an equipped item stay unmarked");
+        }
         io.DisplaySize=display;
     }
     const auto renderBounds=[&](double now){ImGui::NewFrame();HudBounds b;hud.draw(hidden,visibility,now,{}, {},ImGui::GetBackgroundDrawList(),&b);ImGui::Render();return b;};

@@ -7,17 +7,24 @@ struct QuickslotMenu {
     QuickslotAPI::Close close=nullptr;
     QuickslotAPI::IsMenuOpen isOpen=nullptr;
     QuickslotAPI::SetHotkeyEnabled setHotkeyEnabled=nullptr;
+    // Optional gameplay exports; null on releases before 0.15.
+    QuickslotAPI::GetGroupCount groupCount=nullptr;
+    QuickslotAPI::TapGroup tapGroup=nullptr;
+    QuickslotAPI::SwapPrevious swapPrevious=nullptr;
 
     bool discover() {
         *this={};
         const auto dll=GetModuleHandleW(L"Quickslot.dll");
         if(!dll)return false;
         const auto version=reinterpret_cast<QuickslotAPI::GetAPIVersion>(GetProcAddress(dll,"Quickslot_GetAPIVersion"));
-        if(!version||version()!=QuickslotAPI::version)return false;
+        if(!version||version()<QuickslotAPI::version)return false;
         open=reinterpret_cast<QuickslotAPI::Open>(GetProcAddress(dll,"Quickslot_Open"));
         close=reinterpret_cast<QuickslotAPI::Close>(GetProcAddress(dll,"Quickslot_Close"));
         isOpen=reinterpret_cast<QuickslotAPI::IsMenuOpen>(GetProcAddress(dll,"Quickslot_IsMenuOpen"));
         setHotkeyEnabled=reinterpret_cast<QuickslotAPI::SetHotkeyEnabled>(GetProcAddress(dll,"Quickslot_SetHotkeyEnabled"));
+        groupCount=reinterpret_cast<QuickslotAPI::GetGroupCount>(GetProcAddress(dll,"Quickslot_GetGroupCount"));
+        tapGroup=reinterpret_cast<QuickslotAPI::TapGroup>(GetProcAddress(dll,"Quickslot_TapGroup"));
+        swapPrevious=reinterpret_cast<QuickslotAPI::SwapPrevious>(GetProcAddress(dll,"Quickslot_SwapPrevious"));
         if(open&&close&&isOpen&&setHotkeyEnabled)return true;
         *this={};return false;
     }

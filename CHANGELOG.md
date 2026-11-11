@@ -27,7 +27,7 @@ Updating: install the complete release package over the previous one. Settings, 
 - Every slider shows its value in percent, pixels or seconds, has **−** and **+** buttons that move one step, and a reset mark that restores its default. **Reset page** restores a whole page. Each reset is one Undo step.
 - **Presets → Keep settings with this character** stores controls, group names and appearance in that character's saves. Other characters keep the shared settings file.
 - **Return to previous selection** re-equips the entry you selected before your current one, and pressing it again swaps back. Bind a key under **Controls → Keyboard**, or enable **Controls → General → Double-tap a group to return to the previous selection**.
-- API version 2 adds `Quickslot_GetGroupCount`, `Quickslot_TapGroup` and `Quickslot_SwapPrevious` for other mods. See the [API guide](src/API/README.md).
+- The API adds `Quickslot_GetGroupCount`, `Quickslot_TapGroup` and `Quickslot_SwapPrevious` for other mods. The API version stays 1, so existing launchers keep finding Quickslot. See the [API guide](src/API/README.md).
 - The editor shows item artwork beside each inventory choice and group entry.
 - In the editor, the controller's shoulder buttons change tabs and its triggers change pages within Appearance and Controls.
 - **Presets** is a preset manager. Built-in **Default**, **Cross**, **Diamond** and **Circle** presets sit above your own; selecting or pointing at a preset shows it in a preview. **Rename**, **Duplicate**, **Update preset** and **Delete preset** manage your files, and **Current look** names the preset in use and marks it as modified once you change something.

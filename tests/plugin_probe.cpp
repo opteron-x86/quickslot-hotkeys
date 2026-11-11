@@ -25,7 +25,7 @@ int main(int argc,char** argv) {
     const auto groupCount=reinterpret_cast<QuickslotAPI::GetGroupCount>(GetProcAddress(dll,"Quickslot_GetGroupCount"));
     const auto tapGroup=reinterpret_cast<QuickslotAPI::TapGroup>(GetProcAddress(dll,"Quickslot_TapGroup"));
     const auto swapPrevious=reinterpret_cast<QuickslotAPI::SwapPrevious>(GetProcAddress(dll,"Quickslot_SwapPrevious"));
-    if(!apiVersion||!open||!close||!isOpen||!enable||!groupCount||!tapGroup||!swapPrevious||apiVersion()!=2)return 10;
+    if(!apiVersion||!open||!close||!isOpen||!enable||!groupCount||!tapGroup||!swapPrevious||apiVersion()!=1)return 10;
     if(groupCount()||tapGroup(0)||swapPrevious())return 13;
     if(open()||isOpen())return 11;
     close();enable(false);if(open()||isOpen())return 12;enable(true);

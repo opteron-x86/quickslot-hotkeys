@@ -7,7 +7,7 @@
 #define QUICKSLOT_API extern "C"
 #endif
 
-// Return the supported API version.
+// Return the menu API version, 1. Launchers built for version 1 keep working with every release.
 QUICKSLOT_API std::uint32_t Quickslot_GetAPIVersion() noexcept;
 
 // Queue an editor-open request. Release the calling menu's input and pause within three seconds.
@@ -22,17 +22,17 @@ QUICKSLOT_API bool Quickslot_IsMenuOpen() noexcept;
 // Enable or disable the editor-opening shortcut for this session.
 QUICKSLOT_API void Quickslot_SetHotkeyEnabled(bool enabled) noexcept;
 
-// Version 2: return the number of groups shown in the widget, or zero before a game is loaded.
+// Optional (Quickslot 0.15+, null from GetProcAddress on earlier releases): return the number of groups shown in the widget, or zero before a game is loaded.
 QUICKSLOT_API std::uint32_t Quickslot_GetGroupCount() noexcept;
 
-// Version 2: queue a tap of the group at this widget position (0-based). The group equips, uses or cycles as its key does.
+// Optional (Quickslot 0.15+, null from GetProcAddress on earlier releases): queue a tap of the group at this widget position (0-based). The group equips, uses or cycles as its key does.
 QUICKSLOT_API bool Quickslot_TapGroup(std::uint32_t position) noexcept;
 
-// Version 2: queue a return to the selection made before the current one.
+// Optional (Quickslot 0.15+, null from GetProcAddress on earlier releases): queue a return to the selection made before the current one.
 QUICKSLOT_API bool Quickslot_SwapPrevious() noexcept;
 
 namespace QuickslotAPI {
-inline constexpr std::uint32_t version=2;
+inline constexpr std::uint32_t version=1;
 using GetAPIVersion=std::uint32_t(*)() noexcept;
 using Open=bool(*)() noexcept;
 using Close=void(*)() noexcept;

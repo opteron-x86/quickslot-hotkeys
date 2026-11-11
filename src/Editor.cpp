@@ -372,19 +372,20 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         const auto geometry=hudGeometry(options,screen.x,screen.y,equipmentRows(snapshot.equipment,options),hud.equipmentMetrics(snapshot.equipment,options),snapshot.rows.size());
         const auto detachSelector=[&] {
             if(options.selectorDock==4)return;
-            options.selectorX=std::clamp((geometry.origin.x+geometry.selectorOrigin.x*geometry.scale-8)/std::max(1.f,screen.x-16-geometry.selectorWidth*geometry.scale),0.f,1.f);
-            options.selectorY=std::clamp((geometry.origin.y+(geometry.selectorOrigin.y-32)*geometry.scale-8)/std::max(1.f,screen.y-16-(geometry.selectorHeight+32)*geometry.scale),0.f,1.f);
+            const auto corner=selectorCorner(geometry),extent=selectorExtent(geometry);
+            options.selectorX=std::clamp((corner.x-8)/std::max(1.f,screen.x-16-extent.x),0.f,1.f);
+            options.selectorY=std::clamp((corner.y-8)/std::max(1.f,screen.y-16-extent.y),0.f,1.f);
             options.selectorDock=4;changed=true;
         };
         const auto targetBox=[&](int target)->const Bounds&{return target==2?bounds.equipment:target==1?bounds.selector:bounds.widget;};
         const auto targetPosition=[&](int target){return Point{target==2?options.equipmentX:target==1?options.selectorX:options.positionX,target==2?options.equipmentY:target==1?options.selectorY:options.positionY};};
-        const auto targetSize=[&](int target){return Point{target==2?geometry.equipment.width*geometry.equipment.scale:(target==1?geometry.selectorWidth:geometry.width)*geometry.scale,
-            target==2?geometry.equipment.height*geometry.equipment.scale:(target==1?geometry.selectorHeight+32:geometry.height)*geometry.scale};};
+        const auto targetSize=[&](int target){return target==2?Point{geometry.equipment.width*geometry.equipment.scale,geometry.equipment.height*geometry.equipment.scale}:
+            target==1?selectorExtent(geometry):Point{geometry.width*geometry.scale,geometry.height*geometry.scale};};
         const auto move=[&](int target,float x,float y,bool snapX=true,bool snapY=true) {
             const auto& box=targetBox(target);const auto extent=targetSize(target);
             const auto& other=targetBox(target==0?1:0);
-            const float originX=target==2?geometry.equipment.origin.x:geometry.origin.x+(target==1?geometry.selectorOrigin.x*geometry.scale:0);
-            const float originY=target==2?geometry.equipment.origin.y:geometry.origin.y+(target==1?(geometry.selectorOrigin.y-32)*geometry.scale:0);
+            const auto corner=target==2?geometry.equipment.origin:target==1?selectorCorner(geometry):geometry.origin;
+            const float originX=corner.x,originY=corner.y;
             if(options.placementSnap&&!io.KeyShift&&box.valid) {
                 const bool alignOther=other.valid&&(target!=0||options.selectorDock==4);
                 const auto horizontal=snapPlacementAxis(x,extent.x,screen.x,box.min.x-originX,box.max.x-originX,frame.min.x,frame.max.x,step,
@@ -440,8 +441,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         if(options.placementSpacing==3){ImGui::SetNextItemWidth(-px(90));changed|=UI::SliderFloat("Grid size",&options.placementGridSize,4,128,"%.0f");}
         ImGui::SetNextItemWidth(-px(90));if(UI::Combo("Grid frame",&gridFrame,"Full screen\0" "16:9\0" "2:1\0" "21:9\0")){options.placementFrame=unsigned(gridFrame);changed=true;}
         ImGui::SetNextItemWidth(-px(90));
-        if(placementTarget_==2)changed|=UI::SliderFloat("Scale",&options.equipmentScale,.5f,2.f,"%.2fx");
-        else changed|=UI::SliderFloat("Scale",&options.scale,.55f,1.5f,"%.2fx");
+        {
+            // The selector shares the widget's scale until it is given its own under Appearance.
+            const auto member=placementTarget_==2?&Options::equipmentScale:placementTarget_==1&&!options.selectorScaleLinked?&Options::selectorScale:&Options::scale;
+            const auto& range=setting(member);float percent=options.*member*100;
+            if(UI::SliderFloat("Scale",&percent,range.low*100,range.high*100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){options.*member=percent/100;changed=true;}
+        }
         if(UI::Checkbox("Show open selector",&previewOpen_)&&!previewOpen_)placementTarget_=0;
         if(state.controller&&!state.vr)UI::TextWrapped("Right stick: cursor · %s: drag",padLabel(PadButton::a,options.controllerStyle).c_str());
         if(UI::Button("Back",{-1,0}))placement_=false;
@@ -1231,6 +1236,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(options.selector!=4)choice("Item shape","##selector shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
                     number("Spacing",&Options::selectorSpacing);
                 }
+                if(heading("Size")) {
+                    if(UI::Checkbox("Match widget scale",&options.selectorScaleLinked)){if(!options.selectorScaleLinked)options.selectorScale=options.scale;changed=true;}
+                    if(ImGui::IsItemHovered())UI::SetTooltip("The selector uses the widget's scale. Turn this off to size it on its own.");
+                    if(!options.selectorScaleLinked)number("Scale",&Options::selectorScale);
+                    number("Text size",&Options::selectorTextScale);number("Opacity",&Options::selectorOpacity);
+                }
                 if(heading("Placement")) {
                     choice("Position","##selector dock",&Options::selectorDock,"Above widget\0Below widget\0Left of widget\0Right of widget\0Independent\0");
                     if(options.selectorDock!=4)number("Distance",&Options::selectorGap);
@@ -1254,7 +1265,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     number("Spacing",&Options::equipmentSpacing);
                 }
                 if(heading("Size")) {
-                    number("Scale",&Options::equipmentScale);number("Text size",&Options::equipmentTextScale);
+                    number("Scale",&Options::equipmentScale);number("Text size",&Options::equipmentTextScale);number("Opacity",&Options::equipmentOpacity);
                 }
                 if(heading("Placement")) {
                     number("X",&Options::equipmentX);number("Y",&Options::equipmentY);

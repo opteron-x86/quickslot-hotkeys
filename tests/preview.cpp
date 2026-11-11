@@ -378,6 +378,11 @@ int main(int argc,char** argv) {
     EditHistory history;history.begin(editing.draft,editing.options);
     // QUICKSLOT_PREVIEW_THEME shows any scene, including the editor, under another theme.
     if(const char* theme=std::getenv("QUICKSLOT_PREVIEW_THEME");theme&&*theme)options.themeId=editing.options.themeId=theme;
+    // QUICKSLOT_PREVIEW_OPTIONS is a JSON object of settings laid over the scene's own, such as {"selectorScale":2,"selectorScaleLinked":false}.
+    if(const char* extra=std::getenv("QUICKSLOT_PREVIEW_OPTIONS");extra&&*extra) {
+        const auto overlay=Json::parse(extra);
+        for(auto* target:{&options,&editing.options}){auto merged=Json::parse(encodeOptions(*target));merged.update(overlay);*target=decodeOptions(merged.dump());}
+    }
     const auto started=SDL_GetTicks64();   // HUD stills wait for the opening motion to settle
     bool running=true;int frames=0,previewStep=0,scrollAttempts=0,settled=0,keyboardStep=0;ImVec2 tabPoint{};
     while(running) {

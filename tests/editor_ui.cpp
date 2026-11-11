@@ -141,6 +141,11 @@ int main(int argc,char** argv)try {
     check(probe::find("Rename").size()==1&&probe::one("Rename").disabled&&probe::find("Delete preset").empty(),"Built-in presets cannot be renamed or deleted");
     click("Appearance");click("Theme");click("##theme");click("Skyrim silver");check(state.options.themeId=="silver"&&state.options.shape==1,"Theme remains independent of geometry");
     click("Selector");click("##selector shape");click("Squares");check(state.options.selectorShape==2,"Selector shapes can be chosen independently");
+    check(probe::find("##Scale").empty()&&state.options.selectorScaleLinked,"A linked selector has no scale of its own");
+    click("Match widget scale");check(!state.options.selectorScaleLinked&&state.options.selectorScale==state.options.scale&&!probe::find("##Scale").empty(),"Unlinking starts the selector at the widget's scale");
+    {const float widget=state.options.scale;click("+##Scale");check(state.options.selectorScale>widget&&state.options.scale==widget,"The selector's scale changes on its own");}
+    click("+##Opacity");click("-##Opacity");click("-##Opacity");check(state.options.selectorOpacity<state.options.opacity,"The selector has its own opacity");
+    click("Undo");click("Undo");click("Undo");click("Undo");click("Undo");check(state.options.selectorScaleLinked,"Selector sizing supports Undo");
     click("Widget");click("Show group names");check(state.options.showLabels,"Names can be restored without changing theme");
     click("Theme");click("Key icons");check(!state.options.keyIcons,"Key artwork can switch to plain hotkey labels");
     click("Key icons");check(state.options.keyIcons,"Key artwork can be restored");

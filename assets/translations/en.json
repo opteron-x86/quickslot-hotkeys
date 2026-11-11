@@ -2,6 +2,8 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "Match widget scale": "Match widget scale",
+    "The selector uses the widget's scale. Turn this off to size it on its own.": "The selector uses the widget's scale. Turn this off to size it on its own.",
     "BUILT-IN": "BUILT-IN",
     "YOUR PRESETS": "YOUR PRESETS",
     "Save your current settings below to add a preset.": "Save your current settings below to add a preset.",

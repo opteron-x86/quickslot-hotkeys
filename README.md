@@ -116,6 +116,10 @@ While holding a group, optional **Equip in right/left hand** actions equip the h
 
 ## Appearance
 
+**Appearance** has a page for each part of the HUD: **Theme**, **Widget** (the group tiles), **Selector**, **Equipment** and **General**. The element pages share the same sections — Layout, Size, Placement, Content and Visibility. Each slider shows its value in percent, pixels or seconds, has **−** and **+** buttons that move one step, and a mark that restores the default; Ctrl+click a slider to type a value. **Reset page** restores one page and **General → Reset all appearance** restores them all.
+
+The widget, selector and equipment display each have their own **Scale** (25–300%), **Text size** and **Opacity**. The selector follows the widget's scale while **Selector → Match widget scale** is on; turn it off to size the selector on its own.
+
 New installations start on the **Automatic** theme, which matches Dear Diary Dark Mode, Edge, Norden, Nordic, Oathvein, Untarnished or Vel'dun when that interface is installed and uses its font from `Interface/ImGuiIcons/Fonts`. Choose any theme and **Font** under **Appearance → Theme**, then customize colors, frames, icon size, text size and spacing. The editor follows the selected theme. Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Item artwork and installed ImGui keycaps are configured independently.
 
 Use **Key icons** to switch between ImGui key artwork and plain hotkey labels on the frames.
@@ -124,7 +128,7 @@ Item icons use the artwork and colors assigned by your installed I4 packs. **App
 
 [PNG Icon Injector (PNGII)](https://github.com/rijosan87/PNGII) can supply matching PNG and SVG artwork. Install a PNGII build with icon API v1 and your preferred packs. **Appearance → Theme → Use PNGII icons** starts enabled; matching artwork appears in the widget, browser, equipment display and editor preview. I4 supplies icons for the remaining items. **Original** preserves PNGII artwork colors, and **Theme** or **White** tint its silhouette. Restart Skyrim after changing icon packs.
 
-Groups and equipment support horizontal, vertical, diamond, cross, circle and staggered-cross arrangements. **Cross layout**, **Diamond layout** and **Circle layout** apply matching arrangements and frame shapes. Selectors support horizontal/vertical strips, arcs, rings, lists and a wheel. On the **Wheel**, every item keeps its place around a hub: hold the group key or button, point with the browsing stick or the mouse, and release to select. The camera stays still while the mouse points; scrolling and previous / next still step. **Position** lets you drag outlined elements, adjust X/Y and snap to a grid. Hold Shift for free movement.
+Groups and equipment support horizontal, vertical, diamond, cross, circle and staggered-cross arrangements. The **Cross**, **Diamond** and **Circle** presets under **Presets** apply matching arrangements and frame shapes. Selectors support horizontal/vertical strips, arcs, rings, lists and a wheel. On the **Wheel**, every item keeps its place around a hub: hold the group key or button, point with the browsing stick or the mouse, and release to select. The camera stays still while the mouse points; scrolling and previous / next still step. **Position** lets you drag outlined elements, adjust X/Y and snap to a grid. Hold Shift for free movement.
 
 **Spacing** uses a 0–128 numeric gap for groups, selectors and equipment. Zero brings neighboring frames together; higher values open up the layout. Equipment names occupy their measured width, and spacing adds a gap after the visible content. Gaps scale with their display. In the preview, **Zoom** controls magnification and **Fit preview** fits the current arrangement into the panel.
 

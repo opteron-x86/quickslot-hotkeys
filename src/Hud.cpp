@@ -35,6 +35,8 @@ ImU32 iconColor(const Entry& e) {
 }
 struct Paint {
     ImDrawList* d;ImVec2 origin;float scale,alpha;ImFont* medium;ImFont* sans;ImTextureID themeTexture,keyTexture;const KeyGlyphs& keyGlyphs;const Options& options;const Theme& theme;ThemeAdjustments tweaks;const ItemIconProvider& itemIcons;
+    // Text sizes passed to label() are multiplied by the text size of the HUD part being drawn.
+    float textFactor=1;
     ImU32 accent()const{return themeAccent(theme,options);}
     ImU32 itemColor(const Entry& e)const{return options.coloredMagic?iconColor(e):ivory;}
     ImVec2 p(float x,float y)const{return {origin.x+x*scale,origin.y+y*scale};}
@@ -68,7 +70,7 @@ struct Paint {
         d->AddText(font,size*scale,p(x,y),color(c),out.c_str());
     }
     void label(float x,float y,const std::string& str,float size=14,ImU32 c=ivory,bool title=false,float maxWidth=0,bool center=false) {
-        text(x,y,str,size*hudTextFactor(options),c,title,maxWidth,center);
+        text(x,y,str,size*textFactor,c,title,maxWidth,center);
     }
     void circle(float x,float y,float r,ImU32 c,bool fill=false,float width=1) {
         if(fill)d->AddCircleFilled(p(x,y),r*scale,color(c),48);
@@ -319,7 +321,7 @@ void Hud::drawItemIcon(ImDrawList* list,ImVec2 center,float size,const Entry& en
 }
 EquipmentMetrics Hud::equipmentMetrics(const EquippedDisplay& state,const Options& o)const {
     EquipmentMetrics metrics;auto* font=bodyFont(o);if(!font)return metrics;
-    metrics.measured=true;unsigned index=0;const float t=o.textScale*o.equipmentTextScale;
+    metrics.measured=true;unsigned index=0;const float t=o.equipmentTextScale;
     forEachEquipmentRow(state,o,[&](const char* role,const std::optional<Row>& row) {
         const auto name=equipmentTextName(row,o.equipmentStyle!=4,o);
         metrics.textWidths[index++]=std::max(font->CalcTextSizeA(11.5f*t,FLT_MAX,0,tr(role)).x,
@@ -345,9 +347,9 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     const auto& theme=this->theme(o);const auto& skin=skins_.at(theme.id);
     Paint p{list?list:ImGui::GetBackgroundDrawList(),
         {origin.x+geometry.origin.x+geometry.selectorOrigin.x*scale,origin.y+geometry.origin.y+geometry.selectorOrigin.y*scale},
-        scale,o.opacity*visibility,chosenFont(o)?chosenFont(o):skin.title,chosenFont(o)?chosenFont(o):skin.body,skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o),itemIcons_};
+        geometry.selectorScale,o.selectorOpacity*visibility,chosenFont(o)?chosenFont(o):skin.title,chosenFont(o)?chosenFont(o):skin.body,skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o),itemIcons_,selectorTextFactor(o)};
     const auto collect=[&](int start,Bounds& box){for(int i=start;i<p.d->VtxBuffer.Size;++i){const auto v=p.d->VtxBuffer[i].pos;box.include({v.x,v.y});}};
-    const int selectorStart=p.d->VtxBuffer.Size;const float text=hudTextFactor(o);
+    const int selectorStart=p.d->VtxBuffer.Size;const float text=selectorTextFactor(o);
     const float center=geometry.selectorWidth*.5f;
     const auto group=std::min(state.activeGroup,Arsenal::count-1);
     const auto index=state.browsing?state.preview:state.selected;
@@ -357,7 +359,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     {
         const float open=easeOut(selectorShown),zoom=.94f+.06f*open;
         selectorPaint.alpha*=open;selectorPaint.scale*=zoom;
-        selectorPaint.origin.x+=geometry.selectorWidth*scale*(1-zoom)*.5f;selectorPaint.origin.y+=geometry.selectorHeight*scale*(1-zoom)*.5f;
+        selectorPaint.origin.x+=geometry.selectorWidth*geometry.selectorScale*(1-zoom)*.5f;selectorPaint.origin.y+=geometry.selectorHeight*geometry.selectorScale*(1-zoom)*.5f;
     }
     if(selectorVisible) {
         // While closing, the selector keeps showing the entry that was highlighted.
@@ -468,6 +470,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     if(bounds)collect(selectorStart,bounds->selector);
     const int widgetStart=p.d->VtxBuffer.Size;
     Paint groups=p;groups.origin={origin.x+geometry.origin.x+geometry.groupOrigin.x*scale,origin.y+geometry.origin.y+geometry.groupOrigin.y*scale};
+    groups.scale=scale;groups.alpha=o.opacity*visibility;groups.textFactor=hudTextFactor(o);
     const bool showGroups=visibility>0&&showGroupDisplay(state,o,now);
     if(showGroups)for(std::size_t i=0;i<geometry.groups.tiles.size();++i) {
         const int tileStart=p.d->VtxBuffer.Size;
@@ -542,8 +545,8 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     if(equipmentAlpha>0&&showEquipmentDisplay(state,o,now)) {
         const int start=p.d->VtxBuffer.Size;
         auto panel=p;const auto& box=geometry.equipment;
-        panel.origin={origin.x+box.origin.x,origin.y+box.origin.y};panel.scale=box.scale;panel.alpha=o.opacity*equipmentAlpha;
-        const float width=box.width,height=box.height,t=o.textScale*o.equipmentTextScale;
+        panel.origin={origin.x+box.origin.x,origin.y+box.origin.y};panel.scale=box.scale;panel.alpha=o.equipmentOpacity*equipmentAlpha;panel.textFactor=o.equipmentTextScale;
+        const float width=box.width,height=box.height,t=o.equipmentTextScale;
         if(o.equipmentStyle==0&&o.equipmentLayout==1) {
             const auto shade=panel.color(dark,.72f*panel.tweaks.frameOpacity);
             panel.d->AddRectFilledMultiColor(panel.p(0,0),panel.p(width,height),shade,shade&0x00ffffff,shade&0x00ffffff,shade);
@@ -578,7 +581,8 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     }
     if(notification&&visibility>0) {
         const int noticeStart=p.d->VtxBuffer.Size;
-        auto toast=p;toast.alpha*=float(std::clamp((state.noticeUntil-now)/.35,0.,1.));
+        // A notice sits above the open selector, or above the widget while the selector is closed.
+        auto toast=state.browsing?p:groups;toast.alpha*=float(std::clamp((state.noticeUntil-now)/.35,0.,1.));const float text=toast.textFactor;
         if(!state.browsing){
             const float width=std::min(std::max(240.f,geometry.groups.width),(screen.x-16)/scale);
             toast.origin.x=origin.x+std::clamp(groups.origin.x-origin.x+geometry.groups.width*scale*.5f,8+width*scale*.5f,screen.x-8-width*scale*.5f)-center*scale;

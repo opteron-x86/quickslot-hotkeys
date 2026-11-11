@@ -111,7 +111,7 @@ inline std::string encodeOptions(Options o) {
         {"showEquipment",o.showEquipment},{"showEquipmentAmmo",o.showEquipmentAmmo},{"equipmentX",o.equipmentX},{"equipmentY",o.equipmentY},{"hideEmptyGroups",o.hideEmptyGroups},{"inactiveGroups",o.inactiveGroups},{"inactiveGroupOpacity",o.inactiveGroupOpacity},
         {"equipmentDim",o.equipmentDim},{"equipmentFadeDelay",o.equipmentFadeDelay},{"equipmentIdleOpacity",o.equipmentIdleOpacity},
         {"equipmentScale",o.equipmentScale},{"equipmentTextScale",o.equipmentTextScale},{"equipmentSpacing",o.equipmentSpacing},
-        {"layoutVersion",2},{"equipmentStyle",o.equipmentStyle},{"equipmentLayout",o.equipmentLayout},{"equipmentTextPosition",o.equipmentTextPosition},{"equipmentShowText",o.equipmentShowText},
+        {"layoutVersion",3},{"equipmentStyle",o.equipmentStyle},{"equipmentLayout",o.equipmentLayout},{"equipmentTextPosition",o.equipmentTextPosition},{"equipmentShowText",o.equipmentShowText},
         {"itemIconColor",o.itemIconColor},
         {"selectorDock",o.selectorDock},{"selectorGap",o.selectorGap},{"selectorX",o.selectorX},{"selectorY",o.selectorY},
         {"animateHud",o.animateHud},{"uiSounds",o.uiSounds},{"equippedMarkerScale",o.equippedMarkerScale},{"customEquippedColor",o.customEquippedColor},{"equippedColor",o.equippedColor},
@@ -209,6 +209,12 @@ inline Options decodeOptions(const std::string& bytes) {
     o.fadeDelay=j.at("fadeDelay").get<decltype(o.fadeDelay)>();o.idleOpacity=j.at("idleOpacity").get<decltype(o.idleOpacity)>();
     o.activePreset=j.value("activePreset",std::string{});
     decodeTable(j,o);
+    if(j.value("layoutVersion",1)<3) {
+        // Earlier files shared one text size and one opacity across the HUD, and widget text kept its size below 100% scale.
+        const float scale=std::isfinite(o.scale)&&o.scale>0?o.scale:1,size=std::isfinite(o.textScale)?o.textScale:1,text=size*std::max(1.f,scale)/scale;
+        o.equipmentTextScale*=size;o.textScale=o.selectorTextScale=text;
+        o.selectorOpacity=o.equipmentOpacity=o.opacity;o.selectorScaleLinked=true;
+    }
     sanitizeOptions(o);return o;
 }
 inline void revealSavedGroups(Options& o,const Arsenal& a) {

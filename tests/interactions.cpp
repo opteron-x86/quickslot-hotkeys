@@ -289,7 +289,7 @@ int main()try {
     Options bad;bad.groupModes[0]=GroupMode(99);bad.inactiveGroups=99;bad.equipmentX=-1;bad.equipmentY=2;
     sanitizeOptions(bad);check(bad.groupModes[0]==GroupMode::browse&&bad.inactiveGroups==2&&bad.equipmentX==0&&bad.equipmentY==1,"Invalid settings bounded");
     bad.equipmentScale=10;bad.equipmentTextScale=-1;sanitizeOptions(bad);
-    check(bad.equipmentScale==2&&bad.equipmentTextScale==.75f,"Equipment scale limits bounded");
+    check(bad.equipmentScale==3&&bad.equipmentTextScale==.5f,"Equipment scale limits bounded");
     bad.equipmentScale=std::numeric_limits<float>::infinity();bad.equipmentTextScale=std::numeric_limits<float>::quiet_NaN();sanitizeOptions(bad);
     check(bad.equipmentScale==1&&bad.equipmentTextScale==1,"Invalid equipment scales restore finite defaults");
     for(const auto value:{-1.f,5.f,std::numeric_limits<float>::quiet_NaN()}) {

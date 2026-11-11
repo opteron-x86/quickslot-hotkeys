@@ -12,7 +12,8 @@ struct Bounds {
 };
 struct HudBounds {Bounds widget,selector,equipment;std::vector<Bounds> tiles;};
 
-inline float hudTextFactor(const Options& o){return o.textScale*std::max(1.f,o.scale)/o.scale;}
+inline float hudTextFactor(const Options& o){return o.textScale;}
+inline float selectorTextFactor(const Options& o){return o.selectorTextScale;}
 struct LayoutGeometry {std::vector<Point> tiles;float width=0,height=0,tileWidth=0,tileHeight=0;};
 // Shape codes match the HUD tile renderer: circle, rectangle, diamond.
 inline float tileDistance(Point direction,float width,float height,unsigned shape,float gap) {
@@ -107,7 +108,7 @@ struct SelectorGeometry {
     Point hub;float reach=0;
 };
 inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,float phase=0) {
-    const float text=hudTextFactor(o);SelectorGeometry s;
+    const float text=selectorTextFactor(o);SelectorGeometry s;
     const float side=count>3?2:count>1?1:0;
     if(o.selector==2) {
         const auto visible=std::clamp(count,std::size_t(1),std::size_t(8));
@@ -152,7 +153,7 @@ struct EquipmentGeometry {
 };
 inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={}) {
     EquipmentGeometry g;rows=std::clamp(rows,1u,5u);
-    const float t=o.textScale*o.equipmentTextScale,textHeight=36*t;
+    const float t=o.equipmentTextScale,textHeight=36*t;
     const bool labels=o.equipmentShowText||o.equipmentStyle==0||o.equipmentStyle==4;
     g.iconSize=o.equipmentStyle==0?30.f:o.equipmentStyle==4?0.f:o.equipmentStyle==2?32.f:38.f;
     std::vector<Point> sizes;
@@ -191,15 +192,18 @@ inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float 
     g.origin={8+std::max(0.f,screenX-16-g.width*g.scale)*o.equipmentX,8+std::max(0.f,screenY-16-g.height*g.scale)*o.equipmentY};
     return g;
 }
-struct HudGeometry {LayoutGeometry groups;EquipmentGeometry equipment;Point origin,groupOrigin,selectorOrigin;float scale=1,width=0,height=0,selectorHeight=150,selectorWidth=420,captionHeight=40,previewZoom=1;};
+// selectorOrigin is where the selector's content starts, in widget units from origin; its box begins 32 selector units above.
+struct HudGeometry {LayoutGeometry groups;EquipmentGeometry equipment;Point origin,groupOrigin,selectorOrigin;float scale=1,selectorScale=1,width=0,height=0,selectorHeight=150,selectorWidth=420,captionHeight=40,previewZoom=1;};
 inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={},std::size_t selectorCount=5) {
     HudGeometry g;g.equipment=equipmentGeometry(o,screenX,screenY,rows,metrics);g.groups=groupGeometry(o);g.width=g.groups.width;g.captionHeight=15*hudTextFactor(o)+8;
     g.groupOrigin={0,o.shape==0?3.f:0.f};g.height=g.groups.height+g.groupOrigin.y;
     const auto selectorLayout=selectorGeometry(o,selectorCount);g.selectorHeight=selectorLayout.height;g.selectorWidth=selectorLayout.width;
     const float sh=g.selectorHeight+32,resolutionScale=std::clamp(screenY/1080.f,.75f,3.f);
-    g.scale=std::max(.05f,std::min({o.scale*resolutionScale,(screenX-16)/std::max(g.width,g.selectorWidth),
-        (screenY-16)/std::max(g.height,g.selectorHeight+32)}));
-    const float w=g.width*g.scale,h=g.height*g.scale,sw=g.selectorWidth*g.scale,soh=sh*g.scale,gap=o.selectorGap*g.scale;
+    const bool linked=o.selectorScaleLinked;
+    g.scale=std::max(.05f,std::min({o.scale*resolutionScale,(screenX-16)/(linked?std::max(g.width,g.selectorWidth):g.width),
+        (screenY-16)/(linked?std::max(g.height,sh):g.height)}));
+    g.selectorScale=linked?g.scale:std::max(.05f,std::min({o.selectorScale*resolutionScale,(screenX-16)/g.selectorWidth,(screenY-16)/sh}));
+    const float w=g.width*g.scale,h=g.height*g.scale,sw=g.selectorWidth*g.selectorScale,soh=sh*g.selectorScale,gap=o.selectorGap*g.scale;
     g.origin={8+std::max(0.f,screenX-16-w)*o.positionX,8+std::max(0.f,screenY-16-h)*o.positionY};
     const auto clamp=[&](Point p){return Point{std::clamp(p.x,8.f,std::max(8.f,screenX-8-sw)),std::clamp(p.y,8.f,std::max(8.f,screenY-8-soh))};};
     Point selector;
@@ -220,9 +224,12 @@ inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsi
             if(score==0)break;
         }
     }
-    g.selectorOrigin={(selector.x-g.origin.x)/g.scale,(selector.y-g.origin.y)/g.scale+32};
+    g.selectorOrigin={(selector.x-g.origin.x)/g.scale,(selector.y-g.origin.y)/g.scale+32*g.selectorScale/g.scale};
     return g;
 }
+// The selector's box on screen: its top-left corner and its size.
+inline Point selectorCorner(const HudGeometry& g){return {g.origin.x+g.selectorOrigin.x*g.scale,g.origin.y+g.selectorOrigin.y*g.scale-32*g.selectorScale};}
+inline Point selectorExtent(const HudGeometry& g){return {g.selectorWidth*g.selectorScale,(g.selectorHeight+32)*g.selectorScale};}
 struct EditorGeometry {float scale=1,width=1220,height=800;};
 inline EditorGeometry editorGeometry(const Options&,float screenX,float screenY) {
     EditorGeometry g;
@@ -260,11 +267,11 @@ inline HudGeometry previewGeometry(const Options& o,float screenX,float screenY,
     const auto arrange=[&](const Options& look) {
         auto g=hudGeometry(look,screenX,screenY,rows,metrics,selectorCount);g.origin={};g.equipment.origin={};
         if(selector&&groups&&!equipment) {
-            const float w=g.width,h=g.height,sw=g.selectorWidth,sh=g.selectorHeight+32,gap=look.selectorGap;
+            const float ratio=g.selectorScale/g.scale,w=g.width,h=g.height,sw=g.selectorWidth*ratio,sh=(g.selectorHeight+32)*ratio,gap=look.selectorGap;
             const std::array<Point,4> docks{{{(w-sw)*.5f,-gap-sh},{(w-sw)*.5f,h+gap},
                 {-gap-sw,(h-sh)*.5f},{w+gap,(h-sh)*.5f}}};
 
-            g.selectorOrigin=docks[look.selectorDock<4?look.selectorDock:0];g.selectorOrigin.y+=32;
+            g.selectorOrigin=docks[look.selectorDock<4?look.selectorDock:0];g.selectorOrigin.y+=32*ratio;
         }
         return g;
     };
@@ -274,8 +281,8 @@ inline HudGeometry previewGeometry(const Options& o,float screenX,float screenY,
         Bounds b;
         if(groups){b.include(g.origin);b.include({g.origin.x+g.width*g.scale,g.origin.y+(g.height+(selector?0:g.captionHeight))*g.scale});}
         if(selector) {
-            const Point p{g.origin.x+g.selectorOrigin.x*g.scale,g.origin.y+(g.selectorOrigin.y-32)*g.scale};
-            b.include(p);b.include({p.x+g.selectorWidth*g.scale,p.y+(g.selectorHeight+40)*g.scale});
+            const auto p=selectorCorner(g);
+            b.include(p);b.include({p.x+g.selectorWidth*g.selectorScale,p.y+(g.selectorHeight+40)*g.selectorScale});
         }
         return b;
     };
@@ -288,7 +295,7 @@ inline HudGeometry previewGeometry(const Options& o,float screenX,float screenY,
     g.equipment.origin=center(g.equipment.origin);
     g.equipment.scale*=factor;
     g.origin=center(g.origin);
-    g.scale*=factor;return g;
+    g.scale*=factor;g.selectorScale*=factor;return g;
 }
 
 inline void layoutPreset(Options& o,unsigned preset) {

@@ -398,7 +398,10 @@ struct Options {
     bool customEquippedColor=false;
     std::array<float,3> equippedColor{.91f,.9f,.87f};
     float fadeDelay=4,idleOpacity=.35f;
+    // Each part of the HUD has its own scale, text size and opacity. The selector follows the widget's scale while linked.
     float scale=1,textScale=1,opacity=.92f;
+    bool selectorScaleLinked=true;
+    float selectorScale=1,selectorTextScale=1,selectorOpacity=.92f,equipmentOpacity=.92f;
     bool showIdle=true,showHints=false,showLabels=true,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
     bool showPoison=true,showAmmo=true;
     unsigned itemIconColor=1;

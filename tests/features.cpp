@@ -105,15 +105,37 @@ int main()try {
     check(aligned.aligned&&std::abs(aligned.guide-520)<.01f,"Nearby element edges take priority over the grid");
     Options textOptions;
     for(float scale:{.55f,1.f,1.5f})for(float size:{.75f,1.f,1.5f}) {
-        textOptions.scale=scale;textOptions.textScale=size;
-        check(scale*hudTextFactor(textOptions)>=size,"Shrinking icons retains readable label sizing");
+        textOptions.scale=scale;textOptions.textScale=textOptions.selectorTextScale=size;
+        {
+            auto earlier=Json::parse(encodeOptions(Options{}));earlier["layoutVersion"]=2;earlier["scale"]=scale;earlier["textScale"]=size;earlier["opacity"]=.6f;earlier["equipmentTextScale"]=1.2f;
+            for(const char* added:{"selectorScale","selectorTextScale","selectorOpacity","equipmentOpacity","selectorScaleLinked"})earlier.erase(added);
+            const auto migrated=decodeOptions(earlier.dump());const float kept=std::max(scale,1.f)*size;
+            check(std::abs(migrated.scale*hudTextFactor(migrated)-kept)<.001f&&std::abs(migrated.scale*selectorTextFactor(migrated)-kept)<.001f,"Settings from earlier versions keep their widget and selector label sizes");
+            check(std::abs(migrated.equipmentTextScale-1.2f*size)<.001f&&migrated.selectorOpacity==.6f&&migrated.equipmentOpacity==.6f&&migrated.selectorScaleLinked,"Earlier settings carry their text size and opacity to each part of the HUD");
+            check(encodeOptions(decodeOptions(encodeOptions(migrated)))==encodeOptions(migrated),"Converted settings load unchanged afterwards");
+        }
         for(unsigned layout=0;layout<5;++layout) {
-            textOptions.selector=layout;textOptions.showHints=true;const auto g=selectorGeometry(textOptions);const float factor=hudTextFactor(textOptions);
+            textOptions.selector=layout;textOptions.showHints=true;const auto g=selectorGeometry(textOptions);const float factor=selectorTextFactor(textOptions);
             check(g.statusY>=g.nameY+(layout==2?20:23)*factor,"Selected name and status do not overlap");
             check(g.pagerY>=g.statusY+13*factor,"Pager follows the status row");
             check(g.hintY>=g.pagerY+6+12*factor&&g.height>=g.hintY+13*factor,"Hints fit below pager at every text scale");
             if(layout==4)check(g.listHeight>=16*factor+14&&g.listPitch>=g.listHeight,"List rows reserve enough height for scaled names");
         }
+    }
+    for(unsigned dock=0;dock<5;++dock)for(float own:{.5f,2.f}) {
+        Options sized;sized.selectorDock=dock;sized.scale=1;sized.positionX=.5f;sized.positionY=.6f;const auto linked=hudGeometry(sized,1920,1080);
+        sized.selectorScaleLinked=false;sized.selectorScale=own;const auto free=hudGeometry(sized,1920,1080);
+        check(linked.selectorScale==linked.scale&&std::abs(free.selectorScale-own*free.scale)<.001f&&free.scale==linked.scale,"The selector takes its own scale once unlinked and the widget keeps its size");
+        check(free.origin.x==linked.origin.x&&free.origin.y==linked.origin.y,"Resizing the selector leaves the widget where it is");
+        const auto corner=selectorCorner(free),extent=selectorExtent(free);
+        check(std::abs(extent.x-free.selectorWidth*own)<.01f&&corner.x>=7.9f&&corner.y>=7.9f&&corner.x+extent.x<=1912.1f&&corner.y+extent.y<=1072.1f,"A resized selector stays on screen at every dock");
+        if(dock==0)check(std::abs(corner.y+extent.y+sized.selectorGap*free.scale-free.origin.y)<.01f&&std::abs(corner.x+extent.x*.5f-free.origin.x-free.width*free.scale*.5f)<.01f,"A resized selector stays centered above the widget at its set distance");
+        const auto fitted=previewGeometry(sized,1920,1080,780,600,true);const auto shown=selectorCorner(fitted),size=selectorExtent(fitted);
+        check(shown.x>=-.1f&&shown.y>=-.1f&&shown.x+size.x<=780.1f&&shown.y+size.y<=600.1f&&std::abs(fitted.selectorScale-own*fitted.scale)<.001f,"The editor preview fits a resized selector");
+    }
+    {
+        Options huge;huge.selectorScaleLinked=false;huge.selectorScale=3;huge.scale=3;const auto g=hudGeometry(huge,1280,720);
+        check(g.width*g.scale<=1264.1f&&g.height*g.scale<=704.1f&&selectorExtent(g).x<=1264.1f&&selectorExtent(g).y<=704.1f,"The largest scales still fit a 720p screen");
     }
     textOptions.textScale=1.35f;textOptions.placementSpacing=3;textOptions.placementFrame=2;textOptions.placementGridSize=27;
     const auto textReload=decodeOptions(encodeOptions(textOptions));

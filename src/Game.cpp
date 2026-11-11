@@ -707,6 +707,7 @@ bool Game::initialize() {
     options_.holdDelay=iniHold;
     options_.scale=std::clamp(GetPrivateProfileIntW(L"Appearance",L"Scale",100,ini.c_str()),70u,150u)/100.f;
     options_.opacity=std::clamp(GetPrivateProfileIntW(L"Appearance",L"Opacity",92,ini.c_str()),40u,100u)/100.f;
+    options_.selectorOpacity=options_.equipmentOpacity=options_.opacity;
     options_.showIdle=GetPrivateProfileIntW(L"Appearance",L"ShowIdle",1,ini.c_str())!=0;
     sanitizeOptions(options_);
     try {

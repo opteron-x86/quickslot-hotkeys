@@ -8,6 +8,7 @@
 - Inventory and Magic capture messages follow the selected language.
 - **Show keys** has one control, under **Appearance → Widget**.
 - **Appearance** has a page for each part of the HUD — **Theme**, **Widget**, **Selector**, **Equipment** and **General** — with the same Layout, Size, Placement, Content and Visibility sections on each. Language, interface sounds and animation are under **General**.
+- The selector can have its own scale: turn off **Appearance → Selector → Match widget scale**. The widget, selector and equipment display each have their own **Text size** and **Opacity**, and **Scale** now ranges from 25% to 300%. Existing settings keep the sizes and opacity they had.
 - Every slider shows its value in percent, pixels or seconds, has **−** and **+** buttons that move one step, and a reset mark that restores its default. **Reset page** restores a whole page. Each reset is one Undo step.
 - **Presets → Keep settings with this character** stores controls, group names and appearance in that character's saves. Other characters keep the shared settings file.
 - **Return to previous selection** re-equips the entry you selected before your current one, and pressing it again swaps back. Bind a key under **Controls → Keyboard**, or enable **Controls → General → Double-tap a group to return to the previous selection**.

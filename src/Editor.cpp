@@ -12,7 +12,8 @@
 
 namespace quickslot {
 namespace {
-constexpr ImVec4 brass{.79f,.77f,.72f,1},muted{.57f,.57f,.55f,1},ink{.92f,.90f,.87f,1};
+// Editor text roles; style() sets them from the active theme each frame.
+ImVec4 brass{.79f,.77f,.72f,1},muted{.57f,.57f,.55f,1},ink{.92f,.90f,.87f,1};
 struct Scan {unsigned code;ImGuiKey key;const char* name;};
 constexpr Scan scans[]={
  {1,ImGuiKey_Escape,"Esc"},{14,ImGuiKey_Backspace,"Backspace"},{15,ImGuiKey_Tab,"Tab"},{28,ImGuiKey_Enter,"Enter"},
@@ -38,25 +39,26 @@ ImGuiKey imguiKey(unsigned scan) {
     return ImGuiKey_None;
 }
 struct Drag {std::uint64_t session,revision,catalogVersion,candidate;std::size_t group,index;std::uint32_t shortcut=0;};
+// The editor takes its surfaces, text and highlights from the active theme's palette.
 void style(const Theme& theme,const Options& options) {
     auto& s=ImGui::GetStyle();s.WindowRounding=2;s.ChildRounding=0;s.FrameRounding=1;s.PopupRounding=1;s.ScrollbarRounding=2;
     s.WindowPadding={20,16};s.FramePadding={10,7};s.ItemSpacing={10,9};s.ItemInnerSpacing={6,6};s.WindowBorderSize=1;
-    auto* c=s.Colors;c[ImGuiCol_Text]=ink;c[ImGuiCol_TextDisabled]=muted;
-    c[ImGuiCol_WindowBg]={.055f,.055f,.06f,.985f};c[ImGuiCol_ChildBg]={.07f,.07f,.075f,.7f};
-    c[ImGuiCol_PopupBg]={.07f,.07f,.075f,1};
-    c[ImGuiCol_Border]={.32f,.30f,.28f,.7f};c[ImGuiCol_FrameBg]={.12f,.12f,.125f,1};
-    c[ImGuiCol_FrameBgHovered]={.21f,.18f,.18f,1};c[ImGuiCol_FrameBgActive]={.29f,.19f,.18f,1};
-    c[ImGuiCol_Button]={.19f,.18f,.18f,1};c[ImGuiCol_ButtonHovered]={.31f,.21f,.20f,1};c[ImGuiCol_ButtonActive]={.40f,.21f,.19f,1};
-    c[ImGuiCol_Header]={.30f,.18f,.17f,.9f};c[ImGuiCol_HeaderHovered]={.30f,.22f,.21f,1};c[ImGuiCol_HeaderActive]={.38f,.21f,.19f,1};
-    c[ImGuiCol_CheckMark]=brass;c[ImGuiCol_SliderGrab]={.58f,.30f,.27f,1};c[ImGuiCol_SliderGrabActive]={.75f,.43f,.36f,1};
-    c[ImGuiCol_Separator]={.32f,.30f,.28f,1};c[ImGuiCol_DragDropTarget]=brass;
-    c[ImGuiCol_Tab]={.13f,.16f,.16f,1};c[ImGuiCol_TabSelected]={.26f,.27f,.21f,1};c[ImGuiCol_TabHovered]={.33f,.33f,.25f,1};
-    const auto accent=ImGui::ColorConvertU32ToFloat4(themeAccent(theme,options));
-    const auto blend=[&](float intensity){return ImVec4{.08f+accent.x*intensity,.08f+accent.y*intensity,.08f+accent.z*intensity,1};};
-    c[ImGuiCol_Text]=ImGui::ColorConvertU32ToFloat4(theme.text);c[ImGuiCol_TextDisabled]=ImGui::ColorConvertU32ToFloat4(theme.secondary);
-    c[ImGuiCol_ButtonHovered]=c[ImGuiCol_HeaderHovered]=blend(.4f);c[ImGuiCol_ButtonActive]=c[ImGuiCol_HeaderActive]=blend(.6f);
-    c[ImGuiCol_TitleBg]=blend(.1f);c[ImGuiCol_TitleBgActive]=blend(.25f);
-    c[ImGuiCol_Header]=c[ImGuiCol_TabSelected]=blend(.3f);c[ImGuiCol_SliderGrab]=accent;c[ImGuiCol_SliderGrabActive]=blend(.8f);
+    const auto vec=[](std::uint32_t color){return ImGui::ColorConvertU32ToFloat4(color);};
+    const auto mix=[](ImVec4 a,ImVec4 b,float amount,float alpha=1){return ImVec4{a.x+(b.x-a.x)*amount,a.y+(b.y-a.y)*amount,a.z+(b.z-a.z)*amount,alpha};};
+    const auto panel=vec(themePanel(theme)),border=vec(themePanelBorder(theme)),accent=vec(themeAccent(theme,options));
+    ink=vec(theme.text);ink.w=1;brass=vec(theme.secondary);brass.w=1;muted=vec(theme.muted);muted.w=1;
+    auto* c=s.Colors;c[ImGuiCol_Text]=ink;c[ImGuiCol_TextDisabled]=brass;
+    c[ImGuiCol_WindowBg]=panel;c[ImGuiCol_ChildBg]=mix(panel,ink,.03f,.7f);c[ImGuiCol_PopupBg]=mix(panel,ink,.03f);
+    c[ImGuiCol_Border]=border;c[ImGuiCol_Separator]=mix(panel,border,.75f);
+    c[ImGuiCol_FrameBg]=mix(panel,ink,.08f);c[ImGuiCol_FrameBgHovered]=mix(panel,accent,.3f);c[ImGuiCol_FrameBgActive]=mix(panel,accent,.45f);
+    c[ImGuiCol_Button]=mix(panel,ink,.13f);c[ImGuiCol_ButtonHovered]=c[ImGuiCol_HeaderHovered]=mix(panel,accent,.4f);c[ImGuiCol_ButtonActive]=c[ImGuiCol_HeaderActive]=mix(panel,accent,.6f);
+    c[ImGuiCol_Header]=c[ImGuiCol_TabSelected]=mix(panel,accent,.3f);c[ImGuiCol_Tab]=mix(panel,ink,.08f);c[ImGuiCol_TabHovered]=mix(panel,accent,.4f);
+    c[ImGuiCol_TitleBg]=mix(panel,accent,.1f);c[ImGuiCol_TitleBgActive]=mix(panel,accent,.25f);
+    c[ImGuiCol_CheckMark]=ink;c[ImGuiCol_SliderGrab]=accent;c[ImGuiCol_SliderGrabActive]=mix(accent,ink,.3f);
+    c[ImGuiCol_ScrollbarBg]=mix(panel,ImVec4{0,0,0,1},.35f,.5f);c[ImGuiCol_ScrollbarGrab]=mix(panel,ink,.25f);
+    c[ImGuiCol_ScrollbarGrabHovered]=mix(panel,ink,.35f);c[ImGuiCol_ScrollbarGrabActive]=mix(panel,accent,.6f);
+    c[ImGuiCol_DragDropTarget]=c[ImGuiCol_NavCursor]=mix(accent,ink,.35f);
+    c[ImGuiCol_TextSelectedBg]=mix(panel,accent,.55f,.8f);
 }
 Snapshot preview(const EditorState& state) {
     Snapshot s;s.editorPreview=true;s.visible=true;s.browsing=true;s.activeGroup=state.draft.active;

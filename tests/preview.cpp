@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include "Hud.h"
 #include "Editor.h"
 #include "EditorFixture.h"
@@ -69,6 +70,16 @@ int main(int argc,char** argv) {
     if(scene.find("cross")!=std::string::npos){options.layout=3;options.selector=0;options.groupCount=5;}
     if(scene.find("circle")!=std::string::npos){options.layout=4;options.shape=1;options.selector=2;options.groupCount=8;}
     if(scene=="vertical"){options.layout=1;options.selector=1;options.groupCount=4;}
+    // skin:<theme>:<tile shape>:<selector>:<equipment style> shows any theme over any frame shape.
+    if(scene.starts_with("skin:")) {
+        std::vector<std::string> parts;for(std::size_t at=5;at<=scene.size();){const auto end=std::min(scene.find(':',at),scene.size());parts.push_back(scene.substr(at,end-at));at=end+1;}
+        const auto number=[&](std::size_t index,unsigned fallback){return index<parts.size()&&!parts[index].empty()?unsigned(std::stoul(parts[index])):fallback;};
+        if(!parts.empty())options.themeId=parts[0];
+        options.shape=number(1,0);options.selector=number(2,0);options.selectorShape=options.shape==0?2u:options.shape;
+        options.groupCount=3;options.showEquipment=true;options.equipmentStyle=number(3,0);options.equipmentX=.03f;options.equipmentY=.1f;options.scale=1.3f;
+        snapshot.groups[1].equipped=true;snapshot.rows[1].equipped=true;
+        snapshot.equipment.hands[0]=snapshot.rows[0];snapshot.equipment.hands[1]=snapshot.rows[1];
+    }
     if(scene.starts_with("oathvein")) {
         options.layout=2;options.shape=1;options.selector=1;options.groupCount=4;options.scale=1.3f;
         options.names[0]="Arsenal";options.names[1]="Offhand";options.names[2]="Destruction";options.names[3]="Restoration";
@@ -358,6 +369,8 @@ int main(int argc,char** argv) {
     if(scene=="editor-hand-picker")previewClicks={"New","Combination","##right component"};
     if(scene=="editor-group-behavior")previewClicks={"##group mode"};
     EditHistory history;history.begin(editing.draft,editing.options);
+    // QUICKSLOT_PREVIEW_THEME shows any scene, including the editor, under another theme.
+    if(const char* theme=std::getenv("QUICKSLOT_PREVIEW_THEME");theme&&*theme)options.themeId=editing.options.themeId=theme;
     bool running=true;int frames=0,previewStep=0,scrollAttempts=0,settled=0,keyboardStep=0;ImVec2 tabPoint{};
     while(running) {
         SDL_Event event;while(SDL_PollEvent(&event)) {

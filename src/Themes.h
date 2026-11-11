@@ -8,11 +8,19 @@ struct Theme {
     std::string id="minimal",name="Minimal",description;
     std::uint32_t text=rgba(233,230,221),secondary=rgba(180,179,174),muted=rgba(134,135,132),
         accent=rgba(157,65,54),background=rgba(13,14,15,155),border=rgba(126,126,119,180);
+    // Optional roles. Selection and equipped follow the text color unless a pack sets them.
+    std::uint32_t selection=text,equipped=text,warning=rgba(157,65,54),depleted=rgba(219,143,132),poison=rgba(174,209,122);
+    // Editor surfaces. A zero alpha derives the color from the background.
+    std::uint32_t panel=0,panelBorder=0;
     unsigned frameStyle=0;
+    // Atlas frame corners keep this many artwork pixels at a constant size; zero stretches the whole cell.
+    unsigned atlasMargin=40;
     std::filesystem::path atlas,font,titleFont;
 };
 inline ThemeAdjustments adjustments(const Options& o){const auto it=o.themeAdjustments.find(o.themeId);return it==o.themeAdjustments.end()?ThemeAdjustments{}:it->second;}
 inline std::uint32_t themeAccent(const Theme& t,const Options& o){const auto a=adjustments(o);return a.customAccent?rgba(unsigned(a.accent[0]*255),unsigned(a.accent[1]*255),unsigned(a.accent[2]*255)):t.accent;}
+std::uint32_t themePanel(const Theme&);
+std::uint32_t themePanelBorder(const Theme&);
 class Themes {
     std::vector<Theme> packs_;
     std::vector<std::string> warnings_;

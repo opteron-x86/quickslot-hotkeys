@@ -26,6 +26,13 @@ std::uint32_t color(const Json& j,const char* key,std::uint32_t fallback) {
 }
 }
 Themes::Themes(){Theme a;packs_.push_back(a);a.id="silver";a.name="Skyrim silver";a.accent=a.text;packs_.push_back(a);}
+std::uint32_t themePanel(const Theme& t) {
+    if(t.panel>>24)return t.panel;
+    // An opaque surface in the background's hue, lifted slightly so controls separate from it.
+    const auto lift=[](std::uint32_t c,unsigned shift){return std::min(255u,((c>>shift)&255)+12);};
+    return rgba(lift(t.background,0),lift(t.background,8),lift(t.background,16),250);
+}
+std::uint32_t themePanelBorder(const Theme& t){return t.panelBorder>>24?t.panelBorder:(t.border&0x00ffffffu)|0xb4000000u;}
 const Theme& Themes::get(const std::string& id)const{for(const auto& t:packs_)if(t.id==id)return t;return packs_.front();}
 bool Themes::contains(const std::string& id)const{for(const auto& t:packs_)if(t.id==id)return true;return false;}
 void Themes::load(const std::filesystem::path& directory) {
@@ -38,7 +45,7 @@ void Themes::load(const std::filesystem::path& directory) {
     std::sort(files.begin(),files.end());std::set<std::string> seen;
     for(const auto& path:files)try {
         if(std::filesystem::file_size(path)>16384)throw std::runtime_error("Manifest too large");
-        std::ifstream f(path);const auto j=Json::parse(f);if(j.at("schema")!=1)throw std::runtime_error("Unsupported theme schema");
+        std::ifstream f(path);const auto j=Json::parse(f);if(j.at("schema")!=1&&j.at("schema")!=2)throw std::runtime_error("Unsupported theme schema");
         Theme t;t.id=j.at("id").get<std::string>();t.name=j.at("name").get<std::string>();t.description=j.value("description",std::string{});
         if(!validID(t.id)||t.name.empty()||t.name.size()>80||t.description.size()>512)throw std::runtime_error("Invalid theme identity");
         if(seen.contains(t.id))throw std::runtime_error("Duplicate theme id");
@@ -46,6 +53,10 @@ void Themes::load(const std::filesystem::path& directory) {
         const auto palette=j.value("palette",Json::object());
         t.text=color(palette,"text",t.text);t.secondary=color(palette,"secondary",t.secondary);t.muted=color(palette,"muted",t.muted);
         t.accent=color(palette,"accent",t.accent);t.background=color(palette,"background",t.background);t.border=color(palette,"border",t.border);
+        t.selection=color(palette,"selection",t.text);t.equipped=color(palette,"equipped",t.text);
+        t.warning=color(palette,"warning",t.warning);t.depleted=color(palette,"depleted",t.depleted);t.poison=color(palette,"poison",t.poison);
+        t.panel=color(palette,"panel",0);t.panelBorder=color(palette,"panelBorder",0);
+        t.atlasMargin=std::min(j.value("atlasMargin",t.atlasMargin),120u);
         t.atlas=asset(path.parent_path(),j,"atlas");t.font=asset(path.parent_path(),j,"font");t.titleFont=asset(path.parent_path(),j,"titleFont");
         for(const auto& p:{t.atlas,t.font,t.titleFont})if(!p.empty()&&!std::filesystem::is_regular_file(p))warnings_.push_back(t.id+": missing "+p.filename().string()+"; using fallback");
         seen.insert(t.id);const auto it=std::find_if(packs_.begin(),packs_.end(),[&](const auto& p){return p.id==t.id;});

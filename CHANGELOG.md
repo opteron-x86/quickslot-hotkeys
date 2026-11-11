@@ -7,6 +7,9 @@
 - Set the **Hold delay** that separates a tap from a hold under **Controls → General → Timing**.
 - Inventory and Magic capture messages follow the selected language.
 - **Show keys** has one control, under **Appearance → Groups**.
+- Frame artwork keeps even borders and corners on cards, squares, list rows and diamonds.
+- The editor takes its surfaces, text and highlights from the selected theme.
+- Theme packs can set selection, equipped, warning, depleted, poison and editor panel colors, plus the frame corner size. See [Theme and icon packs](THEMES.md).
 - A settings file with missing or invalid values keeps every valid setting. Quickslot copies the original to `Quickslot.settings.rejected.json` beside it.
 
 ## 0.14.0

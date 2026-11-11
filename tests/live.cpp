@@ -40,6 +40,13 @@ int main(int argc,char** argv)try {
     themes.load(temp);check(themes.contains("custom")&&themes.get("custom").name=="Custom","First valid custom pack wins a deterministic duplicate");
     check(!themes.contains("escape")&&!themes.contains("future")&&!themes.contains("bad-color")&&themes.contains("missing"),"Bad manifests rejected while a missing optional image can fall back");
     check(themes.warnings().size()==5,"Invalid themes and missing optional assets report diagnostics");
+    check(themes.get("custom").selection==themes.get("custom").text&&themes.get("custom").equipped==themes.get("custom").text&&themes.get("custom").atlasMargin==40,"Packs without the optional roles follow their text color and the default corner size");
+    check((themePanel(themes.get("custom"))>>24)>=250&&(themePanelBorder(themes.get("custom"))&0xffffff)==(themes.get("custom").border&0xffffff),"Editor surfaces derive from the base palette");
+    const auto roles=temp/"roles";std::filesystem::create_directories(roles);
+    write("roles",{{"schema",2},{"id","roles"},{"name","Roles"},{"atlasMargin",500},{"palette",{{"text",{200,200,200}},{"selection",{1,2,3}},{"equipped",{4,5,6}},{"warning",{7,8,9}},{"depleted",{10,11,12}},{"poison",{13,14,15}},{"panel",{16,17,18,240}},{"panelBorder",{19,20,21}}}}});
+    themes.load(roles.parent_path());const auto& styled=themes.get("roles");
+    check(styled.selection==rgba(1,2,3)&&styled.equipped==rgba(4,5,6)&&styled.warning==rgba(7,8,9)&&styled.depleted==rgba(10,11,12)&&styled.poison==rgba(13,14,15),"Schema 2 packs set each optional role");
+    check(themePanel(styled)==rgba(16,17,18,240)&&themePanelBorder(styled)==rgba(19,20,21)&&styled.atlasMargin==120,"Schema 2 packs set editor surfaces and a bounded corner size");
 
     Arsenal a;Entry e;e.form=0x1234;e.owner=0x14;e.unique=9;e.name="Tempered sword";a.groups[0].add(e);Options start;
     EditHistory history;history.begin(a,start);auto edited=start;

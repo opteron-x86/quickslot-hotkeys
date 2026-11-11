@@ -22,9 +22,29 @@ Place a theme in `Data/Quickslot/themes/<folder>/theme.json`. Restart after inst
 }
 ```
 
-`schema`, `id` and `name` are required. IDs use lowercase letters, digits, hyphens or underscores, up to 48 characters. Asset paths are relative to the pack folder. Colors use RGB or RGBA values from 0 to 255.
+`schema`, `id` and `name` are required. Use schema `2` for the options below; schema `1` packs load with their defaults. IDs use lowercase letters, digits, hyphens or underscores, up to 48 characters. Asset paths are relative to the pack folder. Colors use RGB or RGBA values from 0 to 255.
 
 `frameStyle` selects clipped corners (0), straight edges (1), double borders (2) or angular linework (3). An optional frame atlas is a **1024 × 320 RGBA PNG** with four 256 × 320 cells: top, bottom, side and interior texture. Artwork occupies x=4–251 and y=6–313 within each cell. Diamonds rotate the bottom frame; circles use the interior texture.
+
+### Palette roles
+
+The six colors above are the base palette. These optional roles refine it:
+
+| Role | Used for | Default |
+| --- | --- | --- |
+| `selection` | Outline and marker of the highlighted frame | `text` |
+| `equipped` | Equipped markers and hand letters | `text` |
+| `warning` | Unavailable-item slash | Red |
+| `depleted` | Zero quantities and unavailable status text | Light red |
+| `poison` | Poisoned-weapon droplet | Green |
+| `panel` | Editor window surface | Opaque shade of `background` |
+| `panelBorder` | Editor window and panel borders | `border` |
+
+The editor draws its surfaces, text, controls and highlights from the active theme's palette and accent.
+
+### Frame corners
+
+`atlasMargin` sets how many artwork pixels at each edge of an atlas cell keep a constant size (default `40`, range 0–120). Corners and borders keep their proportions on cards, squares, list rows and diamonds while the interior stretches. Choose a value that covers the cell's corner ornament. `0` stretches the whole cell.
 
 Optional TTF files supply body and title fonts. The default font is Jost. Theme overrides for accent, frame opacity and icon size are saved by theme ID. **Reset theme** restores that pack's defaults.
 

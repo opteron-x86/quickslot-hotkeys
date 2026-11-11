@@ -10,9 +10,10 @@
 
 namespace quickslot {
 namespace {
-constexpr ImU32 ivory=IM_COL32(233,230,221,255),silver=IM_COL32(180,179,174,255);
-constexpr ImU32 muted=IM_COL32(134,135,132,255),blood=IM_COL32(157,65,54,255);
-constexpr ImU32 dark=IM_COL32(13,14,15,155);
+// Palette roles. These zero-alpha tokens stand for the active theme's colors; Paint::color resolves them.
+constexpr ImU32 ivory=1,silver=2,muted=3,blood=4,dark=5,selectionMark=6,equippedMark=7,poisonMark=8,depletedMark=9;
+// Atlas cells hold 248 x 308 artwork; this factor matches the size of a square tile.
+constexpr float atlasScale=82.f/248;
 constexpr float pi=3.141592654f;
 Icon iconFor(const Entry& e) {
     return baseIcon(e);
@@ -37,7 +38,14 @@ struct Paint {
     ImU32 accent()const{return themeAccent(theme,options);}
     ImU32 itemColor(const Entry& e)const{return options.coloredMagic?iconColor(e):ivory;}
     ImVec2 p(float x,float y)const{return {origin.x+x*scale,origin.y+y*scale};}
-    ImU32 color(ImU32 c,float opacity=1)const{if(c==ivory)c=theme.text;else if(c==silver)c=theme.secondary;else if(c==muted)c=theme.muted;else if(c==dark)c=theme.background;return (c&0xffffff)|(ImU32(float(c>>24)*std::clamp(alpha*opacity,0.f,1.f))<<24);}
+    ImU32 color(ImU32 c,float opacity=1)const {
+        switch(c) {
+        case ivory:c=theme.text;break;case silver:c=theme.secondary;break;case muted:c=theme.muted;break;case dark:c=theme.background;break;
+        case blood:c=theme.warning;break;case selectionMark:c=theme.selection;break;case equippedMark:c=theme.equipped;break;
+        case poisonMark:c=theme.poison;break;case depletedMark:c=theme.depleted;break;default:break;
+        }
+        return (c&0xffffff)|(ImU32(float(c>>24)*std::clamp(alpha*opacity,0.f,1.f))<<24);
+    }
     void line(float x,float y,float x2,float y2,ImU32 c=silver,float width=1) {
         d->AddLine(p(x,y),p(x2,y2),color(c),std::max(1.f,width*scale));
     }
@@ -71,22 +79,37 @@ struct Paint {
         if(fill)d->AddConvexPolyFilled(points,4,color(c));
         else d->AddPolyline(points,4,color(c),ImDrawFlags_Closed,std::max(1.f,scale));
     }
+    // Draws an atlas cell over a w x h frame. Corners keep their artwork proportions while edges and
+    // the interior stretch. `place` maps frame coordinates to the screen, which lets diamonds rotate it.
+    template<class Place> void slicedFrame(float w,float h,unsigned cell,const Place& place) {
+        const float left=float(cell)*256+4,top=6,artW=248,artH=308;
+        const float margin=std::min({float(theme.atlasMargin),artW*.5f,artH*.5f});
+        const float edge=std::min({margin*atlasScale,w*.5f,h*.5f});
+        const std::array<float,4> xs{0,edge,w-edge,w},ys{0,edge,h-edge,h};
+        const std::array<float,4> us{left,left+margin,left+artW-margin,left+artW},vs{top,top+margin,top+artH-margin,top+artH};
+        const auto tint=color(IM_COL32_WHITE);
+        for(unsigned row=0;row<3;++row)for(unsigned column=0;column<3;++column) {
+            if(xs[column+1]<=xs[column]||ys[row+1]<=ys[row])continue;
+            const ImVec2 a{us[column]/1024,vs[row]/320},b{us[column+1]/1024,vs[row+1]/320};
+            d->AddImageQuad(themeTexture,place(xs[column],ys[row]),place(xs[column+1],ys[row]),place(xs[column+1],ys[row+1]),place(xs[column],ys[row+1]),
+                a,{b.x,a.y},b,{a.x,b.y},tint);
+        }
+    }
     void textureFrame(float x,float y,float w,float h,unsigned cell) {
-        const ImVec2 uv0{(float(cell)*256+4)/1024,6.f/320},uv1{(float(cell)*256+252)/1024,314.f/320};
-        d->AddImage(themeTexture,p(x,y),p(x+w,y+h),uv0,uv1,color(IM_COL32_WHITE));
+        slicedFrame(w,h,cell,[&](float fx,float fy){return p(x+fx,y+fy);});
     }
     void frame(float x,float y,float w,float h,bool selected,unsigned variant=1) {
         struct Restore {float& value;float old;~Restore(){value=old;}} restore{alpha,alpha};alpha*=tweaks.frameOpacity;
         if(themeTexture) {
             textureFrame(x,y,w,h,variant);
-            if(selected){line(x+4,y+h*.82f,x+w-4,y+h*.82f,accent(),1.2f);diamond(x+w*.5f,y+h*.82f,2.5f,ivory);}
+            if(selected){line(x+4,y+h*.82f,x+w-4,y+h*.82f,accent(),1.2f);diamond(x+w*.5f,y+h*.82f,2.5f,selectionMark);}
             return;
         }
         const float cut=theme.frameStyle==1||theme.frameStyle==2?0:std::min(6.f,h*.16f);
         const ImVec2 points[]{p(x+cut,y),p(x+w-cut,y),p(x+w,y+cut),p(x+w,y+h-cut),
             p(x+w-cut,y+h),p(x+cut,y+h),p(x,y+h-cut),p(x,y+cut)};
         d->AddConvexPolyFilled(points,8,color(dark));
-        d->AddPolyline(points,8,color(selected?theme.text:theme.border),ImDrawFlags_Closed,std::max(1.f,scale*.8f));
+        d->AddPolyline(points,8,color(selected?theme.selection:theme.border),ImDrawFlags_Closed,std::max(1.f,scale*.8f));
         if(theme.frameStyle==2) {
             d->AddRect(p(x+3,y+3),p(x+w-3,y+h-3),color(theme.border,.45f),0,0,std::max(1.f,.65f*scale));
             for(float cx:{x,x+w})for(float cy:{y,y+h})diamond(cx,cy,2,accent());
@@ -96,7 +119,7 @@ struct Paint {
         if(selected) {
             line(x+cut+2,y+2,x+w-cut-2,y+2,accent(),1.5f);
             line(x+cut+2,y+h-2,x+w-cut-2,y+h-2,accent(),1.5f);
-            diamond(x+w*.5f,y+h,2.5f,ivory);
+            diamond(x+w*.5f,y+h,2.5f,selectionMark);
         }
     }
     void medallion(float x,float y,float r,bool selected) {
@@ -106,20 +129,22 @@ struct Paint {
         if(themeTexture) {
             d->AddImageRounded(themeTexture,p(x-r,y-r),p(x+r,y+r),{772.f/1024,6.f/320},{1020.f/1024,314.f/320},color(IM_COL32_WHITE),r*scale);
         } else circle(x,y,r,dark,true);
-        circle(x,y,r,selected?theme.text:theme.border,false,.8f);
+        circle(x,y,r,selected?theme.selection:theme.border,false,.8f);
         if(selected) {
             circle(x,y,r-3,accent(),false,.8f);
             d->PathArcTo(p(x,y),(r+3)*scale,.18f*pi,.82f*pi,24);
             d->PathStroke(color(accent()),0,std::max(1.f,1.5f*scale));
-            diamond(x,y-r-3,2.8f,ivory);
+            diamond(x,y-r-3,2.8f,selectionMark);
         }
     }
     void lozenge(float x,float y,float r,bool selected) {
         struct Restore {float& value;float old;~Restore(){value=old;}} restore{alpha,alpha};alpha*=tweaks.frameOpacity;
-        if(themeTexture)
-            d->AddImageQuad(themeTexture,p(x,y-r),p(x+r,y),p(x,y+r),p(x-r,y),
-                {260.f/1024,6.f/320},{508.f/1024,6.f/320},{508.f/1024,314.f/320},{260.f/1024,314.f/320},color(IM_COL32_WHITE));
-        else {diamond(x,y,r,dark);diamond(x,y,r,selected?ivory:muted,false);}
+        if(themeTexture) {
+            // The frame's top-left corner sits at the diamond's top point; its sides run toward the right and left points.
+            const float side=r*std::sqrt(2.f);
+            slicedFrame(side,side,1,[&](float fx,float fy){const float u=fx/side,v=fy/side;return p(x+(u-v)*r,y-r+(u+v)*r);});
+        }
+        else {diamond(x,y,r,dark);diamond(x,y,r,selected?selectionMark:muted,false);}
         if(selected){line(x-r+4,y,x,y+r-4,accent(),1.2f);line(x,y+r-4,x+r-4,y,accent(),1.2f);}
     }
     void tile(float x,float y,float r,bool selected,unsigned shape) {
@@ -195,12 +220,12 @@ struct Paint {
         if(rightAligned)x-=w*.5f;
         const float left=x-w*.5f;
         if(poisoned) {
-            const auto green=color(IM_COL32(174,209,122,255));const float cx=left+4+size*.5f,cy=y+size*.65f,r=size*.26f;
+            const auto green=color(poisonMark);const float cx=left+4+size*.5f,cy=y+size*.65f,r=size*.26f;
             const auto droplet=[&]{d->PathLineTo(p(cx,cy-size*.65f));d->PathArcTo(p(cx,cy),r*scale,-pi*.2f,pi*1.2f,12);};
             droplet();d->PathFillConvex(green);
             droplet();d->PathStroke(color(IM_COL32(12,18,10,210)),ImDrawFlags_Closed,std::max(1.f,scale*.7f));
         }
-        if(!label.empty())text(left+4+poisonWidth+textWidth*.5f,y,label,size,count==0?IM_COL32(219,143,132,255):ivory,false,0,true);
+        if(!label.empty())text(left+4+poisonWidth+textWidth*.5f,y,label,size,count==0?depletedMark:ivory,false,0,true);
     }
 };
 }
@@ -281,7 +306,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             nodePaint.icon(x,y,r*1.48f,rowIconEntry(row),row.available?nodePaint.itemColor(rowIconEntry(row)):muted);
             const float marker=x+(isStack(row.entry)||row.cooldown>0||(o.showAmmo&&row.weapon.ammunition>=0)||(o.showPoison&&row.weapon.poisoned)?-1.f:1.f)*r*.7f;
             if(!row.available&&!isStack(row.entry)){nodePaint.circle(marker,y+r*.7f,6,IM_COL32(22,18,18,240),true);nodePaint.line(marker-3,y+r*.7f+3,marker+3,y+r*.7f-3,blood,1.6f);}
-            else if(row.equipped)nodePaint.diamond(marker,y+r*.7f,3.5f,ivory);
+            else if(row.equipped)nodePaint.diamond(marker,y+r*.7f,3.5f,equippedMark);
             nodePaint.badge(x+r*.58f,y+r*.5f,row.entry,row.quantity,row.cooldown,selected?15:12,false,row.weapon);
         };
         const auto layout=selectorGeometry(o,n,displacement);
@@ -309,7 +334,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                         q.frame(12,y-layout.listHeight*.5f,layout.width-24,layout.listHeight,offset==0);
                         q.icon(37,y,32,rowIconEntry(row),row.available?q.itemColor(rowIconEntry(row)):muted);
                         q.label(66,y-8*text,displayName(row.entry),16,row.available?ivory:muted,true,layout.width-92);
-                        if(row.equipped)q.diamond(53,y+15,2.5f,ivory);
+                        if(row.equipped)q.diamond(53,y+15,2.5f,equippedMark);
                         else if(!row.available&&!isStack(row.entry)){q.circle(53,y+15,4,IM_COL32(22,18,18,240),true);q.line(50,y+18,56,y+12,blood,1.4f);}
                         q.badge(35,y+8,row.entry,row.quantity,row.cooldown,11,false,row.weapon);
                     } else {
@@ -324,7 +349,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             p.rule(center,layout.ruleY,o.selector==2?42.f:58.f);
             const float nameWidth=o.selector==2?238*std::max(1.f,text):layout.width-24;
             p.label(center,layout.nameY,displayName(active->entry),o.selector==2?20.f:23.f,active->available?ivory:muted,true,nameWidth,true);
-            p.label(center,layout.statusY,rowStatus(*active),13,active->available?silver:IM_COL32(209,134,122,255),false,layout.width-24,true);
+            p.label(center,layout.statusY,rowStatus(*active),13,active->available?silver:depletedMark,false,layout.width-24,true);
             if(n>1) {
                 const auto dots=std::min(n,std::size_t(16)),first=std::min(index>dots/2?index-dots/2:0,n-dots);
                 const float start=center-float(dots-1)*4;
@@ -392,8 +417,8 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             if(o.showCardNames)q.label(x+51,top+(o.showLabels?12*text+4:0),entry?displayName(*entry):tr("Empty"),14,entry&&!available?muted:ivory,true,width-59);
             q.groupKey(x+width-20,y-3,id,previewing,state.controller,state.vr);
             if(previewing)q.diamond(x+width*.5f,y-3,2.5f,q.accent());
-            if(hands)q.text(iconX-18,cy+((o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned)?-22.f:14.f),handMarker(hands),10,ivory);
-            else if(equipped||ready)q.diamond(iconX+18,cy+15,2.5f,ivory);
+            if(hands)q.text(iconX-18,cy+((o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned)?-22.f:14.f),handMarker(hands),10,equippedMark);
+            else if(equipped||ready)q.diamond(iconX+18,cy+15,2.5f,equippedMark);
             if(entry)q.badge(iconX+2,cy+9,*entry,quantity,cooldown,11,false,weapon);
         } else {
             const float cx=x+geometry.groups.tileWidth*.5f;
@@ -408,8 +433,8 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             q.groupKey(cx,y+(o.shape==1?0.f:o.shape==2?9.f:16.f),id,previewing,state.controller,state.vr,o.shape==3?16.f:18.f);
             if(previewing)q.diamond(cx,y+geometry.groups.tileHeight+2,2.5f,q.accent());
             if(o.showLabels)q.label(cx,y+(o.shape==1?71.f:o.shape==2?100.f:88.f),o.names[id],12,selected?ivory:silver,true,geometry.groups.tileWidth-2,true);
-            if(hands)q.text(cx-27,cy+18,handMarker(hands),10,ivory);
-            else if(equipped||ready)q.diamond(markerX,markerY,3,ivory);
+            if(hands)q.text(cx-27,cy+18,handMarker(hands),10,equippedMark);
+            else if(equipped||ready)q.diamond(markerX,markerY,3,equippedMark);
             else if(entry&&!available&&!isStack(*entry)){q.circle(markerX,markerY,5,IM_COL32(22,18,18,230),true);q.line(markerX-3,markerY+3,markerX+3,markerY-3,blood,1.5f);}
             if(entry)q.badge(cx+(o.shape==3?18.f:22.f),cy+(o.shape==3?14.f:18.f),*entry,quantity,cooldown,13,false,weapon);
         }

@@ -164,6 +164,39 @@ int main()try {
         check(wild.anchor==unanchored&&wild.offsetX==8000&&wild.offsetY==0&&wild.anchorFrame==3,"Invalid placement values are bounded");
         Options look;importAppearance(look,anchored);check(look.anchor==8&&look.selectorAnchor==4&&look.anchorFrame==1,"Appearance presets carry anchored placement");
     }
+    {
+        Options grid;grid.layout=6;grid.shape=2;grid.groupCount=6;grid.gridColumns=3;grid.spacing=10;grid.showLabels=false;
+        const auto three=groupGeometry(grid);
+        check(three.tiles.size()==6&&std::abs(three.width-(3*82+2*10))<.01f&&std::abs(three.height-(2*100+10))<.01f,"A grid fills rows of the chosen width");
+        check(three.tiles[3].x==three.tiles[0].x&&three.tiles[3].y>three.tiles[0].y&&three.tiles[1].y==three.tiles[0].y,"Grid tiles run left to right, then down");
+        grid.gridColumns=1;const auto column=groupGeometry(grid);grid.gridColumns=8;const auto row=groupGeometry(grid);
+        check(std::abs(column.width-82)<.01f&&std::abs(row.height-100)<.01f,"One column stacks the groups and eight columns keep six in a row");
+        grid.groupCount=2;grid.gridColumns=2;check(std::abs(groupGeometry(grid).width-(2*82+10))<.01f,"Two groups in a grid keep the set spacing");
+        Options sized;sized.shape=1;sized.showLabels=false;const auto normal=groupGeometry(sized);sized.tileSize=2;const auto doubled=groupGeometry(sized);
+        check(std::abs(doubled.tileWidth-normal.tileWidth*2)<.01f&&std::abs(doubled.tileHeight-normal.tileHeight*2)<.01f,"Tile size scales circle, square and diamond tiles");
+        sized.showLabels=true;sized.tileSize=1;const auto named=groupGeometry(sized);sized.tileSize=2;const auto namedLarge=groupGeometry(sized);
+        check(std::abs((namedLarge.tileHeight-named.tileHeight)-71)<.01f,"The name under a resized tile keeps its own height");
+        Options cards;const auto standard=groupGeometry(cards);cards.cardWidth=180;const auto wider=groupGeometry(cards);cards.tileSize=2;
+        check(std::abs(wider.tileWidth-standard.tileWidth-(180-97))<.01f&&groupGeometry(cards).tileHeight==standard.tileHeight,"Card width widens the name area and tile size leaves cards alone");
+        Options strip;strip.selector=0;const auto five=selectorGeometry(strip,12);strip.selectorVisible=3;const auto nine=selectorGeometry(strip,12),few=selectorGeometry(strip,3);strip.selectorVisible=1;
+        check(nine.width>five.width&&std::abs(few.width-selectorGeometry(strip,3).width)<.01f,"More visible items widen the strip only when the group has them");
+        Options wheel;wheel.selector=wheelSelector;const auto tight=selectorGeometry(wheel,4);wheel.wheelRadius=150;const auto open=selectorGeometry(wheel,4);
+        check(tight.reach>=62&&std::abs(open.reach-150)<.01f&&open.width>tight.width,"Wheel radius sets the wheel's smallest size");
+        Options look;look.cardWidth=150;look.tileSize=1.4f;look.gridColumns=5;look.layout=6;look.mirrorCards=true;look.selectorVisible=2;look.wheelRadius=120;look.iconScale=1.3f;look.backgroundOpacity=.4f;
+        look.customTextColor=look.customSelectionColor=true;look.textColor={.1f,.2f,.3f};look.selectionColor={.4f,.5f,.6f};look.groupColored[2]=true;look.groupColors[2]={.7f,.8f,.9f};
+        const auto saved=decodeOptions(encodeOptions(look));
+        check(encodeOptions(saved)==encodeOptions(look)&&saved.layout==6&&saved.gridColumns==5&&saved.mirrorCards&&saved.textColor[2]==.3f&&saved.groupColored[2]&&saved.groupColors[2][0]==.7f,"The new look settings persist");
+        Options mine;mine.groupColored[0]=true;mine.groupColors[0]={.2f,.3f,.4f};
+        const auto styled=mergeOptions(mine,look,presetPart::look);
+        check(styled.cardWidth==150&&styled.customTextColor&&styled.groupColored[0]&&!styled.groupColored[2],"A preset's look brings its sizes and colors; group colors stay with the groups");
+        check(mergeOptions(mine,look,presetPart::groups).groupColored[2],"Group colors travel with a preset's group setup");
+        Options wild;wild.gridColumns=99;wild.tileSize=0;wild.cardWidth=NAN;wild.selectorVisible=40;wild.textColor={5,-1,NAN};wild.groupColors[1]={INFINITY,2,-3};sanitizeOptions(wild);
+        check(wild.gridColumns==8&&wild.tileSize==.6f&&wild.cardWidth==97&&wild.selectorVisible==3&&wild.textColor[0]==1&&wild.textColor[1]==0&&wild.groupColors[1][1]==1&&wild.groupColors[1][2]==0,"Invalid values for the new settings are bounded");
+        auto earlier=Json::parse(encodeOptions(Options{}));earlier["layoutVersion"]=2;earlier["themeId"]="norden";earlier.erase("iconScale");
+        earlier["themeAdjustments"]={{"norden",{{"customAccent",false},{"accent",{.5f,.5f,.5f}},{"frameOpacity",.8f},{"iconScale",1.15f}}},{"edge",{{"customAccent",false},{"accent",{.5f,.5f,.5f}},{"frameOpacity",1.f},{"iconScale",.7f}}}};
+        const auto migrated=decodeOptions(earlier.dump());
+        check(std::abs(migrated.iconScale-1.15f)<.001f&&migrated.themeAdjustments.at("norden").iconScale==1&&migrated.themeAdjustments.at("norden").frameOpacity==.8f,"The active theme's icon size becomes the one icon size");
+    }
     textOptions.textScale=1.35f;textOptions.placementSpacing=3;textOptions.placementFrame=2;textOptions.placementGridSize=27;
     const auto textReload=decodeOptions(encodeOptions(textOptions));
     check(textReload.textScale==1.35f&&textReload.placementSpacing==3&&textReload.placementFrame==2&&textReload.placementGridSize==27,"Text and grid settings persist");

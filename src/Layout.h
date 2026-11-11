@@ -32,7 +32,8 @@ inline float tileDistance(Point direction,float width,float height,unsigned shap
     return projection+std::sqrt(std::max(0.f,projection*projection-width*width-height*height+gap*gap));
 }
 struct Arrangement {std::vector<Point> centers;float width=0,height=0;};
-inline Arrangement arrangeTiles(const std::vector<Point>& sizes,unsigned layout,float gap,unsigned shape=2,float rotation=0) {
+// Layouts: 0 horizontal, 1 vertical, 2 diamond, 3 cross, 4 circle, 5 staggered cross, 6 grid filled row by row.
+inline Arrangement arrangeTiles(const std::vector<Point>& sizes,unsigned layout,float gap,unsigned shape=2,float rotation=0,unsigned columns=4) {
     Arrangement a;if(sizes.empty())return a;
     const auto count=sizes.size();float width=0,height=0;
     for(const auto size:sizes){width=std::max(width,size.x);height=std::max(height,size.y);}
@@ -46,6 +47,8 @@ inline Arrangement arrangeTiles(const std::vector<Point>& sizes,unsigned layout,
         if(layout<2) {
             p=layout==0?Point{cursor+sizes[i].x*.5f,height*.5f}:Point{width*.5f,cursor+sizes[i].y*.5f};
             cursor+=(layout==0?sizes[i].x:sizes[i].y)+gap;
+        } else if(layout==6) {
+            const auto wide=std::max(1u,columns);p={float(i%wide)*(width+gap),float(i/wide)*(height+gap)};
         } else if(layout==4) {
             const float angle=-pi*.5f+float(i)*2*pi/float(count)+rotation;
             p={std::cos(angle)*width,std::sin(angle)*height};
@@ -56,7 +59,7 @@ inline Arrangement arrangeTiles(const std::vector<Point>& sizes,unsigned layout,
         }
         a.centers.push_back(p);
     }
-    if((layout==4||(layout==2&&shape!=2)||(layout>=2&&count==2))&&count>1) {
+    if((layout==4||(layout==2&&shape!=2)||(layout>=2&&layout!=6&&count==2))&&count>1) {
         float factor=0;
         for(std::size_t i=0;i<count;++i)for(std::size_t j=0;j<i;++j) {
             const Point delta{a.centers[i].x-a.centers[j].x,a.centers[i].y-a.centers[j].y};
@@ -71,15 +74,16 @@ inline Arrangement arrangeTiles(const std::vector<Point>& sizes,unsigned layout,
 }
 inline LayoutGeometry groupGeometry(const Options& o) {
     LayoutGeometry g;const auto count=std::clamp(o.groupCount,std::size_t(1),Arsenal::count);
-    const float text=hudTextFactor(o);Point footprint;unsigned shape=2;
+    const float text=hudTextFactor(o),size=o.tileSize;Point footprint;unsigned shape=2;
     switch(o.shape) {
-    case 1:g.tileWidth=o.showLabels?76*std::max(1.f,text):68;g.tileHeight=o.showLabels?71+12*text+4:70;footprint={58,58};shape=1;break;
-    case 2:g.tileWidth=o.showLabels?82*std::max(1.f,text):82;g.tileHeight=o.showLabels?100+12*text+4:100;footprint={82,100};break;
-    case 3:g.tileWidth=o.showLabels?88*std::max(1.f,text):88;g.tileHeight=o.showLabels?88+12*text+4:88;footprint={84,84};shape=3;break;
-    default:g.tileWidth=o.showCardNames||o.showLabels?59+97*std::max(1.f,text):64;g.tileHeight=std::max(56.f,(o.showCardNames&&o.showLabels?26:14)*text+20);footprint={g.tileWidth,g.tileHeight-7};break;
+    // Circle, square and diamond tiles scale with tileSize; the name under them keeps its own text size.
+    case 1:g.tileWidth=std::max(68*size,o.showLabels?76*std::max(1.f,text):0.f);g.tileHeight=o.showLabels?71*size+12*text+4:70*size;footprint={58*size,58*size};shape=1;break;
+    case 2:g.tileWidth=std::max(82*size,o.showLabels?82*std::max(1.f,text):0.f);g.tileHeight=o.showLabels?100*size+12*text+4:100*size;footprint={82*size,100*size};break;
+    case 3:g.tileWidth=std::max(88*size,o.showLabels?88*std::max(1.f,text):0.f);g.tileHeight=o.showLabels?88*size+12*text+4:88*size;footprint={84*size,84*size};shape=3;break;
+    default:g.tileWidth=o.showCardNames||o.showLabels?59+o.cardWidth*std::max(1.f,text):64;g.tileHeight=std::max(56.f,(o.showCardNames&&o.showLabels?26:14)*text+20);footprint={g.tileWidth,g.tileHeight-7};break;
     }
     if(o.showLabels&&o.shape){footprint={g.tileWidth,g.tileHeight};shape=2;}
-    const auto arranged=arrangeTiles(std::vector<Point>(count,footprint),o.layout,o.spacing,shape);
+    const auto arranged=arrangeTiles(std::vector<Point>(count,footprint),o.layout,o.spacing,shape,0,unsigned(std::clamp(o.gridColumns,1.f,8.f)));
     for(const auto p:arranged.centers)g.tiles.push_back({std::max(0.f,p.x-footprint.x*.5f),std::max(0.f,p.y-footprint.y*.5f)});
     g.width=arranged.width+g.tileWidth-footprint.x;g.height=arranged.height+g.tileHeight-footprint.y;
     return g;
@@ -109,7 +113,8 @@ struct SelectorGeometry {
 };
 inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,float phase=0) {
     const float text=selectorTextFactor(o);SelectorGeometry s;
-    const float side=count>3?2:count>1?1:0;
+    // Strips, arcs and lists show up to selectorVisible+1 neighbors on each side of the selected item.
+    const float side=float(std::min<std::size_t>(o.selectorVisible+1,count/2));
     if(o.selector==2) {
         const auto visible=std::clamp(count,std::size_t(1),std::size_t(8));
         std::vector<Point> sizes(visible,{44,44});sizes[0]={58,58};
@@ -125,7 +130,7 @@ inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,fl
         // Every entry keeps a fixed slot around the hub, starting at the top and running clockwise.
         const auto slots=std::clamp(count,std::size_t(1),Group::limit);constexpr float pi=3.141592654f;
         const float footprint=selectorTileShape(o)==2?50*std::sqrt(2.f):50;
-        s.reach=slots>1?std::max(62.f,(footprint+o.selectorSpacing)/(2*std::sin(pi/float(slots)))):0;
+        s.reach=slots>1?std::max(o.wheelRadius,(footprint+o.selectorSpacing)/(2*std::sin(pi/float(slots)))):0;
         const float extent=2*(s.reach+31);
         s.width=std::max(260*std::max(1.f,text),extent+24);s.hub={s.width*.5f,extent*.5f-24};
         for(std::size_t i=0;i<slots;++i){const float angle=-pi*.5f+float(i)*2*pi/float(slots);s.ring.push_back({s.hub.x+std::cos(angle)*s.reach,s.hub.y+std::sin(angle)*s.reach});}

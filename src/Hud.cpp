@@ -37,13 +37,17 @@ struct Paint {
     ImDrawList* d;ImVec2 origin;float scale,alpha;ImFont* medium;ImFont* sans;ImTextureID themeTexture,keyTexture;const KeyGlyphs& keyGlyphs;const Options& options;const Theme& theme;ThemeAdjustments tweaks;const ItemIconProvider& itemIcons;
     // Text sizes passed to label() are multiplied by the text size of the HUD part being drawn.
     float textFactor=1;
-    ImU32 accent()const{return themeAccent(theme,options);}
+    // A group with its own color replaces the accent while that group is drawn.
+    std::optional<ImU32> groupAccent;
+    static ImU32 solid(const std::array<float,3>& c){return rgba(unsigned(c[0]*255),unsigned(c[1]*255),unsigned(c[2]*255));}
+    ImU32 accent()const{return groupAccent?*groupAccent:themeAccent(theme,options);}
+    ImU32 selection()const{return options.customSelectionColor?solid(options.selectionColor):theme.selection;}
     ImU32 itemColor(const Entry& e)const{return options.coloredMagic?iconColor(e):ivory;}
     ImVec2 p(float x,float y)const{return {origin.x+x*scale,origin.y+y*scale};}
     ImU32 color(ImU32 c,float opacity=1)const {
         switch(c) {
-        case ivory:c=theme.text;break;case silver:c=theme.secondary;break;case muted:c=theme.muted;break;case dark:c=theme.background;break;
-        case blood:c=theme.warning;break;case selectionMark:c=theme.selection;break;case equippedMark:c=options.customEquippedColor?ImU32(rgba(unsigned(options.equippedColor[0]*255),unsigned(options.equippedColor[1]*255),unsigned(options.equippedColor[2]*255))):theme.equipped;break;
+        case ivory:c=options.customTextColor?solid(options.textColor):theme.text;break;case silver:c=theme.secondary;break;case muted:c=theme.muted;break;case dark:c=theme.background;break;
+        case blood:c=theme.warning;break;case selectionMark:c=selection();break;case equippedMark:c=options.customEquippedColor?ImU32(rgba(unsigned(options.equippedColor[0]*255),unsigned(options.equippedColor[1]*255),unsigned(options.equippedColor[2]*255))):theme.equipped;break;
         case poisonMark:c=theme.poison;break;case depletedMark:c=theme.depleted;break;default:break;
         }
         return (c&0xffffff)|(ImU32(float(c>>24)*std::clamp(alpha*opacity,0.f,1.f))<<24);
@@ -69,16 +73,16 @@ struct Paint {
         d->AddText(font,size*scale,p(x+.6f,y+1.2f),color(IM_COL32(0,0,0,210)),out.c_str());
         d->AddText(font,size*scale,p(x,y),color(c),out.c_str());
     }
-    void label(float x,float y,const std::string& str,float size=14,ImU32 c=ivory,bool title=false,float maxWidth=0,bool center=false) {
-        text(x,y,str,size*textFactor,c,title,maxWidth,center);
+    void label(float x,float y,const std::string& str,float size=14,ImU32 c=ivory,bool title=false,float maxWidth=0,bool center=false,bool right=false) {
+        text(x,y,str,size*textFactor,c,title,maxWidth,center,right);
     }
     void circle(float x,float y,float r,ImU32 c,bool fill=false,float width=1) {
         if(fill)d->AddCircleFilled(p(x,y),r*scale,color(c),48);
         else d->AddCircle(p(x,y),r*scale,color(c),48,std::max(1.f,width*scale));
     }
-    void diamond(float x,float y,float r,ImU32 c,bool fill=true) {
+    void diamond(float x,float y,float r,ImU32 c,bool fill=true,float opacity=1) {
         const ImVec2 points[]{p(x,y-r),p(x+r,y),p(x,y+r),p(x-r,y)};
-        if(fill)d->AddConvexPolyFilled(points,4,color(c));
+        if(fill)d->AddConvexPolyFilled(points,4,color(c,opacity));
         else d->AddPolyline(points,4,color(c),ImDrawFlags_Closed,std::max(1.f,scale));
     }
     // Draws an atlas cell over a w x h frame. Corners keep their artwork proportions while edges and
@@ -89,12 +93,13 @@ struct Paint {
         const float edge=std::min({margin*atlasScale,w*.5f,h*.5f});
         const std::array<float,4> xs{0,edge,w-edge,w},ys{0,edge,h-edge,h};
         const std::array<float,4> us{left,left+margin,left+artW-margin,left+artW},vs{top,top+margin,top+artH-margin,top+artH};
-        const auto tint=color(IM_COL32_WHITE);
+        // The middle slice is the frame's background; the slices around it are its border.
+        const auto tint=color(IM_COL32_WHITE),inside=color(IM_COL32_WHITE,options.backgroundOpacity);
         for(unsigned row=0;row<3;++row)for(unsigned column=0;column<3;++column) {
             if(xs[column+1]<=xs[column]||ys[row+1]<=ys[row])continue;
             const ImVec2 a{us[column]/1024,vs[row]/320},b{us[column+1]/1024,vs[row+1]/320};
             d->AddImageQuad(themeTexture,place(xs[column],ys[row]),place(xs[column+1],ys[row]),place(xs[column+1],ys[row+1]),place(xs[column],ys[row+1]),
-                a,{b.x,a.y},b,{a.x,b.y},tint);
+                a,{b.x,a.y},b,{a.x,b.y},row==1&&column==1?inside:tint);
         }
     }
     void textureFrame(float x,float y,float w,float h,unsigned cell) {
@@ -110,8 +115,8 @@ struct Paint {
         const float cut=theme.frameStyle==1||theme.frameStyle==2?0:std::min(6.f,h*.16f);
         const ImVec2 points[]{p(x+cut,y),p(x+w-cut,y),p(x+w,y+cut),p(x+w,y+h-cut),
             p(x+w-cut,y+h),p(x+cut,y+h),p(x,y+h-cut),p(x,y+cut)};
-        d->AddConvexPolyFilled(points,8,color(dark));
-        d->AddPolyline(points,8,color(selected?theme.selection:theme.border),ImDrawFlags_Closed,std::max(1.f,scale*.8f));
+        d->AddConvexPolyFilled(points,8,color(dark,options.backgroundOpacity));
+        d->AddPolyline(points,8,color(selected?selection():theme.border),ImDrawFlags_Closed,std::max(1.f,scale*.8f));
         if(theme.frameStyle==2) {
             d->AddRect(p(x+3,y+3),p(x+w-3,y+h-3),color(theme.border,.45f),0,0,std::max(1.f,.65f*scale));
             for(float cx:{x,x+w})for(float cy:{y,y+h})diamond(cx,cy,2,accent());
@@ -129,9 +134,9 @@ struct Paint {
 
         circle(x,y,r+2,IM_COL32(0,0,0,90),false,3);
         if(themeTexture) {
-            d->AddImageRounded(themeTexture,p(x-r,y-r),p(x+r,y+r),{772.f/1024,6.f/320},{1020.f/1024,314.f/320},color(IM_COL32_WHITE),r*scale);
-        } else circle(x,y,r,dark,true);
-        circle(x,y,r,selected?theme.selection:theme.border,false,.8f);
+            d->AddImageRounded(themeTexture,p(x-r,y-r),p(x+r,y+r),{772.f/1024,6.f/320},{1020.f/1024,314.f/320},color(IM_COL32_WHITE,options.backgroundOpacity),r*scale);
+        } else d->AddCircleFilled(p(x,y),r*scale,color(dark,options.backgroundOpacity),48);
+        circle(x,y,r,selected?selection():theme.border,false,.8f);
         if(selected) {
             circle(x,y,r-3,accent(),false,.8f);
             d->PathArcTo(p(x,y),(r+3)*scale,.18f*pi,.82f*pi,24);
@@ -146,7 +151,7 @@ struct Paint {
             const float side=r*std::sqrt(2.f);
             slicedFrame(side,side,1,[&](float fx,float fy){const float u=fx/side,v=fy/side;return p(x+(u-v)*r,y-r+(u+v)*r);});
         }
-        else {diamond(x,y,r,dark);diamond(x,y,r,selected?selectionMark:muted,false);}
+        else {diamond(x,y,r,dark,true,options.backgroundOpacity);diamond(x,y,r,selected?selectionMark:muted,false);}
         if(selected){line(x-r+4,y,x,y+r-4,accent(),1.2f);line(x,y+r-4,x+r-4,y,accent(),1.2f);}
     }
     void tile(float x,float y,float r,bool selected,unsigned shape) {
@@ -348,6 +353,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     Paint p{list?list:ImGui::GetBackgroundDrawList(),
         {origin.x+geometry.origin.x+geometry.selectorOrigin.x*scale,origin.y+geometry.origin.y+geometry.selectorOrigin.y*scale},
         geometry.selectorScale,o.selectorOpacity*visibility,chosenFont(o)?chosenFont(o):skin.title,chosenFont(o)?chosenFont(o):skin.body,skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o),itemIcons_,selectorTextFactor(o)};
+    p.tweaks.iconScale=o.iconScale;
     const auto collect=[&](int start,Bounds& box){for(int i=start;i<p.d->VtxBuffer.Size;++i){const auto v=p.d->VtxBuffer[i].pos;box.include({v.x,v.y});}};
     const int selectorStart=p.d->VtxBuffer.Size;const float text=selectorTextFactor(o);
     const float center=geometry.selectorWidth*.5f;
@@ -355,6 +361,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     const auto index=state.browsing?state.preview:state.selected;
     const Row* active=index<state.rows.size()?&state.rows[index]:nullptr;
     const bool selectorVisible=(state.browsing||selectorShown>0)&&visibility>0;
+    const auto groupColor=[&](std::size_t id)->std::optional<ImU32>{return o.groupColored[id]?std::optional(Paint::solid(o.groupColors[id])):std::nullopt;};
     Paint selectorPaint=p;
     {
         const float open=easeOut(selectorShown),zoom=.94f+.06f*open;
@@ -363,7 +370,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     }
     if(selectorVisible) {
         // While closing, the selector keeps showing the entry that was highlighted.
-        auto p=selectorPaint;
+        auto p=selectorPaint;p.groupAccent=groupColor(group);
         const auto index=state.browsing||state.preview<state.rows.size()?state.preview:state.selected;
         const Row* active=index<state.rows.size()?&state.rows[index]:nullptr;
         const auto n=state.rows.size();
@@ -404,13 +411,14 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 }
             } else {
                 p.d->PushClipRect(p.p(0,-32),p.p(layout.width,layout.ruleY-2),true);
-                for(int offset=-2;offset<=2;++offset) {
+                const int reach=int(o.selectorVisible)+1;const float falloff=reach<=2?.30f:.55f/float(reach-1);
+                for(int offset=-reach;offset<=reach;++offset) {
                     if(offset<0&&std::size_t(-offset)>(n-1)/2)continue;
                     if(offset>0&&std::size_t(offset)>n/2)continue;
                     const auto at=std::size_t((int(index)+offset+int(n))%int(n));
                     const auto& row=state.rows[at];
                     const float position=float(offset)+displacement,distance=std::abs(position);
-                    const float opacity=distance<=1?1-.22f*distance:std::max(0.f,.78f-.30f*(distance-1));
+                    const float opacity=distance<=1?1-.22f*distance:std::max(0.f,.78f-falloff*(distance-1));
                     if(o.selector==4) {
                         const float y=layout.centerY+position*layout.listPitch;
                         auto q=p;q.alpha*=opacity;
@@ -489,28 +497,35 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         const float cooldown=selected&&active?active->cooldown:tile.cooldown;
         const auto weapon=selected&&active?active->weapon:tile.weapon;
         const auto pos=geometry.groups.tiles[i];const float x=pos.x,y=pos.y;
-        auto q=groups;q.alpha*=groupAlpha;
+        auto q=groups;q.alpha*=groupAlpha;q.groupAccent=groupColor(id);
+        const ImU32 nameColor=q.groupAccent?*q.groupAccent:selected?ImU32(ivory):ImU32(silver);
         const bool previewing=selected&&state.browsing;
         const auto hands=entry?entryHands(*entry,equipped):0;
 
         const bool emphasized=equipped;
         const bool ready=entry&&isConsumable(*entry)&&tile.consumable&&(!previewing||state.preview==state.selected);
         if(o.shape==0) {
-            const float width=geometry.groups.tileWidth,iconX=x+(o.showCardNames||o.showLabels?25.f:width*.5f);
-            const float h=geometry.groups.tileHeight-7,cy=y+3+h*.5f;
+            // A mirrored card has its icon on the right, its text right-aligned and its key on the left.
+            const bool wide=o.showCardNames||o.showLabels,mirror=o.mirrorCards&&wide;const float side=mirror?-1.f:1.f;
+            const float width=geometry.groups.tileWidth,iconX=x+(!wide?width*.5f:mirror?width-25.f:25.f);
+            const float h=geometry.groups.tileHeight-7,cy=y+3+h*.5f,textX=mirror?x+width-51:x+51;
             q.frame(x,y+3,width,h,emphasized);q.pulse(x,y+3,width,h,0,pulse);
             if(entry){q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted);q.sweep(iconX,cy,18*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));}
             else q.text(iconX,cy-15,"+",24,muted,false,0,true);
             const float block=(o.showLabels&&o.showCardNames?26*text+4:14*text),top=cy-block*.5f;
-            if(o.showLabels)q.label(x+51,top,o.names[id],o.showCardNames?12.f:14.f,silver,true,width-59);
-            if(o.showCardNames)q.label(x+51,top+(o.showLabels?12*text+4:0),entry?displayName(*entry):tr("Empty"),14,entry&&!available?muted:ivory,true,width-59);
-            q.groupKey(x+width-20,y-3,id,previewing,state.controller,state.vr);
+            if(o.showLabels)q.label(textX,top,o.names[id],o.showCardNames?12.f:14.f,q.groupAccent?nameColor:ImU32(silver),true,width-59,false,mirror);
+            if(o.showCardNames)q.label(textX,top+(o.showLabels?12*text+4:0),entry?displayName(*entry):tr("Empty"),14,entry&&!available?muted:ivory,true,width-59,false,mirror);
+            q.groupKey(mirror?x+20:x+width-20,y-3,id,previewing,state.controller,state.vr);
             if(previewing)q.diamond(x+width*.5f,y-3,2.5f,q.accent());
-            if(hands)q.text(iconX-18,cy+((o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned)?-22.f:14.f),handMarker(hands),10*q.mark(),equippedMark);
-            else if(equipped||ready)q.diamond(iconX+18,cy+15,2.5f*q.mark(),equippedMark);
+            if(hands)q.text(iconX-18*side,cy+((o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned)?-22.f:14.f),handMarker(hands),10*q.mark(),equippedMark,false,0,mirror);
+            else if(equipped||ready)q.diamond(iconX+18*side,cy+15,2.5f*q.mark(),equippedMark);
             if(entry)q.badge(iconX+2,cy+9,*entry,quantity,cooldown,11,false,weapon);
         } else {
-            const float cx=x+geometry.groups.tileWidth*.5f;
+            // The tile is drawn at its own size inside the widget; its name keeps the widget's text size.
+            const float size=o.tileSize,tileWidth=geometry.groups.tileWidth/size,tileHeight=geometry.groups.tileHeight/size;
+            const auto corner=q.p(x,y);q.origin=corner;q.scale*=size;q.textFactor/=size;
+            const float x=0,y=0;
+            const float cx=x+tileWidth*.5f;
             const float cy=y+(o.shape==1?37.f:o.shape==2?50.f:44.f);
             const float markerX=cx+(entry&&(isStack(*entry)||cooldown>0||(o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned))?-1.f:1.f)*(o.shape==1?21.f:o.shape==2?28.f:0.f);
             const float markerY=cy+(o.shape==1?21.f:o.shape==2?25.f:30.f);
@@ -524,8 +539,8 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             }
             else {q.line(cx-5,cy,cx+5,cy,muted);q.line(cx,cy-5,cx,cy+5,muted);}
             q.groupKey(cx,y+(o.shape==1?0.f:o.shape==2?9.f:16.f),id,previewing,state.controller,state.vr,o.shape==3?16.f:18.f);
-            if(previewing)q.diamond(cx,y+geometry.groups.tileHeight+2,2.5f,q.accent());
-            if(o.showLabels)q.label(cx,y+(o.shape==1?71.f:o.shape==2?100.f:88.f),o.names[id],12,selected?ivory:silver,true,geometry.groups.tileWidth-2,true);
+            if(previewing)q.diamond(cx,y+tileHeight+2,2.5f,q.accent());
+            if(o.showLabels)q.label(cx,y+(o.shape==1?71.f:o.shape==2?100.f:88.f),o.names[id],12,nameColor,true,tileWidth-2,true);
             if(hands)q.text(cx-27,cy+18,handMarker(hands),10*q.mark(),equippedMark);
             else if(equipped||ready)q.diamond(markerX,markerY,3*q.mark(),equippedMark);
             else if(entry&&!available&&!isStack(*entry)){q.circle(markerX,markerY,5,IM_COL32(22,18,18,230),true);q.line(markerX-3,markerY+3,markerX+3,markerY-3,blood,1.5f);}

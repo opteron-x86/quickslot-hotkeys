@@ -78,6 +78,9 @@ inline void sanitizeOptions(Options& o) {
     o.placementSpacing=std::min(o.placementSpacing,3u);o.placementFrame=std::min(o.placementFrame,3u);
     o.placementGridSize=finite(o.placementGridSize,16,4,128);
     for(auto& c:o.equippedColor)c=finite(c,.9f,0,1);
+    for(auto* color:{&o.textColor,&o.selectionColor})for(auto& c:*color)c=finite(c,.9f,0,1);
+    for(auto& color:o.groupColors)for(auto& c:color)c=finite(c,.5f,0,1);
+    o.gridColumns=std::round(o.gridColumns);
     const auto validId=[](const std::string& id){return !id.empty()&&id.size()<=48&&std::all_of(id.begin(),id.end(),[](unsigned char c){return (c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='-'||c=='_';});};
     if(!validId(o.themeId))o.themeId="minimal";
     if(o.activePreset.size()>80||!validUTF8(o.activePreset))o.activePreset.clear();
@@ -121,7 +124,7 @@ inline std::string encodeOptions(Options o) {
         {"spacing",o.spacing},{"positionX",o.positionX},{"positionY",o.positionY},{"showIdle",o.showIdle},{"showHints",o.showHints},
         {"showPoison",o.showPoison},{"showAmmo",o.showAmmo},
         {"selectorShape",o.selectorShape},{"selectorSpacing",o.selectorSpacing},{"showLabels",o.showLabels},{"showCardNames",o.showCardNames},{"showKeys",o.showKeys},{"placementGrid",o.placementGrid},{"placementSnap",o.placementSnap},{"keyIcons",o.keyIcons},{"coloredMagic",o.coloredMagic}};
-    j["activePreset"]=o.activePreset;
+    j["activePreset"]=o.activePreset;j["textColor"]=o.textColor;j["selectionColor"]=o.selectionColor;j["groupColored"]=o.groupColored;j["groupColors"]=o.groupColors;
     encodeTable(j,o);return j.dump(2);
 }
 inline Options decodeOptions(const std::string& bytes) {
@@ -208,12 +211,17 @@ inline Options decodeOptions(const std::string& bytes) {
     o.customEquippedColor=j.value("customEquippedColor",false);o.equippedColor=j.value("equippedColor",o.equippedColor);
     o.fadeDelay=j.at("fadeDelay").get<decltype(o.fadeDelay)>();o.idleOpacity=j.at("idleOpacity").get<decltype(o.idleOpacity)>();
     o.activePreset=j.value("activePreset",std::string{});
+    o.textColor=j.value("textColor",o.textColor);o.selectionColor=j.value("selectionColor",o.selectionColor);
+    o.groupColored=j.value("groupColored",o.groupColored);o.groupColors=j.value("groupColors",o.groupColors);
     decodeTable(j,o);
     if(j.value("layoutVersion",1)<3) {
         // Earlier files shared one text size and one opacity across the HUD, and widget text kept its size below 100% scale.
         const float scale=std::isfinite(o.scale)&&o.scale>0?o.scale:1,size=std::isfinite(o.textScale)?o.textScale:1,text=size*std::max(1.f,scale)/scale;
         o.equipmentTextScale*=size;o.textScale=o.selectorTextScale=text;
         o.selectorOpacity=o.equipmentOpacity=o.opacity;o.selectorScaleLinked=true;
+        // Icon size was kept per theme; the active theme's value becomes the one icon size.
+        if(const auto it=o.themeAdjustments.find(o.themeId);it!=o.themeAdjustments.end())o.iconScale=it->second.iconScale;
+        for(auto& [id,adjustment]:o.themeAdjustments)adjustment.iconScale=1;
     }
     sanitizeOptions(o);return o;
 }

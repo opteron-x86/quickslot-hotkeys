@@ -8,7 +8,7 @@ namespace quickslot {
 // Sanitizing, the editor's rows and resets all read these tables. Rows marked stored are also
 // read and written by key in the settings file, so a new look setting needs its Options member
 // and one row here.
-enum class Unit {plain,percent,pixels,seconds};
+enum class Unit {plain,percent,pixels,seconds,count};
 enum class Section {theme,widget,selector,equipment,general};
 struct FloatSetting {const char* key;float Options::*value;float low,high,step;Unit unit;Section section;bool stored=false;};
 struct ChoiceSetting {const char* key;unsigned Options::*value;unsigned limit;Section section;bool stored=false;};
@@ -16,10 +16,15 @@ struct FlagSetting {const char* key;bool Options::*value;Section section;bool st
 
 inline constexpr FloatSetting floatSettings[]{
     {"equippedMarkerScale",&Options::equippedMarkerScale,1,2.5f,.05f,Unit::percent,Section::theme},
+    {"iconScale",&Options::iconScale,.5f,1.6f,.05f,Unit::percent,Section::theme,true},
+    {"backgroundOpacity",&Options::backgroundOpacity,0,1,.05f,Unit::percent,Section::theme,true},
     {"scale",&Options::scale,.25f,3,.05f,Unit::percent,Section::widget},
     {"textScale",&Options::textScale,.5f,3,.05f,Unit::percent,Section::widget},
     {"opacity",&Options::opacity,.1f,1,.05f,Unit::percent,Section::widget},
     {"spacing",&Options::spacing,0,128,1,Unit::pixels,Section::widget},
+    {"cardWidth",&Options::cardWidth,60,260,1,Unit::pixels,Section::widget,true},
+    {"tileSize",&Options::tileSize,.6f,2,.05f,Unit::percent,Section::widget,true},
+    {"gridColumns",&Options::gridColumns,1,8,1,Unit::count,Section::widget,true},
     {"offsetX",&Options::offsetX,-8000,8000,1,Unit::pixels,Section::widget,true},
     {"offsetY",&Options::offsetY,-8000,8000,1,Unit::pixels,Section::widget,true},
     {"positionX",&Options::positionX,0,1,.005f,Unit::plain,Section::widget},
@@ -29,6 +34,7 @@ inline constexpr FloatSetting floatSettings[]{
     {"inactiveGroupOpacity",&Options::inactiveGroupOpacity,.05f,.9f,.05f,Unit::percent,Section::widget},
     {"selectorSpacing",&Options::selectorSpacing,0,128,1,Unit::pixels,Section::selector},
     {"selectorGap",&Options::selectorGap,0,100,1,Unit::pixels,Section::selector},
+    {"wheelRadius",&Options::wheelRadius,40,240,1,Unit::pixels,Section::selector,true},
     {"selectorScale",&Options::selectorScale,.25f,3,.05f,Unit::percent,Section::selector,true},
     {"selectorTextScale",&Options::selectorTextScale,.5f,3,.05f,Unit::percent,Section::selector,true},
     {"selectorOpacity",&Options::selectorOpacity,.1f,1,.05f,Unit::percent,Section::selector,true},
@@ -50,12 +56,13 @@ inline constexpr FloatSetting floatSettings[]{
 inline constexpr ChoiceSetting choiceSettings[]{
     {"itemIconColor",&Options::itemIconColor,2,Section::theme},
     {"anchor",&Options::anchor,9,Section::widget,true},
-    {"layout",&Options::layout,5,Section::widget},
+    {"layout",&Options::layout,6,Section::widget},
     {"shape",&Options::shape,3,Section::widget},
     {"inactiveGroups",&Options::inactiveGroups,2,Section::widget},
     {"selectorAnchor",&Options::selectorAnchor,9,Section::selector,true},
     {"selector",&Options::selector,wheelSelector,Section::selector},
     {"selectorShape",&Options::selectorShape,3,Section::selector},
+    {"selectorVisible",&Options::selectorVisible,3,Section::selector,true},
     {"selectorDock",&Options::selectorDock,4,Section::selector},
     {"equipmentAnchor",&Options::equipmentAnchor,9,Section::equipment,true},
     {"equipmentStyle",&Options::equipmentStyle,4,Section::equipment},
@@ -68,6 +75,9 @@ inline constexpr FlagSetting flagSettings[]{
     {"coloredMagic",&Options::coloredMagic,Section::theme},
     {"keyIcons",&Options::keyIcons,Section::theme},
     {"customEquippedColor",&Options::customEquippedColor,Section::theme},
+    {"customTextColor",&Options::customTextColor,Section::theme,true},
+    {"customSelectionColor",&Options::customSelectionColor,Section::theme,true},
+    {"mirrorCards",&Options::mirrorCards,Section::widget,true},
     {"showLabels",&Options::showLabels,Section::widget},
     {"showKeys",&Options::showKeys,Section::widget},
     {"showCardNames",&Options::showCardNames,Section::widget},
@@ -119,7 +129,7 @@ inline void resetSection(Options& o,Section section) {
     for(const auto& s:floatSettings)if(s.section==section)o.*s.value=defaults.*s.value;
     for(const auto& s:choiceSettings)if(s.section==section)o.*s.value=defaults.*s.value;
     for(const auto& s:flagSettings)if(s.section==section)o.*s.value=defaults.*s.value;
-    if(section==Section::theme){o.themeAdjustments.erase(o.themeId);o.themeId=defaults.themeId;o.themeAdjustments.erase(o.themeId);o.fontId=defaults.fontId;o.equippedColor=defaults.equippedColor;}
+    if(section==Section::theme){o.themeAdjustments.erase(o.themeId);o.themeId=defaults.themeId;o.themeAdjustments.erase(o.themeId);o.fontId=defaults.fontId;o.equippedColor=defaults.equippedColor;o.textColor=defaults.textColor;o.selectionColor=defaults.selectionColor;}
 }
 inline void encodeTable(nlohmann::json& j,const Options& o) {
     for(const auto& s:floatSettings)if(s.stored)j[s.key]=o.*s.value;

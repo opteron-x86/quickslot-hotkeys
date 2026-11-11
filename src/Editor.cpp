@@ -576,8 +576,11 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         beginPanel("workspace",{0,contentHeight},ImGuiChildFlags_NavFlattened|(tab_==2?ImGuiChildFlags_Borders:0));
         const auto groupID=state.draft.active;const auto& group=state.draft.current();
         if(tab_==0) {
-            ImGui::SetNextItemWidth(std::max(px(100),ImGui::GetContentRegionAvail().x-px(250)));
+            ImGui::SetNextItemWidth(std::max(px(100),ImGui::GetContentRegionAvail().x-px(390)));
             if(textField("##Group name","",names_[groupID])){options.names[groupID]=names_[groupID].data();changed=true;}
+            ImGui::SameLine();changed|=UI::Checkbox("Color##group",&options.groupColored[groupID]);
+            if(ImGui::IsItemHovered())UI::SetTooltip("Gives this group its own color for its highlights, its name and the selector while it is open.");
+            if(options.groupColored[groupID]){ImGui::SameLine();changed|=ImGui::ColorEdit3("##group color",options.groupColors[groupID].data(),ImGuiColorEditFlags_NoInputs);}
             ImGui::SameLine();UI::TextDisabled("Key");ImGui::SameLine();bindButton(int(groupID),options.keys[groupID],"##group binding");
             ImGui::SetNextItemWidth(px(235));
             if(ImGui::BeginCombo("##group source",tr(favoriteSourceName(group.source)),ImGuiComboFlags_HeightLarge)) {
@@ -1219,7 +1222,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 const auto& s=setting(member);float& value=options.*member;const float fallback=defaultOptions().*member;
                 rowLabel(name);
                 const float shownScale=s.unit==Unit::percent?100.f:1.f;
-                const char* format=s.unit==Unit::percent?"%.0f%%":s.unit==Unit::pixels?"%.0f px":s.unit==Unit::seconds?"%.1f s":"%.3f";
+                const char* format=s.unit==Unit::percent?"%.0f%%":s.unit==Unit::pixels?"%.0f px":s.unit==Unit::seconds?"%.1f s":s.unit==Unit::count?"%.0f":"%.3f";
                 const auto key=std::string("##")+name;
                 ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat,true);
                 if(ImGui::Button(("-"+key).c_str(),{side,side})){value=steppedSetting(s,value,-1);changed=true;}
@@ -1272,13 +1275,20 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     rowLabel("Frame opacity");ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-side-gap));
                     float frameOpacity=tweak.frameOpacity*100;if(UI::SliderFloat("##Frame opacity",&frameOpacity,0,100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){tweak.frameOpacity=frameOpacity/100;tuned=true;}
                     if(resetMark("Frame opacity",tweak.frameOpacity!=1)){tweak.frameOpacity=1;tuned=true;}
-                    rowLabel("Icon size");ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-side-gap));
-                    float iconSize=tweak.iconScale*100;if(UI::SliderFloat("##Icon size",&iconSize,65,120,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){tweak.iconScale=iconSize/100;tuned=true;}
-                    if(resetMark("Icon size",tweak.iconScale!=1)){tweak.iconScale=1;tuned=true;}
                     if(tuned){options.themeAdjustments[options.themeId]=tweak;changed=true;}
                     if(UI::Button("Reset theme",{-1,0})){options.themeAdjustments.erase(options.themeId);changed=true;}
+                    if(ImGui::IsItemHovered())UI::SetTooltip("Restores this theme's accent and frame opacity.");
+                }
+                if(heading("Colors")) {
+                    number("Background opacity",&Options::backgroundOpacity);
+                    if(ImGui::IsItemHovered())UI::SetTooltip("Fades the inside of frames and keeps their borders. Frame opacity fades both.");
+                    flag("Custom text color",&Options::customTextColor);
+                    if(options.customTextColor){ImGui::SameLine();changed|=ImGui::ColorEdit3("##text color",options.textColor.data(),ImGuiColorEditFlags_NoInputs);}
+                    flag("Custom selection color",&Options::customSelectionColor);
+                    if(options.customSelectionColor){ImGui::SameLine();changed|=ImGui::ColorEdit3("##selection color",options.selectionColor.data(),ImGuiColorEditFlags_NoInputs);}
                 }
                 if(heading("Icons")) {
+                    number("Icon size",&Options::iconScale);
                     choice("Icon color","##item icon color",&Options::itemIconColor,"Original\0Theme\0White\0");
                     flag("Use PNGII icons",&Options::pngiiIcons);
                     if(ImGui::IsItemHovered())UI::SetTooltip("Use matching artwork from PNG Icon Injector. I4 supplies the remaining icons.");
@@ -1293,12 +1303,17 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 resetPage(Section::theme);
             } else if(appearancePage_==1) {
                 if(heading("Layout")) {
-                    choice("Arrangement","##layout",&Options::layout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
+                    choice("Arrangement","##layout",&Options::layout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0Grid\0");
+                    if(options.layout==6)number("Columns",&Options::gridColumns);
                     choice("Tile shape","##shape",&Options::shape,"Cards\0Circles\0Squares\0Diamonds\0");
                     number("Spacing",&Options::spacing);
+                    if(options.shape==0&&(options.showCardNames||options.showLabels)){flag("Mirror cards",&Options::mirrorCards);if(ImGui::IsItemHovered())UI::SetTooltip("Puts the icon on the right and aligns the text to it, for a widget on the right side of the screen.");}
                 }
                 if(heading("Size")) {
-                    number("Scale",&Options::scale);number("Text size",&Options::textScale);number("Opacity",&Options::opacity);
+                    number("Scale",&Options::scale);
+                    if(options.shape==0){if(options.showCardNames||options.showLabels)number("Card width",&Options::cardWidth);}
+                    else number("Tile size",&Options::tileSize);
+                    number("Text size",&Options::textScale);number("Opacity",&Options::opacity);
                 }
                 if(heading("Placement")){placementControls(0);place(0);}
                 if(heading("Content")) {
@@ -1326,6 +1341,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(options.selector==wheelSelector)UI::TextWrapped("Every item keeps its place on the wheel. Point at one with the browsing stick or the mouse; scrolling and previous / next still step.");
                     if(options.selector!=4)choice("Item shape","##selector shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
                     number("Spacing",&Options::selectorSpacing);
+                    if(options.selector==wheelSelector)number("Wheel radius",&Options::wheelRadius);
+                    else if(options.selector!=2)choice("Visible items","##selector visible",&Options::selectorVisible,"3\0005\0007\0009\0");
                 }
                 if(heading("Size")) {
                     if(UI::Checkbox("Match widget scale",&options.selectorScaleLinked)){if(!options.selectorScaleLinked)options.selectorScale=options.scale;changed=true;}

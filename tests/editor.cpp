@@ -75,7 +75,7 @@ int main(int argc,char** argv)try {
     auto broken=o;broken.keys[0]=14;broken.keys[1]=broken.keys[2];broken.editorKey=broken.keys[3];broken.scale=NAN;broken.spacing=999;broken.groupCount=999;broken.layout=999;
     sanitizeOptions(broken);check(broken.keys[0]!=14&&broken.keys[1]!=broken.keys[2],"Reserved/duplicate group keys sanitized");
     check(!broken.editorKey||std::find(broken.keys.begin(),broken.keys.end(),broken.editorKey)==broken.keys.end(),"Editor key cannot collide with any group");
-    check(broken.scale==1&&broken.spacing==128&&broken.groupCount==8&&broken.layout==5,"Invalid layout settings bounded");
+    check(broken.scale==1&&broken.spacing==128&&broken.groupCount==8&&broken.layout==6,"Invalid layout settings bounded");
     const auto defaults=decodeOptions(encodeOptions(Options{}));
     check(defaults.editorKey==43&&defaults.editorModifiers==keyModifier::shift,"Shift + backslash is the default and survives reload");
     for(const unsigned shift:{42u,54u}) {
@@ -98,7 +98,7 @@ int main(int argc,char** argv)try {
     }
     const auto complete=Json::parse(settings);
     for(const auto& [field,value]:complete.items()) {
-        if(storedSetting(field)||field=="activePreset")continue;
+        if(storedSetting(field)||field=="activePreset"||field=="textColor"||field=="selectionColor"||field=="groupColored"||field=="groupColors")continue;
         if(field=="swapKey"||field=="doubleTapSwap"||field=="animateHud"||field=="uiSounds"||field=="equippedMarkerScale"||field=="customEquippedColor"||field=="equippedColor"||field=="fontId"||field=="holdDelay"||field=="cycleDelay"||field=="separateConsumableUse"||field=="consumableKey"||field=="controllerUse"||field=="vrUse"||field=="cycleKeepOtherHand"||field=="pngiiIcons"||field=="layoutVersion"||field=="equipmentShowText"||field=="showEquipmentAmmo"||field=="showPoison"||field=="showAmmo"||field=="mouseActions"||field=="groupModifiers"||field=="selectorBindings"||field=="allowUnusedModifiers"||field=="controllerActions")continue;
         if(field=="quickLootKeyboard"||field=="quickLootController"||field=="controllerModifiers"||field=="groupModes"||field=="autoSort"||field=="groupUnequipHotkey"||field=="groupRemoveHotkey"||field=="groupCaptureRightHotkey"||field=="groupCaptureLeftHotkey"||field=="groupMoveHotkey"||field=="selectorReorderHotkey"||field=="selectorUnequipHotkey"||field=="selectorRemoveHotkey"||field=="language"||field=="keepDrawnVisible"||field=="textScale"||field=="placementSpacing"||field=="placementFrame"||field=="placementGridSize"||
            field=="equipmentX"||field=="equipmentY"||field=="equipmentScale"||field=="equipmentTextScale"||field=="equipmentSpacing"||field=="showEquipment"||field=="hideEmptyGroups"||field=="inactiveGroups"||field=="inactiveGroupOpacity"||

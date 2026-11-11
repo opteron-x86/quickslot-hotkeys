@@ -386,6 +386,20 @@ struct Options {
     // The screen area anchors refer to: the full screen or a centered 16:9, 2:1 or 21:9 frame.
     unsigned anchorFrame=0;
     unsigned layout=0,shape=0,selector=0,selectorShape=0;
+    // cardWidth is the name area of a card tile in pixels; tileSize scales circle, square and diamond tiles around their
+    // labels; gridColumns applies to the Grid arrangement. mirrorCards puts a card's icon on the right.
+    float cardWidth=97,tileSize=1,gridColumns=4;
+    bool mirrorCards=false;
+    // Items shown on each side of the selected one in strips, arcs and lists, less one; and the wheel's smallest radius.
+    unsigned selectorVisible=1;
+    float wheelRadius=62;
+    // iconScale sizes every item icon; backgroundOpacity fades the inside of frames and leaves their borders.
+    float iconScale=1,backgroundOpacity=1;
+    bool customTextColor=false,customSelectionColor=false;
+    std::array<float,3> textColor{.9f,.89f,.85f},selectionColor{.91f,.9f,.87f};
+    // A group with its own color uses it for its highlights, its name and the selector while it is open.
+    std::array<bool,Arsenal::count> groupColored{};
+    std::array<std::array<float,3>,Arsenal::count> groupColors=[]{std::array<std::array<float,3>,Arsenal::count> colors;colors.fill({.62f,.25f,.21f});return colors;}();
     float spacing=14,positionX=1,positionY=1;
     float selectorSpacing=16;
     // "auto" follows the installed interface when a pack recognizes it.

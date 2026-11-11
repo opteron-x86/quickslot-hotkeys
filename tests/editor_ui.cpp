@@ -269,6 +269,25 @@ int main(int argc,char** argv)try {
     click("-##Text size");click("-##Text size");check(std::abs(state.options.textScale-(textSize-.05f))<.001f,"The minus button lowers a setting by one step");
     check(!probe::one("##reset Text size").disabled&&probe::one("##reset Opacity").disabled,"The reset mark is available only for a changed setting");
     click("##reset Text size");check(state.options.textScale==Options{}.textScale,"The reset mark restores one setting's default");
+    {
+        // Options that apply to one tile shape or arrangement appear with it.
+        const auto before=state.options;
+        click("##shape");click("Cards");check(!probe::find("##Card width").empty()&&probe::find("##Tile size").empty()&&!probe::find("Mirror cards").empty(),"Cards offer a width and mirroring");
+        click("Mirror cards");click("+##Card width");check(state.options.mirrorCards&&state.options.cardWidth==Options{}.cardWidth+1,"Card options apply live");
+        click("##shape");click("Squares");check(probe::find("##Card width").empty()&&!probe::find("##Tile size").empty()&&probe::find("Mirror cards").empty(),"Other shapes offer a tile size");
+        click("+##Tile size");check(state.options.tileSize>1,"Tile size applies live");
+        check(probe::find("##Columns").empty(),"Columns belong to the grid arrangement");
+        click("##layout");click("Grid");click("-##Columns");check(state.options.layout==6&&state.options.gridColumns==3,"The grid arrangement has a column count");
+        click("Selector");click("##selector");click("Horizontal strip");click("##selector visible");click("7");check(state.options.selectorVisible==2&&probe::find("##Wheel radius").empty(),"Strips choose how many items they show");
+        click("##selector");click("Wheel");check(probe::find("##selector visible").empty()&&!probe::find("##Wheel radius").empty(),"The wheel has a radius in place of a visible count");
+        click("+##Wheel radius");check(state.options.wheelRadius==Options{}.wheelRadius+1,"Wheel radius applies live");
+        click("Theme");click("Custom text color");click("Custom selection color");click("-##Background opacity");click("+##Icon size");
+        check(state.options.customTextColor&&state.options.customSelectionColor&&state.options.backgroundOpacity<1&&state.options.iconScale>1,"Theme colors, background opacity and icon size apply live");
+        click("Groups##main");click("Color##group");check(state.options.groupColored[state.draft.active],"A group can take its own color");
+        click("Appearance");click("Widget");
+        for(unsigned i=0;i<32&&encodeOptions(state.options)!=encodeOptions(before);++i)click("Undo");
+        check(encodeOptions(state.options)==encodeOptions(before),"The new options support Undo");
+    }
     click("##layout");click("Circle");click("##reset Arrangement");check(state.options.layout==Options{}.layout,"Choices have the same reset mark");
     {
         const auto before=state.options;click("##layout");click("Vertical");click("Show group names");click("+##Scale");

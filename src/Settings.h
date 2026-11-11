@@ -36,6 +36,7 @@ inline void sanitizeOptions(Options& o) {
         if(!binding.key)binding.modifiers=0;else selectorAssigned.push_back(binding.key);
     }
     if(!assignConsumableBinding(o,o.consumableKey))o.consumableKey={};
+    if(!assignSwapBinding(o,o.swapKey))o.swapKey={};
     std::vector<int> mouseAssigned;
     for(auto& button:o.mouseActions) {
         if(button< -1||button>4||std::find(mouseAssigned.begin(),mouseAssigned.end(),button)!=mouseAssigned.end())button=-1;
@@ -117,7 +118,7 @@ inline std::string encodeOptions(Options o) {
         {"selectorReorderHotkey",o.selectorReorderHotkey},{"selectorUnequipHotkey",o.selectorUnequipHotkey},{"selectorRemoveHotkey",o.selectorRemoveHotkey},
         {"mouseActions",o.mouseActions},{"groupModifiers",o.groupModifiers},{"selectorBindings",selectorBindings},{"allowUnusedModifiers",o.allowUnusedModifiers},{"controllerActions",controllerActions},
         {"controllerEnabled",o.controllerEnabled},{"controllerBumpers",o.controllerBumpers},{"controllerStyle",o.controllerStyle},{"controllerStick",o.controllerStick},{"controllerDeadzone",o.controllerDeadzone},{"controllerGroups",padGroups},{"controllerEditor",binding(o.controllerEditor)},
-        {"separateConsumableUse",o.separateConsumableUse},{"consumableKey",Json::array({o.consumableKey.key,o.consumableKey.modifiers})},{"controllerUse",binding(o.controllerUse)},{"vrUse",binding(o.vrUse)},
+        {"separateConsumableUse",o.separateConsumableUse},{"consumableKey",Json::array({o.consumableKey.key,o.consumableKey.modifiers})},{"swapKey",Json::array({o.swapKey.key,o.swapKey.modifiers})},{"doubleTapSwap",o.doubleTapSwap},{"controllerUse",binding(o.controllerUse)},{"vrUse",binding(o.vrUse)},
         {"groupModes",modes},{"autoSort",o.autoSort},{"controllerModifiers",o.controllerModifiers},{"vrGroups",vrGroups},{"vrEditor",binding(o.vrEditor)},{"vrStick",o.vrStick},
         {"showEquipment",o.showEquipment},{"showEquipmentAmmo",o.showEquipmentAmmo},{"equipmentX",o.equipmentX},{"equipmentY",o.equipmentY},{"hideEmptyGroups",o.hideEmptyGroups},{"inactiveGroups",o.inactiveGroups},{"inactiveGroupOpacity",o.inactiveGroupOpacity},
         {"equipmentDim",o.equipmentDim},{"equipmentFadeDelay",o.equipmentFadeDelay},{"equipmentIdleOpacity",o.equipmentIdleOpacity},
@@ -161,6 +162,8 @@ inline Options decodeOptions(const std::string& bytes) {
     }
     o.separateConsumableUse=j.value("separateConsumableUse",o.separateConsumableUse);
     if(j.contains("consumableKey")){const auto b=j.at("consumableKey").get<std::array<unsigned,2>>();o.consumableKey={b[0],b[1]};}
+    if(j.contains("swapKey")){const auto b=j.at("swapKey").get<std::array<unsigned,2>>();o.swapKey={b[0],b[1]};}
+    o.doubleTapSwap=j.value("doubleTapSwap",false);
     if(j.contains("groupModes")) {
         const auto modes=j.at("groupModes").get<std::array<unsigned,Arsenal::count>>();
         for(std::size_t i=0;i<Arsenal::count;++i)o.groupModes[i]=GroupMode(modes[i]);

@@ -22,7 +22,11 @@ int main(int argc,char** argv) {
     const auto close=reinterpret_cast<QuickslotAPI::Close>(GetProcAddress(dll,"Quickslot_Close"));
     const auto isOpen=reinterpret_cast<QuickslotAPI::IsMenuOpen>(GetProcAddress(dll,"Quickslot_IsMenuOpen"));
     const auto enable=reinterpret_cast<QuickslotAPI::SetHotkeyEnabled>(GetProcAddress(dll,"Quickslot_SetHotkeyEnabled"));
-    if(!apiVersion||!open||!close||!isOpen||!enable||apiVersion()!=1)return 10;
+    const auto groupCount=reinterpret_cast<QuickslotAPI::GetGroupCount>(GetProcAddress(dll,"Quickslot_GetGroupCount"));
+    const auto tapGroup=reinterpret_cast<QuickslotAPI::TapGroup>(GetProcAddress(dll,"Quickslot_TapGroup"));
+    const auto swapPrevious=reinterpret_cast<QuickslotAPI::SwapPrevious>(GetProcAddress(dll,"Quickslot_SwapPrevious"));
+    if(!apiVersion||!open||!close||!isOpen||!enable||!groupCount||!tapGroup||!swapPrevious||apiVersion()!=2)return 10;
+    if(groupCount()||tapGroup(0)||swapPrevious())return 13;
     if(open()||isOpen())return 11;
     close();enable(false);if(open()||isOpen())return 12;enable(true);
     constexpr auto expectedVersion=(quickslot::release::major<<24)|(quickslot::release::minor<<16)|(quickslot::release::patch<<4)|quickslot::release::revision;

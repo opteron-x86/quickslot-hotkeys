@@ -1,16 +1,21 @@
-# Quickslot menu API — version 1
+# Quickslot API — version 2
 
 Discover the loaded DLL with `GetModuleHandleW(L"Quickslot.dll")`, then resolve exports with `GetProcAddress`. Include `QuickslotAPI.h` for function pointer types. `Example.cpp` shows discovery and the opening handoff.
 
 | Export | Behavior |
 | --- | --- |
-| `Quickslot_GetAPIVersion()` | Returns `1`. |
+| `Quickslot_GetAPIVersion()` | Returns `2`. Check for `2` or higher before resolving the version 2 exports. |
 | `Quickslot_Open()` | Accepts an opening request when ready; returns true for an open editor or pending request. |
 | `Quickslot_Close()` | Closes the editor and cancels pending opening. Live edits remain saved. |
 | `Quickslot_IsMenuOpen()` | Returns the current editor state. |
 | `Quickslot_SetHotkeyEnabled(bool)` | Controls the editor-opening shortcut for this game session; initially enabled. |
+| `Quickslot_GetGroupCount()` | Version 2. Returns the number of groups shown in the widget, or `0` before a game is loaded. |
+| `Quickslot_TapGroup(position)` | Version 2. Queues a tap of the group at a widget position (0-based, in display order). The group equips, uses or cycles exactly as its key does. Returns false before a game is loaded, while the editor is open or for a position past the last group. |
+| `Quickslot_SwapPrevious()` | Version 2. Queues a return to the selection made before the current one. Returns false before a game is loaded or while the editor is open. |
 
 After an accepted `Open()` request, close the launcher and release its input and pause ownership within three seconds. Poll `IsMenuOpen()` for the resulting state. Loading, loss of focus or timeout cancels the request.
+
+Gameplay requests run on the game thread in request order when Quickslot's own hotkeys would be accepted; a request made during a menu, scene or kill move is dropped. Up to 16 requests wait at a time.
 
 Exports use C linkage, Windows x64 calling conventions and `noexcept`. Calls are thread-safe; requests execute on the game thread in request order. `SetHotkeyEnabled` is a shared boolean; restore it when the launcher finishes.
 

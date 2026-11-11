@@ -2,6 +2,10 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "No earlier selection to return to": "No earlier selection to return to",
+    "Return to previous selection": "Return to previous selection",
+    "Double-tap a group to return to the previous selection": "Double-tap a group to return to the previous selection",
+    "Tap a group twice quickly to re-equip what you selected before your current choice. Return to previous selection under Keyboard does the same from one key.": "Tap a group twice quickly to re-equip what you selected before your current choice. Return to previous selection under Keyboard does the same from one key.",
     "· %s / %s: tabs · %s / %s: pages": "· %s / %s: tabs · %s / %s: pages",
     "Delete this preset file?": "Delete this preset file?",
     "Delete preset": "Delete preset",

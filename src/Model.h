@@ -251,6 +251,26 @@ public:
     }
     void cancel(){commit_.reset();}
 };
+// The player's last two equipment choices, so one action can return to the earlier one.
+struct ChoiceHistory {
+    struct Choice {std::size_t group=0;Entry entry;};
+    std::optional<Choice> current,previous;
+    static bool same(const Entry& a,const Entry& b){return a.shortcut&&b.shortcut?a.shortcut==b.shortcut:a.same(b);}
+    void remember(std::size_t group,const Entry& entry) {
+        if(current&&current->group==group&&same(current->entry,entry))return;
+        previous=std::move(current);current=Choice{group,entry};
+    }
+    void clear(){current.reset();previous.reset();}
+    // Group and index of the earlier choice while it is still in its group.
+    std::optional<std::pair<std::size_t,std::size_t>> target(const Arsenal& a)const {
+        if(!previous||previous->group>=Arsenal::count)return {};
+        const auto& entries=a.groups[previous->group].entries;
+        for(std::size_t i=0;i<entries.size();++i)if(same(entries[i],previous->entry))return std::pair{previous->group,i};
+        return {};
+    }
+};
+// Two taps of one group inside this window count as a double tap.
+inline constexpr double doubleTapSeconds=.35;
 inline constexpr unsigned wheelSelector=5;
 // The wheel slot a direction points at. Slot 0 is at the top and slots run clockwise; y grows upward.
 inline std::optional<std::size_t> wheelIndex(float x,float y,std::size_t count,float deadzone) {
@@ -329,6 +349,9 @@ struct Options {
     std::array<GroupMode,Arsenal::count> groupModes{};
     std::array<bool,Arsenal::count> autoSort{},separateConsumableUse{};
     KeyBinding consumableKey;
+    // Returns to the selection made before the current one; doubleTapSwap does the same on a second quick tap of a group.
+    KeyBinding swapKey;
+    bool doubleTapSwap=false;
     PadBinding controllerUse,vrUse;
     bool skipEmpty=false,menuCapture=true,cycleKeepOtherHand=true;
     // Seconds. holdDelay separates a tap from a hold; cycleDelay keeps a tapped choice open before it equips (0 equips at once).
@@ -474,10 +497,10 @@ inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,unsigned mod
     return {};
 }
 inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,bool ctrl){return selectorKeyAction(o,scan,ctrl?keyModifier::ctrl:0u);}
-inline bool selectorKeyReserved(const Options& o,unsigned key){if(key&&key==o.consumableKey.key)return true;for(unsigned i=0;key&&i<o.selectorBindings.size();++i)if(selectorBinding(o,KeyboardAction(i)).key==key)return true;return false;}
+inline bool selectorKeyReserved(const Options& o,unsigned key){if(key&&(key==o.consumableKey.key||key==o.swapKey.key))return true;for(unsigned i=0;key&&i<o.selectorBindings.size();++i)if(selectorBinding(o,KeyboardAction(i)).key==key)return true;return false;}
 inline bool assignSelectorBinding(Options& o,KeyboardAction action,KeyBinding binding) {
     if(action>=KeyboardAction::count||binding.key>255||modifierForScan(binding.key)||(binding.modifiers&~keyModifier::all))return false;
-    if(binding.key&&(binding.key==o.editorKey||binding.key==o.consumableKey.key||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
+    if(binding.key&&(binding.key==o.editorKey||binding.key==o.consumableKey.key||binding.key==o.swapKey.key||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
     if(!binding.key)binding.modifiers=0;
     const auto index=unsigned(action);
     for(unsigned i=0;i<o.selectorBindings.size();++i)if(!selectorActionEnabled(o,KeyboardAction(i)))o.selectorBindings[i]={};
@@ -486,12 +509,25 @@ inline bool assignSelectorBinding(Options& o,KeyboardAction action,KeyBinding bi
     }
     o.selectorBindings[index]=binding;setSelectorActionEnabled(o,action,binding.key!=0);return true;
 }
-inline bool assignConsumableBinding(Options& o,KeyBinding binding) {
+// Dedicated action keys share one rule: free of the editor, group, selector and other action keys.
+inline bool actionKeyAvailable(const Options& o,KeyBinding binding,unsigned otherAction) {
     if(binding.key>255||modifierForScan(binding.key)||(binding.modifiers&~keyModifier::all))return false;
-    if(binding.key&&(binding.key==o.editorKey||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
+    if(binding.key&&(binding.key==o.editorKey||binding.key==otherAction||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
     for(unsigned i=0;binding.key&&i<o.selectorBindings.size();++i)if(selectorBinding(o,KeyboardAction(i)).key==binding.key)return false;
+    return true;
+}
+inline bool assignConsumableBinding(Options& o,KeyBinding binding) {
+    if(!actionKeyAvailable(o,binding,o.swapKey.key))return false;
     if(!binding.key)binding.modifiers=0;
     o.consumableKey=binding;return true;
+}
+inline bool assignSwapBinding(Options& o,KeyBinding binding) {
+    if(!actionKeyAvailable(o,binding,o.consumableKey.key))return false;
+    if(!binding.key)binding.modifiers=0;
+    o.swapKey=binding;return true;
+}
+inline bool swapShortcutMatches(const Options& o,unsigned key,unsigned modifiers) {
+    return o.swapKey.key&&o.swapKey.key==key&&o.swapKey.modifiers==modifiers;
 }
 inline bool consumableShortcutMatches(const Options& o,unsigned key,unsigned modifiers) {
     return o.consumableKey.key&&o.consumableKey.key==key&&o.consumableKey.modifiers==modifiers;
@@ -595,6 +631,7 @@ inline bool addGroup(Arsenal& a,Options& o) {
     const auto id=o.groupOrder[o.groupCount];resetGroup(a,o,id);
     const Options defaults;
     o.keys[id]=nextGroupBinding(o,o.keys,defaults.keys,o.editorKey,o.consumableKey.key);
+    if(o.keys[id]&&o.keys[id]==o.swapKey.key)o.keys[id]=0;
     o.controllerGroups[id]=nextGroupBinding(o,o.controllerGroups,defaults.controllerGroups,o.controllerEditor,o.controllerUse);
     o.vrGroups[id]=nextGroupBinding(o,o.vrGroups,defaults.vrGroups,o.vrEditor,o.vrUse);
     o.names[id]="Group "+std::to_string(o.keys[id]?o.keys[id]-1:o.groupCount+1);

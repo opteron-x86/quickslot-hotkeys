@@ -826,12 +826,13 @@ bool Game::allowHudMenuTransition() {
 void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
     if(arsenal_.presetIdentity.empty()){GUID id{};if(SUCCEEDED(CoCreateGuid(&id))){char key[40];std::snprintf(key,sizeof(key),"%08lx%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",id.Data1,id.Data2,id.Data3,id.Data4[0],id.Data4[1],id.Data4[2],id.Data4[3],id.Data4[4],id.Data4[5],id.Data4[6],id.Data4[7]);arsenal_.presetIdentity=key;}}
     if(auto* devices=RE::BSInputDeviceManager::GetSingleton())controllerLast_=controllerConnected_=REL::Module::IsVR()||devices->IsGamepadEnabled();
-    revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);
+    revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);menuAPI().publishGroups(unsigned(options_.groupCount));dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);
     if(!loadNotice_.empty()){notice(loadNotice_);snapshot_.noticeUntil=clockNow()+10;RE::SendHUDMessage::ShowHUDMessage(loadNotice_.c_str());loadNotice_.clear();}}
 void Game::reset(bool clear) {
     invalidateI4Icons();
     std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;
     if(clear){arsenal_=Arsenal{};preservedRecord_.reset();}
+    choices_.clear();lastTapAt_=0;
     snapshot_=Snapshot{};groupRecall_.reset();keyboardOwned_.fill(false);mouseOwned_.fill(false);controller_.reset();stickOwned_.fill(false);nativeVoiceDown_=false;
 }
 void Game::queueEdit(int action,std::optional<std::size_t> index) {
@@ -929,6 +930,12 @@ void Game::finishSelection() {
     selection_.tick(clockNow());
     if(selection_.held()&&selection_.tapCycles()&&!selection_.browsing()&&(dirty_||options_.cycleKeepOtherHand))refresh();
     if(auto commit=selection_.release(arsenal_.current(),arsenal_.active)) {
+        if(options_.doubleTapSwap&&!commit->browsed&&!commit->hand) {
+            // A second quick tap of the same group returns to the earlier selection.
+            const auto now=clockNow();const bool second=lastTapGroup_==arsenal_.active&&now-lastTapAt_<=doubleTapSeconds;
+            lastTapGroup_=arsenal_.active;lastTapAt_=second?0:now;
+            if(second&&choices_.target(arsenal_)){selectionTime(false);swapPrevious(selectionController_);return;}
+        }
         const bool recall=groupRecall_.activate(arsenal_.active);
         if(commit->cycling) {
             std::vector<bool> available,blocked;for(const auto& row:snapshot_.rows){available.push_back(row.available);blocked.push_back(row.cycleBlocked);}
@@ -948,6 +955,24 @@ void Game::commitCycle(const Selection::Commit& commit) {
     else {selectionTime(true);sound("UIMenuPrevNext");}
 }
 void Game::sound(const char* id){if(options_.uiSounds)RE::PlaySound(id);}
+void Game::rememberChoice(std::size_t group,const Entry& entry){if(!isConsumable(entry)&&!isVoice(entry))choices_.remember(group,entry);}
+// Re-selects the choice made before the current one, through the same path as a group tap.
+void Game::swapPrevious(bool controller) {
+    if(voice_.active()){notice(tr("Voice action in progress"));return;}
+    const auto target=choices_.target(arsenal_);
+    if(!target||!groupVisible(options_,target->first)){notice(tr("No earlier selection to return to"));return;}
+    cancel();activate(target->first);selectionController_=controller;groupRecall_.activate(target->first);
+    if(dirty_)refresh();
+    if(auto commit=selection_.request(arsenal_.current(),target->first,target->second)) {
+        commit->controller=controller;released_=Released{*commit};snapshot_.revealUntil=clockNow()+2;dirty_=true;
+    }
+}
+// Presses and releases a group on another mod's behalf.
+void Game::tapGroup(std::size_t group,bool controller) {
+    if(voice_.active()||!groupVisible(options_,group))return;
+    cancel();activate(group);beginSelection(group,controller);
+    if(selection_.held())finishSelection();
+}
 bool Game::wheelOpen()const{return options_.selector==wheelSelector&&selection_.canBrowse();}
 // Wheel selectors highlight the entry the stick or mouse points at.
 void Game::pointSelection(float x,float y,std::optional<std::size_t> index) {
@@ -1104,6 +1129,7 @@ bool Game::consume(RE::InputEvent* event) {
         auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
         const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
         if(consumableShortcutMatches(options_,code,modifiers)){*owned=true;queueConsumable(false);return true;}
+        if(swapShortcutMatches(options_,code,modifiers)){*owned=true;swapPrevious(false);return true;}
     }
     const auto key=std::find(options_.keys.begin(),options_.keys.end(),code);
     if(keyboard&&code&&key!=options_.keys.end()&&groupVisible(options_,std::size_t(key-options_.keys.begin()))&&button->IsDown()) {
@@ -1230,6 +1256,11 @@ void Game::tick() {
         if(customMenuProbeAt_&&clockNow()>=customMenuProbeAt_) {
             customMenuProbeAt_=0;
             SKSE::GetTaskInterface()->AddUITask([]{logCustomMenu("settled");});
+        }
+        for(const auto& action:menuAPI().takeActions()) {
+            if(editor_.open||!allowed())continue;
+            if(action.type==MenuAPIState::Action::Type::swapPrevious)swapPrevious(controllerLast_);
+            else if(action.group<options_.groupCount)tapGroup(options_.groupOrder[action.group],controllerLast_);
         }
         const auto apiCommand=menuAPI().take();
         if(apiCommand==MenuAPIState::Command::close){closeEditor("menu API close request");publish();}
@@ -1583,7 +1614,7 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         if(!resolved.row.available){notice(resolved.row.detail.empty()?(isStack(entry)?tr("Out of stock — "):tr("Unavailable — "))+entryLabel(entry):resolved.row.detail);dirty_=true;return;}
         if(castVoice&&(item.cooldown>0||item.powerUsed)){notice(item.cooldown>0?tr("Shout recharging"):tr("Power recharging"));dirty_=true;return;}
         if(unequip&&!item.equipped){notice(tr("Already unequipped — ")+entryLabel(entry),false);return;}
-        if(!unequip&&item.equipped){arsenal_.current().selected=commit.index;if(castVoice)startVoice(entry);else notice(isHandAction(entry)?handName(entry)+tr(" already empty"):tr("Ready — ")+entryLabel(entry),false);dirty_=true;refresh();publish();return;}
+        if(!unequip&&item.equipped){arsenal_.current().selected=commit.index;rememberChoice(commit.group,saved);if(castVoice)startVoice(entry);else notice(isHandAction(entry)?handName(entry)+tr(" already empty"):tr("Ready — ")+entryLabel(entry),false);dirty_=true;refresh();publish();return;}
         if(keepOtherHand&&movesOtherHandWeapon(entry,item.equipped,item.otherEquipped)){notice(tr("Weapons in the other hand skipped"));dirty_=true;return;}
         const bool move=!unequip&&item.otherEquipped;
 
@@ -1626,7 +1657,7 @@ void Game::equipPairStep(const Selection::Commit& commit,int step,bool remove,st
         if(!state.available){pending_.reset();notice(tr("Combination stopped — ")+state.detail);return;}
     }
     if(step>=2) {
-        if(!remove)arsenal_.current().selected=commit.index;
+        if(!remove){arsenal_.current().selected=commit.index;rememberChoice(commit.group,combo);}
         pending_.reset();dirty_=true;refresh();
         const auto state=resolveShortcut(*plan,player,inventory,{},{}).row;
         if(combo.kind==Kind::unarmed)log::info("Unarmed complete: both hands empty {}",state.equipped);
@@ -1653,7 +1684,7 @@ void Game::progressEquipment() {
     case EquipmentProgress::complete:
         if(isHandAction(entry))log::info("Clear hand confirmed: {}",unsigned(entry.hand));
         if(pending.pairStep>=0){pending_.reset();equipPairStep(commit,pending.pairStep+1,pending.remove,pending.action);break;}
-        if(pending.phase!=EquipmentPhase::unequipping)arsenal_.current().selected=commit.index;
+        if(pending.phase!=EquipmentPhase::unequipping){arsenal_.current().selected=commit.index;rememberChoice(commit.group,saved);}
         notice(isHandAction(entry)?handName(entry)+tr(" empty"):(pending.phase==EquipmentPhase::unequipping?tr("Unequipped — "):isVoice(entry)?tr("Selected — "):tr("Equipped — "))+entryLabel(entry),false);
         pending_.reset();if(pending.castVoice)startVoice(entry);dirty_=true;refresh();break;
     case EquipmentProgress::equipAfterMove:
@@ -1951,7 +1982,7 @@ void Game::applyEditor() {
     if(encodeOptions(options_)!=encodeOptions(editor_.options))autosave_.change(clockNow());
     arsenal_=editor_.draft;options_=editor_.options;cancel();dirty_=true;
     if(options_.holdDelay<=0)options_.holdDelay=Options{}.holdDelay;
-    selection_.holdSeconds=options_.holdDelay;
+    selection_.holdSeconds=options_.holdDelay;menuAPI().publishGroups(unsigned(options_.groupCount));
     editor_.canUndo=editHistory_.canUndo();editor_.canRevert=editHistory_.canRevert();
     editor_.settingsPending=autosave_.pending();editor_.saveError=settingsError_;
     refreshEditor();publish();

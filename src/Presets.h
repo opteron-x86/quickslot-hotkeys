@@ -31,7 +31,7 @@ inline void importAppearance(Options& target,const Options& source) {
     target.quickLootKeyboard=previous.quickLootKeyboard;target.quickLootController=previous.quickLootController;
     target.controllerModifiers=previous.controllerModifiers;
     target.groupModes=previous.groupModes;target.separateConsumableUse=previous.separateConsumableUse;
-    target.consumableKey=previous.consumableKey;target.controllerUse=previous.controllerUse;target.vrUse=previous.vrUse;
+    target.consumableKey=previous.consumableKey;target.swapKey=previous.swapKey;target.doubleTapSwap=previous.doubleTapSwap;target.controllerUse=previous.controllerUse;target.vrUse=previous.vrUse;
     target.autoSort=previous.autoSort;
     target.controllerGroups=previous.controllerGroups;target.controllerEditor=previous.controllerEditor;
     target.controllerStick=previous.controllerStick;target.controllerDeadzone=previous.controllerDeadzone;target.controllerStyle=previous.controllerStyle;

@@ -79,6 +79,12 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     CycleConfirm cycleConfirm_;
     void commitCycle(const Selection::Commit&);
     void sound(const char* descriptor);
+    ChoiceHistory choices_;
+    double lastTapAt_=0;
+    std::size_t lastTapGroup_=Arsenal::count;
+    void rememberChoice(std::size_t group,const Entry&);
+    void swapPrevious(bool controller);
+    void tapGroup(std::size_t group,bool controller);
     WheelPointer wheelPointer_;
     float wheelX_=0,wheelY_=0;
     bool wheelOpen()const;

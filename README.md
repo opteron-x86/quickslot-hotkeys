@@ -81,6 +81,8 @@ Left/Right browsing and Ctrl + Left/Right reordering wrap at both ends. Activati
 
 **Ctrl + group key** adds the equipped right hand or highlighted Inventory/Magic item; **Ctrl + Shift + group key** adds the left hand. **Shift + group key** unequips the remembered entry; **Alt + group key** removes its shortcut. While browsing, **Ctrl + destination group key** moves the highlighted shortcut to that group.
 
+**Return to previous selection** re-equips the weapon, spell or combination you selected before your current one; using it again swaps back. Bind it under **Controls → Keyboard**. With **Controls → General → Double-tap a group to return to the previous selection**, two quick taps of the group you are on do the same from keyboard or controller.
+
 All keyboard actions are configured under **Controls → Keyboard → Remap actions…**. For a group editing action, choose a modifier combination or **None** to disable it. For browsing, selected-item and cancel keys, click the binding to assign it, or use **Clear** (Escape during capture also clears). Assigning an occupied binding swaps the actions. **Reset keyboard actions** restores the default bindings. Upgrades preserve your bindings and disabled actions.
 
 To use Left Alt for walking, set **Remove group shortcut** to **None** or another modifier, then enable **Allow group selection with unused modifiers**. This setting lets unused modifier chords select groups. It starts disabled.
@@ -154,7 +156,7 @@ MO2 stores generated settings in Overwrite or the configured output mod. Keep th
 
 For bug reports, include reproduction steps, the game version and `Quickslot.log` from `Documents/My Games/Skyrim Special Edition/SKSE` (`Skyrim VR` for VR). Include a crash log for crashes.
 
-The [menu API](src/API/README.md) supports editor opening, closing, state queries and shortcut control.
+The [API](src/API/README.md) supports editor opening, closing, state queries and shortcut control, plus group taps and returning to the previous selection from other mods.
 
 IME authors can find text-routing instructions in the [integration guide](src/API/README.md#ime-text-input).
 

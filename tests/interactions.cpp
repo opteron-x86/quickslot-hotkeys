@@ -819,6 +819,29 @@ int main()try {
         }
         check(std::abs(selectorGeometry(round,6).ring[0].x-selectorGeometry(round,6).hub.x)<.01f&&selectorGeometry(round,6).ring[0].y<selectorGeometry(round,6).hub.y,"The first wheel slot sits at the top");
         round.selector=9;sanitizeOptions(round);check(round.selector==wheelSelector,"The wheel is the last selector style");
+        {
+            Arsenal loadout;Entry blade;blade.form=0x700;blade.owner=0x14;blade.unique=1;blade.name="Blade";Entry bow;bow.form=0x701;bow.owner=0x14;bow.unique=2;bow.kind=Kind::bow;bow.twoHanded=true;bow.name="Bow";
+            Entry staff;staff.form=0x702;staff.owner=0x14;staff.unique=3;staff.kind=Kind::staff;staff.name="Staff";
+            loadout.groups[0].add(blade);loadout.groups[0].add(staff);loadout.groups[1].add(bow);
+            ChoiceHistory history;check(!history.target(loadout),"There is nothing to return to before two selections");
+            history.remember(0,blade);history.remember(0,blade);check(!history.target(loadout),"Re-selecting the same entry keeps one choice");
+            history.remember(1,bow);check(history.target(loadout)==std::pair<std::size_t,std::size_t>{0,0},"The earlier selection is the return target");
+            history.remember(0,blade);check(history.target(loadout)==std::pair<std::size_t,std::size_t>{1,0},"Returning swaps the two choices so the action toggles");
+            history.remember(0,staff);loadout.groups[0].reorder(0,1);check(history.target(loadout)==std::pair<std::size_t,std::size_t>{0,1},"The target follows its entry after reordering");
+            history.remember(1,bow);loadout.groups[0].selected=1;loadout.groups[0].remove();check(history.target(loadout)==std::pair<std::size_t,std::size_t>{0,0},"Removing another entry keeps the target");
+            loadout.groups[0].selected=0;loadout.groups[0].remove();check(!history.target(loadout),"A removed entry is no longer a target");
+            history.clear();check(!history.current&&!history.previous,"Loading a game clears the history");
+            Options keys;check(assignSwapBinding(keys,{47,0})&&swapShortcutMatches(keys,47,0)&&!swapShortcutMatches(keys,47,keyModifier::shift),"The return action takes a key and exact modifiers");
+            check(!assignSwapBinding(keys,{keys.keys[0],0})&&!assignConsumableBinding(keys,{47,0})&&!assignGroupKey(keys,0,47)&&!assignSelectorBinding(keys,KeyboardAction::cancel,{47,0}),"The return key stays distinct from group, consumable and selector keys");
+            keys.doubleTapSwap=true;auto kept=decodeOptions(encodeOptions(keys));check(kept.swapKey==KeyBinding{47,0}&&kept.doubleTapSwap,"The return binding and double tap persist");
+            Options other;importAppearance(kept,other);check(kept.swapKey==KeyBinding{47,0}&&kept.doubleTapSwap,"Appearance presets leave the return binding in place");
+            MenuAPIState actions;check(!actions.requestAction({MenuAPIState::Action::Type::swapPrevious,0})&&actions.groups()==0,"Gameplay requests wait for a loaded game");
+            actions.publish(true,false);actions.publishGroups(3);
+            check(actions.groups()==3&&actions.requestAction({MenuAPIState::Action::Type::tapGroup,2})&&!actions.requestAction({MenuAPIState::Action::Type::tapGroup,3}),"Group taps are limited to the groups shown");
+            check(actions.requestAction({MenuAPIState::Action::Type::swapPrevious,0})&&actions.takeActions().size()==2&&actions.takeActions().empty(),"Requests reach the game thread once, in order");
+            actions.publish(true,true);check(!actions.requestAction({MenuAPIState::Action::Type::swapPrevious,0}),"Gameplay requests are declined while the editor is open");
+            actions.publish(false,false);check(actions.groups()==0,"Unloading clears the published group count");
+        }
         Options imported;imported.holdDelay=.5f;imported.cycleDelay=2;Options look;look.themeId="edge";importAppearance(imported,look);
         check(imported.themeId=="edge"&&imported.holdDelay==.5f&&imported.cycleDelay==2,"Appearance presets leave timing settings in place");
     }

@@ -298,9 +298,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
     for(const auto press:downs_) {
         const auto scan=press.scan;
         if(binding_!=-1) {
-            if(binding_==-3) {
+            if(binding_==-3||binding_==-4) {
                 if(modifierForScan(scan))continue;
-                if(!assignConsumableBinding(options,scan==1?KeyBinding{}:KeyBinding{scan,press.modifiers})){hint_=tr("Key already assigned");continue;}
+                const auto chosen=scan==1?KeyBinding{}:KeyBinding{scan,press.modifiers};
+                if(!(binding_==-3?assignConsumableBinding(options,chosen):assignSwapBinding(options,chosen))){hint_=tr("Key already assigned");continue;}
                 changed=true;binding_=-1;hint_.clear();break;
             }
             if(binding_>=100) {
@@ -343,7 +344,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
     padDowns_.clear();
     downs_.clear();
     const auto bindButton=[&](int index,unsigned key,const char* id) {
-        const auto text=(binding_==index?std::string(tr("Press a key…")):shortcutName(key,index==-2?options.editorModifiers:index==-3?options.consumableKey.modifiers:0))+id;
+        const auto text=(binding_==index?std::string(tr("Press a key…")):shortcutName(key,index==-2?options.editorModifiers:index==-3?options.consumableKey.modifiers:index==-4?options.swapKey.modifiers:0))+id;
         const float width=index< -1?std::max(px(150),ImGui::CalcTextSize(text.c_str(),nullptr,true).x+px(20)):px(95);
         if(UI::Button(text.c_str(),{width,0})){binding_=index;hint_=tr(index==-2?"Press a key · Esc cancels":index==-3?"Press a key · Esc clears":"Press a key · Esc clears · Used group keys swap");}
         if(index>=0) {
@@ -836,6 +837,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             changed|=UI::Checkbox("Skip unavailable items",&options.skipEmpty);
             changed|=UI::Checkbox("Keep the other hand equipped while cycling",&options.cycleKeepOtherHand);
             if(ImGui::IsItemHovered())UI::SetTooltip("Tap-to-cycle skips one-handed weapon copies held in the other hand. Smart weapons choose an eligible copy. Browsing hand actions can move a weapon between hands.");
+            changed|=UI::Checkbox("Double-tap a group to return to the previous selection",&options.doubleTapSwap);
+            if(ImGui::IsItemHovered())UI::SetTooltip("Tap a group twice quickly to re-equip what you selected before your current choice. Return to previous selection under Keyboard does the same from one key.");
             changed|=UI::Checkbox("Interface sounds",&options.uiSounds);
             if(ImGui::IsItemHovered())UI::SetTooltip("Plays Skyrim's menu sounds when the selector opens, moves and cancels.");
             changed|=UI::Checkbox("Add from Inventory / Magic",&options.menuCapture);
@@ -864,6 +867,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             ImGui::SameLine();if(UI::Button("Clear##editor binding")){options.editorKey=options.editorModifiers=0;binding_=-1;changed=true;hint_.clear();}
             label(tr("Use selected consumable"));bindButton(-3,options.consumableKey.key,"##consumable binding");ImGui::SameLine();
             if(UI::Button("Clear##consumable binding")){assignConsumableBinding(options,{});binding_=-1;changed=true;hint_.clear();}
+            label(tr("Return to previous selection"));bindButton(-4,options.swapKey.key,"##swap binding");ImGui::SameLine();
+            if(UI::Button("Clear##swap binding")){assignSwapBinding(options,{});binding_=-1;changed=true;hint_.clear();}
             ImGui::Separator();label(tr("Actions"));
             UI::TextWrapped("Configure each action in one place. Choose None or clear a binding to disable it.");
             if(UI::Button("Remap actions…"))ImGui::OpenPopup("Keyboard action bindings");

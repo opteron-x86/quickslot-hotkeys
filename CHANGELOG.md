@@ -7,6 +7,8 @@
 - Set the **Hold delay** that separates a tap from a hold under **Controls → General → Timing**.
 - Inventory and Magic capture messages follow the selected language.
 - **Show keys** has one control, under **Appearance → Groups**.
+- **Return to previous selection** re-equips the entry you selected before your current one, and pressing it again swaps back. Bind a key under **Controls → Keyboard**, or enable **Controls → General → Double-tap a group to return to the previous selection**.
+- API version 2 adds `Quickslot_GetGroupCount`, `Quickslot_TapGroup` and `Quickslot_SwapPrevious` for other mods. See the [API guide](src/API/README.md).
 - The editor shows item artwork beside each inventory choice and group entry.
 - In the editor, the controller's shoulder buttons change tabs and its triggers change pages within Appearance and Controls.
 - Delete presets from **Presets** with **Delete preset**.

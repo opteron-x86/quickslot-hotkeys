@@ -1266,6 +1266,7 @@ void Game::tick() {
             customMenuProbeAt_=0;
             SKSE::GetTaskInterface()->AddUITask([]{logCustomMenu("settled");});
         }
+        if(!REL::Module::IsVR())if(const auto device=devicePreset_.update(controllerLast_&&options_.controllerEnabled,clockNow(),ready_&&!editor_.open&&!selection_.held()))applyDevicePreset(*device);
         for(const auto& action:menuAPI().takeActions()) {
             if(editor_.open||!allowed())continue;
             if(action.type==MenuAPIState::Action::Type::swapPrevious)swapPrevious(controllerLast_);
@@ -1997,6 +1998,17 @@ void Game::applyEditor() {
     editor_.settingsPending=autosave_.pending();editor_.saveError=settingsError_;
     refreshEditor();publish();
 }
+// Applies the look chosen for the input device that just came into use.
+void Game::applyDevicePreset(bool controller) {
+    const auto name=devicePreset(options_,controller);if(name.empty())return;
+    try {
+        auto next=applyPresetLook(options_,name,dataDirectory()/"Quickslot/Presets");sanitizeOptions(next);
+        if(encodeOptions(next)==encodeOptions(options_))return;
+        options_=std::move(next);dirty_=true;
+        if(!characterSettings_){sharedOptions_=options_;autosave_.change(clockNow());}
+        log::info("Applied the {} preset: {}",controller?"controller":"keyboard and mouse",name);publish();
+    }catch(const std::exception& e){log::warn("The {} preset {} could not be applied: {}",controller?"controller":"keyboard and mouse",name,e.what());}
+}
 void Game::refreshPresets() {
     try {
         const auto folder=dataDirectory()/"Quickslot/Presets";editor_.presets=listPresets(folder);
@@ -2020,7 +2032,12 @@ bool Game::presetCommand(const EditCommand& c) {
             if(std::filesystem::exists(to)){editor_.message=tr("A preset with that name already exists");return false;}
             if(rename)std::filesystem::rename(from,to);else std::filesystem::copy_file(from,to);
             refreshPresets();
-            if(rename&&editor_.options.activePreset==c.presetName){editor_.options.activePreset=c.presetTarget;++editor_.revision;applyEditor();}
+            if(rename) {
+                // Settings that name the preset follow it to its new name.
+                bool followed=false;
+                for(auto* name:{&editor_.options.activePreset,&editor_.options.controllerPreset,&editor_.options.keyboardPreset})if(*name==c.presetName){*name=c.presetTarget;followed=true;}
+                if(followed){++editor_.revision;applyEditor();}
+            }
             editor_.message=tr(rename?"Renamed: ":"Copied: ")+c.presetTarget;log::info("Preset {}: {} -> {}",rename?"renamed":"copied",c.presetName,c.presetTarget);return false;
         }
         if(c.action==EditAction::builtinPreset) {

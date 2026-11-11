@@ -45,6 +45,7 @@ inline void copyGroupSetup(Options& target,const Options& source) {
 }
 inline void copyPreferences(Options& target,const Options& source) {
     target.language=source.language;target.uiSounds=source.uiSounds;target.activePreset=source.activePreset;
+    target.controllerPreset=source.controllerPreset;target.keyboardPreset=source.keyboardPreset;
 }
 inline void importAppearance(Options& target,const Options& source) {
     const auto previous=target;target=source;
@@ -140,6 +141,17 @@ inline std::string readPreset(const std::filesystem::path& folder,const std::str
     if(!std::filesystem::is_regular_file(path)||std::filesystem::file_size(path)>8388608)throw std::runtime_error("Invalid preset file");
     std::ifstream file(path,std::ios::binary);std::string bytes;bytes.resize(std::size_t(std::filesystem::file_size(path)));
     file.read(bytes.data(),std::streamsize(bytes.size()));if(!file||file.peek()!=std::char_traits<char>::eof())throw std::runtime_error("Could not read preset");return bytes;
+}
+// The current settings with the look of a built-in preset or a preset file, which then becomes the preset in use.
+inline Options applyPresetLook(const Options& current,const std::string& name,const std::filesystem::path& folder) {
+    Options result;
+    if(builtinPreset(name))result=applyBuiltin(current,name);
+    else {
+        const auto j=Json::parse(readPreset(folder,name));
+        if(j.at("format")!="Quickslot preset"||j.at("version")!=1)throw std::runtime_error("Unsupported preset");
+        result=mergeOptions(current,decodeOptions(j.at("options").dump()),presetPart::look);
+    }
+    result.activePreset=name;return result;
 }
 // What the editor shows for each preset file: its scope and, for previews, its settings.
 inline std::map<std::string,PresetInfo> describePresets(const std::filesystem::path& folder,const std::vector<std::string>& names) {

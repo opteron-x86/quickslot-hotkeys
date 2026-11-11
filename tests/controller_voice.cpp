@@ -384,6 +384,27 @@ int main()try {
         check(restoredLook.layout==Options{}.layout&&restoredLook.themeId==Options{}.themeId&&restoredLook.names==mine.names&&restoredLook.skipEmpty&&restoredLook.language=="ru","The Default preset restores the look alone");
         check(encodeOptions(applyBuiltin(mine,"builtin:unknown"))==encodeOptions(mine)&&builtinPreset("builtin:circle")&&!builtinPreset("Circle"),"Built-in ids are distinct from file names");
         mine.activePreset=std::string(200,'x');sanitizeOptions(mine);check(mine.activePreset.empty(),"An oversized preset name is discarded");
+        // Device presets: applied once, a moment after a device comes into use.
+        DevicePresetSwitch devices;devices.reset(false);
+        check(!devices.update(false,0,true)&&!devices.update(false,5,true),"The device in use at the start applies nothing");
+        check(!devices.update(true,10,true)&&!devices.update(true,10.5,true),"A new device waits a moment before its preset applies");
+        check(devices.update(true,11.1,true)==std::optional(true)&&!devices.update(true,12,true),"A controller applies its preset once");
+        check(!devices.update(false,20,true)&&!devices.update(true,20.4,true)&&!devices.update(true,21.3,true)&&devices.update(true,21.5,true)==std::optional(true),"A brief touch of the other device restarts the wait");
+        check(!devices.update(false,30,false)&&!devices.update(false,40,false)&&devices.update(false,40.1,true)==std::optional(false),"The switch waits while the editor or selector is in use");
+        Options set;set.controllerPreset="builtin:circle";set.keyboardPreset="Desk";set.activePreset="Desk";
+        check(devicePreset(set,true)=="builtin:circle"&&devicePreset(set,false).empty(),"A device preset applies unless it is already the one in use");
+        set.controllerPreset.clear();check(devicePreset(set,true).empty(),"A device without a preset leaves the look alone");
+        const auto folder=std::filesystem::temp_directory_path()/"quickslot-device-presets";std::filesystem::remove_all(folder);std::filesystem::create_directories(folder);
+        {Options desk;desk.themeId="norden";desk.layout=1;desk.keys[0]=59;std::ofstream file(folder/"Desk.json",std::ios::binary);file<<exportPreset(Arsenal{},desk,true,[](std::uint32_t){return Json{};});}
+        Options playing;playing.themeId="edge";playing.names[0]="Blades";playing.controllerPreset="builtin:circle";playing.keyboardPreset="Desk";
+        const auto couch=applyPresetLook(playing,"builtin:circle",folder);
+        check(couch.layout==4&&couch.shape==1&&couch.themeId=="edge"&&couch.activePreset=="builtin:circle"&&couch.names[0]=="Blades","A built-in device preset rearranges the HUD");
+        const auto desk=applyPresetLook(couch,"Desk",folder);
+        check(desk.themeId=="norden"&&desk.layout==1&&desk.keys==playing.keys&&desk.names[0]=="Blades"&&desk.activePreset=="Desk","A saved device preset applies its look and keeps controls and groups");
+        check(desk.controllerPreset=="builtin:circle"&&desk.keyboardPreset=="Desk","Device preset choices survive the presets they apply");
+        {bool failed=false;try{applyPresetLook(playing,"Missing",folder);}catch(const std::exception&){failed=true;}check(failed,"A missing device preset is reported");}
+        const auto reloaded=decodeOptions(encodeOptions(desk));check(reloaded.controllerPreset=="builtin:circle"&&reloaded.keyboardPreset=="Desk","Device preset choices persist");
+        std::filesystem::remove_all(folder);
     }
     for(const auto kind:{Kind::power,Kind::lesserPower,Kind::shout}) {
         Entry e;e.kind=kind;Selection::Commit c{0,0,0};Options controls;

@@ -54,7 +54,7 @@ inline bool apply(EditorState& s,const EditCommand& c,EditHistory& history) {
     if(c.action==EditAction::renamePreset||c.action==EditAction::copyPreset) {
         if(!presets.contains(c.presetName)||presets.contains(c.presetTarget)||!validPresetName(c.presetTarget))return false;
         presets[c.presetTarget]=presets.at(c.presetName);
-        if(c.action==EditAction::renamePreset){presets.erase(c.presetName);if(s.options.activePreset==c.presetName)s.options.activePreset=c.presetTarget;}
+        if(c.action==EditAction::renamePreset){presets.erase(c.presetName);for(auto* name:{&s.options.activePreset,&s.options.controllerPreset,&s.options.keyboardPreset})if(*name==c.presetName)*name=c.presetTarget;}
         describe();++s.revision;return true;
     }
     if(c.action==EditAction::builtinPreset){if(!builtinPreset(c.presetName))return false;history.prepare(s.draft,s.options);s.options=applyBuiltin(s.options,c.presetName);s.options.activePreset=c.presetName;history.finish(true,false,0);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;++s.restoreSerial;rows(s);return true;}

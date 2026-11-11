@@ -41,6 +41,8 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     EditorState editor_;
     EditHistory editHistory_;
     SettingsAutosave autosave_;
+    DevicePresetSwitch devicePreset_;
+    void applyDevicePreset(bool controller);
     std::string settingsError_;
     std::string loadNotice_;
     // The shared settings file's contents, and whether this character's save carries its own settings instead.

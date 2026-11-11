@@ -456,6 +456,10 @@ int main(int argc,char** argv)try {
     click("Field kit");click("Delete preset");check(state.presets.size()==1,"Deleting a preset asks first");
     click("Cancel");check(state.presets.size()==1,"Cancelling keeps the preset");
     click("Delete preset");click("Delete");check(state.presets.empty()&&probe::find("Field kit").empty(),"Confirming removes the preset from the list");
+    click("Appearance");click("General");click("##controller preset");click("Circle");click("##keyboard preset");click("Default");
+    check(state.options.controllerPreset=="builtin:circle"&&state.options.keyboardPreset=="builtin:default","Each input device can be given a preset");
+    click("##controller preset");click("None");check(state.options.controllerPreset.empty(),"A device preset can be cleared");
+    click("Presets");
     click("Default");click("Apply preset");
     {const auto look=mergeOptions(Options{},state.options,presetPart::look);check(encodeOptions(look)==encodeOptions(Options{})&&state.options.activePreset=="builtin:default","The Default preset restores the whole look");}
     check(state.options.names[1]=="Offhand"&&state.options.keys==Options{}.keys,"Default keeps group names and bindings");click("Undo");

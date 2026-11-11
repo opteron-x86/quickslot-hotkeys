@@ -1406,6 +1406,23 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(ImGui::IsItemHovered())UI::SetTooltip("Anchors hold on to this area. On an ultrawide screen, 16:9 keeps the HUD within the central part of the screen.");
                 }
                 flag("Animate opening and fading",&Options::animateHud);
+                if(!state.vr&&heading("Input device presets")) {
+                    // Each device can have a preset whose look is applied when that device comes into use.
+                    const auto devicePreset=[&](const char* name,const char* key,std::string& chosen) {
+                        rowLabel(name);ImGui::SetNextItemWidth(-1);
+                        const auto* builtin=builtinPreset(chosen);const bool listed=std::find(state.presets.begin(),state.presets.end(),chosen)!=state.presets.end();
+                        const auto shown=chosen.empty()?std::string(tr("None")):builtin?std::string(tr(builtin->name)):listed?chosen:chosen+" "+tr("(missing)");
+                        if(ImGui::BeginCombo(key,shown.c_str())) {
+                            if(ImGui::Selectable(tr("None"),chosen.empty())){chosen.clear();changed=true;}
+                            ImGui::PushID("builtin");for(const auto& preset:builtinPresets)if(ImGui::Selectable(translatedLabel(preset.name).c_str(),chosen==preset.id)){chosen=preset.id;changed=true;}ImGui::PopID();
+                            ImGui::PushID("files");for(const auto& preset:state.presets)if(ImGui::Selectable(preset.c_str(),chosen==preset)){chosen=preset;changed=true;}ImGui::PopID();
+                            ImGui::EndCombo();
+                        }
+                    };
+                    devicePreset("Controller","##controller preset",options.controllerPreset);
+                    devicePreset("Keyboard and mouse","##keyboard preset",options.keyboardPreset);
+                    UI::TextWrapped("Applies the preset's look when you start using that device. Choose one for each device to switch back and forth; changes you make afterwards stay until the device changes again.");
+                }
                 if(ImGui::IsItemHovered())UI::SetTooltip("Eases the widget in, opens and closes the selector, and pulses a group when its item equips or is used.");
                 resetPage(Section::general);
                 if(UI::Button("Reset all appearance",{-1,0})){auto c=command(EditAction::builtinPreset,groupID);c.presetName="builtin:default";emit(c);}

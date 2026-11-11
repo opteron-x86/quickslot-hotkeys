@@ -22,6 +22,7 @@
 - In the editor, the controller's shoulder buttons change tabs and its triggers change pages within Appearance and Controls.
 - **Presets** is a preset manager. Built-in **Default**, **Cross**, **Diamond** and **Circle** presets sit above your own; selecting or pointing at a preset shows it in a preview. **Rename**, **Duplicate**, **Update preset** and **Delete preset** manage your files, and **Current look** names the preset in use and marks it as modified once you change something.
 - **Apply preset** takes the parts you tick: **Look**, **Controls** and, from a complete setup, **Groups**. Language and interface sounds stay as you set them.
+- **Appearance → General → Input device presets** applies a chosen preset's look when you start using a controller, and another when you return to keyboard and mouse.
 - **Appearance → General → Reset all appearance** applies the Default preset. The Cross, Diamond and Circle layout buttons are now those built-in presets.
 - The controller's on-screen keyboard includes common punctuation.
 - Added a **Wheel** selector under **Appearance → Selector**. Every item keeps its place around a hub; point at one with the browsing stick or the mouse and release the group key or button to select it. The camera stays still while the mouse points. Scrolling and previous / next still step through the wheel.

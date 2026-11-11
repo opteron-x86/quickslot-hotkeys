@@ -406,6 +406,8 @@ struct Options {
     std::string themeId="auto";
     // The preset last applied or saved: a file name or a built-in id. The editor shows whether the look still matches it.
     std::string activePreset;
+    // Presets whose look is applied when a controller, or the keyboard and mouse, comes into use. Empty leaves the look alone.
+    std::string controllerPreset,keyboardPreset;
     // Empty follows the theme's fonts; see Hud::FontChoice for other values.
     std::string fontId;
     std::string language="auto";
@@ -439,6 +441,24 @@ struct Options {
     unsigned placementSpacing=1,placementFrame=0;
     float placementGridSize=16;
 };
+// Decides when to apply the preset chosen for an input device: once, after the device has been in use for a moment.
+class DevicePresetSwitch {
+    bool controller_=false,pending_=false;double since_=0;
+public:
+    static constexpr double delay=1;
+    void reset(bool controller){controller_=controller;pending_=false;}
+    // Returns the device that came into use (true for a controller) when its preset is due. `ready` holds the switch back, for example while the editor is open.
+    std::optional<bool> update(bool controller,double now,bool ready) {
+        if(controller!=controller_){controller_=controller;pending_=true;since_=now;}
+        if(!pending_||!ready||now-since_<delay)return {};
+        pending_=false;return controller_;
+    }
+};
+// The preset to apply for a device, or empty when none is set or it is already the one in use.
+inline std::string devicePreset(const Options& o,bool controller) {
+    const auto& name=controller?o.controllerPreset:o.keyboardPreset;
+    return name==o.activePreset?std::string{}:name;
+}
 inline bool editorShortcutMatches(const Options& o,unsigned scan,unsigned modifiers) {
     return o.editorKey&&scan==o.editorKey&&modifiers==o.editorModifiers;
 }

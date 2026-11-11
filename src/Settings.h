@@ -83,7 +83,7 @@ inline void sanitizeOptions(Options& o) {
     o.gridColumns=std::round(o.gridColumns);
     const auto validId=[](const std::string& id){return !id.empty()&&id.size()<=48&&std::all_of(id.begin(),id.end(),[](unsigned char c){return (c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='-'||c=='_';});};
     if(!validId(o.themeId))o.themeId="minimal";
-    if(o.activePreset.size()>80||!validUTF8(o.activePreset))o.activePreset.clear();
+    for(auto* name:{&o.activePreset,&o.controllerPreset,&o.keyboardPreset})if(name->size()>80||!validUTF8(*name))name->clear();
     if(o.fontId.size()>128||std::any_of(o.fontId.begin(),o.fontId.end(),[](unsigned char c){return c<32;}))o.fontId.clear();
     for(auto it=o.themeAdjustments.begin();it!=o.themeAdjustments.end();) {
         if(!validId(it->first)){it=o.themeAdjustments.erase(it);continue;}
@@ -124,7 +124,7 @@ inline std::string encodeOptions(Options o) {
         {"spacing",o.spacing},{"positionX",o.positionX},{"positionY",o.positionY},{"showIdle",o.showIdle},{"showHints",o.showHints},
         {"showPoison",o.showPoison},{"showAmmo",o.showAmmo},
         {"selectorShape",o.selectorShape},{"selectorSpacing",o.selectorSpacing},{"showLabels",o.showLabels},{"showCardNames",o.showCardNames},{"showKeys",o.showKeys},{"placementGrid",o.placementGrid},{"placementSnap",o.placementSnap},{"keyIcons",o.keyIcons},{"coloredMagic",o.coloredMagic}};
-    j["activePreset"]=o.activePreset;j["textColor"]=o.textColor;j["selectionColor"]=o.selectionColor;j["groupColored"]=o.groupColored;j["groupColors"]=o.groupColors;
+    j["activePreset"]=o.activePreset;j["controllerPreset"]=o.controllerPreset;j["keyboardPreset"]=o.keyboardPreset;j["textColor"]=o.textColor;j["selectionColor"]=o.selectionColor;j["groupColored"]=o.groupColored;j["groupColors"]=o.groupColors;
     encodeTable(j,o);return j.dump(2);
 }
 inline Options decodeOptions(const std::string& bytes) {
@@ -210,7 +210,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.animateHud=j.value("animateHud",true);o.uiSounds=j.value("uiSounds",true);o.equippedMarkerScale=j.value("equippedMarkerScale",1.f);
     o.customEquippedColor=j.value("customEquippedColor",false);o.equippedColor=j.value("equippedColor",o.equippedColor);
     o.fadeDelay=j.at("fadeDelay").get<decltype(o.fadeDelay)>();o.idleOpacity=j.at("idleOpacity").get<decltype(o.idleOpacity)>();
-    o.activePreset=j.value("activePreset",std::string{});
+    o.activePreset=j.value("activePreset",std::string{});o.controllerPreset=j.value("controllerPreset",std::string{});o.keyboardPreset=j.value("keyboardPreset",std::string{});
     o.textColor=j.value("textColor",o.textColor);o.selectionColor=j.value("selectionColor",o.selectionColor);
     o.groupColored=j.value("groupColored",o.groupColored);o.groupColors=j.value("groupColors",o.groupColors);
     decodeTable(j,o);

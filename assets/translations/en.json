@@ -2,6 +2,11 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "Input device presets": "Input device presets",
+    "Keyboard and mouse": "Keyboard and mouse",
+    "(missing)": "(missing)",
+    "None": "None",
+    "Applies the preset's look when you start using that device. Choose one for each device to switch back and forth; changes you make afterwards stay until the device changes again.": "Applies the preset's look when you start using that device. Choose one for each device to switch back and forth; changes you make afterwards stay until the device changes again.",
     "Restores this theme's accent and frame opacity.": "Restores this theme's accent and frame opacity.",
     "Colors": "Colors",
     "Background opacity": "Background opacity",

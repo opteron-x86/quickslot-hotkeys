@@ -335,6 +335,11 @@ struct Options {
     unsigned selectorDock=0;
     float selectorGap=12,selectorX=.75f,selectorY=.4f;
     bool animateScroll=true,fadeIdle=false,keepCombatVisible=true,keepDrawnVisible=false;
+    // animateHud eases the HUD in, opens and closes the selector, and pulses a tile when its item equips.
+    bool animateHud=true,uiSounds=true;
+    float equippedMarkerScale=1;
+    bool customEquippedColor=false;
+    std::array<float,3> equippedColor{.91f,.9f,.87f};
     float fadeDelay=4,idleOpacity=.35f;
     float scale=1,textScale=1,opacity=.92f;
     bool showIdle=true,showHints=false,showLabels=true,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;

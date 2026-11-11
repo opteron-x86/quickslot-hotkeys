@@ -825,6 +825,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             changed|=UI::Checkbox("Skip unavailable items",&options.skipEmpty);
             changed|=UI::Checkbox("Keep the other hand equipped while cycling",&options.cycleKeepOtherHand);
             if(ImGui::IsItemHovered())UI::SetTooltip("Tap-to-cycle skips one-handed weapon copies held in the other hand. Smart weapons choose an eligible copy. Browsing hand actions can move a weapon between hands.");
+            changed|=UI::Checkbox("Interface sounds",&options.uiSounds);
+            if(ImGui::IsItemHovered())UI::SetTooltip("Plays Skyrim's menu sounds when the selector opens, moves and cancels.");
             changed|=UI::Checkbox("Add from Inventory / Magic",&options.menuCapture);
             if(ImGui::IsItemHovered())UI::SetTooltip("Disable to leave Inventory / Magic capture to another mod. Capture also requires its right- or left-hand shortcut to be enabled under Keyboard.");
             label(tr("Game speed while selecting"));int timeMode=int(selectionClock(options.selectionSpeed));ImGui::SetNextItemWidth(px(300));
@@ -1054,6 +1056,9 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 changed|=UI::Checkbox("Key icons",&options.keyIcons);
                 changed|=UI::Checkbox("Show poisoned weapons",&options.showPoison);
                 changed|=UI::Checkbox("Show bow ammunition",&options.showAmmo);
+                label(tr("Equipped marker size"));ImGui::SetNextItemWidth(-1);changed|=UI::SliderFloat("##Equipped marker size",&options.equippedMarkerScale,1,2.5f,"%.2fx");
+                changed|=UI::Checkbox("Custom equipped color",&options.customEquippedColor);
+                if(options.customEquippedColor){ImGui::SetNextItemWidth(-1);changed|=ImGui::ColorEdit3("##equipped color",options.equippedColor.data(),ImGuiColorEditFlags_NoInputs);}
                 if(UI::Button("Reset theme",{-1,0})){options.themeAdjustments.erase(options.themeId);changed=true;}
             } else if(appearancePage_==1) {
                 label(tr("Layout presets"));
@@ -1074,6 +1079,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 combo("Position","##selector dock",options.selectorDock,"Above widget\0Below widget\0Left of widget\0Right of widget\0Independent\0");
                 if(options.selectorDock!=4)slider("Distance",options.selectorGap,0,100);
                 changed|=UI::Checkbox("Animate scrolling",&options.animateScroll);
+                changed|=UI::Checkbox("Animate opening and fading",&options.animateHud);
+                if(ImGui::IsItemHovered())UI::SetTooltip("Eases the widget in, opens and closes the selector, and pulses a group when its item equips or is used.");
                 changed|=UI::Checkbox("Show selector hints",&options.showHints);
             } else if(appearancePage_==3) {
                 label(tr("Visibility"));ImGui::SetNextItemWidth(-1);int visibility=int(equipmentVisibility(options));

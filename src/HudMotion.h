@@ -1,5 +1,6 @@
 #pragma once
 #include "Model.h"
+#include <map>
 
 namespace quickslot {
 enum class WidgetVisibility {always,fade,hide,selecting};
@@ -22,6 +23,55 @@ struct FadePolicy {
     float fadeDelay=4,idleOpacity=.35f;
 };
 
+inline float easeOut(float t){t=std::clamp(t,0.f,1.f);return 1-(1-t)*(1-t)*(1-t);}
+// Display-side easing toward a target. A value rises over `rise` seconds and falls over `fall`;
+// zero follows the target at once. After a pause in drawing it starts again from zero.
+class Eased {
+    float shown_=0;
+    double last_=0;
+    bool started_=false;
+public:
+    float update(float target,double now,float rise,float fall=0) {
+        double elapsed=started_?now-last_:-1;last_=now;
+        // A fresh start begins one frame in, so the first frame already draws.
+        if(elapsed<0||elapsed>.5){started_=true;shown_=0;elapsed=1./60;}
+        const float step=float(elapsed);
+        if(target>shown_)shown_=rise>0?std::min(target,shown_+step/rise):target;
+        else if(target<shown_)shown_=fall>0?std::max(target,shown_-step/fall):target;
+        return shown_;
+    }
+    float value()const{return shown_;}
+};
+// Marks the moment a group's item becomes equipped, changes while equipped, or is used.
+class TilePulse {
+    bool seen_=false,equipped_=false;
+    std::uint32_t form_=0;
+    std::uint16_t unique_=0;
+    int quantity_=0;
+    double started_=-1;
+public:
+    static constexpr double duration=.45;
+    // Returns progress from 0 to 1 while a pulse plays and -1 otherwise.
+    float update(bool present,bool equipped,std::uint32_t form,std::uint16_t unique,int quantity,bool stack,double now) {
+        const bool changed=form!=form_||unique!=unique_;
+        if(seen_&&present&&((equipped&&(!equipped_||changed))||(stack&&!changed&&quantity<quantity_)))started_=now;
+        seen_=true;equipped_=present&&equipped;form_=form;unique_=unique;quantity_=quantity;
+        const double progress=started_<0?-1:(now-started_)/duration;
+        return progress>=0&&progress<1?float(progress):-1;
+    }
+    void reset(){seen_=false;started_=-1;}
+};
+// Turns a remaining cooldown into a fraction of the longest value seen for that power.
+class CooldownScale {
+    std::map<std::uint32_t,float> peak_;
+public:
+    float fraction(std::uint32_t form,float remaining) {
+        if(!(remaining>0)){peak_.erase(form);return 0;}
+        auto& peak=peak_[form];peak=std::max(peak,remaining);
+        if(peak_.size()>64)peak_.erase(peak_.begin());
+        return std::clamp(remaining/peak,0.f,1.f);
+    }
+};
 class ScrollMotion {
     bool active_=false;
     std::size_t group_=0,count_=0,index_=0;

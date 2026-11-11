@@ -41,7 +41,7 @@ struct Paint {
     ImU32 color(ImU32 c,float opacity=1)const {
         switch(c) {
         case ivory:c=theme.text;break;case silver:c=theme.secondary;break;case muted:c=theme.muted;break;case dark:c=theme.background;break;
-        case blood:c=theme.warning;break;case selectionMark:c=theme.selection;break;case equippedMark:c=theme.equipped;break;
+        case blood:c=theme.warning;break;case selectionMark:c=theme.selection;break;case equippedMark:c=options.customEquippedColor?ImU32(rgba(unsigned(options.equippedColor[0]*255),unsigned(options.equippedColor[1]*255),unsigned(options.equippedColor[2]*255))):theme.equipped;break;
         case poisonMark:c=theme.poison;break;case depletedMark:c=theme.depleted;break;default:break;
         }
         return (c&0xffffff)|(ImU32(float(c>>24)*std::clamp(alpha*opacity,0.f,1.f))<<24);
@@ -161,6 +161,25 @@ struct Paint {
             d->AddImage(supplied->mask,p(x-size*.5f+1,y-size*.5f+2),p(x+size*.5f+1,y+size*.5f+2),{0,0},{1,1},color(IM_COL32(0,0,0,150)));
             d->AddImage(itemIconTexture(*supplied,options.itemIconColor,unavailable),p(x-size*.5f,y-size*.5f),p(x+size*.5f,y+size*.5f),{0,0},{1,1},tint);
             return;
+        }
+    }
+    float mark()const{return options.equippedMarkerScale;}
+    // An expanding outline in the accent color; t runs from 0 to 1. Shapes: 1 circle, 3 diamond, otherwise rectangle.
+    void pulse(float x,float y,float w,float h,unsigned shape,float t) {
+        if(t<0||t>=1)return;
+        const float grow=7*easeOut(t),width=std::max(1.f,(2.2f-1.2f*t)*scale);const auto c=color(accent(),(1-t)*(1-t));
+        const float cx=x+w*.5f,cy=y+h*.5f;
+        if(shape==1)d->AddCircle(p(cx,cy),(w*.5f+grow)*scale,c,48,width);
+        else if(shape==3){const float r=w*.5f+grow*1.4f;const ImVec2 points[]{p(cx,cy-r),p(cx+r,cy),p(cx,cy+r),p(cx-r,cy)};d->AddPolyline(points,4,c,ImDrawFlags_Closed,width);}
+        else d->AddRect(p(x-grow,y-grow),p(x+w+grow,y+h+grow),c,2*scale,0,width);
+    }
+    // A clockwise shade over an icon covering the remaining share of a cooldown.
+    void sweep(float x,float y,float r,float fraction) {
+        if(!(fraction>0))return;
+        const int segments=std::max(2,int(32*std::min(fraction,1.f)));const float span=2*pi*std::min(fraction,1.f);const auto shade=color(IM_COL32(0,0,0,150));
+        for(int i=0;i<segments;++i) {
+            const float a=-pi*.5f+span*float(i)/float(segments),b=-pi*.5f+span*float(i+1)/float(segments);
+            d->AddTriangleFilled(p(x,y),p(x+std::cos(a)*r,y+std::sin(a)*r),p(x+std::cos(b)*r,y+std::sin(b)*r),shade);
         }
     }
     void rule(float x,float y,float half=70) {
@@ -298,7 +317,11 @@ EquipmentMetrics Hud::equipmentMetrics(const EquippedDisplay& state,const Option
 }
 void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,ImVec2 viewport,ImDrawList* list,HudBounds* bounds) {
     if(bounds)*bounds={};
-    const auto displacement=motion_.update(state,o,now);const auto visibility=fade_.update(state,o,now);
+    const auto displacement=motion_.update(state,o,now);const auto visibilityTarget=fade_.update(state,o,now);
+    // Editor previews show the settled layout; gameplay eases the HUD in and the selector open and closed.
+    const bool animate=o.animateHud&&!state.editorPreview;
+    const auto visibility=animate?shown_.update(visibilityTarget,now,.12f,.15f):visibilityTarget;
+    const float selectorTarget=state.browsing?1.f:0.f,selectorShown=animate?selectorOpen_.update(selectorTarget,now,.1f,.08f):selectorTarget;
     const auto equipmentAlpha=equipmentFade_.update(state,o,now);
     if(visibility<=0&&equipmentAlpha<=0)return;
     const bool notification=!state.notice.empty()&&now<state.noticeUntil;
@@ -317,16 +340,28 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     const auto group=std::min(state.activeGroup,Arsenal::count-1);
     const auto index=state.browsing?state.preview:state.selected;
     const Row* active=index<state.rows.size()?&state.rows[index]:nullptr;
-    if(state.browsing&&visibility>0) {
+    const bool selectorVisible=(state.browsing||selectorShown>0)&&visibility>0;
+    Paint selectorPaint=p;
+    {
+        const float open=easeOut(selectorShown),zoom=.94f+.06f*open;
+        selectorPaint.alpha*=open;selectorPaint.scale*=zoom;
+        selectorPaint.origin.x+=geometry.selectorWidth*scale*(1-zoom)*.5f;selectorPaint.origin.y+=geometry.selectorHeight*scale*(1-zoom)*.5f;
+    }
+    if(selectorVisible) {
+        // While closing, the selector keeps showing the entry that was highlighted.
+        auto p=selectorPaint;
+        const auto index=state.browsing||state.preview<state.rows.size()?state.preview:state.selected;
+        const Row* active=index<state.rows.size()?&state.rows[index]:nullptr;
         const auto n=state.rows.size();
         p.d->PushClipRect(p.p(0,-32),p.p(geometry.selectorWidth,geometry.selectorHeight+24),true);
         const auto node=[&](const Row& row,float x,float y,float r,bool selected,unsigned shape,float opacity) {
             auto nodePaint=p;nodePaint.alpha*=opacity;
             nodePaint.tile(x,y,r,selected,shape);
             nodePaint.icon(x,y,r*1.48f,rowIconEntry(row),row.available?nodePaint.itemColor(rowIconEntry(row)):muted);
+            nodePaint.sweep(x,y,r*.74f*nodePaint.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));
             const float marker=x+(isStack(row.entry)||row.cooldown>0||(o.showAmmo&&row.weapon.ammunition>=0)||(o.showPoison&&row.weapon.poisoned)?-1.f:1.f)*r*.7f;
             if(!row.available&&!isStack(row.entry)){nodePaint.circle(marker,y+r*.7f,6,IM_COL32(22,18,18,240),true);nodePaint.line(marker-3,y+r*.7f+3,marker+3,y+r*.7f-3,blood,1.6f);}
-            else if(row.equipped)nodePaint.diamond(marker,y+r*.7f,3.5f,equippedMark);
+            else if(row.equipped)nodePaint.diamond(marker,y+r*.7f,3.5f*nodePaint.mark(),equippedMark);
             nodePaint.badge(x+r*.58f,y+r*.5f,row.entry,row.quantity,row.cooldown,selected?15:12,false,row.weapon);
         };
         const auto layout=selectorGeometry(o,n,displacement);
@@ -353,8 +388,9 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                         auto q=p;q.alpha*=opacity;
                         q.frame(12,y-layout.listHeight*.5f,layout.width-24,layout.listHeight,offset==0);
                         q.icon(37,y,32,rowIconEntry(row),row.available?q.itemColor(rowIconEntry(row)):muted);
+                        q.sweep(37,y,16*q.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));
                         q.label(66,y-8*text,displayName(row.entry),16,row.available?ivory:muted,true,layout.width-92);
-                        if(row.equipped)q.diamond(53,y+15,2.5f,equippedMark);
+                        if(row.equipped)q.diamond(53,y+15,2.5f*q.mark(),equippedMark);
                         else if(!row.available&&!isStack(row.entry)){q.circle(53,y+15,4,IM_COL32(22,18,18,240),true);q.line(50,y+18,56,y+12,blood,1.4f);}
                         q.badge(35,y+8,row.entry,row.quantity,row.cooldown,11,false,row.weapon);
                     } else {
@@ -401,7 +437,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             p.label(center,y+46,tr("No items"),22,ivory,true,layout.width-24,true);
         }
     }
-    if(state.browsing&&visibility>0)p.d->PopClipRect();
+    if(selectorVisible)p.d->PopClipRect();
     if(bounds)collect(selectorStart,bounds->selector);
     const int widgetStart=p.d->VtxBuffer.Size;
     Paint groups=p;groups.origin={origin.x+geometry.origin.x+geometry.groupOrigin.x*scale,origin.y+geometry.origin.y+geometry.groupOrigin.y*scale};
@@ -413,6 +449,9 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         if(groupAlpha<=0)continue;
         const auto& tile=state.groups[id];const bool selected=id==group;
         const auto* entry=selected&&active?&active->entry:tile.entry?&*tile.entry:nullptr;
+        // The pulse follows the group's own remembered item, whatever the selector is previewing.
+        const auto* identity=tile.iconEntry?&*tile.iconEntry:tile.entry?&*tile.entry:nullptr;
+        const float pulse=animate?pulses_[id].update(identity!=nullptr,tile.equipped,identity?identity->form:0,identity?identity->unique:std::uint16_t(0),tile.quantity,identity&&isStack(*identity),now):-1;
         const auto* artwork=selected&&active?&rowIconEntry(*active):tile.iconEntry?&*tile.iconEntry:entry;
         const bool equipped=selected&&active?active->equipped:tile.equipped;
         const bool available=selected&&active?active->available:tile.available;
@@ -429,32 +468,36 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         if(o.shape==0) {
             const float width=geometry.groups.tileWidth,iconX=x+(o.showCardNames||o.showLabels?25.f:width*.5f);
             const float h=geometry.groups.tileHeight-7,cy=y+3+h*.5f;
-            q.frame(x,y+3,width,h,emphasized);
-            if(entry)q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted);
+            q.frame(x,y+3,width,h,emphasized);q.pulse(x,y+3,width,h,0,pulse);
+            if(entry){q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted);q.sweep(iconX,cy,18*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));}
             else q.text(iconX,cy-15,"+",24,muted,false,0,true);
             const float block=(o.showLabels&&o.showCardNames?26*text+4:14*text),top=cy-block*.5f;
             if(o.showLabels)q.label(x+51,top,o.names[id],o.showCardNames?12.f:14.f,silver,true,width-59);
             if(o.showCardNames)q.label(x+51,top+(o.showLabels?12*text+4:0),entry?displayName(*entry):tr("Empty"),14,entry&&!available?muted:ivory,true,width-59);
             q.groupKey(x+width-20,y-3,id,previewing,state.controller,state.vr);
             if(previewing)q.diamond(x+width*.5f,y-3,2.5f,q.accent());
-            if(hands)q.text(iconX-18,cy+((o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned)?-22.f:14.f),handMarker(hands),10,equippedMark);
-            else if(equipped||ready)q.diamond(iconX+18,cy+15,2.5f,equippedMark);
+            if(hands)q.text(iconX-18,cy+((o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned)?-22.f:14.f),handMarker(hands),10*q.mark(),equippedMark);
+            else if(equipped||ready)q.diamond(iconX+18,cy+15,2.5f*q.mark(),equippedMark);
             if(entry)q.badge(iconX+2,cy+9,*entry,quantity,cooldown,11,false,weapon);
         } else {
             const float cx=x+geometry.groups.tileWidth*.5f;
             const float cy=y+(o.shape==1?37.f:o.shape==2?50.f:44.f);
             const float markerX=cx+(entry&&(isStack(*entry)||cooldown>0||(o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned))?-1.f:1.f)*(o.shape==1?21.f:o.shape==2?28.f:0.f);
             const float markerY=cy+(o.shape==1?21.f:o.shape==2?25.f:30.f);
-            if(o.shape==1)q.medallion(cx,cy,29,emphasized);
-            else if(o.shape==2)q.frame(cx-41,y,82,100,emphasized,o.layout==5?(i==0?0u:i==2?1u:2u):1u);
-            else q.lozenge(cx,cy,42,emphasized);
-            if(entry)q.icon(cx,cy+(o.shape==3?6.f:0.f),o.shape==2?54.f:o.shape==3?36.f:40.f,*artwork,available?q.itemColor(*artwork):muted);
+            if(o.shape==1){q.medallion(cx,cy,29,emphasized);q.pulse(cx-29,cy-29,58,58,1,pulse);}
+            else if(o.shape==2){q.frame(cx-41,y,82,100,emphasized,o.layout==5?(i==0?0u:i==2?1u:2u):1u);q.pulse(cx-41,y,82,100,0,pulse);}
+            else {q.lozenge(cx,cy,42,emphasized);q.pulse(cx-42,cy-42,84,84,3,pulse);}
+            if(entry) {
+                const float iconY=cy+(o.shape==3?6.f:0.f),iconSize=o.shape==2?54.f:o.shape==3?36.f:40.f;
+                q.icon(cx,iconY,iconSize,*artwork,available?q.itemColor(*artwork):muted);
+                q.sweep(cx,iconY,iconSize*.5f*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));
+            }
             else {q.line(cx-5,cy,cx+5,cy,muted);q.line(cx,cy-5,cx,cy+5,muted);}
             q.groupKey(cx,y+(o.shape==1?0.f:o.shape==2?9.f:16.f),id,previewing,state.controller,state.vr,o.shape==3?16.f:18.f);
             if(previewing)q.diamond(cx,y+geometry.groups.tileHeight+2,2.5f,q.accent());
             if(o.showLabels)q.label(cx,y+(o.shape==1?71.f:o.shape==2?100.f:88.f),o.names[id],12,selected?ivory:silver,true,geometry.groups.tileWidth-2,true);
-            if(hands)q.text(cx-27,cy+18,handMarker(hands),10,equippedMark);
-            else if(equipped||ready)q.diamond(markerX,markerY,3,equippedMark);
+            if(hands)q.text(cx-27,cy+18,handMarker(hands),10*q.mark(),equippedMark);
+            else if(equipped||ready)q.diamond(markerX,markerY,3*q.mark(),equippedMark);
             else if(entry&&!available&&!isStack(*entry)){q.circle(markerX,markerY,5,IM_COL32(22,18,18,230),true);q.line(markerX-3,markerY+3,markerX+3,markerY-3,blood,1.5f);}
             if(entry)q.badge(cx+(o.shape==3?18.f:22.f),cy+(o.shape==3?14.f:18.f),*entry,quantity,cooldown,13,false,weapon);
         }
@@ -490,6 +533,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             if(box.iconSize>0) {
                 if(row) {
                     item.icon(x,y,box.iconSize,rowIconEntry(*row),item.itemColor(rowIconEntry(*row)));
+                    item.sweep(x,y,box.iconSize*.5f*item.tweaks.iconScale,cooldowns_.fraction(row->entry.form,row->cooldown));
                     const float size=11*std::clamp(t,.8f,1.25f),radius=o.equipmentStyle==0?box.iconSize*.5f:28.f;
                     panel.badge(x+radius*(o.equipmentStyle==2?.7f:1.f),y+(o.equipmentStyle==0?radius-size:radius*.5f),row->entry,row->quantity,row->cooldown,size,true,row->weapon);
                 }

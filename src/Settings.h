@@ -88,6 +88,7 @@ inline void sanitizeOptions(Options& o) {
     o.equipmentStyle=std::min(o.equipmentStyle,4u);o.equipmentLayout=std::min(o.equipmentLayout,5u);o.equipmentTextPosition=std::min(o.equipmentTextPosition,3u);
     o.equipmentFadeDelay=finite(o.equipmentFadeDelay,4,0,20);o.equipmentIdleOpacity=finite(o.equipmentIdleOpacity,.35f,.05f,.9f);
     o.selectorGap=finite(o.selectorGap,12,0,100);o.selectorX=finite(o.selectorX,.75f,0,1);o.selectorY=finite(o.selectorY,.4f,0,1);
+    o.equippedMarkerScale=finite(o.equippedMarkerScale,1,1,2.5f);for(auto& c:o.equippedColor)c=finite(c,.9f,0,1);
     o.fadeDelay=finite(o.fadeDelay,4,0,20);o.idleOpacity=finite(o.idleOpacity,.35f,0,1);
     const auto validId=[](const std::string& id){return !id.empty()&&id.size()<=48&&std::all_of(id.begin(),id.end(),[](unsigned char c){return (c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='-'||c=='_';});};
     if(!validId(o.themeId))o.themeId="minimal";
@@ -124,6 +125,7 @@ inline std::string encodeOptions(Options o) {
         {"layoutVersion",2},{"equipmentStyle",o.equipmentStyle},{"equipmentLayout",o.equipmentLayout},{"equipmentTextPosition",o.equipmentTextPosition},{"equipmentShowText",o.equipmentShowText},
         {"itemIconColor",o.itemIconColor},
         {"selectorDock",o.selectorDock},{"selectorGap",o.selectorGap},{"selectorX",o.selectorX},{"selectorY",o.selectorY},
+        {"animateHud",o.animateHud},{"uiSounds",o.uiSounds},{"equippedMarkerScale",o.equippedMarkerScale},{"customEquippedColor",o.customEquippedColor},{"equippedColor",o.equippedColor},
         {"animateScroll",o.animateScroll},{"fadeIdle",o.fadeIdle},{"keepCombatVisible",o.keepCombatVisible},{"keepDrawnVisible",o.keepDrawnVisible},{"fadeDelay",o.fadeDelay},{"idleOpacity",o.idleOpacity},{"keys",o.keys},{"names",o.names},{"editorKey",o.editorKey},{"editorModifiers",o.editorModifiers},{"groupCount",o.groupCount},
         {"layout",o.layout},{"shape",o.shape},{"selector",o.selector},{"scale",o.scale},{"textScale",o.textScale},{"opacity",o.opacity},
         {"placementSpacing",o.placementSpacing},{"placementFrame",o.placementFrame},{"placementGridSize",o.placementGridSize},
@@ -209,6 +211,8 @@ inline Options decodeOptions(const std::string& bytes) {
     o.selectorDock=j.at("selectorDock").get<decltype(o.selectorDock)>();o.selectorGap=j.at("selectorGap").get<decltype(o.selectorGap)>();o.selectorX=j.at("selectorX").get<decltype(o.selectorX)>();o.selectorY=j.at("selectorY").get<decltype(o.selectorY)>();
     o.animateScroll=j.at("animateScroll").get<decltype(o.animateScroll)>();o.fadeIdle=j.at("fadeIdle").get<decltype(o.fadeIdle)>();o.keepCombatVisible=j.at("keepCombatVisible").get<decltype(o.keepCombatVisible)>();
     o.keepDrawnVisible=j.value("keepDrawnVisible",false);
+    o.animateHud=j.value("animateHud",true);o.uiSounds=j.value("uiSounds",true);o.equippedMarkerScale=j.value("equippedMarkerScale",1.f);
+    o.customEquippedColor=j.value("customEquippedColor",false);o.equippedColor=j.value("equippedColor",o.equippedColor);
     o.fadeDelay=j.at("fadeDelay").get<decltype(o.fadeDelay)>();o.idleOpacity=j.at("idleOpacity").get<decltype(o.idleOpacity)>();
     sanitizeOptions(o);return o;
 }

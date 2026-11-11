@@ -78,6 +78,7 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     std::optional<Released> released_;
     CycleConfirm cycleConfirm_;
     void commitCycle(const Selection::Commit&);
+    void sound(const char* descriptor);
     struct ConsumableRequest {Entry entry;bool controller=false;};
     std::optional<ConsumableRequest> consumableRequest_;
     void queueConsumable(bool controller);

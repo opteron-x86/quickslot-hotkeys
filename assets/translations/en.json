@@ -2,6 +2,12 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "Equipped marker size": "Equipped marker size",
+    "Custom equipped color": "Custom equipped color",
+    "Animate opening and fading": "Animate opening and fading",
+    "Eases the widget in, opens and closes the selector, and pulses a group when its item equips or is used.": "Eases the widget in, opens and closes the selector, and pulses a group when its item equips or is used.",
+    "Interface sounds": "Interface sounds",
+    "Plays Skyrim's menu sounds when the selector opens, moves and cancels.": "Plays Skyrim's menu sounds when the selector opens, moves and cancels.",
     "Automatic uses the theme and typeface that match your installed interface mod.": "Automatic uses the theme and typeface that match your installed interface mod.",
     "Font": "Font",
     "Theme font": "Theme font",

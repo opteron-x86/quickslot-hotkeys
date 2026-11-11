@@ -27,6 +27,9 @@ private:
     ScrollMotion motion_;
     IdleFade fade_;
     EquipmentFade equipmentFade_;
+    Eased shown_,selectorOpen_;
+    std::array<TilePulse,Arsenal::count> pulses_;
+    CooldownScale cooldowns_;
     KeyGlyphs keyGlyphs{};
 public:
     void initialize(const std::string& fontDirectory,const std::string& installedFontDirectory={});

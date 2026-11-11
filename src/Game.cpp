@@ -944,12 +944,15 @@ void Game::finishSelection() {
 // A tapped choice equips at once, or stays open for the confirm delay so further taps can move on first.
 void Game::commitCycle(const Selection::Commit& commit) {
     if(const auto now=cycleConfirm_.begin(commit,clockNow(),options_.cycleDelay))released_=Released{*now};
-    else selectionTime(true);
+    else {selectionTime(true);sound("UIMenuPrevNext");}
 }
+void Game::sound(const char* id){if(options_.uiSounds)RE::PlaySound(id);}
 void Game::cycleSelection(int delta) {
     if(!selection_.canBrowse())return;
+    const auto before=selection_.index();
     if(options_.skipEmpty){if(dirty_)refresh();if(!selection_.canBrowse())return;std::vector<bool> available;for(const auto& row:snapshot_.rows)available.push_back(row.available);selection_.cycleAvailable(delta,arsenal_.current(),available);}
     else selection_.cycle(delta,arsenal_.current());
+    if(selection_.held()&&selection_.index()!=before)sound("UIMenuPrevNext");
     selectionTime(true);
 }
 bool Game::consumeController(RE::InputEvent* event) {
@@ -995,7 +998,7 @@ bool Game::consumeController(RE::InputEvent* event) {
     if(cycleConfirm_.active()&&fresh) {
         const auto binding=options_.controllerActions[unsigned(ControllerAction::cancel)];
         if(vr?button==PadButton::b:binding.button==button&&(binding.modifier==PadButton::none||controller_.down(binding.modifier))) {
-            cancel();notice(tr("Selection cancelled"),false);return true;
+            cancel();sound("UIMenuCancel");notice(tr("Selection cancelled"),false);return true;
         }
     }
     const auto result=controller_.button(button,down,fresh,options_,allowed(MenuPurpose::input,true),selection_.held(),vr,selection_.canBrowse(),menuAPI().hotkeyEnabled()&&allowed(MenuPurpose::editor));
@@ -1009,7 +1012,7 @@ bool Game::consumeController(RE::InputEvent* event) {
         if(selectionController_&&selection_.held()&&selection_.group()==result.group) {
             finishSelection();
         }break;
-    case PadAction::cancel:cancel();notice(tr("Selection cancelled"),false);break;
+    case PadAction::cancel:cancel();sound("UIMenuCancel");notice(tr("Selection cancelled"),false);break;
     case PadAction::useConsumable:queueConsumable(true);break;
     case PadAction::previous:cycleSelection(-1);break;
     case PadAction::next:cycleSelection(1);break;
@@ -1106,7 +1109,7 @@ bool Game::consume(RE::InputEvent* event) {
         auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
         const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
         if((keyboard&&keyBindingMatches(options_.selectorBindings[unsigned(KeyboardAction::cancel)],code,modifiers))||(mouse&&int(code)==options_.mouseActions[unsigned(MouseAction::cancel)])) {
-            *owned=true;cancel();notice(tr("Selection cancelled"),false);return true;
+            *owned=true;cancel();sound("UIMenuCancel");notice(tr("Selection cancelled"),false);return true;
         }
     }
     if(selection_.held()) {
@@ -1115,7 +1118,7 @@ bool Game::consume(RE::InputEvent* event) {
         if(keyboard&&modifierForScan(code)&&button->IsDown()&&selectorUsesModifier(options_,modifierForScan(code))){*owned=true;return true;}
         if(mouse&&button->IsDown())for(const auto action:{MouseAction::rightHand,MouseAction::leftHand})
             if(options_.mouseActions[unsigned(action)]==int(code)){*owned=true;queueHand(action==MouseAction::rightHand?Hand::right:Hand::left,false);return true;}
-        if(((keyboard&&keyBindingMatches(options_.selectorBindings[unsigned(KeyboardAction::cancel)],code,modifiers))||(mouse&&int(code)==options_.mouseActions[unsigned(MouseAction::cancel)]))&&button->IsDown()) {*owned=true;cancel();notice(tr("Selection cancelled"),false);return true;}
+        if(((keyboard&&keyBindingMatches(options_.selectorBindings[unsigned(KeyboardAction::cancel)],code,modifiers))||(mouse&&int(code)==options_.mouseActions[unsigned(MouseAction::cancel)]))&&button->IsDown()) {*owned=true;cancel();sound("UIMenuCancel");notice(tr("Selection cancelled"),false);return true;}
         if(keyboard&&button->IsDown()) {
             const auto key=selectorKeyAction(options_,code,modifiers);
             if(key.action!=SelectorKeyAction::pass) {
@@ -1153,7 +1156,7 @@ void Game::dispatch(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent**
             if(!allowed())cancel();
             if(!REL::Module::IsVR())if(auto* devices=RE::BSInputDeviceManager::GetSingleton();devices&&devices->IsGamepadEnabled())
                 if(auto* pad=devices->GetGamepad())controller_.observe(readPadState(pad));
-            const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing)dirty_=true;selectionTime(selection_.browsing()||cycleConfirm_.active());
+            const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing){dirty_=true;if(selection_.browsing())sound("UIMenuFocus");}selectionTime(selection_.browsing()||cycleConfirm_.active());
         }
         filterEvents(events?*events:nullptr,[&](RE::InputEvent* e){
                 std::scoped_lock lock(mutex_);const bool consumed=consume(e);
@@ -1245,7 +1248,7 @@ void Game::tick() {
         auto* ui=RE::UI::GetSingleton();
         if(inputAllowed) {
             if(voice_.active())progressVoice();
-            const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing)dirty_=true;selectionTime(selection_.browsing()||cycleConfirm_.active());
+            const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing){dirty_=true;if(selection_.browsing())sound("UIMenuFocus");}selectionTime(selection_.browsing()||cycleConfirm_.active());
 
             if(consumableRequest_&&!ui->IsMenuOpen(pauseMenuName)){const auto request=*consumableRequest_;consumableRequest_.reset();useConsumable(request.entry,request.controller);}
             if(const auto confirmed=cycleConfirm_.poll(clockNow())){released_=Released{*confirmed};selectionTime(false);}

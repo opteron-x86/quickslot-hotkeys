@@ -2,6 +2,11 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "Some Quickslot settings could not be read and use their defaults": "Some Quickslot settings could not be read and use their defaults",
+    "Quickslot settings could not be read and use their defaults": "Quickslot settings could not be read and use their defaults",
+    "Quickslot could not read this save's groups": "Quickslot could not read this save's groups",
+    "Quickslot could not read this save's groups. They stay in the save until you create new ones.": "Quickslot could not read this save's groups. They stay in the save until you create new ones.",
+    "Quickslot restored your groups; some shortcuts could not be read": "Quickslot restored your groups; some shortcuts could not be read",
     "Consumables": "Consumables",
     "Tap to use": "Tap to use",
     "Use selected consumable": "Use selected consumable",

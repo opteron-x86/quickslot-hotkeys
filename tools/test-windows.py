@@ -35,6 +35,7 @@ def main():
         'smart_equipment': [],
         'shortcut_library': [],
         'interactions': [],
+        'recovery': [],
         'localization': [path(ROOT)],
         'dx_state': [],
         'pngii': [path(build / 'pngii-legacy/PNGIconInjector.dll'),

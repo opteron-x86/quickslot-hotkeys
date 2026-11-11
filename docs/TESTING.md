@@ -5,6 +5,7 @@ Run these in a loaded game. Record the package version, Skyrim/SKSE version and 
 | Area | Check |
 | --- | --- |
 | Updating | Groups, shortcuts, settings and presets survive installation and save/load. |
+| Load repair | Remove a key from `Quickslot.settings.json` and set another to an invalid value; verify the remaining settings load, the on-screen message appears after loading a save, and `Quickslot.settings.rejected.json` holds the original. Load a save written by a build with a different group schema; verify the message, save again without creating groups, and confirm the original build still reads its groups. |
 | Group lifecycle | Rename, bind and populate a group; enable auto-sort and change its behavior. Remove it and add another repeatedly. Each new group should be empty with a fresh name, default behavior and the lowest unused 1–8 key (1, 3 → 2), skipping the editor key. Check controller/VR defaults, unchanged bindings on other groups, Undo restoring all removed state, and save/load. Clear group should retain its name, bindings and settings. |
 | Hold to browse | Tap equips the remembered entry. Hold, browse and release selects another. Cancel restores gameplay controls. |
 | Tap to cycle | Returning from another group recalls the saved choice; subsequent taps advance. Check wrapping, rapid taps and unavailable entries. |

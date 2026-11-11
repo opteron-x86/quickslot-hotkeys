@@ -177,7 +177,7 @@ foreach(QUICKSLOT_ASSET_USER Quickslot quickslot_live_probe quickslot_live_tests
   endif()
 endforeach()
 
-foreach(QUICKSLOT_CHECK smart_equipment localization shortcut_library interactions)
+foreach(QUICKSLOT_CHECK smart_equipment localization shortcut_library interactions recovery)
   add_executable(quickslot_${QUICKSLOT_CHECK}_probe tests/${QUICKSLOT_CHECK}.cpp)
   target_include_directories(quickslot_${QUICKSLOT_CHECK}_probe PRIVATE src)
   if(NOT WIN32)

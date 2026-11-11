@@ -9,6 +9,7 @@
 #include "Inventory.h"
 #include "MenuCapture.h"
 #include "Settings.h"
+#include "Recovery.h"
 #include "Presets.h"
 #include "MenuFramework.h"
 #include "MenuAPI.h"
@@ -711,10 +712,23 @@ bool Game::initialize() {
         if(std::filesystem::exists(path)) {
             if(std::filesystem::file_size(path)>65536)throw std::runtime_error("Settings file too large");
             std::ifstream file(path);if(!file)throw std::runtime_error("Cannot open settings");
-            options_=decodeOptions(std::string(std::istreambuf_iterator<char>(file),{}));
-            log::info("Loaded editor settings");
+            const std::string bytes(std::istreambuf_iterator<char>(file),{});
+            try {options_=decodeOptions(bytes);log::info("Loaded editor settings");}
+            catch(const std::exception& strict) {
+                // Keep the file as written before any later autosave replaces it.
+                std::error_code copyError;
+                const auto rejected=dataDirectory()/"SKSE/Plugins/Quickslot.settings.rejected.json";
+                std::filesystem::copy_file(path,rejected,std::filesystem::copy_options::overwrite_existing,copyError);
+                log::warn("Editor settings need repair ({}); original {} to Quickslot.settings.rejected.json",strict.what(),copyError?"could not be copied":"copied");
+                const auto recovered=recoverOptions(bytes);
+                if(!recovered)throw std::runtime_error("Settings file is unreadable");
+                options_=recovered->options;
+                for(const auto& key:recovered->reset)log::warn("Editor setting '{}' could not be read; using its default",key);
+                if(!recovered->reset.empty())loadNotice_=tr("Some Quickslot settings could not be read and use their defaults");
+                log::info("Loaded editor settings with {} defaults restored",recovered->reset.size());
+            }
         }
-    }catch(const std::exception& e){log::warn("Editor settings ignored; using INI defaults: {}",e.what());}
+    }catch(const std::exception& e){log::warn("Editor settings ignored; using INI defaults: {}",e.what());loadNotice_=tr("Quickslot settings could not be read and use their defaults");}
     localization().select(options_.language);
 
     const REL::Relocation<std::uintptr_t> poll{RELOCATION_ID(67315,68617)};
@@ -808,11 +822,12 @@ bool Game::allowHudMenuTransition() {
 void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
     if(arsenal_.presetIdentity.empty()){GUID id{};if(SUCCEEDED(CoCreateGuid(&id))){char key[40];std::snprintf(key,sizeof(key),"%08lx%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",id.Data1,id.Data2,id.Data3,id.Data4[0],id.Data4[1],id.Data4[2],id.Data4[3],id.Data4[4],id.Data4[5],id.Data4[6],id.Data4[7]);arsenal_.presetIdentity=key;}}
     if(auto* devices=RE::BSInputDeviceManager::GetSingleton())controllerLast_=controllerConnected_=REL::Module::IsVR()||devices->IsGamepadEnabled();
-    revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);}
+    revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);
+    if(!loadNotice_.empty()){notice(loadNotice_);snapshot_.noticeUntil=clockNow()+10;RE::SendHUDMessage::ShowHUDMessage(loadNotice_.c_str());loadNotice_.clear();}}
 void Game::reset(bool clear) {
     invalidateI4Icons();
     std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;
-    if(clear)arsenal_=Arsenal{};
+    if(clear){arsenal_=Arsenal{};preservedRecord_.reset();}
     snapshot_=Snapshot{};groupRecall_.reset();keyboardOwned_.fill(false);mouseOwned_.fill(false);controller_.reset();stickOwned_.fill(false);nativeVoiceDown_=false;
 }
 void Game::queueEdit(int action,std::optional<std::size_t> index) {
@@ -2010,22 +2025,39 @@ void Game::afterTransfer(RE::PlayerCharacter* player,RE::TESBoundObject* object,
 void Game::save(SKSE::SerializationInterface* serial) {
     std::scoped_lock lock(mutex_);
     try {
+        // A record this build could not read stays in the save until the player builds new groups.
+        if(preservedRecord_&&blankArsenal(arsenal_)) {
+            const auto& [version,bytes]=*preservedRecord_;
+            if(!serial->WriteRecord(recordType,version,bytes.data(),std::uint32_t(bytes.size())))log::error("Could not write preserved Quickslot save record");
+            else log::info("Kept the unread Quickslot save record (schema {}, {} bytes)",version,bytes.size());
+            return;
+        }
         const auto bytes=encodeArsenal(arsenal_);
         if(!serial->WriteRecord(recordType,arsenalSchema,bytes.data(),std::uint32_t(bytes.size())))log::error("Could not write Quickslot save record");
         else log::info("Saved {} entries across {} groups",arsenal_.size(),Arsenal::count);
     }catch(const std::exception& e){log::error("Save failed: {}",e.what());}
 }
 void Game::load(SKSE::SerializationInterface* serial) {
-    std::scoped_lock lock(mutex_);closeEditor("loading saved groups");cancel();use_.reset();stopAnimationWatch();arsenal_=Arsenal{};dirty_=true;
+    std::scoped_lock lock(mutex_);closeEditor("loading saved groups");cancel();use_.reset();stopAnimationWatch();arsenal_=Arsenal{};preservedRecord_.reset();dirty_=true;
     std::uint32_t type,version,length;bool found=false;
     while(serial->GetNextRecordInfo(type,version,length)) {
-        if(type!=recordType)continue;
-        try {
-            if(found||version!=arsenalSchema||length>8388608)throw std::runtime_error("Invalid or duplicate group record");
-            found=true;std::string bytes(length,'\0');
-            if(serial->ReadRecordData(bytes.data(),length)!=length)throw std::runtime_error("Truncated group record");
-            arsenal_=decodeArsenal(bytes,[&](std::uint32_t oldID,std::uint32_t& newID){return serial->ResolveFormID(oldID,newID);});
-        }catch(const std::exception& e){arsenal_=Arsenal{};log::error("Load failed: {}",e.what());break;}
+        if(type!=recordType||found)continue;
+        found=true;
+        if(length>8388608){log::error("Load failed: group record exceeds limit ({} bytes)",length);loadNotice_=tr("Quickslot could not read this save's groups");continue;}
+        std::string bytes(length,'\0');
+        if(serial->ReadRecordData(bytes.data(),length)!=length){log::error("Load failed: truncated group record");loadNotice_=tr("Quickslot could not read this save's groups");continue;}
+        const auto recovered=version==arsenalSchema?recoverArsenal(bytes,[&](std::uint32_t oldID,std::uint32_t& newID){return serial->ResolveFormID(oldID,newID);}):std::nullopt;
+        if(!recovered) {
+            log::error("Load failed: group record (schema {}, {} bytes) is unreadable by this build; keeping it in the save",version,length);
+            preservedRecord_.emplace(version,std::move(bytes));
+            loadNotice_=tr("Quickslot could not read this save's groups. They stay in the save until you create new ones.");
+            continue;
+        }
+        arsenal_=recovered->arsenal;
+        if(recovered->dropped) {
+            log::warn("Load repaired: {} unreadable shortcuts removed; {} entries kept",recovered->dropped,arsenal_.size());
+            loadNotice_=tr("Quickslot restored your groups; some shortcuts could not be read");
+        }
     }
 }
 RE::BSEventNotifyControl Game::ProcessEvent(const RE::MenuOpenCloseEvent* e,RE::BSTEventSource<RE::MenuOpenCloseEvent>*) {

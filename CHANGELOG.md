@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Loading a save keeps every readable group and shortcut when one entry is damaged, and reports the repair on screen. A group record written by a different Quickslot version stays in the save until you create new groups.
+- A settings file with missing or invalid values keeps every valid setting. Quickslot copies the original to `Quickslot.settings.rejected.json` beside it.
+
 ## 0.14.0
 
 - Added a configurable **Use selected consumable** action for keyboard, controller and VR, plus a group setting for selecting consumables with cycling or browsing. The equipment widget retains the last selected consumable across groups.

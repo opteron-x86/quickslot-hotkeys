@@ -42,6 +42,8 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     EditHistory editHistory_;
     SettingsAutosave autosave_;
     std::string settingsError_;
+    std::string loadNotice_;
+    std::optional<std::pair<std::uint32_t,std::string>> preservedRecord_;
     struct NativeCandidate {RE::TESBoundObject* object=nullptr;RE::ExtraDataList* extra=nullptr;bool plain=false;Entry entry;};
     std::vector<NativeCandidate> candidates_;
     std::vector<EditorInput> editorInput_;

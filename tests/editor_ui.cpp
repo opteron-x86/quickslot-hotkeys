@@ -746,6 +746,19 @@ int main(int argc,char** argv)try {
             check(b.equipment.valid&&b.equipment.min.x>=0&&b.equipment.min.y>=0&&b.equipment.max.x<=screen.x&&b.equipment.max.y<=screen.y,"All rendered styles and text positions stay on-screen at 720p/4K");
         }
     hidden.editorPreview=hidden.placementPreview=false;visibility=Options{};visibility.showEquipment=true;
+    {
+        const auto display=io.DisplaySize;io.DisplaySize={1920,1080};
+        Snapshot sample;sample.visible=true;sample.editorPreview=true;   // empty groups, so each tile's bounds are its frame, key and names
+        const auto drawn=[&](const Options& look){ImGui::NewFrame();HudBounds b;hud.draw(sample,look,300,{}, {},nullptr,&b);ImGui::Render();return b;};
+        Options cards;cards.showLabels=true;const auto plain=drawn(cards);cards.selectorTextScale=3;cards.selectorOpacity=.2f;const auto other=drawn(cards);
+        check(!plain.tiles.empty()&&std::abs(plain.tiles[0].height()-other.tiles[0].height())<.5f&&std::abs(plain.tiles[0].width()-other.tiles[0].width())<.5f,"The selector's text size leaves the widget's cards as they are");
+        cards.textScale=2;const auto larger=drawn(cards);check(larger.tiles[0].height()>plain.tiles[0].height()+4&&larger.tiles[0].width()>plain.tiles[0].width()+20,"The widget's text size resizes its cards");
+        Options tiles;tiles.shape=2;tiles.showLabels=false;const auto small=drawn(tiles);tiles.tileSize=2;const auto large=drawn(tiles);
+        check(!small.tiles.empty()&&large.tiles.size()==small.tiles.size()&&std::abs(large.tiles[0].width()-small.tiles[0].width()*2)<4,"Rendered tiles follow the tile size");
+        Options mirrored;mirrored.mirrorCards=true;const auto flipped=drawn(mirrored),straight=drawn(Options{});
+        check(!flipped.tiles.empty()&&std::abs(flipped.tiles[0].width()-straight.tiles[0].width())<2&&std::abs(flipped.tiles[0].height()-straight.tiles[0].height())<2,"Mirrored cards keep their size");
+        io.DisplaySize=display;
+    }
     const auto renderBounds=[&](double now){ImGui::NewFrame();HudBounds b;hud.draw(hidden,visibility,now,{}, {},ImGui::GetBackgroundDrawList(),&b);ImGui::Render();return b;};
     setWidgetVisibility(visibility,WidgetVisibility::selecting);auto independent=renderBounds(220);
     check(independent.equipment.valid&&!independent.widget.valid,"Hidden groups do not suppress rendered equipment");

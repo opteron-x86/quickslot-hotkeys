@@ -498,6 +498,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         const auto weapon=selected&&active?active->weapon:tile.weapon;
         const auto pos=geometry.groups.tiles[i];const float x=pos.x,y=pos.y;
         auto q=groups;q.alpha*=groupAlpha;q.groupAccent=groupColor(id);
+        const float text=groups.textFactor;   // card rows follow the widget's text size
         const ImU32 nameColor=q.groupAccent?*q.groupAccent:selected?ImU32(ivory):ImU32(silver);
         const bool previewing=selected&&state.browsing;
         const auto hands=entry?entryHands(*entry,equipped):0;

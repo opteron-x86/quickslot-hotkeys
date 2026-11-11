@@ -62,7 +62,7 @@ The editor draws its surfaces, text, controls and highlights from the active the
 
 `atlasMargin` sets how many artwork pixels at each edge of an atlas cell keep a constant size (default `40`, range 0–120). Corners and borders keep their proportions on cards, squares, list rows and diamonds while the interior stretches. Choose a value that covers the cell's corner ornament. `0` stretches the whole cell.
 
-Optional TTF files supply body and title fonts. The default font is Jost. Theme overrides for accent, frame opacity and icon size are saved by theme ID. **Reset theme** restores that pack's defaults.
+Optional TTF files supply body and title fonts. The default font is Jost. Theme overrides for accent and frame opacity are saved by theme ID; icon size is one setting shared by every theme. **Reset theme** restores that pack's defaults.
 
 Item icons use I4 packs, with Original, Theme and White color settings. Keycaps come from the active `Data/Interface/ImGuiIcons/Icons` files; select their style through the mod manager and restart.
 

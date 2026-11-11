@@ -73,6 +73,7 @@ To clear a group's keyboard hotkey, click **Clear**, or click its binding and pr
 | Remove highlighted shortcut | Delete while browsing | Editor controls |
 | Open editor | Shift + `\` | Hold D-pad Up, then Start / Options |
 | Navigate editor | Mouse / keyboard | D-pad / left stick; A / Cross confirms |
+| Editor tabs and pages | Mouse | LB / RB change tabs; LT / RT change pages |
 | Editor pointer | Mouse | Right stick; A / Cross clicks or drags |
 | Close editor | Escape / Close | Start / Options |
 
@@ -141,7 +142,7 @@ QuickLoot input is optional under **Controls → General**. Enable keyboard/mous
 
 ## Settings and languages
 
-Changes save automatically. **Undo** and **Revert session** restore editor states; **Presets** saves appearance or a complete setup. The editor remembers its current tab during the game session.
+Changes save automatically. **Undo** and **Revert session** restore editor states; **Presets** saves appearance or a complete setup, and **Delete preset** removes a saved file. The editor remembers its current tab during the game session.
 
 Choose a menu language under **Appearance → Style**. Translation files belong in `Data/Quickslot/translations`; the English reference and format guide are included. Fonts support UTF-8 names with Cyrillic, Greek and CJK fallbacks. Theme fonts, including Futura, take priority. Install extra fallback fonts in `Data/Quickslot/fonts/fallback` and restart.
 

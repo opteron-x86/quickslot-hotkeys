@@ -1964,6 +1964,11 @@ bool Game::presetCommand(const EditCommand& c) {
     const auto folder=dataDirectory()/"Quickslot/Presets";
     if(c.action==EditAction::refreshPresets){refreshPresets();return false;}
     try {
+        if(c.action==EditAction::deletePreset) {
+            const auto path=presetPath(folder,c.presetName);
+            if(!std::filesystem::is_regular_file(path)||!std::filesystem::remove(path))throw std::runtime_error("Preset file is missing");
+            refreshPresets();editor_.message=tr("Deleted: ")+c.presetName;log::info("Preset deleted: {}",c.presetName);return false;
+        }
         if(c.action==EditAction::exportPreset) {
             const auto path=presetPath(folder,c.presetName);
             if(std::filesystem::exists(path)&&!c.replace){editor_.message=tr("A preset with that name already exists");return false;}
@@ -1996,7 +2001,7 @@ bool Game::presetCommand(const EditCommand& c) {
         std::size_t unavailable=0;for(const auto& group:editor_.rows)for(const auto& row:group)unavailable+=!row.available;
         editor_.message=tr("Imported: ")+c.presetName;if(!result.appearanceOnly&&unavailable)editor_.message+=" · "+std::to_string(unavailable)+tr(" unavailable slots");
         log::info("Preset imported: {} (appearance {}, unresolved {}, unavailable {})",c.presetName,result.appearanceOnly,result.unresolved,unavailable);return true;
-    }catch(const std::exception& e){log::warn("Preset action failed: {}",e.what());editor_.message=tr("Could not ")+std::string(c.action==EditAction::exportPreset?tr("export"):tr("import"))+tr(" preset");return false;}
+    }catch(const std::exception& e){log::warn("Preset action failed: {}",e.what());editor_.message=c.action==EditAction::deletePreset?std::string(tr("Could not delete preset")):tr("Could not ")+std::string(c.action==EditAction::exportPreset?tr("export"):tr("import"))+tr(" preset");return false;}
 }
 void Game::edit(const EditCommand& c) {
     std::scoped_lock lock(mutex_);
@@ -2005,7 +2010,7 @@ void Game::edit(const EditCommand& c) {
     if(const auto reason=editorBlockReason();!reason.empty()){closeEditor(reason);return;}
     if(!matchingEdit(editor_,c)){editor_.message=tr("List updated; try again");return;}
     try {
-        if(c.action==EditAction::exportPreset||c.action==EditAction::importPreset||c.action==EditAction::refreshPresets){presetCommand(c);return;}
+        if(c.action==EditAction::exportPreset||c.action==EditAction::importPreset||c.action==EditAction::refreshPresets||c.action==EditAction::deletePreset){presetCommand(c);return;}
         if(c.action==EditAction::undo||c.action==EditAction::revert) {
             const bool restored=c.action==EditAction::undo?editHistory_.undo(editor_.draft,editor_.options):editHistory_.revert(editor_.draft,editor_.options);
             if(restored){++editor_.revision;++editor_.restoreSerial;editor_.message=c.action==EditAction::undo?tr("Undone"):tr("Session reverted");applyEditor();}

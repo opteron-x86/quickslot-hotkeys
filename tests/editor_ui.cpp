@@ -343,6 +343,9 @@ int main(int argc,char** argv)try {
     click("Presets");click("##preset file");click("Combat backup");click("Appearance only");click("Import preset");
     check(state.draft.groups[0].entries.size()==3,"Complete preset restores exact saved group");
     click("Undo");check(state.draft.groups[0].entries.empty(),"Preset import is a single undoable edit");
+    click("Presets");click("##preset file");click("Combat backup");click("Delete preset");check(state.presets.size()==1,"Deleting a preset asks first");
+    click("Cancel");check(state.presets.size()==1,"Cancelling keeps the preset");
+    click("Delete preset");click("Delete");check(state.presets.empty()&&probe::find("Combat backup").empty(),"Confirming removes the preset from the list");
     for(const auto screen:std::array<ImVec2,3>{{{1280,720},{1920,1080},{3840,2160}}}) {
         state=fixture::editor();state.session=session++;io.DisplaySize=screen;frame();frame();
         click("Groups##main");click("New");click("Hand action");click("Add action");
@@ -393,6 +396,15 @@ int main(int argc,char** argv)try {
     state=fixture::editor();state.session=session++;state.controller=true;io.DisplaySize={1920,1080};frame();frame();
     const auto padKey=[&](PadButton b){frame({{EditorInputType::pad,unsigned(b),true}});frame({{EditorInputType::pad,unsigned(b),false}});frame();};
 
+    click("Groups##main");
+    padKey(PadButton::rb);check(!probe::find("Style").empty(),"The right shoulder button opens the next tab");
+    click("Style");padKey(PadButton::rt);check(!probe::find("##layout").empty(),"The right trigger opens the next page of a tab");
+    padKey(PadButton::lt);padKey(PadButton::lt);check(!probe::find("Hide empty groups").empty(),"Pages wrap in both directions");
+    padKey(PadButton::rb);check(!probe::find("General").empty(),"Shoulder buttons step through every tab");
+    click("General");padKey(PadButton::rt);check(!probe::find("Remap actions…").empty(),"Triggers page through Controls");
+    padKey(PadButton::rb);check(!probe::find("##preset name").empty(),"The Presets tab follows Controls");
+    padKey(PadButton::rb);check(!probe::find("Group up").empty(),"Tabs wrap back to Groups");
+    padKey(PadButton::lb);check(!probe::find("##preset name").empty(),"The left shoulder button steps back");
     click("Groups##main");padKey(PadButton::right);
     check(ImGui::GetCurrentContext()->NavId==probe::one("Appearance").id,"D-pad moves between actual top-level tabs");
     padKey(PadButton::a);check(!probe::find("Style").empty(),"A activates focused tab without mouse input");

@@ -305,6 +305,18 @@ void Hud::initialize(const std::string& directory,const std::string& installedFo
     };
     discover(installedFontDirectory,"ui/");discover(root,"quickslot/");
 }
+void Hud::drawItemIcon(ImDrawList* list,ImVec2 center,float size,const Entry& entry,const Options& o,bool available)const {
+    if(entry.kind==Kind::combo&&entry.parts.size()==2) {
+        drawItemIcon(list,{center.x-size*.21f,center.y},size*.62f,entry.parts[0],o,available);
+        drawItemIcon(list,{center.x+size*.21f,center.y},size*.62f,entry.parts[1],o,available);return;
+    }
+    if(!list||!itemIcons_)return;
+    const auto supplied=itemIcons_(entry);if(!supplied)return;
+    const auto& palette=theme(o);const auto role=o.coloredMagic?iconColor(entry):ivory;
+    const ImU32 base=!available?palette.muted:role==ivory?palette.text:role;
+    list->AddImage(itemIconTexture(*supplied,o.itemIconColor,!available),{center.x-size*.5f,center.y-size*.5f},{center.x+size*.5f,center.y+size*.5f},{0,0},{1,1},
+        itemIconTint(*supplied,base|0xff000000u,o.itemIconColor,!available));
+}
 EquipmentMetrics Hud::equipmentMetrics(const EquippedDisplay& state,const Options& o)const {
     EquipmentMetrics metrics;auto* font=bodyFont(o);if(!font)return metrics;
     metrics.measured=true;unsigned index=0;const float t=o.textScale*o.equipmentTextScale;

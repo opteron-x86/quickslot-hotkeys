@@ -7,6 +7,10 @@
 - Set the **Hold delay** that separates a tap from a hold under **Controls → General → Timing**.
 - Inventory and Magic capture messages follow the selected language.
 - **Show keys** has one control, under **Appearance → Groups**.
+- The editor shows item artwork beside each inventory choice and group entry.
+- In the editor, the controller's shoulder buttons change tabs and its triggers change pages within Appearance and Controls.
+- Delete presets from **Presets** with **Delete preset**.
+- The controller's on-screen keyboard includes common punctuation.
 - Added a **Wheel** selector under **Appearance → Selector**. Every item keeps its place around a hub; point at one with the browsing stick or the mouse and release the group key or button to select it. The camera stays still while the mouse points. Scrolling and previous / next still step through the wheel.
 - The widget eases in, the selector opens and closes smoothly, and a group pulses when its item equips or a dose is used. Turn this off with **Appearance → Selector → Animate opening and fading**.
 - Shout cooldowns show as a shade that drains clockwise over the icon, alongside the seconds.

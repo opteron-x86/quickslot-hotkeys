@@ -52,6 +52,8 @@ public:
     ImFont* bodyFont(const Options& o)const{if(auto* chosen=chosenFont(o))return chosen;const auto it=skins_.find(theme(o).id);return it==skins_.end()||!it->second.body?sans:it->second.body;}
     EquipmentMetrics equipmentMetrics(const EquippedDisplay&,const Options&)const;
     void setKeys(ImTextureID texture,const KeyGlyphs& glyphs){keyTexture=texture;keyGlyphs=glyphs;}
+    // Draws an entry's artwork for lists outside the HUD, with the player's icon color settings.
+    void drawItemIcon(ImDrawList* list,ImVec2 center,float size,const Entry& entry,const Options& options,bool available=true)const;
     void draw(const Snapshot& snapshot,const Options& options,double now,ImVec2 origin={0,0},ImVec2 size={0,0},ImDrawList* list=nullptr,HudBounds* bounds=nullptr);
 };
 }

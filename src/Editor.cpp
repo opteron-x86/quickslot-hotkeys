@@ -229,7 +229,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             UI::TextWrapped("%s",padText_.data());ImGui::Separator();
             limit=std::min({limit,buffer.size()-1,padText_.size()-1});
             const auto append=[&](char ch){const auto n=std::strlen(padText_.data());if(n<limit){padText_[n]=ch;padText_[n+1]=0;}};
-            const char* rows[]{"1234567890","qwertyuiop","asdfghjkl","zxcvbnm-_"};
+            const char* rows[]{"1234567890","qwertyuiop","asdfghjkl","zxcvbnm-_",".,'!?&()+:/"};
             for(const auto* row:rows)for(unsigned col=0;row[col];++col) {
                 if(col)ImGui::SameLine();const char ch=textUpper_?char(std::toupper(static_cast<unsigned char>(row[col]))):row[col];
                 const char key[]{ch,0};ImGui::PushID(int(row[col]));if(UI::Button(key,{px(49),0}))append(ch);ImGui::PopID();
@@ -331,6 +331,15 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
     dismissingPopup_=false;
     if(!wasBinding&&std::find(padDowns_.begin(),padDowns_.end(),PadButton::start)!=padDowns_.end())emit(command(EditAction::close,state.draft.active));
     if(placement_&&std::find(padDowns_.begin(),padDowns_.end(),PadButton::b)!=padDowns_.end())placement_=false;
+    // Shoulder buttons change tabs; triggers change the page inside Appearance and Controls.
+    if(!wasBinding&&!placement_&&!vrMode_&&!ImGui::IsAnyItemActive()&&!ImGui::IsPopupOpen(nullptr,ImGuiPopupFlags_AnyPopupId|ImGuiPopupFlags_AnyPopupLevel))
+        for(const auto pressed:padDowns_) {
+            const int step=pressed==PadButton::rb||pressed==PadButton::rt?1:pressed==PadButton::lb||pressed==PadButton::lt?-1:0;
+            if(!step)continue;
+            if(pressed==PadButton::lb||pressed==PadButton::rb)tab_=(tab_+4+step)%4;
+            else if(tab_==1){appearancePage_=(appearancePage_+5+step)%5;previewMode_=appearancePage_==2?1:appearancePage_==3?3:0;}
+            else if(tab_==2)controlsPage_=(controlsPage_+3+step)%3;
+        }
     padDowns_.clear();
     downs_.clear();
     const auto bindButton=[&](int index,unsigned key,const char* id) {
@@ -592,7 +601,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 std::string meta=c.equipped?tr("Equipped"):"";
                 if(!c.entry.shortcut&&(isStack(c.entry)||c.count>1))meta+=(meta.empty()?"":" · ")+std::string("×")+std::to_string(c.count);
                 const float metaWidth=ImGui::GetFont()->CalcTextSizeA(px(14),FLT_MAX,0,meta.c_str()).x;
-                const ImVec2 textPos{pos.x+px(6),pos.y+(px(32)-ImGui::GetFontSize())*.5f};
+                hud.drawItemIcon(d,{pos.x+px(17),pos.y+px(16)},px(24),c.entry,options,c.addable);
+                const ImVec2 textPos{pos.x+px(34),pos.y+(px(32)-ImGui::GetFontSize())*.5f};
                 const float nameEnd=std::max(textPos.x,end.x-px(6)-(meta.empty()?0:metaWidth+px(14)));
                 const auto nameSize=ImGui::CalcTextSize(c.entry.name.c_str());
                 ImGui::PushStyleColor(ImGuiCol_Text,c.addable?ink:muted);
@@ -791,12 +801,13 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 const bool available=i<state.rows[groupID].size()&&state.rows[groupID][i].available;
                 const auto name=std::to_string(i+1)+"  "+displayName(i<state.rows[groupID].size()?state.rows[groupID][i].entry:e);const auto nameSize=ImGui::CalcTextSize(name.c_str());
                 ImGui::PushStyleColor(ImGuiCol_Text,available?ink:muted);
-                ImGui::RenderTextEllipsis(d,{pos.x+px(6),pos.y+px(4)},{end.x-px(6),end.y},end.x-px(6),name.c_str(),nullptr,&nameSize);
+                hud.drawItemIcon(d,{pos.x+px(22),pos.y+px(23.5f)},px(32),i<state.rows[groupID].size()?rowIconEntry(state.rows[groupID][i]):e,options,available);
+                ImGui::RenderTextEllipsis(d,{pos.x+px(44),pos.y+px(4)},{end.x-px(6),end.y},end.x-px(6),name.c_str(),nullptr,&nameSize);
                 ImGui::PopStyleColor();
                 const auto status=i<state.rows[groupID].size()?rowStatus(state.rows[groupID][i]):handName(e);
-                d->AddText(nullptr,px(14),{pos.x+px(6),pos.y+px(27)},ImGui::GetColorU32(brass),status.c_str());d->PopClipRect();
+                d->AddText(nullptr,px(14),{pos.x+px(44),pos.y+px(27)},ImGui::GetColorU32(brass),status.c_str());d->PopClipRect();
                 const auto statusWidth=ImGui::GetFont()->CalcTextSizeA(px(14),FLT_MAX,0,status.c_str()).x;
-                if(std::max(nameSize.x,statusWidth)>end.x-pos.x-px(12)&&ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))UI::SetTooltip("%s\n%s",e.name.c_str(),status.c_str());
+                if(std::max(nameSize.x,statusWidth)>end.x-pos.x-px(50)&&ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))UI::SetTooltip("%s\n%s",e.name.c_str(),status.c_str());
                 if(!group.automatic()&&ImGui::BeginDragDropSource()) {
                     Drag drag{state.session,state.revision,state.catalogVersion,0,groupID,i};ImGui::SetDragDropPayload("QUICKSLOT_ENTRY",&drag,sizeof(drag));
                     ImGui::TextUnformatted(displayName(e).c_str());ImGui::EndDragDropSource();
@@ -995,6 +1006,13 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             UI::Checkbox("Appearance only",&importAppearance_);
             if(!importAppearance_)UI::TextWrapped("Replaces groups and controls. Items may need reassignment.");
             ImGui::BeginDisabled(presetFile_.empty());
+            if(ImGui::BeginPopup("delete preset")) {
+                ImGui::TextUnformatted(presetFile_.c_str());UI::Text("Delete this preset file?");
+                if(UI::Button("Delete")){auto c=command(EditAction::deletePreset,groupID);c.presetName=presetFile_;emit(c);presetFile_.clear();ImGui::CloseCurrentPopup();}
+                ImGui::SameLine();if(UI::Button("Cancel"))ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
+            }
+            if(UI::Button("Delete preset",{px(160),0}))ImGui::OpenPopup("delete preset");ImGui::SameLine();
             if(UI::Button("Import preset",{px(160),0})){auto c=command(EditAction::importPreset,groupID);c.presetName=presetFile_;c.appearanceOnly=importAppearance_;emit(c);}ImGui::EndDisabled();
         } else {
             const std::array<const char*,5> sections{"Style","Groups","Selector","Equipment","Visibility"};
@@ -1139,7 +1157,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         endPanel();
         ImGui::Separator();
         const auto message=!state.saveError.empty()?tr("Settings could not be saved"):!hint_.empty()?hint_:state.message;
-        if(message.empty()&&state.controller&&!state.vr)UI::TextDisabled("Right stick: cursor · %s: select / drag",padLabel(PadButton::a,options.controllerStyle).c_str());
+        if(message.empty()&&state.controller&&!state.vr) {
+            UI::TextDisabled("Right stick: cursor · %s: select / drag",padLabel(PadButton::a,options.controllerStyle).c_str());ImGui::SameLine();
+            UI::TextDisabled("· %s / %s: tabs · %s / %s: pages",padLabel(PadButton::lb,options.controllerStyle).c_str(),padLabel(PadButton::rb,options.controllerStyle).c_str(),padLabel(PadButton::lt,options.controllerStyle).c_str(),padLabel(PadButton::rt,options.controllerStyle).c_str());
+        }
         else ImGui::TextColored(muted,"%s",message.c_str());
         if(UI::Button("Close",{px(170),0}))emit(command(EditAction::close,groupID));ImGui::SameLine();
         ImGui::BeginDisabled(!state.canUndo);if(UI::Button("Undo",{px(100),0}))emit(command(EditAction::undo,groupID));ImGui::EndDisabled();ImGui::SameLine();

@@ -25,7 +25,7 @@ struct EditorState {
     std::string message;
     std::vector<std::string> presets;
 };
-enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup,favoriteSource,resetFavoriteExclusions};
+enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup,favoriteSource,resetFavoriteExclusions,deletePreset};
 struct EditCommand {
     EditAction action=EditAction::select;
     std::uint64_t session=0,revision=0,catalogVersion=0,candidate=0;

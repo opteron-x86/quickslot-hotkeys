@@ -43,6 +43,7 @@ inline bool apply(EditorState& s,const EditCommand& c,EditHistory& history) {
     static std::map<std::string,std::string> presets;
     if(c.action==EditAction::exportPreset){presets[c.presetName]=exportPreset(s.draft,s.options,c.appearanceOnly,[](std::uint32_t id){return Json{{"file","Fixture.esp"},{"local",id}};});if(std::find(s.presets.begin(),s.presets.end(),c.presetName)==s.presets.end())s.presets.push_back(c.presetName);return true;}
     if(c.action==EditAction::refreshPresets)return true;
+    if(c.action==EditAction::deletePreset){presets.erase(c.presetName);std::erase(s.presets,c.presetName);return true;}
     if(c.action==EditAction::importPreset){auto result=importPreset(presets.at(c.presetName),s.draft,s.options,c.appearanceOnly,[](const auto&,std::uint32_t id){return id;});history.prepare(s.draft,s.options);s.draft=result.arsenal;s.options=result.options;history.finish(true,false,0);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;++s.restoreSerial;rows(s);return true;}
     if(c.action==EditAction::undo||c.action==EditAction::revert) {
         const auto changed=c.action==EditAction::undo?history.undo(s.draft,s.options):history.revert(s.draft,s.options);

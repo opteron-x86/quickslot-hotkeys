@@ -2,6 +2,11 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "· %s / %s: tabs · %s / %s: pages": "· %s / %s: tabs · %s / %s: pages",
+    "Delete this preset file?": "Delete this preset file?",
+    "Delete preset": "Delete preset",
+    "Deleted: ": "Deleted: ",
+    "Could not delete preset": "Could not delete preset",
     "Wheel": "Wheel",
     "Stick  point": "Stick  point",
     "Mouse  point": "Mouse  point",

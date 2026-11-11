@@ -71,7 +71,7 @@ class ReleaseTools(unittest.TestCase):
                 package.archive(archive, {'sample.txt': file}, 0)
 
     def test_report_requires_every_probe_and_same_binary_revision(self):
-        names = ['plugin', 'runtime_vr', 'smart_equipment', 'shortcut_library', 'interactions',
+        names = ['plugin', 'runtime_vr', 'smart_equipment', 'shortcut_library', 'interactions', 'recovery',
                  'localization', 'dx_state', 'controller_voice', 'icon', 'live', 'features',
                  'hand_actions', 'advanced', 'consumable', 'smf', 'pngii']
         with tempfile.TemporaryDirectory() as tmp:

@@ -383,6 +383,8 @@ struct Options {
     float selectorSpacing=16;
     // "auto" follows the installed interface when a pack recognizes it.
     std::string themeId="auto";
+    // The preset last applied or saved: a file name or a built-in id. The editor shows whether the look still matches it.
+    std::string activePreset;
     // Empty follows the theme's fonts; see Hud::FontChoice for other values.
     std::string fontId;
     std::string language="auto";

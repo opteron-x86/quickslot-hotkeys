@@ -3,10 +3,14 @@
 #include "SmartConsumables.h"
 #include "Storage.h"
 #include <cctype>
+#include <map>
+#include <memory>
 
 namespace quickslot {
 
 struct CatalogItem {Entry entry;std::uint64_t id=0;int count=1;bool equipped=false,addable=true;std::string detail;};
+// A preset file as the editor lists it: whether it holds groups as well, and its settings for previews.
+struct PresetInfo {bool complete=false;Options options;};
 struct EditorState {
     bool open=false,soulsSlowdown=false,controller=false,vr=false;
     std::uint64_t session=0,revision=0,catalogVersion=0,restoreSerial=0;
@@ -26,8 +30,10 @@ struct EditorState {
     EquippedDisplay equippedDisplay;
     std::string message;
     std::vector<std::string> presets;
+    // Shared so that publishing the editor state each frame does not copy every preset's settings.
+    std::shared_ptr<const std::map<std::string,PresetInfo>> presetInfo;
 };
-enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup,favoriteSource,resetFavoriteExclusions,deletePreset,characterSettings};
+enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup,favoriteSource,resetFavoriteExclusions,deletePreset,characterSettings,renamePreset,copyPreset,builtinPreset};
 struct EditCommand {
     EditAction action=EditAction::select;
     std::uint64_t session=0,revision=0,catalogVersion=0,candidate=0;
@@ -41,8 +47,10 @@ struct EditCommand {
     std::array<std::uint64_t,2> components{};
     bool replace=false;
     std::uint32_t libraryID=0;
-    std::string presetName;
+    // presetTarget is the new name for a rename or copy; presetParts chooses what an import applies.
+    std::string presetName,presetTarget;
     bool appearanceOnly=true;
+    unsigned presetParts=1;
 };
 inline bool matchingEdit(const EditorState& s,const EditCommand& c) {
     return s.open&&c.session==s.session&&c.revision==s.revision&&c.group<Arsenal::count;

@@ -1,5 +1,7 @@
 #pragma once
 #include "Settings.h"
+#include "EditorModel.h"
+#include "Layout.h"
 #include <filesystem>
 #include <fstream>
 #include <set>
@@ -14,29 +16,63 @@ inline bool validPresetName(const std::string& name) {
     return true;
 }
 
+// Settings fall into the look of the HUD, the controls, the group setup and personal preferences.
+// A preset can supply any of the first three; preferences always stay with the player.
+namespace presetPart {constexpr unsigned look=1,controls=2,groups=4,all=7;}
+inline void copyControls(Options& target,const Options& source) {
+    target.keys=source.keys;target.editorKey=source.editorKey;target.editorModifiers=source.editorModifiers;
+    target.skipEmpty=source.skipEmpty;target.cycleKeepOtherHand=source.cycleKeepOtherHand;target.holdDelay=source.holdDelay;target.cycleDelay=source.cycleDelay;
+    target.menuCapture=source.menuCapture;target.selectionSpeed=source.selectionSpeed;
+    target.groupUnequipHotkey=source.groupUnequipHotkey;target.groupRemoveHotkey=source.groupRemoveHotkey;
+    target.groupCaptureRightHotkey=source.groupCaptureRightHotkey;target.groupCaptureLeftHotkey=source.groupCaptureLeftHotkey;target.groupMoveHotkey=source.groupMoveHotkey;
+    target.selectorReorderHotkey=source.selectorReorderHotkey;target.selectorUnequipHotkey=source.selectorUnequipHotkey;target.selectorRemoveHotkey=source.selectorRemoveHotkey;
+    target.groupModifiers=source.groupModifiers;target.selectorBindings=source.selectorBindings;target.allowUnusedModifiers=source.allowUnusedModifiers;
+    target.controllerActions=source.controllerActions;
+    target.mouseActions=source.mouseActions;
+    target.voiceHotkey=source.voiceHotkey;target.shoutCharge=source.shoutCharge;
+    target.controllerEnabled=source.controllerEnabled;target.controllerBumpers=source.controllerBumpers;
+    target.quickLootKeyboard=source.quickLootKeyboard;target.quickLootController=source.quickLootController;
+    target.controllerModifiers=source.controllerModifiers;
+    target.consumableKey=source.consumableKey;target.swapKey=source.swapKey;target.doubleTapSwap=source.doubleTapSwap;target.controllerUse=source.controllerUse;target.vrUse=source.vrUse;
+    target.controllerGroups=source.controllerGroups;target.controllerEditor=source.controllerEditor;
+    target.controllerStick=source.controllerStick;target.controllerDeadzone=source.controllerDeadzone;target.controllerStyle=source.controllerStyle;
+    target.vrGroups=source.vrGroups;target.vrEditor=source.vrEditor;target.vrStick=source.vrStick;
+}
+inline void copyGroupSetup(Options& target,const Options& source) {
+    target.names=source.names;target.groupCount=source.groupCount;target.groupOrder=source.groupOrder;
+    target.groupModes=source.groupModes;target.separateConsumableUse=source.separateConsumableUse;target.autoSort=source.autoSort;
+}
+inline void copyPreferences(Options& target,const Options& source) {
+    target.language=source.language;target.uiSounds=source.uiSounds;target.activePreset=source.activePreset;
+}
 inline void importAppearance(Options& target,const Options& source) {
     const auto previous=target;target=source;
-    target.language=previous.language;target.keys=previous.keys;target.names=previous.names;target.groupCount=previous.groupCount;target.groupOrder=previous.groupOrder;
-    target.editorKey=previous.editorKey;target.editorModifiers=previous.editorModifiers;
-    target.skipEmpty=previous.skipEmpty;target.cycleKeepOtherHand=previous.cycleKeepOtherHand;target.holdDelay=previous.holdDelay;target.cycleDelay=previous.cycleDelay;target.uiSounds=previous.uiSounds;
-    target.menuCapture=previous.menuCapture;target.selectionSpeed=previous.selectionSpeed;
-    target.groupUnequipHotkey=previous.groupUnequipHotkey;target.groupRemoveHotkey=previous.groupRemoveHotkey;
-    target.groupCaptureRightHotkey=previous.groupCaptureRightHotkey;target.groupCaptureLeftHotkey=previous.groupCaptureLeftHotkey;target.groupMoveHotkey=previous.groupMoveHotkey;
-    target.selectorReorderHotkey=previous.selectorReorderHotkey;target.selectorUnequipHotkey=previous.selectorUnequipHotkey;target.selectorRemoveHotkey=previous.selectorRemoveHotkey;
-    target.groupModifiers=previous.groupModifiers;target.selectorBindings=previous.selectorBindings;target.allowUnusedModifiers=previous.allowUnusedModifiers;
-    target.controllerActions=previous.controllerActions;
-    target.mouseActions=previous.mouseActions;
-    target.voiceHotkey=previous.voiceHotkey;target.shoutCharge=previous.shoutCharge;
-    target.controllerEnabled=previous.controllerEnabled;target.controllerBumpers=previous.controllerBumpers;
-    target.quickLootKeyboard=previous.quickLootKeyboard;target.quickLootController=previous.quickLootController;
-    target.controllerModifiers=previous.controllerModifiers;
-    target.groupModes=previous.groupModes;target.separateConsumableUse=previous.separateConsumableUse;
-    target.consumableKey=previous.consumableKey;target.swapKey=previous.swapKey;target.doubleTapSwap=previous.doubleTapSwap;target.controllerUse=previous.controllerUse;target.vrUse=previous.vrUse;
-    target.autoSort=previous.autoSort;
-    target.controllerGroups=previous.controllerGroups;target.controllerEditor=previous.controllerEditor;
-    target.controllerStick=previous.controllerStick;target.controllerDeadzone=previous.controllerDeadzone;target.controllerStyle=previous.controllerStyle;
-    target.vrGroups=previous.vrGroups;target.vrEditor=previous.vrEditor;target.vrStick=previous.vrStick;
+    copyControls(target,previous);copyGroupSetup(target,previous);copyPreferences(target,previous);
 }
+// The current settings with the chosen parts taken from a preset's settings.
+inline Options mergeOptions(const Options& current,const Options& source,unsigned parts) {
+    auto result=current;
+    if(parts&presetPart::look)importAppearance(result,source);
+    if(parts&presetPart::controls)copyControls(result,source);
+    if(parts&presetPart::groups)copyGroupSetup(result,source);
+    return result;
+}
+// Built-in presets ship with the mod and cannot be changed. Default restores the whole look;
+// the layouts rearrange the widget, selector and equipment display and keep everything else.
+struct BuiltinPreset {const char* id;const char* name;};
+inline constexpr BuiltinPreset builtinPresets[]{{"builtin:default","Default"},{"builtin:cross","Cross"},{"builtin:diamond","Diamond"},{"builtin:circle","Circle"}};
+inline const BuiltinPreset* builtinPreset(std::string_view id) {
+    for(const auto& preset:builtinPresets)if(id==preset.id)return &preset;
+    return nullptr;
+}
+inline Options applyBuiltin(const Options& current,std::string_view id) {
+    auto result=current;
+    if(id=="builtin:default")importAppearance(result,Options{});
+    else if(const auto* preset=builtinPreset(id)){const auto layout=unsigned(preset-builtinPresets)-1;layoutPreset(result,layout);equipmentLayoutPreset(result,layout);}
+    return result;
+}
+// True when applying the preset's look would change nothing.
+inline bool lookMatches(const Options& current,const Options& look) {return encodeOptions(mergeOptions(current,look,presetPart::look))==encodeOptions(current);}
 using DescribeForm=std::function<Json(std::uint32_t)>;
 using FindForm=std::function<std::uint32_t(const std::string&,std::uint32_t)>;
 inline std::string exportPreset(const Arsenal& arsenal,const Options& options,bool appearanceOnly,const DescribeForm& describe) {
@@ -49,13 +85,15 @@ inline std::string exportPreset(const Arsenal& arsenal,const Options& options,bo
     const auto bytes=j.dump(2);if(bytes.size()>8388608)throw std::runtime_error("Preset is too large");return bytes;
 }
 struct PresetImport {Arsenal arsenal;Options options;std::size_t unresolved=0;bool appearanceOnly=false;};
-inline PresetImport importPreset(const std::string& bytes,const Arsenal& current,const Options& options,bool appearanceOnly,const FindForm& find) {
+inline PresetImport importPreset(const std::string& bytes,const Arsenal& current,const Options& options,unsigned parts,const FindForm& find) {
     if(bytes.size()>8388608)throw std::runtime_error("Preset is too large");
     const auto j=Json::parse(bytes);
     if(j.at("format")!="Quickslot preset"||j.at("version")!=1||(j.at("scope")!="appearance"&&j.at("scope")!="complete"))throw std::runtime_error("Unsupported preset");
-    PresetImport result{current,options,0,appearanceOnly||j.at("scope")=="appearance"};
+    if(j.at("scope")=="appearance")parts&=~presetPart::groups;
+    PresetImport result{current,options,0,!(parts&presetPart::groups)};
     const auto imported=decodeOptions(j.at("options").dump());
-    if(result.appearanceOnly){importAppearance(result.options,imported);return result;}
+    result.options=mergeOptions(options,imported,parts);
+    if(result.appearanceOnly)return result;
     const auto& refs=j.at("references");if(!refs.is_object()||refs.size()>(Arsenal::count*Group::limit+Arsenal::shortcutLimit)*132)throw std::runtime_error("Invalid preset references");
     const auto scope=j.at("arsenal").at("presetIdentity").get<std::string>();
     const bool sameCharacter=!current.presetIdentity.empty()&&scope==current.presetIdentity;
@@ -76,7 +114,10 @@ inline PresetImport importPreset(const std::string& bytes,const Arsenal& current
     const auto detach=[&](Entry& e){if(!sameCharacter&&tracksInstance(e)){e.unresolved=true;e.form=e.owner=e.unique=0;}};
     for(auto& group:result.arsenal.groups)eachGroupEntry(group,[&](auto& entry){eachLeaf(entry,[&](Entry& e){detach(e);if(e.unresolved)++result.unresolved;});});
     for(auto& entry:result.arsenal.shortcuts)eachLeaf(entry,detach);
-    result.options=imported;revealSavedGroups(result.options,result.arsenal);return result;
+    revealSavedGroups(result.options,result.arsenal);return result;
+}
+inline PresetImport importPreset(const std::string& bytes,const Arsenal& current,const Options& options,bool appearanceOnly,const FindForm& find) {
+    return importPreset(bytes,current,options,appearanceOnly?presetPart::look:presetPart::all,find);
 }
 inline std::filesystem::path presetPath(const std::filesystem::path& folder,const std::string& name) {
     if(!validPresetName(name))throw std::runtime_error("Use letters, numbers, spaces, hyphens or underscores for the preset name");
@@ -98,5 +139,17 @@ inline std::string readPreset(const std::filesystem::path& folder,const std::str
     if(!std::filesystem::is_regular_file(path)||std::filesystem::file_size(path)>8388608)throw std::runtime_error("Invalid preset file");
     std::ifstream file(path,std::ios::binary);std::string bytes;bytes.resize(std::size_t(std::filesystem::file_size(path)));
     file.read(bytes.data(),std::streamsize(bytes.size()));if(!file||file.peek()!=std::char_traits<char>::eof())throw std::runtime_error("Could not read preset");return bytes;
+}
+// What the editor shows for each preset file: its scope and, for previews, its settings.
+inline std::map<std::string,PresetInfo> describePresets(const std::filesystem::path& folder,const std::vector<std::string>& names) {
+    std::map<std::string,PresetInfo> result;
+    for(const auto& name:names)try {
+        const auto path=presetPath(folder,name);
+        if(!std::filesystem::is_regular_file(path)||std::filesystem::file_size(path)>1048576)continue;
+        const auto j=Json::parse(readPreset(folder,name));
+        if(j.at("format")!="Quickslot preset"||j.at("version")!=1)continue;
+        result[name]={j.at("scope")=="complete",decodeOptions(j.at("options").dump())};
+    }catch(const std::exception&){}
+    return result;
 }
 }

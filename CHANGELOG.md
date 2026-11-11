@@ -14,7 +14,9 @@
 - API version 2 adds `Quickslot_GetGroupCount`, `Quickslot_TapGroup` and `Quickslot_SwapPrevious` for other mods. See the [API guide](src/API/README.md).
 - The editor shows item artwork beside each inventory choice and group entry.
 - In the editor, the controller's shoulder buttons change tabs and its triggers change pages within Appearance and Controls.
-- Delete presets from **Presets** with **Delete preset**.
+- **Presets** is a preset manager. Built-in **Default**, **Cross**, **Diamond** and **Circle** presets sit above your own; selecting or pointing at a preset shows it in a preview. **Rename**, **Duplicate**, **Update preset** and **Delete preset** manage your files, and **Current look** names the preset in use and marks it as modified once you change something.
+- **Apply preset** takes the parts you tick: **Look**, **Controls** and, from a complete setup, **Groups**. Language and interface sounds stay as you set them.
+- **Appearance → General → Reset all appearance** applies the Default preset. The Cross, Diamond and Circle layout buttons are now those built-in presets.
 - The controller's on-screen keyboard includes common punctuation.
 - Added a **Wheel** selector under **Appearance → Selector**. Every item keeps its place around a hub; point at one with the browsing stick or the mouse and release the group key or button to select it. The camera stays still while the mouse points. Scrolling and previous / next still step through the wheel.
 - The widget eases in, the selector opens and closes smoothly, and a group pulses when its item equips or a dose is used. Turn this off with **Appearance → General → Animate opening and fading**.

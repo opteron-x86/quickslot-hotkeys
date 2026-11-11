@@ -1997,7 +1997,10 @@ void Game::applyEditor() {
     refreshEditor();publish();
 }
 void Game::refreshPresets() {
-    try {editor_.presets=listPresets(dataDirectory()/"Quickslot/Presets");}
+    try {
+        const auto folder=dataDirectory()/"Quickslot/Presets";editor_.presets=listPresets(folder);
+        editor_.presetInfo=std::make_shared<const std::map<std::string,PresetInfo>>(describePresets(folder,editor_.presets));
+    }
     catch(const std::exception& e){log::warn("Preset list: {}",e.what());editor_.message=tr("Could not read presets");}
 }
 bool Game::presetCommand(const EditCommand& c) {
@@ -2008,6 +2011,23 @@ bool Game::presetCommand(const EditCommand& c) {
             const auto path=presetPath(folder,c.presetName);
             if(!std::filesystem::is_regular_file(path)||!std::filesystem::remove(path))throw std::runtime_error("Preset file is missing");
             refreshPresets();editor_.message=tr("Deleted: ")+c.presetName;log::info("Preset deleted: {}",c.presetName);return false;
+        }
+        if(c.action==EditAction::renamePreset||c.action==EditAction::copyPreset) {
+            const bool rename=c.action==EditAction::renamePreset;
+            const auto from=presetPath(folder,c.presetName),to=presetPath(folder,c.presetTarget);
+            if(!std::filesystem::is_regular_file(from))throw std::runtime_error("Preset file is missing");
+            if(std::filesystem::exists(to)){editor_.message=tr("A preset with that name already exists");return false;}
+            if(rename)std::filesystem::rename(from,to);else std::filesystem::copy_file(from,to);
+            refreshPresets();
+            if(rename&&editor_.options.activePreset==c.presetName){editor_.options.activePreset=c.presetTarget;++editor_.revision;applyEditor();}
+            editor_.message=tr(rename?"Renamed: ":"Copied: ")+c.presetTarget;log::info("Preset {}: {} -> {}",rename?"renamed":"copied",c.presetName,c.presetTarget);return false;
+        }
+        if(c.action==EditAction::builtinPreset) {
+            const auto* preset=builtinPreset(c.presetName);if(!preset)throw std::runtime_error("Unknown built-in preset");
+            editHistory_.prepare(editor_.draft,editor_.options);
+            editor_.options=applyBuiltin(editor_.options,c.presetName);editor_.options.activePreset=c.presetName;++editor_.revision;++editor_.restoreSerial;
+            editHistory_.finish(true,false,clockNow());applyEditor();
+            editor_.message=std::string(tr("Applied: "))+tr(preset->name);log::info("Built-in preset applied: {}",c.presetName);return true;
         }
         if(c.action==EditAction::exportPreset) {
             const auto path=presetPath(folder,c.presetName);
@@ -2028,20 +2048,23 @@ bool Game::presetCommand(const EditCommand& c) {
             const bool flushed=FlushFileBuffers(file);CloseHandle(file);
             if(!wrote||!flushed){DeleteFileW(temp.c_str());throw std::runtime_error("Could not write preset");}
             if(!MoveFileExW(temp.c_str(),path.c_str(),MOVEFILE_WRITE_THROUGH|(c.replace?MOVEFILE_REPLACE_EXISTING:0))){DeleteFileW(temp.c_str());throw std::runtime_error("Could not finish preset export");}
-            refreshPresets();editor_.message=tr("Exported: ")+c.presetName;log::info("Preset exported: {} ({})",path.string(),c.appearanceOnly?"appearance":"complete");return false;
+            refreshPresets();
+            if(editor_.options.activePreset!=c.presetName){editor_.options.activePreset=c.presetName;++editor_.revision;applyEditor();}
+            editor_.message=tr("Exported: ")+c.presetName;log::info("Preset exported: {} ({})",path.string(),c.appearanceOnly?"appearance":"complete");return false;
         }
         const auto bytes=readPreset(folder,c.presetName);
-        auto result=importPreset(bytes,editor_.draft,editor_.options,c.appearanceOnly,[](const std::string& file,std::uint32_t local){
+        auto result=importPreset(bytes,editor_.draft,editor_.options,c.presetParts,[](const std::string& file,std::uint32_t local){
             auto* data=RE::TESDataHandler::GetSingleton();auto* form=data?data->LookupForm(local,file):nullptr;return form?form->GetFormID():0;
         });
 
         editHistory_.prepare(editor_.draft,editor_.options);
         editor_.draft=std::move(result.arsenal);editor_.options=std::move(result.options);++editor_.revision;++editor_.restoreSerial;
+        if(c.presetParts&presetPart::look)editor_.options.activePreset=c.presetName;
         editHistory_.finish(true,false,clockNow());applyEditor();
         std::size_t unavailable=0;for(const auto& group:editor_.rows)for(const auto& row:group)unavailable+=!row.available;
         editor_.message=tr("Imported: ")+c.presetName;if(!result.appearanceOnly&&unavailable)editor_.message+=" · "+std::to_string(unavailable)+tr(" unavailable slots");
         log::info("Preset imported: {} (appearance {}, unresolved {}, unavailable {})",c.presetName,result.appearanceOnly,result.unresolved,unavailable);return true;
-    }catch(const std::exception& e){log::warn("Preset action failed: {}",e.what());editor_.message=c.action==EditAction::deletePreset?std::string(tr("Could not delete preset")):tr("Could not ")+std::string(c.action==EditAction::exportPreset?tr("export"):tr("import"))+tr(" preset");return false;}
+    }catch(const std::exception& e){log::warn("Preset action failed: {}",e.what());editor_.message=c.action==EditAction::deletePreset?std::string(tr("Could not delete preset")):c.action==EditAction::renamePreset?std::string(tr("Could not rename preset")):c.action==EditAction::copyPreset?std::string(tr("Could not copy preset")):tr("Could not ")+std::string(c.action==EditAction::exportPreset?tr("export"):tr("import"))+tr(" preset");return false;}
 }
 void Game::edit(const EditCommand& c) {
     std::scoped_lock lock(mutex_);
@@ -2050,7 +2073,7 @@ void Game::edit(const EditCommand& c) {
     if(const auto reason=editorBlockReason();!reason.empty()){closeEditor(reason);return;}
     if(!matchingEdit(editor_,c)){editor_.message=tr("List updated; try again");return;}
     try {
-        if(c.action==EditAction::exportPreset||c.action==EditAction::importPreset||c.action==EditAction::refreshPresets||c.action==EditAction::deletePreset){presetCommand(c);return;}
+        if(c.action==EditAction::exportPreset||c.action==EditAction::importPreset||c.action==EditAction::refreshPresets||c.action==EditAction::deletePreset||c.action==EditAction::renamePreset||c.action==EditAction::copyPreset||c.action==EditAction::builtinPreset){presetCommand(c);return;}
         if(c.action==EditAction::characterSettings) {
             characterSettings_=c.replace;editor_.characterSettings=characterSettings_;
             // Returning to shared settings makes the current ones the shared ones.

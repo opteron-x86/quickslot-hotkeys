@@ -118,7 +118,7 @@ void Editor::beginSession(const EditorState& state) {
         }
         return;
     }
-    restoreSerial_=state.restoreSerial;orderSelection_.reset();previewFittedMode_=-1;
+    restoreSerial_=state.restoreSerial;orderSelection_.reset();previewFittedMode_=-1;presetCheckRevision_=~0ull;
     session_=state.session;catalogVersion_=state.catalogVersion;candidate_=0;selected_=0;binding_=-1;placement_=false;placementPanelTarget_=-1;returnTextFocus_=0;hint_.clear();downs_.clear();
     search_.fill(0);keys_.fill(false);padKeys_.fill(false);padDowns_.clear();pointerMode_=pointerDown_=false;pointerAxis_={};filter_=0;shortcutIndex_.reset();editingLibrary_=0;shortcutGroup_=Arsenal::count;shortcut_=smartEntry(0,0,0);comboName_.fill(0);builder_=0;comboCandidates_={};handSearch_={};
     for(std::size_t i=0;i<Arsenal::count;++i)std::snprintf(names_[i].data(),names_[i].size(),"%s",state.options.names[i].c_str());
@@ -477,7 +477,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         if(UI::Button("Remove group",{-1,0}))emit(command(EditAction::removeGroup,state.draft.active));ImGui::EndDisabled();
         endPanel();ImGui::SameLine();
         }
-        beginPanel("workspace",{0,contentHeight},ImGuiChildFlags_NavFlattened|((tab_==2||tab_==3)?ImGuiChildFlags_Borders:0));
+        beginPanel("workspace",{0,contentHeight},ImGuiChildFlags_NavFlattened|(tab_==2?ImGuiChildFlags_Borders:0));
         const auto groupID=state.draft.active;const auto& group=state.draft.current();
         if(tab_==0) {
             ImGui::SetNextItemWidth(std::max(px(100),ImGui::GetContentRegionAvail().x-px(250)));
@@ -992,35 +992,106 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             }
             }
         } else if(tab_==3) {
-            label(tr("EXPORT"));
-            ImGui::SetNextItemWidth(px(340));textField("##preset name","Preset name",presetName_);
-            ImGui::SetNextItemWidth(px(340));UI::Combo("##export scope",&exportScope_,"Appearance only\0Complete setup\0");
-            if(*presetName_.data()&&!validPresetName(presetName_.data()))UI::TextWrapped("Use letters, numbers, spaces, - or _");
-            ImGui::BeginDisabled(!validPresetName(presetName_.data()));
-            const bool exists=std::find(state.presets.begin(),state.presets.end(),presetName_.data())!=state.presets.end();
-            if(UI::Button(exists?"Update preset":"Export preset",{px(160),0})){auto c=command(EditAction::exportPreset,groupID);c.presetName=presetName_.data();c.appearanceOnly=exportScope_==0;c.replace=exists;emit(c);}ImGui::EndDisabled();
-            ImGui::Separator();label(tr("IMPORT"));
-            ImGui::SetNextItemWidth(px(340));
-            if(ImGui::BeginCombo("##preset file",presetFile_.empty()?tr("Select preset"):presetFile_.c_str())){
-                for(const auto& name:state.presets)if(ImGui::Selectable(name.c_str(),name==presetFile_))presetFile_=name;
-                ImGui::EndCombo();
+            const auto info=[&](const std::string& name)->const PresetInfo* {
+                if(!state.presetInfo)return nullptr;const auto it=state.presetInfo->find(name);return it==state.presetInfo->end()?nullptr:&it->second;
+            };
+            const auto listed=[&](const std::string& name){return std::find(state.presets.begin(),state.presets.end(),name)!=state.presets.end();};
+            const auto presetTitle=[&](const std::string& id){const auto* preset=builtinPreset(id);return preset?std::string(tr(preset->name)):id;};
+            // The current settings with a preset's look applied, for previews.
+            const auto presetLook=[&](const std::string& id)->std::optional<Options> {
+                if(builtinPreset(id))return applyBuiltin(options,id);
+                if(const auto* preset=info(id))return mergeOptions(options,preset->options,presetPart::look);
+                return {};
+            };
+            if(!presetSelected_.empty()&&!builtinPreset(presetSelected_)&&!listed(presetSelected_))presetSelected_.clear();
+            const bool builtinSelected=builtinPreset(presetSelected_)!=nullptr,fileSelected=!presetSelected_.empty()&&!builtinSelected;
+            std::string hovered;
+            beginPanel("preset list",{std::min(px(300),ImGui::GetContentRegionAvail().x*.32f),0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
+            label(tr("BUILT-IN"));ImGui::PushID("builtin");
+            for(const auto& preset:builtinPresets) {
+                if(ImGui::Selectable(translatedLabel(preset.name).c_str(),presetSelected_==preset.id))presetSelected_=preset.id;
+                if(ImGui::IsItemHovered()||ImGui::IsItemFocused())hovered=preset.id;
             }
-            ImGui::SameLine();if(UI::Button("Refresh##presets"))emit(command(EditAction::refreshPresets,groupID));
-            UI::Checkbox("Appearance only",&importAppearance_);
-            if(!importAppearance_)UI::TextWrapped("Replaces groups and controls. Items may need reassignment.");
-            ImGui::BeginDisabled(presetFile_.empty());
-            if(ImGui::BeginPopup("delete preset")) {
-                ImGui::TextUnformatted(presetFile_.c_str());UI::Text("Delete this preset file?");
-                if(UI::Button("Delete")){auto c=command(EditAction::deletePreset,groupID);c.presetName=presetFile_;emit(c);presetFile_.clear();ImGui::CloseCurrentPopup();}
-                ImGui::SameLine();if(UI::Button("Cancel"))ImGui::CloseCurrentPopup();
-                ImGui::EndPopup();
+            ImGui::PopID();ImGui::Separator();
+            label(tr("YOUR PRESETS"));ImGui::SameLine();if(UI::Button("Refresh##presets"))emit(command(EditAction::refreshPresets,groupID));
+            if(state.presets.empty())UI::TextDisabled("Save your current settings below to add a preset.");
+            ImGui::PushID("files");
+            for(const auto& name:state.presets) {
+                if(ImGui::Selectable(name.c_str(),presetSelected_==name)){presetSelected_=name;std::snprintf(presetName_.data(),presetName_.size(),"%s",name.c_str());}
+                if(ImGui::IsItemHovered()||ImGui::IsItemFocused())hovered=name;
+                if(const auto* preset=info(name)){const char* scope=tr(preset->complete?"Complete":"Look");ImGui::SameLine(std::max(0.f,ImGui::GetContentRegionAvail().x-ImGui::CalcTextSize(scope).x));ImGui::TextDisabled("%s",scope);}
             }
-            if(UI::Button("Delete preset",{px(160),0}))ImGui::OpenPopup("delete preset");ImGui::SameLine();
-            if(UI::Button("Import preset",{px(160),0})){auto c=command(EditAction::importPreset,groupID);c.presetName=presetFile_;c.appearanceOnly=importAppearance_;emit(c);}ImGui::EndDisabled();
+            ImGui::PopID();
+            endPanel();ImGui::SameLine();
+            beginPanel("preset details",{0,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
+            if(presetCheckRevision_!=state.revision||presetCheckInfo_!=state.presetInfo.get()) {
+                presetCheckRevision_=state.revision;presetCheckInfo_=state.presetInfo.get();const auto& active=state.options.activePreset;presetModified_=false;
+                if(builtinPreset(active))presetModified_=encodeOptions(applyBuiltin(state.options,active))!=encodeOptions(state.options);
+                else if(const auto* preset=info(active))presetModified_=!lookMatches(state.options,preset->options);
+            }
+            const bool activeKnown=builtinPreset(options.activePreset)||listed(options.activePreset);
+            label(tr("Current look"));ImGui::SameLine();
+            if(!activeKnown)UI::TextDisabled("Custom");
+            else ImGui::TextUnformatted((presetTitle(options.activePreset)+(presetModified_?std::string(" ")+tr("(modified)"):std::string{})).c_str());
+            const auto& shown=!hovered.empty()?hovered:presetSelected_;
+            auto look=shown.empty()?std::optional<Options>(options):presetLook(shown);
+            label(tr("Preview"));ImGui::SameLine();ImGui::TextUnformatted(shown.empty()?tr("Current settings"):presetTitle(shown).c_str());
+            {
+                const ImVec2 origin=ImGui::GetCursorScreenPos(),size{ImGui::GetContentRegionAvail().x,std::max(px(150),ImGui::GetContentRegionAvail().y-px(345))};
+                auto* list=ImGui::GetWindowDrawList();list->AddRectFilled(origin,{origin.x+size.x,origin.y+size.y},ImGui::GetColorU32(ImGuiCol_FrameBg,.5f));
+                if(look) {
+                    auto shot=snapshot;shot.browsing=true;shot.selectorOnly=shot.equipmentOnly=false;look->showIdle=true;
+                    const auto display=ImGui::GetIO().DisplaySize;
+                    shot.previewZoom=std::clamp(previewGeometry(*look,display.x,display.y,size.x,size.y,true,true,false,equipmentRows(shot.equipment,*look),hud.equipmentMetrics(shot.equipment,*look),shot.rows.size()).previewZoom,.05f,4.f);
+                    list->PushClipRect(origin,{origin.x+size.x,origin.y+size.y},true);hud.draw(shot,*look,now,origin,size,list);list->PopClipRect();
+                }
+                ImGui::Dummy(size);
+                if(!look){ImGui::SetCursorScreenPos({origin.x+px(12),origin.y+px(12)});UI::TextDisabled("This preset cannot be previewed.");ImGui::SetCursorScreenPos({origin.x,origin.y+size.y+ImGui::GetStyle().ItemSpacing.y});}
+            }
+            if(presetSelected_.empty())UI::TextDisabled("Select a preset to apply, rename, duplicate or delete it.");
+            else if(builtinSelected) {
+                if(UI::Button("Apply preset",{px(160),0})){auto c=command(EditAction::builtinPreset,groupID);c.presetName=presetSelected_;emit(c);}
+                ImGui::SameLine();UI::TextDisabled(presetSelected_=="builtin:default"?"Restores the whole look to its defaults.":"Rearranges the widget, selector and equipment display.");
+            } else {
+                const auto* preset=info(presetSelected_);const bool complete=preset&&preset->complete;
+                bool parts[3]{(presetParts_&presetPart::look)!=0,(presetParts_&presetPart::controls)!=0,complete&&(presetParts_&presetPart::groups)!=0};
+                ImGui::AlignTextToFramePadding();label(tr("Apply"));ImGui::SameLine();UI::Checkbox("Look",&parts[0]);ImGui::SameLine();UI::Checkbox("Controls##part",&parts[1]);ImGui::SameLine();
+                ImGui::BeginDisabled(!complete);UI::Checkbox("Groups##part",&parts[2]);ImGui::EndDisabled();
+                if(complete)presetParts_=(parts[0]?presetPart::look:0)|(parts[1]?presetPart::controls:0)|(parts[2]?presetPart::groups:0);
+                else presetParts_=(presetParts_&presetPart::groups)|(parts[0]?presetPart::look:0)|(parts[1]?presetPart::controls:0);
+                const unsigned applied=presetParts_&(complete?presetPart::all:presetPart::look|presetPart::controls);
+                if(applied&presetPart::groups)UI::TextWrapped("Replaces your groups. Items may need reassignment.");
+                ImGui::BeginDisabled(!applied);
+                if(UI::Button("Apply preset",{px(160),0})){auto c=command(EditAction::importPreset,groupID);c.presetName=presetSelected_;c.presetParts=applied;emit(c);}
+                ImGui::EndDisabled();ImGui::SameLine();
+                if(ImGui::BeginPopup("delete preset")) {
+                    ImGui::TextUnformatted(presetSelected_.c_str());UI::Text("Delete this preset file?");
+                    if(UI::Button("Delete")){auto c=command(EditAction::deletePreset,groupID);c.presetName=presetSelected_;emit(c);presetSelected_.clear();ImGui::CloseCurrentPopup();}
+                    ImGui::SameLine();if(UI::Button("Cancel"))ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+                if(UI::Button("Delete preset",{px(160),0}))ImGui::OpenPopup("delete preset");
+            }
+            ImGui::Separator();label(tr("SAVE CURRENT SETTINGS"));
+            ImGui::SetNextItemWidth(px(300));textField("##preset name","Preset name",presetName_);ImGui::SameLine();
+            ImGui::SetNextItemWidth(px(200));UI::Combo("##export scope",&exportScope_,"Appearance only\0Complete setup\0");
+            const std::string typed=presetName_.data();const bool validName=validPresetName(typed),exists=listed(typed);
+            if(!typed.empty()&&!validName)UI::TextWrapped("Use letters, numbers, spaces, - or _");
+            ImGui::BeginDisabled(!validName);
+            if(UI::Button(exists?"Update preset":"Export preset",{px(160),0})){auto c=command(EditAction::exportPreset,groupID);c.presetName=typed;c.appearanceOnly=exportScope_==0;c.replace=exists;emit(c);presetSelected_=typed;}
+            ImGui::EndDisabled();ImGui::SameLine();
+            ImGui::BeginDisabled(!fileSelected||!validName||exists);
+            if(UI::Button("Rename",{px(120),0})){auto c=command(EditAction::renamePreset,groupID);c.presetName=presetSelected_;c.presetTarget=typed;emit(c);presetSelected_=typed;}
+            if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("Select one of your presets and type a new name to rename it.");
+            ImGui::SameLine();
+            if(UI::Button("Duplicate",{px(120),0})){auto c=command(EditAction::copyPreset,groupID);c.presetName=presetSelected_;c.presetTarget=typed;emit(c);presetSelected_=typed;}
+            if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("Select one of your presets and type a new name to copy it.");
+            ImGui::EndDisabled();
             ImGui::Separator();label(tr("CHARACTER"));
             bool ownSettings=state.characterSettings;
             if(UI::Checkbox("Keep settings with this character",&ownSettings)){auto c=command(EditAction::characterSettings,groupID);c.replace=ownSettings;emit(c);}
             UI::TextWrapped("Stores controls, group names and appearance in this character's saves; other characters keep the shared settings. Changes are stored when you save the game. Turning this off makes the current settings the shared ones.");
+            endPanel();
         } else {
             const std::array<const char*,5> sections{"Theme","Widget","Selector","Equipment","General"};
             for(int i=0;i<5;++i){if(i)ImGui::SameLine();const bool active=appearancePage_==i;if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));if(UI::Button(sections[std::size_t(i)],{px(110),0})){appearancePage_=i;previewMode_=i==2?1:i==3?3:0;}if(active)ImGui::PopStyleColor();}
@@ -1126,12 +1197,6 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 resetPage(Section::theme);
             } else if(appearancePage_==1) {
                 if(heading("Layout")) {
-                    label(tr("Layout presets"));
-                    const auto preset=[&](unsigned n){layoutPreset(options,n);changed=true;};
-                    const float third=(ImGui::GetContentRegionAvail().x-2*gap)/3;
-                    if(UI::Button("Cross layout",{third,0}))preset(0);ImGui::SameLine(0,gap);
-                    if(UI::Button("Diamond layout",{third,0}))preset(1);ImGui::SameLine(0,gap);
-                    if(UI::Button("Circle layout",{third,0}))preset(2);
                     choice("Arrangement","##layout",&Options::layout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
                     choice("Tile shape","##shape",&Options::shape,"Cards\0Circles\0Squares\0Diamonds\0");
                     number("Spacing",&Options::spacing);
@@ -1184,11 +1249,6 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     number("Idle opacity",&Options::equipmentIdleOpacity);
                 }
                 if(heading("Layout")) {
-                    label(tr("Layout presets"));
-                    const float third=(ImGui::GetContentRegionAvail().x-2*gap)/3;
-                    if(UI::Button("Cross layout",{third,0})){equipmentLayoutPreset(options,0);changed=true;}ImGui::SameLine(0,gap);
-                    if(UI::Button("Diamond layout",{third,0})){equipmentLayoutPreset(options,1);changed=true;}ImGui::SameLine(0,gap);
-                    if(UI::Button("Circle layout",{third,0})){equipmentLayoutPreset(options,2);changed=true;}
                     choice("Style","##equipment style",&Options::equipmentStyle,"List\0Circles\0Diamonds\0Squares\0Text only\0");
                     choice("Arrangement","##equipment layout",&Options::equipmentLayout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
                     number("Spacing",&Options::equipmentSpacing);
@@ -1223,6 +1283,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 flag("Animate opening and fading",&Options::animateHud);
                 if(ImGui::IsItemHovered())UI::SetTooltip("Eases the widget in, opens and closes the selector, and pulses a group when its item equips or is used.");
                 resetPage(Section::general);
+                if(UI::Button("Reset all appearance",{-1,0})){auto c=command(EditAction::builtinPreset,groupID);c.presetName="builtin:default";emit(c);}
+                if(ImGui::IsItemHovered())UI::SetTooltip("Applies the Default preset: every Appearance page returns to its defaults. Controls, groups and language stay.");
             }
             endPanel();ImGui::SameLine();
             beginPanel("live preview",{0,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);

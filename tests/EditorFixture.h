@@ -41,11 +41,24 @@ inline bool apply(EditorState& s,const EditCommand& c,EditHistory& history) {
     if(c.action==EditAction::close&&c.session==s.session){if(c.hasSettings)s.options=c.options;s.open=false;return true;}
     if(!matchingEdit(s,c))return false;
     static std::map<std::string,std::string> presets;
-    if(c.action==EditAction::exportPreset){presets[c.presetName]=exportPreset(s.draft,s.options,c.appearanceOnly,[](std::uint32_t id){return Json{{"file","Fixture.esp"},{"local",id}};});if(std::find(s.presets.begin(),s.presets.end(),c.presetName)==s.presets.end())s.presets.push_back(c.presetName);return true;}
-    if(c.action==EditAction::refreshPresets)return true;
+    const auto describe=[&] {
+        std::map<std::string,PresetInfo> info;
+        for(const auto& [name,bytes]:presets){const auto j=Json::parse(bytes);info[name]={j.at("scope")=="complete",decodeOptions(j.at("options").dump())};}
+        s.presets.clear();for(const auto& [name,bytes]:presets)s.presets.push_back(name);
+        s.presetInfo=std::make_shared<const std::map<std::string,PresetInfo>>(std::move(info));
+    };
+    if(c.action==EditAction::exportPreset){presets[c.presetName]=exportPreset(s.draft,s.options,c.appearanceOnly,[](std::uint32_t id){return Json{{"file","Fixture.esp"},{"local",id}};});describe();s.options.activePreset=c.presetName;++s.revision;return true;}
+    if(c.action==EditAction::refreshPresets){describe();return true;}
     if(c.action==EditAction::characterSettings){s.characterSettings=c.replace;return true;}
-    if(c.action==EditAction::deletePreset){presets.erase(c.presetName);std::erase(s.presets,c.presetName);return true;}
-    if(c.action==EditAction::importPreset){auto result=importPreset(presets.at(c.presetName),s.draft,s.options,c.appearanceOnly,[](const auto&,std::uint32_t id){return id;});history.prepare(s.draft,s.options);s.draft=result.arsenal;s.options=result.options;history.finish(true,false,0);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;++s.restoreSerial;rows(s);return true;}
+    if(c.action==EditAction::deletePreset){presets.erase(c.presetName);describe();return true;}
+    if(c.action==EditAction::renamePreset||c.action==EditAction::copyPreset) {
+        if(!presets.contains(c.presetName)||presets.contains(c.presetTarget)||!validPresetName(c.presetTarget))return false;
+        presets[c.presetTarget]=presets.at(c.presetName);
+        if(c.action==EditAction::renamePreset){presets.erase(c.presetName);if(s.options.activePreset==c.presetName)s.options.activePreset=c.presetTarget;}
+        describe();++s.revision;return true;
+    }
+    if(c.action==EditAction::builtinPreset){if(!builtinPreset(c.presetName))return false;history.prepare(s.draft,s.options);s.options=applyBuiltin(s.options,c.presetName);s.options.activePreset=c.presetName;history.finish(true,false,0);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;++s.restoreSerial;rows(s);return true;}
+    if(c.action==EditAction::importPreset){auto result=importPreset(presets.at(c.presetName),s.draft,s.options,c.presetParts,[](const auto&,std::uint32_t id){return id;});history.prepare(s.draft,s.options);s.draft=result.arsenal;s.options=result.options;if(c.presetParts&presetPart::look)s.options.activePreset=c.presetName;history.finish(true,false,0);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;++s.restoreSerial;rows(s);return true;}
     if(c.action==EditAction::undo||c.action==EditAction::revert) {
         const auto changed=c.action==EditAction::undo?history.undo(s.draft,s.options):history.revert(s.draft,s.options);
         if(!changed)return false;++s.restoreSerial;

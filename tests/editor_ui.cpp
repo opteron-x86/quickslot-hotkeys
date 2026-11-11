@@ -134,11 +134,12 @@ int main(int argc,char** argv)try {
     click("Undo");check(state.options.showCardNames,"Card names support live Undo");
     click("##shape");click("Circles");
     const auto beforeKeys=state.options.keys;const auto beforeGroups=state.draft.groups;
-    click("Widget");click("Cross layout");check(state.options.layout==5&&state.options.shape==2&&!state.options.showLabels,"Cross preset applies the compact panel layout");
+    click("Presets");click("Cross");click("Apply preset");check(state.options.layout==5&&state.options.shape==2&&!state.options.showLabels&&state.options.activePreset=="builtin:cross","Cross preset applies the compact panel layout");
     check(state.options.keys==beforeKeys&&state.options.groupCount==4&&state.draft.groups[0].entries.size()==beforeGroups[0].entries.size(),"Preset does not disturb bindings or equipment");
-    click("Diamond layout");check(state.options.shape==3&&state.options.layout==2&&state.options.selectorShape==3,"Diamond preset changes tile and selector geometry");
-    click("Circle layout");check(state.options.shape==1&&state.options.layout==4&&!state.options.showLabels,"Circle preset enables compact packing");
-    click("Theme");click("##theme");click("Skyrim silver");check(state.options.themeId=="silver"&&state.options.shape==1,"Theme remains independent of geometry");
+    click("Diamond");click("Apply preset");check(state.options.shape==3&&state.options.layout==2&&state.options.selectorShape==3,"Diamond preset changes tile and selector geometry");
+    click("Circle");click("Apply preset");check(state.options.shape==1&&state.options.layout==4&&!state.options.showLabels,"Circle preset enables compact packing");
+    check(probe::find("Rename").size()==1&&probe::one("Rename").disabled&&probe::find("Delete preset").empty(),"Built-in presets cannot be renamed or deleted");
+    click("Appearance");click("Theme");click("##theme");click("Skyrim silver");check(state.options.themeId=="silver"&&state.options.shape==1,"Theme remains independent of geometry");
     click("Selector");click("##selector shape");click("Squares");check(state.options.selectorShape==2,"Selector shapes can be chosen independently");
     click("Widget");click("Show group names");check(state.options.showLabels,"Names can be restored without changing theme");
     click("Theme");click("Key icons");check(!state.options.keyIcons,"Key artwork can switch to plain hotkey labels");
@@ -350,17 +351,45 @@ int main(int argc,char** argv)try {
     click("Close");check(!state.open,"Largest 4K editor remains interactive");
     state=fixture::editor();state.session=session++;state.draft.presetIdentity="ui-character";io.DisplaySize={1920,1080};frame();frame();
     click("Presets");click("##preset name");for(const auto ch:std::string("Combat backup"))frame({{EditorInputType::character,unsigned(ch)}});
-    click("##export scope");click("Complete setup");click("Export preset");check(state.presets.size()==1,"Export command saves named preset");
+    click("##export scope");click("Complete setup");click("Export preset");check(state.presets.size()==1&&state.options.activePreset=="Combat backup","Export command saves named preset and makes it the current one");
     click("Update preset");check(state.presets.size()==1,"Updating a preset retains one list entry");
     click("Groups##main");click("Clear group");check(state.draft.groups[0].entries.empty(),"Fixture changed before preset restore");
-    click("Presets");click("##preset file");click("Combat backup");click("Appearance only");click("Import preset");
+    click("Presets");click("Combat backup");click("Groups##part");click("Apply preset");
     check(state.draft.groups[0].entries.size()==3,"Complete preset restores exact saved group");
     click("Undo");check(state.draft.groups[0].entries.empty(),"Preset import is a single undoable edit");
+    {
+        // Applying one part of a preset leaves the others as they are.
+        const auto saved=state.options;click("Appearance");click("Widget");click("##layout");click("Vertical");
+        click("Controls");click("Skip unavailable items");const bool skip=state.options.skipEmpty;
+        click("Presets");click("Combat backup");click("Groups##part");check(probe::one("Apply preset").disabled==false,"Look alone can be applied");click("Apply preset");
+        check(state.options.layout==saved.layout&&state.options.skipEmpty==skip&&state.draft.groups[0].entries.empty(),"Applying the look keeps current controls and groups");
+        click("Look");click("Controls##part");click("Apply preset");
+        check(state.options.skipEmpty==saved.skipEmpty,"Applying controls restores the preset's control settings");
+        click("Controls##part");check(probe::one("Apply preset").disabled,"Apply needs at least one part");click("Look");
+    }
+    {
+        // Rename, duplicate and the current-preset indicator.
+        click("##preset name");frame({{EditorInputType::key,29,true},{EditorInputType::key,30,true}});frame({{EditorInputType::key,30,false},{EditorInputType::key,29,false}});
+        for(const auto ch:std::string("Field kit"))frame({{EditorInputType::character,unsigned(ch)}});frame();
+        click("Rename");check(state.presets==std::vector<std::string>{"Field kit"}&&state.options.activePreset=="Field kit","Rename keeps one file and follows the current preset");
+        click("##preset name");frame({{EditorInputType::key,29,true},{EditorInputType::key,30,true}});frame({{EditorInputType::key,30,false},{EditorInputType::key,29,false}});
+        for(const auto ch:std::string("Field kit 2"))frame({{EditorInputType::character,unsigned(ch)}});frame();
+        click("Duplicate");check(state.presets.size()==2&&state.presetInfo->at("Field kit 2").complete,"Duplicate adds a copy under the new name");
+        check(probe::one("Rename").disabled&&probe::one("Duplicate").disabled,"A name already in use cannot be the target of a rename or copy");
+        click("Field kit");click("Apply preset");
+        click("Appearance");click("Widget");click("+##Scale");click("Presets");frame();
+        check(state.options.activePreset=="Field kit"&&!lookMatches(state.options,state.presetInfo->at("Field kit").options),"Editing after applying a preset marks it as modified");
+        click("Undo");check(lookMatches(state.options,state.presetInfo->at("Field kit").options),"Undo returns to the preset's look");
+        click("Field kit 2");click("Delete preset");click("Delete");check(state.presets==std::vector<std::string>{"Field kit"},"A duplicate deletes independently");
+    }
     click("Presets");click("Keep settings with this character");check(state.characterSettings,"Settings can be kept with the character");
     click("Keep settings with this character");check(!state.characterSettings,"Settings can return to the shared file");
-    click("##preset file");click("Combat backup");click("Delete preset");check(state.presets.size()==1,"Deleting a preset asks first");
+    click("Field kit");click("Delete preset");check(state.presets.size()==1,"Deleting a preset asks first");
     click("Cancel");check(state.presets.size()==1,"Cancelling keeps the preset");
-    click("Delete preset");click("Delete");check(state.presets.empty()&&probe::find("Combat backup").empty(),"Confirming removes the preset from the list");
+    click("Delete preset");click("Delete");check(state.presets.empty()&&probe::find("Field kit").empty(),"Confirming removes the preset from the list");
+    click("Default");click("Apply preset");
+    {const auto look=mergeOptions(Options{},state.options,presetPart::look);check(encodeOptions(look)==encodeOptions(Options{})&&state.options.activePreset=="builtin:default","The Default preset restores the whole look");}
+    check(state.options.names[1]=="Offhand"&&state.options.keys==Options{}.keys,"Default keeps group names and bindings");click("Undo");
     for(const auto screen:std::array<ImVec2,3>{{{1280,720},{1920,1080},{3840,2160}}}) {
         state=fixture::editor();state.session=session++;io.DisplaySize=screen;frame();frame();
         click("Groups##main");click("New");click("Hand action");click("Add action");
@@ -458,7 +487,8 @@ int main(int argc,char** argv)try {
     padKey(PadButton::right);padKey(PadButton::a);
     check(state.draft.current().entries.size()==beforeAdd+1&&state.draft.current().entries.back().name=="Flames"&&state.draft.current().entries.back().hand==Hand::left,"Two confirmations add a spell directly to the requested hand");
     click("Presets");padKey(PadButton::down);
-    check(ImGui::GetCurrentContext()->NavId==probe::one("##preset name").id,"D-pad enters preset settings directly");padKey(PadButton::a);
+    check(ImGui::GetCurrentContext()->NavId==probe::one("Apply preset").id,"D-pad enters the preset controls directly");
+    mouse(probe::one("##preset name").rect.GetCenter());frame({{EditorInputType::stick,1,false,.21f,0}});frame({{EditorInputType::stick,1,false,0,0}});padKey(PadButton::a);
     click("Clear text");click("p");click("a");click("d");click("Done");click("Export preset");
     check(std::find(state.presets.begin(),state.presets.end(),"pad")!=state.presets.end(),"Controller text entry can name an exported preset");
     padKey(PadButton::start);check(!state.open,"Start closes the editor with live edits retained");
@@ -494,13 +524,13 @@ int main(int argc,char** argv)try {
     check(!editor.controllerPointer(),"D-pad returns from the pointer to focused navigation");
     click("Back");click("Equipment");click("##equipment visibility");click("Show always");
     const auto equipmentBefore=encodeOptions(state.options);
-    const std::array<const char*,3> equipmentPresets{"Cross layout","Diamond layout","Circle layout"};
+    const std::array<const char*,3> equipmentPresets{"Cross","Diamond","Circle"};
     for(unsigned preset=0;preset<3;++preset) {
-        click(equipmentPresets[preset]);
-        check(state.options.equipmentLayout==(preset==0?5u:preset==1?2u:4u)&&!state.options.equipmentShowText,"Equipment presets apply compact matching arrangements");
+        click("Presets");click(equipmentPresets[preset]);click("Apply preset");click("Appearance");
+        check(state.options.equipmentLayout==(preset==0?5u:preset==1?2u:4u)&&!state.options.equipmentShowText,"Layout presets arrange the equipment display to match");
         click("Show equipment names");check(state.options.equipmentShowText,"Equipment names can be enabled on preset tiles");
         click("Undo");check(!state.options.equipmentShowText,"Equipment name visibility supports Undo");
-        click("Undo");check(encodeOptions(state.options)==equipmentBefore,"Equipment presets support Undo as one change");
+        click("Undo");check(encodeOptions(state.options)==equipmentBefore,"Layout presets support Undo as one change");
     }
     const std::array<const char*,6> equipmentLayouts{"Horizontal","Vertical","Diamond","Cross","Circle","Staggered cross"};
     for(unsigned layout:{0u,2u,3u,4u,5u}) {

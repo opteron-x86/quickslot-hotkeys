@@ -41,9 +41,13 @@ class Editor {
     ImVec2 mouse_{},dragStart_{};
     int appearancePage_=0,previewMode_=0,previewFittedMode_=-1,exportScope_=0;
     float previewZoom_=100;
-    bool importAppearance_=true;
+    unsigned presetParts_=1;
+    std::uint64_t presetCheckRevision_=~0ull;
+    const void* presetCheckInfo_=nullptr;
+    bool presetModified_=false;
     std::array<char,65> presetName_{};
-    std::string presetFile_;
+    // A preset file name or a built-in preset id.
+    std::string presetSelected_;
     Entry shortcut_=smartEntry(0,0,0);
     std::optional<std::size_t> shortcutIndex_;
     std::uint32_t librarySelection_=0,editingLibrary_=0;

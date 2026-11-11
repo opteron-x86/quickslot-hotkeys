@@ -83,6 +83,12 @@ inline const ChoiceSetting& setting(unsigned Options::*member) {
     for(const auto& s:choiceSettings)if(s.value==member)return s;
     throw std::logic_error("Setting has no table row");
 }
+inline bool storedSetting(std::string_view key) {
+    for(const auto& s:floatSettings)if(s.stored&&key==s.key)return true;
+    for(const auto& s:choiceSettings)if(s.stored&&key==s.key)return true;
+    for(const auto& s:flagSettings)if(s.stored&&key==s.key)return true;
+    return false;
+}
 inline float steppedSetting(const FloatSetting& s,float value,int direction) {
     return std::clamp(std::round((value+float(direction)*s.step)/s.step)*s.step,s.low,s.high);
 }

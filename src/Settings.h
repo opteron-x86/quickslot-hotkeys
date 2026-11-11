@@ -80,6 +80,7 @@ inline void sanitizeOptions(Options& o) {
     for(auto& c:o.equippedColor)c=finite(c,.9f,0,1);
     const auto validId=[](const std::string& id){return !id.empty()&&id.size()<=48&&std::all_of(id.begin(),id.end(),[](unsigned char c){return (c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='-'||c=='_';});};
     if(!validId(o.themeId))o.themeId="minimal";
+    if(o.activePreset.size()>80||!validUTF8(o.activePreset))o.activePreset.clear();
     if(o.fontId.size()>128||std::any_of(o.fontId.begin(),o.fontId.end(),[](unsigned char c){return c<32;}))o.fontId.clear();
     for(auto it=o.themeAdjustments.begin();it!=o.themeAdjustments.end();) {
         if(!validId(it->first)){it=o.themeAdjustments.erase(it);continue;}
@@ -120,6 +121,7 @@ inline std::string encodeOptions(Options o) {
         {"spacing",o.spacing},{"positionX",o.positionX},{"positionY",o.positionY},{"showIdle",o.showIdle},{"showHints",o.showHints},
         {"showPoison",o.showPoison},{"showAmmo",o.showAmmo},
         {"selectorShape",o.selectorShape},{"selectorSpacing",o.selectorSpacing},{"showLabels",o.showLabels},{"showCardNames",o.showCardNames},{"showKeys",o.showKeys},{"placementGrid",o.placementGrid},{"placementSnap",o.placementSnap},{"keyIcons",o.keyIcons},{"coloredMagic",o.coloredMagic}};
+    j["activePreset"]=o.activePreset;
     encodeTable(j,o);return j.dump(2);
 }
 inline Options decodeOptions(const std::string& bytes) {
@@ -205,6 +207,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.animateHud=j.value("animateHud",true);o.uiSounds=j.value("uiSounds",true);o.equippedMarkerScale=j.value("equippedMarkerScale",1.f);
     o.customEquippedColor=j.value("customEquippedColor",false);o.equippedColor=j.value("equippedColor",o.equippedColor);
     o.fadeDelay=j.at("fadeDelay").get<decltype(o.fadeDelay)>();o.idleOpacity=j.at("idleOpacity").get<decltype(o.idleOpacity)>();
+    o.activePreset=j.value("activePreset",std::string{});
     decodeTable(j,o);
     sanitizeOptions(o);return o;
 }

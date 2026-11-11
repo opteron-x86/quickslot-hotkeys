@@ -193,7 +193,12 @@ int main(int argc,char** argv) {
         }
     }
     if(scene=="editor-position-grid"){editing.options.placementGrid=editing.options.placementSnap=true;editing.options.positionX=.75f;editing.options.positionY=.8f;}
-    if(scene=="editor-presets")editing.presets={"Combat - Oathvein","Nordic circles"};
+    if(scene=="editor-presets") {
+        editing.presets={"Combat - Oathvein","Nordic circles"};std::map<std::string,PresetInfo> info;
+        Options oathvein=editing.options;oathvein.themeId="oathvein";layoutPreset(oathvein,1);info["Combat - Oathvein"]={true,oathvein};
+        Options nordic=editing.options;nordic.themeId="nordic";layoutPreset(nordic,2);info["Nordic circles"]={false,nordic};
+        editing.presetInfo=std::make_shared<const std::map<std::string,PresetInfo>>(std::move(info));editing.options.activePreset="Nordic circles";
+    }
     if(scene=="v061-hand-actions"||scene=="editor-hand-actions") {
         layoutPreset(options,0);options.groupCount=3;options.names[0]="Hands";
         snapshot.rows.clear();snapshot.activeGroup=0;snapshot.preview=snapshot.selected=1;
@@ -355,7 +360,7 @@ int main(int argc,char** argv) {
     }
     if(scene=="editor-selector")previewClicks={"Appearance","Selector"};
     if(scene=="editor-position-grid"||scene=="editor-position-bounds"||scene=="editor-position-custom")previewClicks={"Appearance","Widget","Position"};
-    if(scene=="editor-presets")previewClicks={"Presets"};
+    if(scene=="editor-presets")previewClicks={"Presets","Combat - Oathvein"};
     if(scene=="editor-hand-actions")previewClicks={"New","Hand action"};
     if(scene.starts_with("editor-behavior"))previewClicks={"Controls"};
     if(scene=="editor-smart-weapon")previewClicks={"New","Smart weapon"};

@@ -362,6 +362,29 @@ int main()try {
     Arsenal arsenal;const auto preset=exportPreset(arsenal,restored,false,[](std::uint32_t){return Json{};});
     const auto imported=importPreset(preset,arsenal,target,false,[](const std::string&,std::uint32_t){return 0u;});
     check(imported.options.controllerGroups==restored.controllerGroups&&imported.options.voiceHotkey,"Complete preset restores controller and voice controls");
+    {
+        Options mine;mine.language="ru";mine.uiSounds=false;mine.activePreset="Mine";mine.names[0]="Blades";mine.groupCount=5;mine.skipEmpty=true;mine.layout=1;mine.themeId="edge";
+        Options theirs;theirs.language="ja";theirs.names[0]="Staves";theirs.groupCount=2;theirs.keys[0]=59;theirs.layout=4;theirs.themeId="norden";theirs.activePreset="Theirs";
+        const auto look=mergeOptions(mine,theirs,presetPart::look);
+        check(look.layout==4&&look.themeId=="norden"&&look.names==mine.names&&look.groupCount==5&&look.keys==mine.keys&&look.skipEmpty,"Applying a preset's look keeps controls and group setup");
+        const auto controls=mergeOptions(mine,theirs,presetPart::controls);
+        check(controls.keys==theirs.keys&&!controls.skipEmpty&&controls.layout==1&&controls.themeId=="edge"&&controls.names==mine.names&&controls.groupCount==5,"Applying a preset's controls keeps the look and group setup");
+        const auto groups=mergeOptions(mine,theirs,presetPart::groups);
+        check(groups.names==theirs.names&&groups.groupCount==2&&groups.keys==mine.keys&&groups.layout==1,"Applying a preset's group setup keeps the look and controls");
+        for(const auto& merged:{look,controls,groups,mergeOptions(mine,theirs,presetPart::all)})check(merged.language=="ru"&&!merged.uiSounds&&merged.activePreset=="Mine","Language, sounds and the current preset name stay with the player");
+        check(encodeOptions(mergeOptions(mine,theirs,0))==encodeOptions(mine),"Applying no parts changes nothing");
+        const auto file=exportPreset(Arsenal{},theirs,true,[](std::uint32_t){return Json{};});
+        const auto none=[](const std::string&,std::uint32_t){return 0u;};
+        check(importPreset(file,arsenal,mine,presetPart::all,none).appearanceOnly,"An appearance preset never replaces groups");
+        check(importPreset(file,arsenal,mine,presetPart::look|presetPart::controls,none).options.keys==theirs.keys,"An appearance preset can still supply its controls");
+        check(lookMatches(look,theirs)&&!lookMatches(mine,theirs),"A look matches its preset until a setting changes");
+        const auto cross=applyBuiltin(mine,"builtin:cross");
+        check(cross.layout==5&&cross.shape==2&&cross.equipmentLayout==5&&cross.themeId=="edge"&&cross.names==mine.names,"A built-in layout rearranges the HUD and keeps the theme and groups");
+        const auto restoredLook=applyBuiltin(cross,"builtin:default");
+        check(restoredLook.layout==Options{}.layout&&restoredLook.themeId==Options{}.themeId&&restoredLook.names==mine.names&&restoredLook.skipEmpty&&restoredLook.language=="ru","The Default preset restores the look alone");
+        check(encodeOptions(applyBuiltin(mine,"builtin:unknown"))==encodeOptions(mine)&&builtinPreset("builtin:circle")&&!builtinPreset("Circle"),"Built-in ids are distinct from file names");
+        mine.activePreset=std::string(200,'x');sanitizeOptions(mine);check(mine.activePreset.empty(),"An oversized preset name is discarded");
+    }
     for(const auto kind:{Kind::power,Kind::lesserPower,Kind::shout}) {
         Entry e;e.kind=kind;Selection::Commit c{0,0,0};Options controls;
         check(activatesVoice(e,c,controls),"Power and shout taps activate");c.browsed=true;

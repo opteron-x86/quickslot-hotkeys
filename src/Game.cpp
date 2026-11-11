@@ -702,7 +702,8 @@ bool Game::initialize() {
     }
     options_.editorKey=GetPrivateProfileIntW(L"Controls",L"EditorKey",options_.editorKey,ini.c_str());
     options_.editorModifiers=GetPrivateProfileIntW(L"Controls",L"EditorModifiers",options_.editorModifiers,ini.c_str());
-    selection_.holdSeconds=std::clamp(GetPrivateProfileIntW(L"Controls",L"HoldMilliseconds",180,ini.c_str()),100u,800u)/1000.;
+    const float iniHold=std::clamp(GetPrivateProfileIntW(L"Controls",L"HoldMilliseconds",180,ini.c_str()),100u,800u)/1000.f;
+    options_.holdDelay=iniHold;
     options_.scale=std::clamp(GetPrivateProfileIntW(L"Appearance",L"Scale",100,ini.c_str()),70u,150u)/100.f;
     options_.opacity=std::clamp(GetPrivateProfileIntW(L"Appearance",L"Opacity",92,ini.c_str()),40u,100u)/100.f;
     options_.showIdle=GetPrivateProfileIntW(L"Appearance",L"ShowIdle",1,ini.c_str())!=0;
@@ -729,6 +730,8 @@ bool Game::initialize() {
             }
         }
     }catch(const std::exception& e){log::warn("Editor settings ignored; using INI defaults: {}",e.what());loadNotice_=tr("Quickslot settings could not be read and use their defaults");}
+    if(options_.holdDelay<=0)options_.holdDelay=iniHold;
+    selection_.holdSeconds=options_.holdDelay;
     localization().select(options_.language);
 
     const REL::Relocation<std::uintptr_t> poll{RELOCATION_ID(67315,68617)};
@@ -795,11 +798,11 @@ void Game::selectionTime(bool selecting) {
     static REL::Relocation<float*> current{RELOCATION_ID(511882,388442)},target{RELOCATION_ID(511883,388443)};
     if(const auto change=selectionTime_.update(wants,options_.selectionSpeed,*current,*target)){*current=change->first;*target=change->second;}
 }
-void Game::cancel(){selectionTime(false);selection_.cancel();controller_.cancel();pending_.reset();released_.reset();consumableRequest_.reset();stopVoice();}
+void Game::cancel(){selectionTime(false);cycleConfirm_.cancel();selection_.cancel();controller_.cancel();pending_.reset();released_.reset();consumableRequest_.reset();stopVoice();}
 void Game::notice(std::string text,bool visible){log::info("{}",text);snapshot_.notice=visible?std::move(text):"";snapshot_.noticeUntil=visible?clockNow()+3.5:0;}
 void Game::publish(){
     snapshot_.vr=REL::Module::IsVR();snapshot_.controller=controllerLast_&&options_.controllerEnabled;snapshot_.activeGroup=arsenal_.active;
-    snapshot_.holding=selection_.held();snapshot_.selected=arsenal_.current().selected;snapshot_.preview=selection_.index();snapshot_.browsing=selection_.browsing();snapshot_.visible=allowed(MenuPurpose::hud);
+    snapshot_.holding=selection_.held();snapshot_.selected=arsenal_.current().selected;snapshot_.preview=cycleConfirm_.active()?cycleConfirm_.index():selection_.index();snapshot_.browsing=selection_.browsing()||cycleConfirm_.active();snapshot_.visible=allowed(MenuPurpose::hud);
     snapshot_.inCombat=snapshot_.weaponsDrawn=false;
     if(snapshot_.visible)if(auto* player=RE::PlayerCharacter::GetSingleton()) {
         snapshot_.inCombat=player->IsInCombat();snapshot_.weaponsDrawn=player->AsActorState()->IsWeaponDrawn();
@@ -857,7 +860,7 @@ void Game::activate(std::size_t group) {
 }
 void Game::queueUnequip(std::optional<std::size_t> index,bool controller) {
     selectionController_=controller;
-    pending_.reset();released_.reset();consumableRequest_.reset();selectionTime(false);const auto& group=arsenal_.current();
+    pending_.reset();released_.reset();consumableRequest_.reset();cycleConfirm_.cancel();selectionTime(false);const auto& group=arsenal_.current();
     if(auto commit=selection_.request(group,arsenal_.active,index.value_or(group.selected))) {
         commit->controller=controller;released_=Released{*commit,true};
     }
@@ -867,7 +870,7 @@ void Game::queueHand(Hand hand,bool controller) {
     if(!selection_.held()||selection_.index()>=arsenal_.current().entries.size())return;
     const auto index=selection_.index();
     if(!entryForHand(arsenal_.current().entries[index],hand)){cancel();notice(tr("This item cannot use that hand"));return;}
-    selectionTime(false);controller_.cancel();pending_.reset();released_.reset();consumableRequest_.reset();
+    selectionTime(false);controller_.cancel();pending_.reset();released_.reset();consumableRequest_.reset();cycleConfirm_.cancel();
     if(auto commit=releaseToHand(selection_,arsenal_.current(),arsenal_.active,hand,controller)) {
         selectionController_=controller;released_=Released{*commit};snapshot_.revealUntil=clockNow()+2;
     }
@@ -910,7 +913,7 @@ void Game::beginSelection(std::size_t group,bool controller) {
             if(!arsenal_.current().entries.empty())notice(tr("Weapons in the other hand skipped"));
         }else if(auto commit=selection_.requestCycle(arsenal_.current(),group,*index)) {
             commit->controller=controller;
-            arsenal_.current().selected=*index;released_=Released{*commit};
+            arsenal_.current().selected=*index;commitCycle(*commit);
             log::info("Cycle {}: group {}, entry {}",recall?"recall":"advance",group+1,*index+1);
         }
 
@@ -933,9 +936,15 @@ void Game::finishSelection() {
             commit->index=*index;arsenal_.current().selected=*index;
         }
         commit->controller=selectionController_;
-        released_=Released{*commit};snapshot_.revealUntil=clockNow()+2;
+        if(commit->cycling)commitCycle(*commit);else released_=Released{*commit};
+        snapshot_.revealUntil=clockNow()+2;
     }
-    selectionTime(false);
+    selectionTime(cycleConfirm_.active());
+}
+// A tapped choice equips at once, or stays open for the confirm delay so further taps can move on first.
+void Game::commitCycle(const Selection::Commit& commit) {
+    if(const auto now=cycleConfirm_.begin(commit,clockNow(),options_.cycleDelay))released_=Released{*now};
+    else selectionTime(true);
 }
 void Game::cycleSelection(int delta) {
     if(!selection_.canBrowse())return;
@@ -982,6 +991,12 @@ bool Game::consumeController(RE::InputEvent* event) {
         const bool captured=controller_.editorButton(button,down,fresh);
         if(fresh||!down)editorInput_.push_back({EditorInputType::pad,unsigned(button),down});
         return captured;
+    }
+    if(cycleConfirm_.active()&&fresh) {
+        const auto binding=options_.controllerActions[unsigned(ControllerAction::cancel)];
+        if(vr?button==PadButton::b:binding.button==button&&(binding.modifier==PadButton::none||controller_.down(binding.modifier))) {
+            cancel();notice(tr("Selection cancelled"),false);return true;
+        }
     }
     const auto result=controller_.button(button,down,fresh,options_,allowed(MenuPurpose::input,true),selection_.held(),vr,selection_.canBrowse(),menuAPI().hotkeyEnabled()&&allowed(MenuPurpose::editor));
     switch(result.action) {
@@ -1087,6 +1102,13 @@ bool Game::consume(RE::InputEvent* event) {
         else {cancel();beginSelection(groupID,false);}
         return true;
     }
+    if(cycleConfirm_.active()&&button->IsDown()) {
+        auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
+        const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
+        if((keyboard&&keyBindingMatches(options_.selectorBindings[unsigned(KeyboardAction::cancel)],code,modifiers))||(mouse&&int(code)==options_.mouseActions[unsigned(MouseAction::cancel)])) {
+            *owned=true;cancel();notice(tr("Selection cancelled"),false);return true;
+        }
+    }
     if(selection_.held()) {
         auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
         const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
@@ -1131,7 +1153,7 @@ void Game::dispatch(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent**
             if(!allowed())cancel();
             if(!REL::Module::IsVR())if(auto* devices=RE::BSInputDeviceManager::GetSingleton();devices&&devices->IsGamepadEnabled())
                 if(auto* pad=devices->GetGamepad())controller_.observe(readPadState(pad));
-            const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing)dirty_=true;selectionTime(selection_.browsing());
+            const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing)dirty_=true;selectionTime(selection_.browsing()||cycleConfirm_.active());
         }
         filterEvents(events?*events:nullptr,[&](RE::InputEvent* e){
                 std::scoped_lock lock(mutex_);const bool consumed=consume(e);
@@ -1223,9 +1245,10 @@ void Game::tick() {
         auto* ui=RE::UI::GetSingleton();
         if(inputAllowed) {
             if(voice_.active())progressVoice();
-            const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing)dirty_=true;selectionTime(selection_.browsing());
+            const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing)dirty_=true;selectionTime(selection_.browsing()||cycleConfirm_.active());
 
             if(consumableRequest_&&!ui->IsMenuOpen(pauseMenuName)){const auto request=*consumableRequest_;consumableRequest_.reset();useConsumable(request.entry,request.controller);}
+            if(const auto confirmed=cycleConfirm_.poll(clockNow())){released_=Released{*confirmed};selectionTime(false);}
             if(released_&&!ui->IsMenuOpen(pauseMenuName)) {const auto action=*released_;released_.reset();equip(action.commit,action.unequip);}
         }
 
@@ -1272,31 +1295,31 @@ void Game::menuCapture(std::size_t groupID,Hand hand) {
                 const auto menu=ui->GetMenu<RE::InventoryMenu>();auto* list=menu?menu->GetRuntimeData().itemList:nullptr;
                 if(auto* row=list?list->GetSelectedItem():nullptr){data=row->data.objDesc;if(data)selectedForm=data->object;}
             }
-            if(!selectedForm||selectedForm->GetFormID()!=formID||(!magic&&reinterpret_cast<std::uintptr_t>(data)!=descriptorToken)){report("Selection moved — choose the item again");return;}
+            if(!selectedForm||selectedForm->GetFormID()!=formID||(!magic&&reinterpret_cast<std::uintptr_t>(data)!=descriptorToken)){report(tr("Selection moved — choose the item again"));return;}
             Entry e;e.form=formID;e.hand=hand;
-            if(!identify(selectedForm,e)){report("This item cannot be added to Quickslot");return;}
+            if(!identify(selectedForm,e)){report(tr("This item cannot be added to Quickslot"));return;}
             e.name=gameName(selectedForm->GetName());
-            if(arsenal_.groups[groupID].entries.size()>=Group::limit){report("This group is full (16 shortcuts)");return;}
+            if(arsenal_.groups[groupID].entries.size()>=Group::limit){report(tr("This group is full (16 shortcuts)"));return;}
             if(tracksInstance(e)) {
                 auto* object=selectedForm->As<RE::TESBoundObject>();const auto sample=sampleInventory(player,object);
                 std::vector<std::uintptr_t> row;
                 if(data&&data->extraLists)for(auto* extra:*data->extraLists)if(extra)row.push_back(reinterpret_cast<std::uintptr_t>(extra));
                 const auto choice=matchMenuCopy(sample,row);
-                if(!choice.valid){log::warn("Menu capture: ambiguous or stale row for {:08X}",formID);report("Choose this item in Quickslot");return;}
+                if(!choice.valid){log::warn("Menu capture: ambiguous or stale row for {:08X}",formID);report(tr("Choose this item in Quickslot"));return;}
                 auto* exact=choice.plain?materializePlainCopy(player,object):reinterpret_cast<RE::ExtraDataList*>(choice.token);
-                if(!ensureIdentity(player,exact,arsenal_,nullptr)){log::warn("Menu capture: identity unavailable for {:08X}",formID);report("Could not add item · try the editor");return;}
+                if(!ensureIdentity(player,exact,arsenal_,nullptr)){log::warn("Menu capture: identity unavailable for {:08X}",formID);report(tr("Could not add item · try the editor"));return;}
                 const auto* id=exact->GetByType<RE::ExtraUniqueID>();e.owner=id->baseID;e.unique=id->uniqueID;
                 if(const auto* name=exact->GetDisplayName(object);name&&*name)e.name=gameName(name);
                 auto inventory=player->GetInventory([&](RE::TESBoundObject& obj){return &obj==object;});
-                if(resolve(e,player,inventory).extra!=exact){log::warn("Menu capture: ambiguous identity for {:08X}",formID);report("Could not distinguish this item");return;}
+                if(resolve(e,player,inventory).extra!=exact){log::warn("Menu capture: ambiguous identity for {:08X}",formID);report(tr("Could not distinguish this item"));return;}
             }else {
                 auto inventory=player->GetInventory([&](RE::TESBoundObject& obj){return obj.GetFormID()==formID;});
-                if(!resolve(e,player,inventory).available()){report("This item or ability is not available");return;}
+                if(!resolve(e,player,inventory).available()){report(tr("This item or ability is not available"));return;}
             }
             cancel();arsenal_.active=groupID;const bool added=arsenal_.groups[groupID].add(e,options_.autoSort[groupID]);dirty_=true;
-            report((added?"Added to ":"Already in ")+options_.names[groupID]+" — "+e.name+" · "+handName(e));
+            report(tr(added?"Added to ":"Already in ")+options_.names[groupID]+" — "+e.name+" · "+handName(e));
             if(!magic)if(const auto menu=ui->GetMenu<RE::InventoryMenu>())menu->RefreshItemList();
-        }catch(const std::exception& error){log::error("Menu capture failed: {}",error.what());report("Could not add this item — try the Quickslot editor");}
+        }catch(const std::exception& error){log::error("Menu capture failed: {}",error.what());report(tr("Could not add this item — try the Quickslot editor"));}
     });
 }
 void Game::watchAnimation() {
@@ -1906,6 +1929,8 @@ void Game::applyEditor() {
     sanitizeOptions(editor_.options);revealSavedGroups(editor_.options,editor_.draft);
     if(encodeOptions(options_)!=encodeOptions(editor_.options))autosave_.change(clockNow());
     arsenal_=editor_.draft;options_=editor_.options;cancel();dirty_=true;
+    if(options_.holdDelay<=0)options_.holdDelay=Options{}.holdDelay;
+    selection_.holdSeconds=options_.holdDelay;
     editor_.canUndo=editHistory_.canUndo();editor_.canRevert=editHistory_.canRevert();
     editor_.settingsPending=autosave_.pending();editor_.saveError=settingsError_;
     refreshEditor();publish();
@@ -2069,10 +2094,10 @@ RE::BSEventNotifyControl Game::ProcessEvent(const RE::MenuOpenCloseEvent* e,RE::
             logCustomMenu(e->opening?"opened":"closed");
             customMenuProbeAt_=e->opening?clockNow()+2:0;
         }
-        if(e->menuName==slowMenuName&&e->opening&&(!selection_.browsing()||!allowed()||selectionClock(options_.selectionSpeed)!=SelectionClock::slow)) {
+        if(e->menuName==slowMenuName&&e->opening&&(!(selection_.browsing()||cycleConfirm_.active())||!allowed()||selectionClock(options_.selectionSpeed)!=SelectionClock::slow)) {
             soulsRequested_=false;RE::UIMessageQueue::GetSingleton()->AddMessage(slowMenuName,RE::UI_MESSAGE_TYPE::kHide,nullptr);
         }
-        if(e->menuName==pauseMenuName&&e->opening&&(!selection_.browsing()||!allowed()||selectionClock(options_.selectionSpeed)!=SelectionClock::pause)) {
+        if(e->menuName==pauseMenuName&&e->opening&&(!(selection_.browsing()||cycleConfirm_.active())||!allowed()||selectionClock(options_.selectionSpeed)!=SelectionClock::pause)) {
             pauseRequested_=false;RE::UIMessageQueue::GetSingleton()->AddMessage(pauseMenuName,RE::UI_MESSAGE_TYPE::kHide,nullptr);
         }
         if(e->menuName==editorMenuName&&!e->opening&&editor_.open)closeEditor("editor menu removed from stack");

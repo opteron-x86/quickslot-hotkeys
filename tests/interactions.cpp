@@ -755,5 +755,26 @@ int main()try {
             refreshFavorites(favorites,weapons);
         }
     }
+    {
+        Group cycle;for(unsigned i=1;i<=3;++i){Entry e;e.form=0x500+i;e.owner=0x14;e.unique=std::uint16_t(i);e.name="Blade "+std::to_string(i);cycle.add(e);}
+        Selection taps;CycleConfirm confirm;
+        auto first=taps.requestCycle(cycle,0,1);
+        check(first&&confirm.begin(*first,10,0)&&!confirm.active(),"A zero confirm delay equips on the tap");
+        check(!confirm.begin(*first,10,.8f)&&confirm.active()&&confirm.index()==1,"A confirm delay holds the tapped choice open");
+        check(!confirm.poll(10.5)&&confirm.active(),"The choice stays open until the delay ends");
+        auto second=taps.requestCycle(cycle,0,2);
+        check(!confirm.begin(*second,10.6,.8f)&&confirm.index()==2&&!confirm.poll(11.2),"Another tap moves on and restarts the delay");
+        const auto equipped=confirm.poll(11.5);
+        check(equipped&&equipped->index==2&&equipped->cycling&&taps.accepts(*equipped,cycle,0)&&!confirm.active(),"The last tapped choice equips once when the delay ends");
+        check(!confirm.poll(12),"A confirmed choice equips a single time");
+        confirm.begin(*second,13,.8f);confirm.cancel();check(!confirm.active()&&!confirm.poll(20),"Cancelling during the delay equips nothing");
+        Options timing;timing.holdDelay=.35f;timing.cycleDelay=1.5f;auto saved=decodeOptions(encodeOptions(timing));
+        check(saved.holdDelay==.35f&&saved.cycleDelay==1.5f,"Hold and confirm delays persist");
+        timing.holdDelay=5;timing.cycleDelay=.05f;sanitizeOptions(timing);check(timing.holdDelay==.8f&&timing.cycleDelay==.2f,"Delays stay inside their ranges");
+        auto earlier=Json::parse(encodeOptions(Options{}));earlier.erase("holdDelay");earlier.erase("cycleDelay");
+        saved=decodeOptions(earlier.dump());check(saved.holdDelay==0&&saved.cycleDelay==0,"Earlier settings leave the hold delay to the INI and the confirm delay off");
+        Options imported;imported.holdDelay=.5f;imported.cycleDelay=2;Options look;look.themeId="edge";importAppearance(imported,look);
+        check(imported.themeId=="edge"&&imported.holdDelay==.5f&&imported.cycleDelay==2,"Appearance presets leave timing settings in place");
+    }
     std::cout<<"PASS: "<<checks<<" browse/cycle, compact equipped HUD, settings and menu API checks\n";
 }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}

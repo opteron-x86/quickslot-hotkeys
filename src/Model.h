@@ -227,6 +227,24 @@ public:
     bool accepts(const Commit& c,const Group& g,std::size_t group=0) const { return c.group==group&&c.token==token_&&c.revision==g.revision&&c.index<g.entries.size(); }
     void cancel() { held_=false;browsing_=false;++token_; }
 };
+// Holds a tapped cycle choice open so further taps can move on before anything equips.
+class CycleConfirm {
+    std::optional<Selection::Commit> commit_;
+    double deadline_=0;
+public:
+    bool active()const{return commit_.has_value();}
+    std::size_t index()const{return commit_?commit_->index:0;}
+    // Returns the commit to run immediately when no delay applies.
+    std::optional<Selection::Commit> begin(const Selection::Commit& commit,double now,float delay) {
+        if(!(delay>0)){commit_.reset();return commit;}
+        commit_=commit;deadline_=now+delay;return {};
+    }
+    std::optional<Selection::Commit> poll(double now) {
+        if(!commit_||now<deadline_)return {};
+        const auto commit=*commit_;commit_.reset();return commit;
+    }
+    void cancel(){commit_.reset();}
+};
 struct WeaponStatus {bool poisoned=false;int ammunition=-1;};
 struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry;bool cycleBlocked=false; };
 inline const Entry& rowIconEntry(const Row& row){return row.iconEntry?*row.iconEntry:row.entry;}
@@ -281,6 +299,8 @@ struct Options {
     KeyBinding consumableKey;
     PadBinding controllerUse,vrUse;
     bool skipEmpty=false,menuCapture=true,cycleKeepOtherHand=true;
+    // Seconds. holdDelay separates a tap from a hold; cycleDelay keeps a tapped choice open before it equips (0 equips at once).
+    float holdDelay=.18f,cycleDelay=0;
     bool groupCaptureRightHotkey=true,groupCaptureLeftHotkey=true,groupMoveHotkey=true;
     bool groupUnequipHotkey=true,groupRemoveHotkey=true;
     bool selectorReorderHotkey=true,selectorUnequipHotkey=true,selectorRemoveHotkey=true;

@@ -156,7 +156,8 @@ int main(int argc,char** argv)try {
     click("##theme");click("Norden");check(adjustments(state.options).customAccent,"Returning to a theme restores its prior overrides");
     click("Reset theme");check(!adjustments(state.options).customAccent,"Theme reset removes only current overrides");
     click("Undo");check(adjustments(state.options).customAccent,"Theme reset is undoable");
-    click("Visibility");click("Show keys");check(!state.options.showKeys,"Widget key visibility changes live");click("Undo");check(state.options.showKeys,"Key visibility is undoable");
+    click("Groups");click("Show keys");check(!state.options.showKeys,"Widget key visibility changes live");click("Undo");check(state.options.showKeys,"Key visibility is undoable");
+    click("Visibility");check(probe::find("Show keys").empty(),"Key visibility has one control");
     click("##widget visibility");click("Hide when idle");check(widgetVisibility(state.options)==WidgetVisibility::hide,"Complete hiding is available as an explicit mode");
     check(probe::find("##Idle opacity").empty(),"Hide mode needs no opacity slider");
     click("Keep visible in combat");check(!state.options.keepCombatVisible,"Hiding can also apply during combat");

@@ -36,9 +36,11 @@ Choose a behavior for each group:
 
 - **Hold to browse:** tap equips or uses the remembered entry; hold, browse and release chooses another.
 - **Tap to cycle:** the first press when returning to a group recalls its selection. Further presses advance and equip.
-- **Tap to cycle / hold to browse:** tap and release to recall or advance. Hold to open the selector, browse in either direction and release to select the highlighted entry. The hold delay uses `HoldMilliseconds` in `Quickslot.ini`.
+- **Tap to cycle / hold to browse:** tap and release to recall or advance. Hold to open the selector, browse in either direction and release to select the highlighted entry.
 
 **Keep the other hand equipped while cycling**, under **Controls → General**, starts enabled. Tap-to-cycle skips one-handed weapon copies held in the opposite hand. Smart weapons choose the strongest eligible copy. This applies to manual and Favorites-linked groups. Browsing hand actions can move a weapon between hands; turn the option off to allow those transfers during cycling too.
+
+**Controls → General → Timing** sets the **Hold delay** that separates a tap from a hold (100–800 ms). **Cycle confirm delay** gives tapped cycling a selection window: each tap shows the next choice in the selector, your **Game speed while selecting** setting applies, and the last choice equips once when the delay ends. The cancel binding closes the window with your equipment unchanged. At zero, every tap equips.
 
 Groups containing consumables start with **Consumables → Tap to use**. Browsing a potion readies it; the next tap uses one dose. Choose **Use selected consumable action** to select potions, food, poisons and smart potions with the group binding, then use a separate binding to consume one dose. This setting enables every group behavior, including tap-to-cycle with hold-to-browse. Equipment in mixed groups equips normally.
 

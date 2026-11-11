@@ -41,6 +41,8 @@ inline void sanitizeOptions(Options& o) {
         if(button< -1||button>4||std::find(mouseAssigned.begin(),mouseAssigned.end(),button)!=mouseAssigned.end())button=-1;
         if(button>=0)mouseAssigned.push_back(button);
     }
+    o.holdDelay=std::isfinite(o.holdDelay)&&o.holdDelay>0?std::clamp(o.holdDelay,.1f,.8f):0;
+    o.cycleDelay=std::isfinite(o.cycleDelay)&&o.cycleDelay>0?std::clamp(o.cycleDelay,.2f,3.f):0;
     o.selectionSpeed=std::isfinite(o.selectionSpeed)?(o.selectionSpeed==0?0:std::clamp(o.selectionSpeed,.1f,1.f)):1.f;
     o.controllerStyle=std::min(o.controllerStyle,1u);o.controllerStick=std::min(o.controllerStick,2u);
     o.controllerModifiers&=allPadButtons;
@@ -106,7 +108,7 @@ inline std::string encodeOptions(Options o) {
     Json modes=Json::array();for(const auto mode:o.groupModes)modes.push_back(unsigned(mode));
     Json selectorBindings=Json::array();for(const auto b:o.selectorBindings)selectorBindings.push_back(Json::array({b.key,b.modifiers}));
     Json controllerActions=Json::array();for(const auto b:o.controllerActions)controllerActions.push_back(binding(b));
-    return Json{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"themeAdjustments",tweaks},
+    return Json{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"holdDelay",o.holdDelay},{"cycleDelay",o.cycleDelay},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"themeAdjustments",tweaks},
         {"pngiiIcons",o.pngiiIcons},{"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
         {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},
         {"groupCaptureRightHotkey",o.groupCaptureRightHotkey},{"groupCaptureLeftHotkey",o.groupCaptureLeftHotkey},{"groupMoveHotkey",o.groupMoveHotkey},
@@ -136,6 +138,8 @@ inline Options decodeOptions(const std::string& bytes) {
     o.editorModifiers=j.at("editorModifiers").get<decltype(o.editorModifiers)>();
     o.groupOrder=j.at("groupOrder").get<decltype(o.groupOrder)>();
     o.cycleKeepOtherHand=j.value("cycleKeepOtherHand",true);
+    // Files without a hold delay use the INI value.
+    o.holdDelay=j.value("holdDelay",0.f);o.cycleDelay=j.value("cycleDelay",0.f);
     o.skipEmpty=j.at("skipEmpty").get<decltype(o.skipEmpty)>();o.menuCapture=j.at("menuCapture").get<decltype(o.menuCapture)>();o.selectionSpeed=j.at("selectionSpeed").get<decltype(o.selectionSpeed)>();
     o.voiceHotkey=j.at("voiceHotkey").get<decltype(o.voiceHotkey)>();o.shoutCharge=j.at("shoutCharge").get<decltype(o.shoutCharge)>();
     o.controllerEnabled=j.at("controllerEnabled").get<decltype(o.controllerEnabled)>();o.controllerBumpers=j.at("controllerBumpers").get<decltype(o.controllerBumpers)>();

@@ -3,6 +3,10 @@
 ## Unreleased
 
 - Loading a save keeps every readable group and shortcut when one entry is damaged, and reports the repair on screen. A group record written by a different Quickslot version stays in the save until you create new groups.
+- Set a **Cycle confirm delay** under **Controls → General → Timing**. Tap-to-cycle groups then show each tapped choice in the selector, apply your **Game speed while selecting** setting (full speed, slow motion or pause), and equip the last choice once when the delay ends. Cancel during the delay with your cancel binding.
+- Set the **Hold delay** that separates a tap from a hold under **Controls → General → Timing**.
+- Inventory and Magic capture messages follow the selected language.
+- **Show keys** has one control, under **Appearance → Groups**.
 - A settings file with missing or invalid values keeps every valid setting. Quickslot copies the original to `Quickslot.settings.rejected.json` beside it.
 
 ## 0.14.0

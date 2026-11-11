@@ -828,6 +828,13 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             label(tr("Game speed while selecting"));int timeMode=int(selectionClock(options.selectionSpeed));ImGui::SetNextItemWidth(px(300));
             if(UI::Combo("##selection clock",&timeMode,"Full speed\0Slow motion\0Pause\0")){options.selectionSpeed=timeMode==2?0.f:timeMode==1?.5f:1.f;changed=true;}
             if(timeMode==1&&!state.soulsSlowdown){ImGui::SetNextItemWidth(px(200));changed|=UI::SliderFloat("Game speed",&options.selectionSpeed,.1f,.95f,"%.2fx");}
+            ImGui::Separator();label(tr("TIMING"));
+            float holdMs=(options.holdDelay>0?options.holdDelay:Options{}.holdDelay)*1000;ImGui::SetNextItemWidth(px(240));
+            if(UI::SliderFloat("Hold delay",&holdMs,100,800,"%.0f ms")){options.holdDelay=holdMs/1000;changed=true;}
+            if(ImGui::IsItemHovered())UI::SetTooltip("How long a group key is held before browsing starts. Shorter presses count as taps.");
+            float cycleDelay=options.cycleDelay;ImGui::SetNextItemWidth(px(240));
+            if(UI::SliderFloat("Cycle confirm delay",&cycleDelay,0,3,"%.1f s")){options.cycleDelay=cycleDelay<.2f?0:cycleDelay;changed=true;}
+            if(ImGui::IsItemHovered())UI::SetTooltip("Tap-to-cycle groups show each tapped choice for this long and equip the last one. Game speed while selecting applies during the delay. Zero equips on every tap.");
             ImGui::Separator();label(tr("DEFAULT ACTIVATION"));
             changed|=UI::Checkbox("Activate with group hotkey",&options.voiceHotkey);
             ImGui::SetNextItemWidth(px(240));changed|=UI::SliderFloat("Shout charge",&options.shoutCharge,.05f,2.5f,"%.2f s");
@@ -1075,7 +1082,6 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 slider("Spacing",options.equipmentSpacing,0,128);
                 slider("X",options.equipmentX,0,1,"%.3f");slider("Y",options.equipmentY,0,1,"%.3f");
             } else {
-                changed|=UI::Checkbox("Show keys",&options.showKeys);
                 changed|=UI::Checkbox("Hide empty groups",&options.hideEmptyGroups);
                 combo("Inactive groups","##inactive groups",options.inactiveGroups,"Show\0Dim\0Hide\0");
                 if(options.inactiveGroups==1)slider("Inactive opacity",options.inactiveGroupOpacity,.05f,.9f,"%.2f");

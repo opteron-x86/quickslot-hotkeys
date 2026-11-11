@@ -108,8 +108,8 @@ int main(int argc,char** argv)try {
     click("Clear##group binding");check(state.options.keys[0]==0,"The group header also offers an explicit Clear button");click("Undo");
     click("+ Add group");check(state.options.groupCount==4,"Add group reveals a fourth group");
     click("F2   Combat\n     3 / 16");
-    click("Appearance");click("Groups");click("##layout");click("Diamond");check(state.options.layout==2,"Layout picker applies diamond");
-    click("Style");click("Use PNGII icons");check(!state.options.pngiiIcons,"Appearance toggles PNGII artwork");
+    click("Appearance");click("Widget");click("##layout");click("Diamond");check(state.options.layout==2,"Layout picker applies diamond");
+    click("Theme");click("Use PNGII icons");check(!state.options.pngiiIcons,"Appearance toggles PNGII artwork");
     click("Use PNGII icons");check(state.options.pngiiIcons,"Appearance restores PNGII artwork");
     click("Controls");click("Keyboard");click("Shift + \\##editor binding");key(66);check(state.options.editorKey==66,"Editor shortcut accepts F8");click("F8##editor binding");
     key(68);check(state.options.editorKey==68&&state.options.editorModifiers==0,"Unmodified editor shortcut can be assigned");
@@ -120,7 +120,7 @@ int main(int argc,char** argv)try {
     key(43);check(state.open,"Bare backslash does not close the editor");
     click("Undo");check(state.options.editorKey==68&&state.options.editorModifiers==0,"Undo restores the whole previous editor binding");
     click("Clear##editor binding");check(state.options.editorKey==0&&state.options.editorModifiers==0,"Direct shortcut and modifiers can be cleared");
-    click("Appearance");click("Groups");click("##shape");click("Circles");check(state.options.shape==1,"Tile shape is independent");
+    click("Appearance");click("Widget");click("##shape");click("Circles");check(state.options.shape==1,"Tile shape is independent");
     click("Selector");click("##selector");click("Ring");check(state.options.selector==2,"Selector layout is independent");
     click("Show selector hints");check(state.options.showHints,"Selector hints can be enabled from the editor");
     click("Show selector hints");check(!state.options.showHints,"Minimal selector can hide hints again");
@@ -129,19 +129,19 @@ int main(int argc,char** argv)try {
     check(probe::find("##selector shape").empty(),"List uses cards without an ineffective shape control");
     click("Undo");check(state.options.selector==3,"Selector layout changes support Undo");
     click("##selector");click("Ring");
-    click("Groups");click("##shape");click("Cards");click("Show card item names");
+    click("Widget");click("##shape");click("Cards");click("Show card item names");
     check(!state.options.showCardNames,"Card item names can be hidden independently");
     click("Undo");check(state.options.showCardNames,"Card names support live Undo");
     click("##shape");click("Circles");
     const auto beforeKeys=state.options.keys;const auto beforeGroups=state.draft.groups;
-    click("Groups");click("Cross layout");check(state.options.layout==5&&state.options.shape==2&&!state.options.showLabels,"Cross preset applies the compact panel layout");
+    click("Widget");click("Cross layout");check(state.options.layout==5&&state.options.shape==2&&!state.options.showLabels,"Cross preset applies the compact panel layout");
     check(state.options.keys==beforeKeys&&state.options.groupCount==4&&state.draft.groups[0].entries.size()==beforeGroups[0].entries.size(),"Preset does not disturb bindings or equipment");
     click("Diamond layout");check(state.options.shape==3&&state.options.layout==2&&state.options.selectorShape==3,"Diamond preset changes tile and selector geometry");
     click("Circle layout");check(state.options.shape==1&&state.options.layout==4&&!state.options.showLabels,"Circle preset enables compact packing");
-    click("Style");click("##theme");click("Skyrim silver");check(state.options.themeId=="silver"&&state.options.shape==1,"Theme remains independent of geometry");
+    click("Theme");click("##theme");click("Skyrim silver");check(state.options.themeId=="silver"&&state.options.shape==1,"Theme remains independent of geometry");
     click("Selector");click("##selector shape");click("Squares");check(state.options.selectorShape==2,"Selector shapes can be chosen independently");
-    click("Groups");click("Show group names");check(state.options.showLabels,"Names can be restored without changing theme");
-    click("Style");click("Key icons");check(!state.options.keyIcons,"Key artwork can switch to plain hotkey labels");
+    click("Widget");click("Show group names");check(state.options.showLabels,"Names can be restored without changing theme");
+    click("Theme");click("Key icons");check(!state.options.keyIcons,"Key artwork can switch to plain hotkey labels");
     click("Key icons");check(state.options.keyIcons,"Key artwork can be restored");
     check(probe::find("##item icon source").empty(),"Removed inventory source selector is not offered");
     click("##item icon color");click("White");check(state.options.itemIconColor==2,"White tint applies immediately");
@@ -165,8 +165,8 @@ int main(int argc,char** argv)try {
     click("##font");click("LiberationSerif-Regular");check(state.options.fontId=="quickslot/LiberationSerif-Regular.ttf"&&hud.chosenFont(state.options)&&hud.bodyFont(state.options)==hud.chosenFont(state.options),"A chosen typeface replaces the theme font");
     check(probe::find("Installed UI font").empty(),"The installed UI font appears when the interface supplies one");
     click("##font");click("Theme font");check(state.options.fontId.empty()&&!hud.chosenFont(state.options),"The theme font can be restored");
-    click("Groups");click("Show keys");check(!state.options.showKeys,"Widget key visibility changes live");click("Undo");check(state.options.showKeys,"Key visibility is undoable");
-    click("Visibility");check(probe::find("Show keys").empty(),"Key visibility has one control");
+    click("Widget");click("Show keys");check(!state.options.showKeys,"Widget key visibility changes live");click("Undo");check(state.options.showKeys,"Key visibility is undoable");
+    check(probe::find("Show keys").size()==1,"Key visibility has one control");
     click("##widget visibility");click("Hide when idle");check(widgetVisibility(state.options)==WidgetVisibility::hide,"Complete hiding is available as an explicit mode");
     check(probe::find("##Idle opacity").empty(),"Hide mode needs no opacity slider");
     click("Keep visible in combat");check(!state.options.keepCombatVisible,"Hiding can also apply during combat");
@@ -210,10 +210,23 @@ int main(int argc,char** argv)try {
     const auto docked=currentGeometry(state.options);click("Selector");
     const auto detached=currentGeometry(state.options);
     check(state.options.selectorDock==4&&std::abs(docked.origin.x+docked.selectorOrigin.x*docked.scale-detached.origin.x-detached.selectorOrigin.x*detached.scale)<.001f&&std::abs(docked.origin.y+docked.selectorOrigin.y*docked.scale-detached.origin.y-detached.selectorOrigin.y*detached.scale)<.001f,"Detaching the selector preserves its visible location");
-    click("Back");click("Style");const auto textSize=state.options.textScale;
+    click("Back");click("Widget");const auto textSize=state.options.textScale;
     mouse(probe::one("##Text size").rect.GetCenter());frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();
     check(state.options.textScale!=textSize,"Text size changes live independently of icon scale");
     click("Undo");check(state.options.textScale==textSize,"Text-size changes support Undo");
+    click("+##Text size");check(std::abs(state.options.textScale-(textSize+.05f))<.001f,"The plus button raises a setting by one step");
+    click("-##Text size");click("-##Text size");check(std::abs(state.options.textScale-(textSize-.05f))<.001f,"The minus button lowers a setting by one step");
+    check(!probe::one("##reset Text size").disabled&&probe::one("##reset Opacity").disabled,"The reset mark is available only for a changed setting");
+    click("##reset Text size");check(state.options.textScale==Options{}.textScale,"The reset mark restores one setting's default");
+    click("##layout");click("Circle");click("##reset Arrangement");check(state.options.layout==Options{}.layout,"Choices have the same reset mark");
+    {
+        const auto before=state.options;click("##layout");click("Vertical");click("Show group names");click("+##Scale");
+        click("Reset page");const auto& reset=state.options;const Options defaults;
+        check(reset.layout==defaults.layout&&reset.showLabels==defaults.showLabels&&reset.scale==defaults.scale&&reset.shape==defaults.shape,"Reset page restores the page's defaults");
+        check(reset.themeId==before.themeId&&reset.selector==before.selector&&reset.keys==before.keys&&reset.names==before.names,"Reset page leaves other pages, controls and group names alone");
+        click("Undo");check(state.options.scale!=defaults.scale,"Reset page is one undoable step");
+        for(unsigned i=0;i<3;++i)click("Undo");check(encodeOptions(state.options)==encodeOptions(before),"The reset tests leave the session as it was");
+    }
     click("Groups##main");
 
     const auto rows=probe::find("##entry");check(rows.size()==3,"Three draft rows available for drag test");
@@ -231,7 +244,7 @@ int main(int argc,char** argv)try {
     check(state.options.themeId==Options{}.themeId&&state.options.names[0]=="Arsenal"&&state.draft.groups[0].entries.size()==3,"Revert restores the opening groups, names and settings");
     click("Undo");check(state.options.themeId==beforeRevert&&state.options.names[0]=="Combat","Session revert can itself be undone");
     click("Close");check(!state.open,"Save closes editor and submits settings");
-    state=fixture::editor();state.session=2;frame();frame();click("Appearance");click("Visibility");key(1);check(!state.open,"Escape closes with changes kept");
+    state=fixture::editor();state.session=2;frame();frame();click("Appearance");click("Widget");key(1);check(!state.open,"Escape closes with changes kept");
     state=fixture::editor();state.session=3;state.draft.groups[0]={};fixture::rows(state);io.DisplaySize={800,600};frame();frame();
     check(!probe::find("##widget visibility").empty(),"Reopening remembers the main tab and appearance subpage");click("Groups##main");
     check(probe::one("Close").rect.Max.y<=600,"Editor actions remain accessible at 800x600");
@@ -399,9 +412,9 @@ int main(int argc,char** argv)try {
     const auto padKey=[&](PadButton b){frame({{EditorInputType::pad,unsigned(b),true}});frame({{EditorInputType::pad,unsigned(b),false}});frame();};
 
     click("Groups##main");
-    padKey(PadButton::rb);check(!probe::find("Style").empty(),"The right shoulder button opens the next tab");
-    click("Style");padKey(PadButton::rt);check(!probe::find("##layout").empty(),"The right trigger opens the next page of a tab");
-    padKey(PadButton::lt);padKey(PadButton::lt);check(!probe::find("Hide empty groups").empty(),"Pages wrap in both directions");
+    padKey(PadButton::rb);check(!probe::find("Theme").empty(),"The right shoulder button opens the next tab");
+    click("Theme");padKey(PadButton::rt);check(!probe::find("##layout").empty(),"The right trigger opens the next page of a tab");
+    padKey(PadButton::lt);padKey(PadButton::lt);check(!probe::find("##language").empty(),"Pages wrap in both directions");
     padKey(PadButton::rb);check(!probe::find("General").empty(),"Shoulder buttons step through every tab");
     click("General");padKey(PadButton::rt);check(!probe::find("Remap actions…").empty(),"Triggers page through Controls");
     padKey(PadButton::rb);check(!probe::find("##preset name").empty(),"The Presets tab follows Controls");
@@ -409,7 +422,7 @@ int main(int argc,char** argv)try {
     padKey(PadButton::lb);check(!probe::find("##preset name").empty(),"The left shoulder button steps back");
     click("Groups##main");padKey(PadButton::right);
     check(ImGui::GetCurrentContext()->NavId==probe::one("Appearance").id,"D-pad moves between actual top-level tabs");
-    padKey(PadButton::a);check(!probe::find("Style").empty(),"A activates focused tab without mouse input");
+    padKey(PadButton::a);check(!probe::find("Theme").empty(),"A activates focused tab without mouse input");
     padKey(PadButton::right);padKey(PadButton::a);
     check(!probe::find("General").empty(),"Controller reaches Controls tab");
     padKey(PadButton::down);
@@ -469,7 +482,7 @@ int main(int argc,char** argv)try {
     check(!probe::find("Healing").empty()&&probe::find("Flames").empty(),"Nested hand search keeps its picker open after controller text entry");
     padKey(PadButton::a);click("Clear text");padKey(PadButton::b);
     check(!probe::find("Healing").empty()&&probe::find("Flames").empty(),"Cancelling nested text edit preserves the parent filter and picker");
-    padKey(PadButton::b);click("Appearance");click("Groups");click("Position");
+    padKey(PadButton::b);click("Appearance");click("Widget");click("Position");
     click("Widget");const auto beforeDrag=ImVec2{state.options.positionX,state.options.positionY};
     pointAt(probe::one("Drag widget").rect.GetCenter());
     frame({{EditorInputType::pad,unsigned(PadButton::a),true},{EditorInputType::stick,1,false,-.8f,.5f}});
@@ -510,7 +523,7 @@ int main(int argc,char** argv)try {
     const auto groupSpacing=state.options.spacing,selectorSpacing=state.options.selectorSpacing;
     changeSlider("##Spacing");check(state.options.equipmentSpacing>100&&state.options.spacing==groupSpacing&&state.options.selectorSpacing==selectorSpacing,"Equipment Spacing applies live without changing groups or selector");
     click("Undo");check(state.options.equipmentSpacing==8,"Equipment Spacing supports Undo");
-    click("Groups");changeSlider("##Spacing");check(state.options.spacing>100&&state.options.equipmentSpacing==8,"Groups use their own Spacing control");click("Undo");
+    click("Widget");changeSlider("##Spacing");check(state.options.spacing>100&&state.options.equipmentSpacing==8,"Groups use their own Spacing control");click("Undo");
     click("Selector");changeSlider("##Spacing");check(state.options.selectorSpacing>100&&state.options.spacing==groupSpacing,"Selector uses its own Spacing control");click("Undo");click("Equipment");
     click("Position");check(!probe::find("Scale").empty(),"Equipment placement exposes its independent scale");
     const auto oldEquipmentScale=state.options.equipmentScale;changeSlider("Scale");check(state.options.equipmentScale!=oldEquipmentScale&&state.options.scale==groupScale,"Position Scale affects only the selected equipment widget");
@@ -551,7 +564,7 @@ int main(int argc,char** argv)try {
     click("Items");click("##candidate",0);click("Delete shortcut");click("Delete");
     check(!libraryShortcut(state.draft,sharedID)&&state.draft.groups[0].entries.size()==1,"Explicit library delete removes all memberships");
     click("Undo");check(libraryShortcut(state.draft,sharedID)&&state.draft.groups[0].entries.size()==2,"Undo restores shared definition and memberships");
-    click("Appearance");click("Style");
+    click("Appearance");click("Theme");
     click("Equipment");click("##equipment visibility");click("Show always");check(state.options.showEquipment&&!state.options.equipmentDim,"Equipment can stay visible independently");
     click("Show equipped ammunition");check(state.options.showEquipmentAmmo,"Equipment ammunition can be enabled");
     click("Undo");check(!state.options.showEquipmentAmmo,"Equipment ammunition supports Undo");
@@ -575,7 +588,7 @@ int main(int argc,char** argv)try {
     const auto aligned=[](float value,float center,float step){return std::abs((value-center)/step-std::round((value-center)/step))*step<1.5f;};
     check(aligned(eqSnapped.Min.x,io.DisplaySize.x*.5f,eqStep)||aligned(eqSnapped.GetCenter().x,io.DisplaySize.x*.5f,eqStep)||aligned(eqSnapped.Max.x,io.DisplaySize.x*.5f,eqStep),"Equipment bounds snap to grid");
     click("Back");
-    click("Visibility");click("Hide empty groups");click("##inactive groups");click("Dim");
+    click("Widget");click("Hide empty groups");click("##inactive groups");click("Dim");
     check(state.options.hideEmptyGroups&&state.options.inactiveGroups==1,"Visibility controls apply immediately");
     click("##inactive groups");click("Hide");check(state.options.inactiveGroups==2,"Inactive groups can be hidden");
     click("Undo");check(state.options.inactiveGroups==1,"Inactive visibility supports Undo");
@@ -586,7 +599,7 @@ int main(int argc,char** argv)try {
     localization().load(translations,"russian");localization().select("auto");frame();frame();
     check(probe::one("Close").id==closeID&&probe::one("Close").label=="Закрыть###Close","Translated controls preserve IDs and show localized labels");
     click("Appearance");check(!probe::find("Hide empty groups").empty(),"Appearance retains Visibility after group editing");
-    click("Style");check(!probe::find("##language").empty(),"Language selector is available in Appearance");
+    click("General");check(!probe::find("##language").empty(),"Language selector is available in Appearance");
     click("##language");click("English");check(state.options.language=="en","Language selection applies immediately to settings");
     localization().select(state.options.language);frame();check(probe::one("Close").label=="Close","Returning to English restores editor labels");
     click("Close");check(!state.open,"Translated controls remain clickable");

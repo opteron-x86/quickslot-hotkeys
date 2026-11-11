@@ -6,7 +6,9 @@
 - Set a **Cycle confirm delay** under **Controls → General → Timing**. Tap-to-cycle groups then show each tapped choice in the selector, apply your **Game speed while selecting** setting (full speed, slow motion or pause), and equip the last choice once when the delay ends. Cancel during the delay with your cancel binding.
 - Set the **Hold delay** that separates a tap from a hold under **Controls → General → Timing**.
 - Inventory and Magic capture messages follow the selected language.
-- **Show keys** has one control, under **Appearance → Groups**.
+- **Show keys** has one control, under **Appearance → Widget**.
+- **Appearance** has a page for each part of the HUD — **Theme**, **Widget**, **Selector**, **Equipment** and **General** — with the same Layout, Size, Placement, Content and Visibility sections on each. Language, interface sounds and animation are under **General**.
+- Every slider shows its value in percent, pixels or seconds, has **−** and **+** buttons that move one step, and a reset mark that restores its default. **Reset page** restores a whole page. Each reset is one Undo step.
 - **Presets → Keep settings with this character** stores controls, group names and appearance in that character's saves. Other characters keep the shared settings file.
 - **Return to previous selection** re-equips the entry you selected before your current one, and pressing it again swaps back. Bind a key under **Controls → Keyboard**, or enable **Controls → General → Double-tap a group to return to the previous selection**.
 - API version 2 adds `Quickslot_GetGroupCount`, `Quickslot_TapGroup` and `Quickslot_SwapPrevious` for other mods. See the [API guide](src/API/README.md).
@@ -15,12 +17,12 @@
 - Delete presets from **Presets** with **Delete preset**.
 - The controller's on-screen keyboard includes common punctuation.
 - Added a **Wheel** selector under **Appearance → Selector**. Every item keeps its place around a hub; point at one with the browsing stick or the mouse and release the group key or button to select it. The camera stays still while the mouse points. Scrolling and previous / next still step through the wheel.
-- The widget eases in, the selector opens and closes smoothly, and a group pulses when its item equips or a dose is used. Turn this off with **Appearance → Selector → Animate opening and fading**.
+- The widget eases in, the selector opens and closes smoothly, and a group pulses when its item equips or a dose is used. Turn this off with **Appearance → General → Animate opening and fading**.
 - Shout cooldowns show as a shade that drains clockwise over the icon, alongside the seconds.
-- **Interface sounds** play Skyrim's menu sounds when the selector opens, moves and cancels. Configure under **Controls → General**.
-- Set **Equipped marker size** and a **Custom equipped color** under **Appearance → Style** ([#40](https://github.com/opteron-x86/quickslot-hotkeys/issues/40)).
+- **Interface sounds** play Skyrim's menu sounds when the selector opens, moves and cancels. Configure under **Appearance → General**.
+- Set **Equipped marker size** and a **Custom equipped color** under **Appearance → Theme** ([#40](https://github.com/opteron-x86/quickslot-hotkeys/issues/40)).
 - The **Automatic** theme matches your installed interface mod (Dear Diary Dark Mode, Edge, Norden, Nordic, Oathvein, Untarnished or Vel'dun) and is the default for new installations. Existing settings keep their theme.
-- Choose a **Font** under **Appearance → Style**, including the font your interface mod installs in `Interface/ImGuiIcons/Fonts`.
+- Choose a **Font** under **Appearance → Theme**, including the font your interface mod installs in `Interface/ImGuiIcons/Fonts`.
 - Frame artwork keeps even borders and corners on cards, squares, list rows and diamonds.
 - The editor takes its surfaces, text and highlights from the selected theme.
 - Theme packs can set selection, equipped, warning, depleted, poison and editor panel colors, plus the frame corner size. See [Theme and icon packs](THEMES.md).

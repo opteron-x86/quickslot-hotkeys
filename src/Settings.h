@@ -1,4 +1,5 @@
 #pragma once
+#include "SettingTable.h"
 #include "Storage.h"
 #include "VRInput.h"
 
@@ -71,26 +72,12 @@ inline void sanitizeOptions(Options& o) {
         if(b.button!=PadButton::none)vrAssigned.push_back(b);
     }
     if(!validVR(o.vrUse)||o.vrUse==o.vrEditor||std::any_of(o.groupOrder.begin(),o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),[&](auto id){return o.vrGroups[id]==o.vrUse;}))o.vrUse={};
-    o.layout=std::min(o.layout,5u);o.shape=std::min(o.shape,3u);o.selector=std::min(o.selector,wheelSelector);
-    o.selectorDock=std::min(o.selectorDock,4u);o.selectorShape=std::min(o.selectorShape,3u);
-    o.itemIconColor=std::min(o.itemIconColor,2u);
+    sanitizeTable(o);
     const auto finite=[](float v,float fallback,float min,float max){return std::isfinite(v)?std::clamp(v,min,max):fallback;};
-    o.inactiveGroups=std::min(o.inactiveGroups,2u);
-    o.inactiveGroupOpacity=finite(o.inactiveGroupOpacity,.3f,.05f,.9f);
     o.controllerDeadzone=finite(o.controllerDeadzone,.45f,.2f,.9f);o.shoutCharge=finite(o.shoutCharge,1.2f,.05f,2.5f);
-    o.scale=finite(o.scale,1,.55f,1.5f);o.textScale=finite(o.textScale,1,.75f,1.5f);o.opacity=finite(o.opacity,.92f,.4f,1);
     o.placementSpacing=std::min(o.placementSpacing,3u);o.placementFrame=std::min(o.placementFrame,3u);
     o.placementGridSize=finite(o.placementGridSize,16,4,128);
-    o.spacing=finite(o.spacing,14,0,128);o.selectorSpacing=finite(o.selectorSpacing,16,0,128);
-    o.positionX=finite(o.positionX,1,0,1);o.positionY=finite(o.positionY,1,0,1);
-    o.equipmentX=finite(o.equipmentX,.02f,0,1);o.equipmentY=finite(o.equipmentY,.8f,0,1);
-    o.equipmentScale=finite(o.equipmentScale,1,.5f,2.f);o.equipmentTextScale=finite(o.equipmentTextScale,1,.75f,1.5f);
-    o.equipmentSpacing=finite(o.equipmentSpacing,8,0,128);
-    o.equipmentStyle=std::min(o.equipmentStyle,4u);o.equipmentLayout=std::min(o.equipmentLayout,5u);o.equipmentTextPosition=std::min(o.equipmentTextPosition,3u);
-    o.equipmentFadeDelay=finite(o.equipmentFadeDelay,4,0,20);o.equipmentIdleOpacity=finite(o.equipmentIdleOpacity,.35f,.05f,.9f);
-    o.selectorGap=finite(o.selectorGap,12,0,100);o.selectorX=finite(o.selectorX,.75f,0,1);o.selectorY=finite(o.selectorY,.4f,0,1);
-    o.equippedMarkerScale=finite(o.equippedMarkerScale,1,1,2.5f);for(auto& c:o.equippedColor)c=finite(c,.9f,0,1);
-    o.fadeDelay=finite(o.fadeDelay,4,0,20);o.idleOpacity=finite(o.idleOpacity,.35f,0,1);
+    for(auto& c:o.equippedColor)c=finite(c,.9f,0,1);
     const auto validId=[](const std::string& id){return !id.empty()&&id.size()<=48&&std::all_of(id.begin(),id.end(),[](unsigned char c){return (c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='-'||c=='_';});};
     if(!validId(o.themeId))o.themeId="minimal";
     if(o.fontId.size()>128||std::any_of(o.fontId.begin(),o.fontId.end(),[](unsigned char c){return c<32;}))o.fontId.clear();
@@ -111,7 +98,7 @@ inline std::string encodeOptions(Options o) {
     Json modes=Json::array();for(const auto mode:o.groupModes)modes.push_back(unsigned(mode));
     Json selectorBindings=Json::array();for(const auto b:o.selectorBindings)selectorBindings.push_back(Json::array({b.key,b.modifiers}));
     Json controllerActions=Json::array();for(const auto b:o.controllerActions)controllerActions.push_back(binding(b));
-    return Json{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"holdDelay",o.holdDelay},{"cycleDelay",o.cycleDelay},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"fontId",o.fontId},{"themeAdjustments",tweaks},
+    Json j{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"holdDelay",o.holdDelay},{"cycleDelay",o.cycleDelay},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"fontId",o.fontId},{"themeAdjustments",tweaks},
         {"pngiiIcons",o.pngiiIcons},{"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
         {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},
         {"groupCaptureRightHotkey",o.groupCaptureRightHotkey},{"groupCaptureLeftHotkey",o.groupCaptureLeftHotkey},{"groupMoveHotkey",o.groupMoveHotkey},
@@ -132,7 +119,8 @@ inline std::string encodeOptions(Options o) {
         {"placementSpacing",o.placementSpacing},{"placementFrame",o.placementFrame},{"placementGridSize",o.placementGridSize},
         {"spacing",o.spacing},{"positionX",o.positionX},{"positionY",o.positionY},{"showIdle",o.showIdle},{"showHints",o.showHints},
         {"showPoison",o.showPoison},{"showAmmo",o.showAmmo},
-        {"selectorShape",o.selectorShape},{"selectorSpacing",o.selectorSpacing},{"showLabels",o.showLabels},{"showCardNames",o.showCardNames},{"showKeys",o.showKeys},{"placementGrid",o.placementGrid},{"placementSnap",o.placementSnap},{"keyIcons",o.keyIcons},{"coloredMagic",o.coloredMagic}}.dump(2);
+        {"selectorShape",o.selectorShape},{"selectorSpacing",o.selectorSpacing},{"showLabels",o.showLabels},{"showCardNames",o.showCardNames},{"showKeys",o.showKeys},{"placementGrid",o.placementGrid},{"placementSnap",o.placementSnap},{"keyIcons",o.keyIcons},{"coloredMagic",o.coloredMagic}};
+    encodeTable(j,o);return j.dump(2);
 }
 inline Options decodeOptions(const std::string& bytes) {
     if(bytes.size()>65536)throw std::runtime_error("Settings file too large");
@@ -217,6 +205,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.animateHud=j.value("animateHud",true);o.uiSounds=j.value("uiSounds",true);o.equippedMarkerScale=j.value("equippedMarkerScale",1.f);
     o.customEquippedColor=j.value("customEquippedColor",false);o.equippedColor=j.value("equippedColor",o.equippedColor);
     o.fadeDelay=j.at("fadeDelay").get<decltype(o.fadeDelay)>();o.idleOpacity=j.at("idleOpacity").get<decltype(o.idleOpacity)>();
+    decodeTable(j,o);
     sanitizeOptions(o);return o;
 }
 inline void revealSavedGroups(Options& o,const Arsenal& a) {

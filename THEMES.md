@@ -40,7 +40,7 @@ The **Automatic** theme selects the pack that matches the installed interface mo
 
 ### Fonts
 
-**Appearance → Style → Font** offers the theme's font, the interface's own font and every font found. Interface mods and ImGui Icons packs install fonts in `Data/Interface/ImGuiIcons/Fonts`; **Installed UI font** uses the first `.ttf` or `.otf` there. Under the Automatic theme, an unrecognized interface keeps its own font with the Minimal palette.
+**Appearance → Theme → Font** offers the theme's font, the interface's own font and every font found. Interface mods and ImGui Icons packs install fonts in `Data/Interface/ImGuiIcons/Fonts`; **Installed UI font** uses the first `.ttf` or `.otf` there. Under the Automatic theme, an unrecognized interface keeps its own font with the Minimal palette.
 
 ### Palette roles
 
@@ -80,6 +80,6 @@ I4 packs configure the artwork for inventory items and spells through I4's JSON 
 
 ## PNGII icons
 
-Install [PNG Icon Injector](https://github.com/rijosan87/PNGII) with icon API v1 and enable **Appearance → Style → Use PNGII icons**. PNGII's item and spell rules choose PNG or SVG artwork using the item's FormID, keywords, plugin and resolved I4 label. Quickslot loads the selected image from loose files or a loaded BSA. I4 supplies artwork when a rule has no match or an image is unavailable.
+Install [PNG Icon Injector](https://github.com/rijosan87/PNGII) with icon API v1 and enable **Appearance → Theme → Use PNGII icons**. PNGII's item and spell rules choose PNG or SVG artwork using the item's FormID, keywords, plugin and resolved I4 label. Quickslot loads the selected image from loose files or a loaded BSA. I4 supplies artwork when a rule has no match or an image is unavailable.
 
 Artwork fits the icon area with its aspect ratio and transparency preserved. **Original** shows the image's colors. **Theme** and **White** apply the chosen tint. Smart shortcuts query their selected item, combinations show each selected item's artwork, and empty-hand actions use the `armor_hands` label for PNGII matching. Restart Skyrim after changing PNGII rules or images.

@@ -325,13 +325,13 @@ int main(int argc,char** argv) {
     if(scene=="editor-keyboard"||scene=="editor-keyboard-eight")previewClicks={"Controls","Keyboard"};
     if(scene=="editor-keyboard-eight")editing.options.groupCount=Arsenal::count;
     if(scene=="editor-controller-keyboard")previewClicks={"Groups##main","Items"};
-    if(scene=="editor-controller-position"){editing.options.placementGrid=true;previewClicks={"Appearance","Groups","Position"};}
+    if(scene=="editor-controller-position"){editing.options.placementGrid=true;previewClicks={"Appearance","Widget","Position"};}
     if(scene=="editor-layout")previewClicks={"Appearance"};
-    if(scene=="editor-pngii")previewClicks={"Appearance","Style","Use PNGII icons","Use PNGII icons"};
-    if(scene=="editor-groups")previewClicks={"Appearance","Groups"};
+    if(scene=="editor-pngii")previewClicks={"Appearance","Theme","Use PNGII icons","Use PNGII icons"};
+    if(scene=="editor-groups")previewClicks={"Appearance","Widget"};
     if(scene.starts_with("editor-spacing-")) {
         editing.options.themeId="oathvein";editing.options.groupCount=4;layoutPreset(editing.options,1);editing.options.scale=1.5f;
-        editing.options.spacing=scene.find("loose")!=std::string::npos?40:0;previewClicks={"Appearance","Groups"};
+        editing.options.spacing=scene.find("loose")!=std::string::npos?40:0;previewClicks={"Appearance","Widget"};
         if(scene.find("circles")!=std::string::npos){editing.options.shape=1;editing.options.layout=4;}
         if(scene.find("cross")!=std::string::npos){editing.options.shape=2;editing.options.layout=5;}
     }
@@ -350,11 +350,11 @@ int main(int argc,char** argv) {
         } else if(scene.find("selector")!=std::string::npos)previewClicks={"Appearance","Selector"};
         else {
             if(scene.find("horizontal")!=std::string::npos){o.layout=0;o.shape=2;}
-            previewClicks={"Appearance","Groups"};
+            previewClicks={"Appearance","Widget"};
         }
     }
     if(scene=="editor-selector")previewClicks={"Appearance","Selector"};
-    if(scene=="editor-position-grid"||scene=="editor-position-bounds"||scene=="editor-position-custom")previewClicks={"Appearance","Position"};
+    if(scene=="editor-position-grid"||scene=="editor-position-bounds"||scene=="editor-position-custom")previewClicks={"Appearance","Widget","Position"};
     if(scene=="editor-presets")previewClicks={"Presets"};
     if(scene=="editor-hand-actions")previewClicks={"New","Hand action"};
     if(scene.starts_with("editor-behavior"))previewClicks={"Controls"};
@@ -363,9 +363,9 @@ int main(int argc,char** argv) {
     if(scene=="editor-smart-shield")previewClicks={"New","Smart shield"};
     if(scene=="editor-smart-combination")previewClicks={"New","Combination","##right component","Best Sword","##left component","Best Shield"};
     if(scene=="editor-smart-hand-picker")previewClicks={"New","Combination","##left component"};
-        if(scene=="editor-language")previewClicks={"Appearance"};
-    if(scene=="editor-visibility")previewClicks={"Appearance","Visibility","##widget visibility","Hide when idle"};
-    if(scene=="editor-visibility-modes")previewClicks={"Appearance","Visibility","##widget visibility"};
+        if(scene=="editor-language")previewClicks={"Appearance","General"};
+    if(scene=="editor-visibility")previewClicks={"Appearance","Widget","##widget visibility","Hide when idle"};
+    if(scene=="editor-visibility-modes")previewClicks={"Appearance","Widget","##widget visibility"};
     if(scene=="editor-smart")previewClicks={"New","Smart potion"};
     if(scene=="editor-combinations")previewClicks={"New","Combination","##right component","Healing","Both hands"};
     if(scene=="editor-hand-picker")previewClicks={"New","Combination","##right component"};

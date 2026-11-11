@@ -839,8 +839,6 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(ImGui::IsItemHovered())UI::SetTooltip("Tap-to-cycle skips one-handed weapon copies held in the other hand. Smart weapons choose an eligible copy. Browsing hand actions can move a weapon between hands.");
             changed|=UI::Checkbox("Double-tap a group to return to the previous selection",&options.doubleTapSwap);
             if(ImGui::IsItemHovered())UI::SetTooltip("Tap a group twice quickly to re-equip what you selected before your current choice. Return to previous selection under Keyboard does the same from one key.");
-            changed|=UI::Checkbox("Interface sounds",&options.uiSounds);
-            if(ImGui::IsItemHovered())UI::SetTooltip("Plays Skyrim's menu sounds when the selector opens, moves and cancels.");
             changed|=UI::Checkbox("Add from Inventory / Magic",&options.menuCapture);
             if(ImGui::IsItemHovered())UI::SetTooltip("Disable to leave Inventory / Magic capture to another mod. Capture also requires its right- or left-hand shortcut to be enabled under Keyboard.");
             label(tr("Game speed while selecting"));int timeMode=int(selectionClock(options.selectionSpeed));ImGui::SetNextItemWidth(px(300));
@@ -1024,17 +1022,194 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(UI::Checkbox("Keep settings with this character",&ownSettings)){auto c=command(EditAction::characterSettings,groupID);c.replace=ownSettings;emit(c);}
             UI::TextWrapped("Stores controls, group names and appearance in this character's saves; other characters keep the shared settings. Changes are stored when you save the game. Turning this off makes the current settings the shared ones.");
         } else {
-            const std::array<const char*,5> sections{"Style","Groups","Selector","Equipment","Visibility"};
+            const std::array<const char*,5> sections{"Theme","Widget","Selector","Equipment","General"};
             for(int i=0;i<5;++i){if(i)ImGui::SameLine();const bool active=appearancePage_==i;if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));if(UI::Button(sections[std::size_t(i)],{px(110),0})){appearancePage_=i;previewMode_=i==2?1:i==3?3:0;}if(active)ImGui::PopStyleColor();}
             ImGui::Separator();
-            const float controlsWidth=std::min(px(340),ImGui::GetContentRegionAvail().x*.44f);
+            const float controlsWidth=std::min(px(470),ImGui::GetContentRegionAvail().x*.46f);
             beginPanel("appearance",{controlsWidth,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
-            if(UI::Button("Position",{-1,0})){placement_=true;placementTarget_=appearancePage_==3&&options.showEquipment?2:0;}
             const auto id=options.themeId;const auto& currentTheme=hud.theme(options);const bool automatic=id==automaticTheme;
-            const auto slider=[&](const char* name,float& value,float low,float high,const char* format="%.0f"){label(tr(name));ImGui::SetNextItemWidth(-1);const auto key=std::string("##")+name;changed|=UI::SliderFloat(key.c_str(),&value,low,high,format);};
-            const auto combo=[&](const char* name,const char* key,unsigned& value,const char* choices){label(tr(name));int current=int(value);ImGui::SetNextItemWidth(-1);if(UI::Combo(key,&current,choices)){value=unsigned(current);changed=true;}};
+            // Every setting row has its name on the left and its control on the right, ending in a mark that restores the default.
+            const float labelWidth=ImGui::GetContentRegionAvail().x*.38f,side=ImGui::GetFrameHeight(),gap=px(4);
+            const auto heading=[&](const char* name) {
+                ImGui::PushStyleColor(ImGuiCol_Header,ImGui::GetStyleColorVec4(ImGuiCol_FrameBg));const bool open=UI::CollapsingHeader(name,ImGuiTreeNodeFlags_DefaultOpen);ImGui::PopStyleColor();return open;
+            };
+            const auto rowLabel=[&](const char* name) {
+                ImGui::AlignTextToFramePadding();ImGui::PushTextWrapPos(ImGui::GetCursorPosX()+labelWidth-gap);label(tr(name));ImGui::PopTextWrapPos();ImGui::SameLine(labelWidth);
+            };
+            const auto resetMark=[&](const char* name,bool modified) {
+                ImGui::SameLine(0,gap);ImGui::BeginDisabled(!modified);
+                const auto at=ImGui::GetCursorScreenPos();const bool clicked=ImGui::Button((std::string("##reset ")+name).c_str(),{side,side});
+                const bool hovered=ImGui::IsItemHovered();ImGui::EndDisabled();
+                constexpr float pi=3.141592654f;const ImVec2 center{at.x+side*.5f,at.y+side*.5f};const float radius=side*.24f;
+                auto* list=ImGui::GetWindowDrawList();const auto color=ImGui::GetColorU32(modified?ImGuiCol_Text:ImGuiCol_TextDisabled,modified?1.f:.35f);
+                list->PathArcTo(center,radius,-pi*.35f,pi*1.2f,16);list->PathStroke(color,0,std::max(1.f,px(1.4f)));
+                const ImVec2 tip{center.x+std::cos(-pi*.35f)*radius,center.y+std::sin(-pi*.35f)*radius};
+                list->AddTriangleFilled({tip.x-radius*.75f,tip.y-radius*.15f},{tip.x+radius*.35f,tip.y-radius*.75f},{tip.x+radius*.3f,tip.y+radius*.55f},color);
+                if(modified&&hovered)UI::SetTooltip("Reset to default");
+                return clicked;
+            };
+            const auto number=[&](const char* name,float Options::*member) {
+                const auto& s=setting(member);float& value=options.*member;const float fallback=defaultOptions().*member;
+                rowLabel(name);
+                const float shownScale=s.unit==Unit::percent?100.f:1.f;
+                const char* format=s.unit==Unit::percent?"%.0f%%":s.unit==Unit::pixels?"%.0f px":s.unit==Unit::seconds?"%.1f s":"%.3f";
+                const auto key=std::string("##")+name;
+                ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat,true);
+                if(ImGui::Button(("-"+key).c_str(),{side,side})){value=steppedSetting(s,value,-1);changed=true;}
+                ImGui::SameLine(0,gap);ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-2*(side+gap)));
+                float shown=value*shownScale;
+                if(UI::SliderFloat(key.c_str(),&shown,s.low*shownScale,s.high*shownScale,format,ImGuiSliderFlags_AlwaysClamp)){value=shown/shownScale;changed=true;}
+                ImGui::SameLine(0,gap);if(ImGui::Button(("+"+key).c_str(),{side,side})){value=steppedSetting(s,value,1);changed=true;}
+                ImGui::PopItemFlag();
+                if(resetMark(name,std::abs(value-fallback)>s.step*.01f)){value=fallback;changed=true;}
+            };
+            const auto choice=[&](const char* name,const char* key,unsigned Options::*member,const char* choices) {
+                rowLabel(name);int current=int(options.*member);ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-side-gap));
+                if(UI::Combo(key,&current,choices)){options.*member=unsigned(current);changed=true;}
+                if(resetMark(name,options.*member!=defaultOptions().*member)){options.*member=defaultOptions().*member;changed=true;}
+            };
+            const auto flag=[&](const char* name,bool Options::*member){changed|=UI::Checkbox(name,&(options.*member));};
+            const auto resetPage=[&](Section section){ImGui::Separator();if(UI::Button("Reset page",{-1,0})){resetSection(options,section);changed=true;}if(ImGui::IsItemHovered())UI::SetTooltip("Returns every setting on this page to its default.");};
+            const auto place=[&](int target){if(UI::Button("Position",{-1,0})){placement_=true;placementTarget_=target;if(target==1)previewOpen_=true;}};
             if(appearancePage_==0) {
-                label(tr("Language"));ImGui::SetNextItemWidth(-1);
+                if(heading("Theme")) {
+                    rowLabel("Theme");ImGui::SetNextItemWidth(-1);
+                    const auto automaticName=std::string(tr("Automatic"))+" · "+currentTheme.name;
+                    if(ImGui::BeginCombo("##theme",automatic?automaticName.c_str():currentTheme.name.c_str())) {
+                        if(ImGui::Selectable((std::string(tr("Automatic"))+"##theme").c_str(),automatic)){options.themeId=automaticTheme;changed=true;}
+                        if(ImGui::IsItemHovered())UI::SetTooltip("Automatic uses the theme and typeface that match your installed interface mod.");
+                        std::vector<const Theme*> themes;for(const auto& t:hud.themes().all())themes.push_back(&t);
+                        std::stable_sort(themes.begin(),themes.end(),[](const Theme* a,const Theme* b) {
+                            if((a->id=="silver")!=(b->id=="silver"))return a->id=="silver";
+                            return std::lexicographical_compare(a->name.begin(),a->name.end(),b->name.begin(),b->name.end(),
+                                [](unsigned char x,unsigned char y){return std::tolower(x)<std::tolower(y);});
+                        });
+                        for(const auto* t:themes)if(ImGui::Selectable(t->name.c_str(),id==t->id)){options.themeId=t->id;changed=true;}
+                        ImGui::EndCombo();
+                    }
+                    if(!automatic&&!hud.themes().contains(id))UI::TextWrapped("Missing theme: %s",id.c_str());
+                    rowLabel("Font");ImGui::SetNextItemWidth(-1);
+                    const bool installedFont=std::any_of(hud.fonts().begin(),hud.fonts().end(),[](const auto& choice){return choice.id.starts_with("ui/");});
+                    std::string fontName=tr(options.fontId.empty()?"Theme font":"Installed UI font");
+                    for(const auto& choice:hud.fonts())if(choice.id==options.fontId)fontName=choice.name;
+                    if(ImGui::BeginCombo("##font",fontName.c_str())) {
+                        if(ImGui::Selectable(tr("Theme font"),options.fontId.empty())){options.fontId.clear();changed=true;}
+                        if(installedFont&&ImGui::Selectable(tr("Installed UI font"),options.fontId=="ui")){options.fontId="ui";changed=true;}
+                        for(const auto& choice:hud.fonts()){ImGui::PushID(choice.id.c_str());if(ImGui::Selectable(choice.name.c_str(),options.fontId==choice.id)){options.fontId=choice.id;changed=true;}ImGui::PopID();}
+                        ImGui::EndCombo();
+                    }
+                    if(ImGui::IsItemHovered())UI::SetTooltip("Installed UI font uses the typeface your interface mod supplies in Interface/ImGuiIcons/Fonts.");
+                    auto tweak=adjustments(options);bool tuned=false;
+                    if(UI::Checkbox("Custom accent",&tweak.customAccent)){tuned=true;if(tweak.customAccent){const auto color=ImGui::ColorConvertU32ToFloat4(currentTheme.accent);tweak.accent={color.x,color.y,color.z};}}
+                    if(tweak.customAccent){ImGui::SameLine();tuned|=ImGui::ColorEdit3("##accent",tweak.accent.data(),ImGuiColorEditFlags_NoInputs);}
+                    rowLabel("Frame opacity");ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-side-gap));
+                    float frameOpacity=tweak.frameOpacity*100;if(UI::SliderFloat("##Frame opacity",&frameOpacity,0,100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){tweak.frameOpacity=frameOpacity/100;tuned=true;}
+                    if(resetMark("Frame opacity",tweak.frameOpacity!=1)){tweak.frameOpacity=1;tuned=true;}
+                    rowLabel("Icon size");ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-side-gap));
+                    float iconSize=tweak.iconScale*100;if(UI::SliderFloat("##Icon size",&iconSize,65,120,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){tweak.iconScale=iconSize/100;tuned=true;}
+                    if(resetMark("Icon size",tweak.iconScale!=1)){tweak.iconScale=1;tuned=true;}
+                    if(tuned){options.themeAdjustments[options.themeId]=tweak;changed=true;}
+                    if(UI::Button("Reset theme",{-1,0})){options.themeAdjustments.erase(options.themeId);changed=true;}
+                }
+                if(heading("Icons")) {
+                    choice("Icon color","##item icon color",&Options::itemIconColor,"Original\0Theme\0White\0");
+                    flag("Use PNGII icons",&Options::pngiiIcons);
+                    if(ImGui::IsItemHovered())UI::SetTooltip("Use matching artwork from PNG Icon Injector. I4 supplies the remaining icons.");
+                    if(options.itemIconColor==1)flag("Tint magic icons",&Options::coloredMagic);
+                    flag("Key icons",&Options::keyIcons);
+                }
+                if(heading("Equipped marker")) {
+                    number("Equipped marker size",&Options::equippedMarkerScale);
+                    flag("Custom equipped color",&Options::customEquippedColor);
+                    if(options.customEquippedColor){ImGui::SameLine();changed|=ImGui::ColorEdit3("##equipped color",options.equippedColor.data(),ImGuiColorEditFlags_NoInputs);}
+                }
+                resetPage(Section::theme);
+            } else if(appearancePage_==1) {
+                if(heading("Layout")) {
+                    label(tr("Layout presets"));
+                    const auto preset=[&](unsigned n){layoutPreset(options,n);changed=true;};
+                    const float third=(ImGui::GetContentRegionAvail().x-2*gap)/3;
+                    if(UI::Button("Cross layout",{third,0}))preset(0);ImGui::SameLine(0,gap);
+                    if(UI::Button("Diamond layout",{third,0}))preset(1);ImGui::SameLine(0,gap);
+                    if(UI::Button("Circle layout",{third,0}))preset(2);
+                    choice("Arrangement","##layout",&Options::layout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
+                    choice("Tile shape","##shape",&Options::shape,"Cards\0Circles\0Squares\0Diamonds\0");
+                    number("Spacing",&Options::spacing);
+                }
+                if(heading("Size")) {
+                    number("Scale",&Options::scale);number("Text size",&Options::textScale);number("Opacity",&Options::opacity);
+                }
+                if(heading("Placement"))place(0);
+                if(heading("Content")) {
+                    flag("Show group names",&Options::showLabels);flag("Show keys",&Options::showKeys);
+                    if(options.shape==0)flag("Show card item names",&Options::showCardNames);
+                    flag("Show poisoned weapons",&Options::showPoison);flag("Show bow ammunition",&Options::showAmmo);
+                    flag("Hide empty groups",&Options::hideEmptyGroups);
+                    choice("Inactive groups","##inactive groups",&Options::inactiveGroups,"Show\0Dim\0Hide\0");
+                    if(options.inactiveGroups==1)number("Inactive opacity",&Options::inactiveGroupOpacity);
+                }
+                if(heading("Visibility")) {
+                    rowLabel("Widget visibility");ImGui::SetNextItemWidth(-1);int visibility=int(widgetVisibility(options));
+                    if(UI::Combo("##widget visibility",&visibility,"Always visible\0Fade when idle\0Hide when idle\0Only while selecting\0")){setWidgetVisibility(options,WidgetVisibility(visibility));changed=true;}
+                    if(options.showIdle&&options.fadeIdle) {
+                        number("Idle delay",&Options::fadeDelay);
+                        if(widgetVisibility(options)==WidgetVisibility::fade)number("Idle opacity",&Options::idleOpacity);
+                        flag("Keep visible in combat",&Options::keepCombatVisible);
+                        flag("Keep visible with weapons drawn",&Options::keepDrawnVisible);
+                    }
+                }
+                resetPage(Section::widget);
+            } else if(appearancePage_==2) {
+                if(heading("Layout")) {
+                    choice("Arrangement","##selector",&Options::selector,"Horizontal strip\0Arc\0Ring\0Vertical strip\0List\0Wheel\0");
+                    if(options.selector==wheelSelector)UI::TextWrapped("Every item keeps its place on the wheel. Point at one with the browsing stick or the mouse; scrolling and previous / next still step.");
+                    if(options.selector!=4)choice("Item shape","##selector shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
+                    number("Spacing",&Options::selectorSpacing);
+                }
+                if(heading("Placement")) {
+                    choice("Position","##selector dock",&Options::selectorDock,"Above widget\0Below widget\0Left of widget\0Right of widget\0Independent\0");
+                    if(options.selectorDock!=4)number("Distance",&Options::selectorGap);
+                    place(options.selectorDock==4?1:0);
+                }
+                if(heading("Content")) {
+                    flag("Show selector hints",&Options::showHints);
+                    flag("Animate scrolling",&Options::animateScroll);
+                }
+                resetPage(Section::selector);
+            } else if(appearancePage_==3) {
+                rowLabel("Visibility");ImGui::SetNextItemWidth(-1);int visibility=int(equipmentVisibility(options));
+                if(UI::Combo("##equipment visibility",&visibility,"Off\0Show always\0Dim when idle\0")){setEquipmentVisibility(options,EquipmentVisibility(visibility));changed=true;}
+                if(options.showEquipment&&options.equipmentDim) {
+                    number("Idle delay",&Options::equipmentFadeDelay);
+                    number("Idle opacity",&Options::equipmentIdleOpacity);
+                }
+                if(heading("Layout")) {
+                    label(tr("Layout presets"));
+                    const float third=(ImGui::GetContentRegionAvail().x-2*gap)/3;
+                    if(UI::Button("Cross layout",{third,0})){equipmentLayoutPreset(options,0);changed=true;}ImGui::SameLine(0,gap);
+                    if(UI::Button("Diamond layout",{third,0})){equipmentLayoutPreset(options,1);changed=true;}ImGui::SameLine(0,gap);
+                    if(UI::Button("Circle layout",{third,0})){equipmentLayoutPreset(options,2);changed=true;}
+                    choice("Style","##equipment style",&Options::equipmentStyle,"List\0Circles\0Diamonds\0Squares\0Text only\0");
+                    choice("Arrangement","##equipment layout",&Options::equipmentLayout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
+                    number("Spacing",&Options::equipmentSpacing);
+                }
+                if(heading("Size")) {
+                    number("Scale",&Options::equipmentScale);number("Text size",&Options::equipmentTextScale);
+                }
+                if(heading("Placement")) {
+                    number("X",&Options::equipmentX);number("Y",&Options::equipmentY);
+                    if(options.showEquipment)place(2);
+                }
+                if(heading("Content")) {
+                    if(options.equipmentStyle>0&&options.equipmentStyle<4) {
+                        flag("Show equipment names",&Options::equipmentShowText);
+                        if(options.equipmentShowText)choice("Text position","##equipment text",&Options::equipmentTextPosition,"Top\0Bottom\0Left\0Right\0");
+                    }
+                    flag("Show equipped ammunition",&Options::showEquipmentAmmo);
+                }
+                resetPage(Section::equipment);
+            } else {
+                rowLabel("Language");ImGui::SetNextItemWidth(-1);
                 const char* languageName=options.language=="auto"?tr("Automatic"):options.language=="en"?"English":options.language.c_str();
                 for(const auto& pack:localization().packs())if(pack->id==options.language)languageName=pack->name.c_str();
                 if(ImGui::BeginCombo("##language",languageName)) {
@@ -1043,107 +1218,11 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     for(const auto& pack:localization().packs())if(pack->id!="en"&&ImGui::Selectable(pack->name.c_str(),options.language==pack->id)){options.language=pack->id;changed=true;}
                     ImGui::EndCombo();
                 }
-                label(tr("Theme"));ImGui::SetNextItemWidth(-1);
-                const auto automaticName=std::string(tr("Automatic"))+" · "+currentTheme.name;
-                if(ImGui::BeginCombo("##theme",automatic?automaticName.c_str():currentTheme.name.c_str())) {
-                    if(ImGui::Selectable((std::string(tr("Automatic"))+"##theme").c_str(),automatic)){options.themeId=automaticTheme;changed=true;}
-                    if(ImGui::IsItemHovered())UI::SetTooltip("Automatic uses the theme and typeface that match your installed interface mod.");
-                    std::vector<const Theme*> themes;for(const auto& t:hud.themes().all())themes.push_back(&t);
-                    std::stable_sort(themes.begin(),themes.end(),[](const Theme* a,const Theme* b) {
-                        if((a->id=="silver")!=(b->id=="silver"))return a->id=="silver";
-                        return std::lexicographical_compare(a->name.begin(),a->name.end(),b->name.begin(),b->name.end(),
-                            [](unsigned char x,unsigned char y){return std::tolower(x)<std::tolower(y);});
-                    });
-                    for(const auto* t:themes)if(ImGui::Selectable(t->name.c_str(),id==t->id)){options.themeId=t->id;changed=true;}
-                    ImGui::EndCombo();
-                }
-                if(!automatic&&!hud.themes().contains(id))UI::TextWrapped("Missing theme: %s",id.c_str());
-                label(tr("Font"));ImGui::SetNextItemWidth(-1);
-                const bool installedFont=std::any_of(hud.fonts().begin(),hud.fonts().end(),[](const auto& choice){return choice.id.starts_with("ui/");});
-                std::string fontName=tr(options.fontId.empty()?"Theme font":"Installed UI font");
-                for(const auto& choice:hud.fonts())if(choice.id==options.fontId)fontName=choice.name;
-                if(ImGui::BeginCombo("##font",fontName.c_str())) {
-                    if(ImGui::Selectable(tr("Theme font"),options.fontId.empty())){options.fontId.clear();changed=true;}
-                    if(installedFont&&ImGui::Selectable(tr("Installed UI font"),options.fontId=="ui")){options.fontId="ui";changed=true;}
-                    for(const auto& choice:hud.fonts()){ImGui::PushID(choice.id.c_str());if(ImGui::Selectable(choice.name.c_str(),options.fontId==choice.id)){options.fontId=choice.id;changed=true;}ImGui::PopID();}
-                    ImGui::EndCombo();
-                }
-                if(ImGui::IsItemHovered())UI::SetTooltip("Installed UI font uses the typeface your interface mod supplies in Interface/ImGuiIcons/Fonts.");
-                slider("Widget scale",options.scale,.55f,1.5f,"%.2fx");slider("Text size",options.textScale,.75f,1.5f,"%.2fx");slider("Opacity",options.opacity,.4f,1,"%.2f");
-                ImGui::Separator();auto tweak=adjustments(options);bool tuned=false;
-                if(UI::Checkbox("Custom accent",&tweak.customAccent)){tuned=true;if(tweak.customAccent){const auto color=ImGui::ColorConvertU32ToFloat4(currentTheme.accent);tweak.accent={color.x,color.y,color.z};}}
-                if(tweak.customAccent){ImGui::SetNextItemWidth(-1);tuned|=ImGui::ColorEdit3("##accent",tweak.accent.data(),ImGuiColorEditFlags_NoInputs);}
-                label(tr("Frame opacity"));ImGui::SetNextItemWidth(-1);tuned|=UI::SliderFloat("##Frame opacity",&tweak.frameOpacity,0,1,"%.2f");
-                label(tr("Icon size"));ImGui::SetNextItemWidth(-1);tuned|=UI::SliderFloat("##Icon size",&tweak.iconScale,.65f,1.2f,"%.2fx");
-                if(tuned){options.themeAdjustments[options.themeId]=tweak;changed=true;}
-                combo("Icon color","##item icon color",options.itemIconColor,"Original\0Theme\0White\0");
-                changed|=UI::Checkbox("Use PNGII icons",&options.pngiiIcons);
-                if(ImGui::IsItemHovered())UI::SetTooltip("Use matching artwork from PNG Icon Injector. I4 supplies the remaining icons.");
-                if(options.itemIconColor==1)changed|=UI::Checkbox("Tint magic icons",&options.coloredMagic);
-                changed|=UI::Checkbox("Key icons",&options.keyIcons);
-                changed|=UI::Checkbox("Show poisoned weapons",&options.showPoison);
-                changed|=UI::Checkbox("Show bow ammunition",&options.showAmmo);
-                label(tr("Equipped marker size"));ImGui::SetNextItemWidth(-1);changed|=UI::SliderFloat("##Equipped marker size",&options.equippedMarkerScale,1,2.5f,"%.2fx");
-                changed|=UI::Checkbox("Custom equipped color",&options.customEquippedColor);
-                if(options.customEquippedColor){ImGui::SetNextItemWidth(-1);changed|=ImGui::ColorEdit3("##equipped color",options.equippedColor.data(),ImGuiColorEditFlags_NoInputs);}
-                if(UI::Button("Reset theme",{-1,0})){options.themeAdjustments.erase(options.themeId);changed=true;}
-            } else if(appearancePage_==1) {
-                label(tr("Layout presets"));
-                const auto preset=[&](unsigned n){layoutPreset(options,n);changed=true;};
-                if(UI::Button("Cross layout",{-1,0}))preset(0);
-                if(UI::Button("Diamond layout",{-1,0}))preset(1);
-                if(UI::Button("Circle layout",{-1,0}))preset(2);
-                ImGui::Separator();
-                combo("Arrangement","##layout",options.layout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
-                combo("Tile shape","##shape",options.shape,"Cards\0Circles\0Squares\0Diamonds\0");
-                slider("Spacing",options.spacing,0,128);
-                changed|=UI::Checkbox("Show group names",&options.showLabels);changed|=UI::Checkbox("Show keys",&options.showKeys);
-                if(options.shape==0)changed|=UI::Checkbox("Show card item names",&options.showCardNames);
-            } else if(appearancePage_==2) {
-                combo("Arrangement","##selector",options.selector,"Horizontal strip\0Arc\0Ring\0Vertical strip\0List\0Wheel\0");
-                if(options.selector==wheelSelector)UI::TextWrapped("Every item keeps its place on the wheel. Point at one with the browsing stick or the mouse; scrolling and previous / next still step.");
-                if(options.selector!=4)combo("Item shape","##selector shape",options.selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
-                slider("Spacing",options.selectorSpacing,0,128);
-                combo("Position","##selector dock",options.selectorDock,"Above widget\0Below widget\0Left of widget\0Right of widget\0Independent\0");
-                if(options.selectorDock!=4)slider("Distance",options.selectorGap,0,100);
-                changed|=UI::Checkbox("Animate scrolling",&options.animateScroll);
-                changed|=UI::Checkbox("Animate opening and fading",&options.animateHud);
+                flag("Interface sounds",&Options::uiSounds);
+                if(ImGui::IsItemHovered())UI::SetTooltip("Plays Skyrim's menu sounds when the selector opens, moves and cancels.");
+                flag("Animate opening and fading",&Options::animateHud);
                 if(ImGui::IsItemHovered())UI::SetTooltip("Eases the widget in, opens and closes the selector, and pulses a group when its item equips or is used.");
-                changed|=UI::Checkbox("Show selector hints",&options.showHints);
-            } else if(appearancePage_==3) {
-                label(tr("Visibility"));ImGui::SetNextItemWidth(-1);int visibility=int(equipmentVisibility(options));
-                if(UI::Combo("##equipment visibility",&visibility,"Off\0Show always\0Dim when idle\0")){setEquipmentVisibility(options,EquipmentVisibility(visibility));changed=true;}
-                if(options.showEquipment&&options.equipmentDim) {
-                    slider("Idle delay",options.equipmentFadeDelay,0,20,"%.1f s");
-                    slider("Idle opacity",options.equipmentIdleOpacity,.05f,.9f,"%.2f");
-                }
-                changed|=UI::Checkbox("Show equipped ammunition",&options.showEquipmentAmmo);
-                label(tr("Layout presets"));
-                if(UI::Button("Cross layout",{-1,0})){equipmentLayoutPreset(options,0);changed=true;}
-                if(UI::Button("Diamond layout",{-1,0})){equipmentLayoutPreset(options,1);changed=true;}
-                if(UI::Button("Circle layout",{-1,0})){equipmentLayoutPreset(options,2);changed=true;}
-                ImGui::Separator();
-                combo("Style","##equipment style",options.equipmentStyle,"List\0Circles\0Diamonds\0Squares\0Text only\0");
-                combo("Arrangement","##equipment layout",options.equipmentLayout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
-                if(options.equipmentStyle>0&&options.equipmentStyle<4) {
-                    changed|=UI::Checkbox("Show equipment names",&options.equipmentShowText);
-                    if(options.equipmentShowText)combo("Text position","##equipment text",options.equipmentTextPosition,"Top\0Bottom\0Left\0Right\0");
-                }
-                slider("Scale",options.equipmentScale,.5f,2.f,"%.2fx");slider("Text size",options.equipmentTextScale,.75f,1.5f,"%.2fx");
-                slider("Spacing",options.equipmentSpacing,0,128);
-                slider("X",options.equipmentX,0,1,"%.3f");slider("Y",options.equipmentY,0,1,"%.3f");
-            } else {
-                changed|=UI::Checkbox("Hide empty groups",&options.hideEmptyGroups);
-                combo("Inactive groups","##inactive groups",options.inactiveGroups,"Show\0Dim\0Hide\0");
-                if(options.inactiveGroups==1)slider("Inactive opacity",options.inactiveGroupOpacity,.05f,.9f,"%.2f");
-                label(tr("Widget visibility"));ImGui::SetNextItemWidth(-1);int visibility=int(widgetVisibility(options));
-                if(UI::Combo("##widget visibility",&visibility,"Always visible\0Fade when idle\0Hide when idle\0Only while selecting\0")){setWidgetVisibility(options,WidgetVisibility(visibility));changed=true;}
-                if(options.showIdle&&options.fadeIdle) {
-                    slider("Idle delay",options.fadeDelay,0,20,"%.1f s");
-                    if(widgetVisibility(options)==WidgetVisibility::fade)slider("Idle opacity",options.idleOpacity,0,1,"%.2f");
-                    changed|=UI::Checkbox("Keep visible in combat",&options.keepCombatVisible);
-                    changed|=UI::Checkbox("Keep visible with weapons drawn",&options.keepDrawnVisible);
-                }
+                resetPage(Section::general);
             }
             endPanel();ImGui::SameLine();
             beginPanel("live preview",{0,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);

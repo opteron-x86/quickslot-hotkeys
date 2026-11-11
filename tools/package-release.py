@@ -26,7 +26,7 @@ def validate_runtime(files):
             raise ValueError(f'Unexpected package path: {name}')
         if name.startswith('Quickslot/icons/'):
             raise ValueError(f'Unexpected item icon asset: {name}')
-        if any(p.lower() in {'presets', 'source', 'backups', '.git'} for p in path.parts):
+        if any(p.lower() in {'presets', 'source', 'backups', '.git', 'licenses'} for p in path.parts):
             raise ValueError(f'Unexpected runtime directory: {name}')
         if path.suffix.lower() in {'.pdb', '.exe', '.log', '.ess', '.skse', '.swf'}:
             raise ValueError(f'Unexpected runtime file: {name}')

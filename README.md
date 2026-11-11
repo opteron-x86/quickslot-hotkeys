@@ -166,4 +166,4 @@ The [API](src/API/README.md) supports editor opening, closing, state queries and
 
 IME authors can find text-routing instructions in the [integration guide](src/API/README.md#ime-text-input).
 
-Item artwork was supplied by the mod author. Frame/font credits and dependency notices are in [licenses](licenses). Dependency revisions are recorded in `vendor/dependencies.json`.
+Item artwork was supplied by the mod author. Frame/font credits and dependency notices are in the [licenses](https://github.com/opteron-x86/quickslot-hotkeys/tree/master/licenses) folder on GitHub. Dependency revisions are recorded in `vendor/dependencies.json`.

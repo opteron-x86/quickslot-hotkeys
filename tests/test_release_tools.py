@@ -51,7 +51,7 @@ class ReleaseTools(unittest.TestCase):
         for bad in ['Quickslot/settings.json', 'Quickslot/Presets/test.json', 'Quickslot/save.ess',
                     'Quickslot/debug.pdb', 'Quickslot/source/file.cpp', 'Quickslot/../other.txt',
                     'SKSE/Plugins/Other.dll', 'Quickslot/Other.dll', 'controlmap.txt',
-                    'Quickslot/icons/items.png', 'Quickslot/icons/manifest.json']:
+                    'Quickslot/icons/items.png', 'Quickslot/icons/manifest.json', 'Quickslot/licenses/COPYING.txt']:
             with self.subTest(path=bad), self.assertRaises(ValueError):
                 package.validate_runtime({**base, bad: None})
         del base['SKSE/Plugins/Quickslot.dll']

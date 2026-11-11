@@ -66,7 +66,7 @@ Optional TTF files supply body and title fonts. The default font is Jost. Theme 
 
 Item icons use I4 packs, with Original, Theme and White color settings. Keycaps come from the active `Data/Interface/ImGuiIcons/Icons` files; select their style through the mod manager and restart.
 
-Frame and font credits are in `licenses/Theme-pack-credits.txt`. Source hashes are in `assets/themes/packs-manifest.json`.
+Frame and font credits are in [`licenses/Theme-pack-credits.txt`](https://github.com/opteron-x86/quickslot-hotkeys/blob/master/licenses/Theme-pack-credits.txt) on GitHub. Source hashes are in `assets/themes/packs-manifest.json`.
 
 ## I4 icons
 

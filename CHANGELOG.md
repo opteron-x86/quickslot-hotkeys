@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.15.0
 
+Updating: install the complete release package over the previous one. Settings, presets and positions carry over and keep their look. Translation packs keep working; new menu text shows in English until a pack adds it.
+
+- The mod package holds the plugin, its settings file, fonts, translations, themes and the README and theme guide. License texts and credits are in the [licenses](https://github.com/opteron-x86/quickslot-hotkeys/tree/master/licenses) folder on GitHub.
 - Loading a save keeps every readable group and shortcut when one entry is damaged, and reports the repair on screen. A group record written by a different Quickslot version stays in the save until you create new groups.
 - Set a **Cycle confirm delay** under **Controls → General → Timing**. Tap-to-cycle groups then show each tapped choice in the selector, apply your **Game speed while selecting** setting (full speed, slow motion or pause), and equip the last choice once when the delay ends. Cancel during the delay with your cancel binding.
 - Set the **Hold delay** that separates a tap from a hold under **Controls → General → Timing**.

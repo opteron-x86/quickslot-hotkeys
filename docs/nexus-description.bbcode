@@ -14,9 +14,10 @@ Equipment and consumable shortcut groups with a configurable HUD. Tap a group ke
 [*]Keyboard, XInput, PS4 and experimental VR controls with configurable modifiers.
 [*]Independent equipment display with quantity badges, poison indicators, bow ammunition counts, shout timers and power dimming.
 [*]Separate keyboard/mouse and controller options for using Quickslot while QuickLoot is open.
-[*]Rows, columns, crosses, diamonds, circles and list layouts.
-[*]Themes, icon sets, text sizing, spacing, screen positioning and grid snapping.
-[*]Preset import/export, Undo, automatic saving and menu translations.
+[*]Rows, columns, grids, crosses, diamonds, circles, lists and a wheel selector with tile or segmented-ring styles.
+[*]Separate scale, text size, opacity and anchored placement for the widget, selector and equipment display.
+[*]Themes, icon sets, custom colors, per-group colors and an equipped-item highlight.
+[*]A preset manager with built-in layouts, automatic presets for controller and keyboard, Undo, automatic saving and menu translations.
 [/list]
 
 [b]Requirements[/b]
@@ -49,11 +50,17 @@ In Groups, open the Manual dropdown and check the Favorites categories to includ
 
 [b]Appearance[/b]
 
-Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Adjust frame and icon style, text, spacing and visibility. Position each display by dragging its outline or adjusting X/Y; Shift enables free movement.
+Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Appearance has a page each for Theme, Widget, Selector, Equipment and General. Every slider has step buttons and a reset; Reset page and Reset all appearance restore the defaults.
+
+Each display holds on to one of nine screen anchors with a pixel offset. In Position mode, drag or resize a display, nudge it with the arrow keys or LB + D-pad, or center it. Screen area keeps the HUD inside a 16:9, 2:1 or 21:9 area on ultrawide screens.
+
+Presets lists built-in Default, Cross, Diamond and Circle layouts above your own. Rename, duplicate, update and delete presets, preview them, and apply their look, controls or groups. Input device presets switch the look when you change between controller and keyboard.
+
+[b]Equipped highlight[/b] under Appearance → Theme outlines or tints the tile of an equipped item. [b]Wheel style → Segments[/b] under Appearance → Selector turns the wheel into a ring of wedges with the pointed item's name in the center.
 
 Item icons use your installed I4 packs. Original displays their colors; Theme and White apply the selected tint. Smart shortcuts show the item currently selected, combinations show both items, and hand actions use a gauntlet.
 
-Enable [b]Use PNGII icons[/b] under Appearance → Style to display matching artwork from PNG Icon Injector. I4 supplies the remaining icons.
+Enable [b]Use PNGII icons[/b] under Appearance → Theme to display matching artwork from PNG Icon Injector. I4 supplies the remaining icons.
 
 Enable Show equipped ammunition under Appearance → Equipment to display equipped arrows or bolts and their current count.
 
@@ -69,4 +76,4 @@ For bug reports, include Quickslot.log, the game version and reproduction steps.
 
 [b]Credits[/b]
 
-Item artwork comes from your installed I4 and PNGII packs. Frame/font attribution and dependency notices are included in the licenses folder.
+Item artwork comes from your installed I4 and PNGII packs. Frame/font attribution and dependency notices are in the [url=https://github.com/opteron-x86/quickslot-hotkeys/tree/master/licenses]licenses folder on GitHub[/url].

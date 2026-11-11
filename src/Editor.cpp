@@ -1341,7 +1341,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(heading("Layout")) {
                     choice("Arrangement","##selector",&Options::selector,"Horizontal strip\0Arc\0Ring\0Vertical strip\0List\0Wheel\0");
                     if(options.selector==wheelSelector)UI::TextWrapped("Every item keeps its place on the wheel. Point at one with the browsing stick or the mouse; scrolling and previous / next still step.");
-                    if(options.selector!=4)choice("Item shape","##selector shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
+                    if(options.selector==wheelSelector)choice("Wheel style","##wheel style",&Options::wheelStyle,"Tiles\0Segments\0");
+                    if(options.selector!=4&&!(options.selector==wheelSelector&&options.wheelStyle==1))choice("Item shape","##selector shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
                     number("Spacing",&Options::selectorSpacing);
                     if(options.selector==wheelSelector)number("Wheel radius",&Options::wheelRadius);
                     else if(options.selector!=2)choice("Visible items","##selector visible",&Options::selectorVisible,"3\0005\0007\0009\0");

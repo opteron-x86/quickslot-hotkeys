@@ -283,6 +283,9 @@ int main(int argc,char** argv)try {
         click("Selector");click("##selector");click("Horizontal strip");click("##selector visible");click("7");check(state.options.selectorVisible==2&&probe::find("##Wheel radius").empty(),"Strips choose how many items they show");
         click("##selector");click("Wheel");check(probe::find("##selector visible").empty()&&!probe::find("##Wheel radius").empty(),"The wheel has a radius in place of a visible count");
         click("+##Wheel radius");check(state.options.wheelRadius==Options{}.wheelRadius+1,"Wheel radius applies live");
+        check(!probe::find("##selector shape").empty(),"A wheel of tiles chooses its item shape");
+        click("##wheel style");click("Segments");check(state.options.wheelStyle==1&&probe::find("##selector shape").empty(),"A segmented wheel replaces the item shape");
+        click("##reset Wheel style");check(state.options.wheelStyle==0,"The wheel style resets to tiles");
         click("Theme");click("Custom text color");click("Custom selection color");click("-##Background opacity");click("+##Icon size");
         check(state.options.customTextColor&&state.options.customSelectionColor&&state.options.backgroundOpacity<1&&state.options.iconScale>1,"Theme colors, background opacity and icon size apply live");
         click("Groups##main");click("Color##group");check(state.options.groupColored[state.draft.active],"A group can take its own color");
@@ -759,6 +762,40 @@ int main(int argc,char** argv)try {
         check(!small.tiles.empty()&&large.tiles.size()==small.tiles.size()&&std::abs(large.tiles[0].width()-small.tiles[0].width()*2)<4,"Rendered tiles follow the tile size");
         Options mirrored;mirrored.mirrorCards=true;const auto flipped=drawn(mirrored),straight=drawn(Options{});
         check(!flipped.tiles.empty()&&std::abs(flipped.tiles[0].width()-straight.tiles[0].width())<2&&std::abs(flipped.tiles[0].height()-straight.tiles[0].height())<2,"Mirrored cards keep their size");
+        {
+            // Four spaced diamonds; group 3's item was just selected.
+            Snapshot fresh;fresh.visible=true;fresh.revealUntil=1e12;fresh.activeGroup=3;fresh.selected=0;
+            Entry axe=unarmedEntry();axe.name="Axe";fresh.rows.push_back({axe,true,true,{}});
+            for(std::size_t i=0;i<4;++i)fresh.groups[i]={axe,1,true,i==3};
+            Options row;row.groupCount=4;row.layout=0;row.shape=3;row.showLabels=false;row.spacing=60;row.positionX=row.positionY=.5f;row.animateHud=false;
+            const auto below=[&](const Options& look,HudBounds& b) {
+                ImGui::NewFrame();hud.draw(fresh,look,300,{}, {},nullptr,&b);ImGui::Render();
+                float floor=0;for(const auto& tile:b.tiles)floor=std::max(floor,tile.max.y);
+                Bounds text;for(const auto& v:ImGui::GetBackgroundDrawList()->VtxBuffer)if(v.pos.y>floor+3)text.include({v.pos.x,v.pos.y});return text;
+            };
+            HudBounds b;const auto caption=below(row,b);
+            check(b.tiles.size()==4&&caption.valid&&caption.min.x>b.tiles[2].max.x-8&&caption.max.x<b.tiles[3].max.x+8,"A newly selected item's name appears under its own group's tile");
+            fresh.activeGroup=0;fresh.groups[0].equipped=true;const auto first=below(row,b);
+            check(first.valid&&first.max.x<b.tiles[1].min.x+8,"The name follows the selected group");
+            Options named;named.groupCount=4;named.shape=0;named.showCardNames=true;named.positionX=named.positionY=.5f;named.animateHud=false;
+            check(!below(named,b).valid,"Cards that show item names carry the name themselves");
+            // A browsed group's tile is outlined in its accent.
+            Options tinted=row;tinted.groupColored[0]=true;tinted.groupColors[0]={1,0,1};
+            const auto accented=[&](bool browsing) {
+                fresh.browsing=browsing;fresh.preview=0;HudBounds box;ImGui::NewFrame();hud.draw(fresh,tinted,300,{}, {},nullptr,&box);ImGui::Render();
+                unsigned count=0;const auto& tile=box.tiles[0];
+                for(const auto& v:ImGui::GetBackgroundDrawList()->VtxBuffer)if((v.col&0xffffff)==0xff00ff&&(v.col>>24)&&v.pos.x>tile.min.x-12&&v.pos.x<tile.max.x+12&&v.pos.y>tile.min.y-12&&v.pos.y<tile.max.y+12)++count;
+                return count;
+            };
+            const auto idle=accented(false);check(accented(true)>idle,"The group being browsed has its tile outlined");
+            // The segmented wheel draws a wedge for each entry and fills the pointed one in the selection color.
+            Options ring=row;ring.selector=wheelSelector;ring.wheelStyle=1;ring.customSelectionColor=true;ring.selectionColor={0,1,1};
+            for(int i=0;i<19;++i)fresh.rows.push_back({axe,true,false,{}});
+            fresh.browsing=true;fresh.preview=5;HudBounds wheel;ImGui::NewFrame();hud.draw(fresh,ring,300,{}, {},nullptr,&wheel);ImGui::Render();
+            unsigned pointed=0;for(const auto& v:ImGui::GetBackgroundDrawList()->VtxBuffer)if((v.col&0xffffff)==0xffff00&&(v.col>>24))++pointed;
+            const auto shape=selectorGeometry(ring,fresh.rows.size());
+            check(wheel.selector.valid&&pointed>0&&wheel.selector.width()>=2*shape.outer*.9f&&wheel.selector.max.x<=1920&&wheel.selector.min.x>=0,"A segmented wheel renders twenty entries on screen with the pointed wedge filled");
+        }
         Snapshot worn;worn.visible=true;worn.editorPreview=true;worn.groups[0]={unarmedEntry(),1,true,true};worn.groups[1]={unarmedEntry(),1,true,false};
         // Counts what is drawn in a custom equipped color no theme uses.
         const auto marked=[&](unsigned shape,unsigned mode,bool equipped) {

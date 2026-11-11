@@ -14,6 +14,12 @@
 - **Screen area** anchors the HUD to a centered 16:9, 2:1 or 21:9 area for ultrawide screens.
 - New layout options: a **Grid** arrangement with **Columns**, **Card width**, **Mirror cards**, **Tile size** for circle, square and diamond tiles, 3–9 **Visible items** in strip, arc and list selectors, and a **Wheel radius**.
 - New color and size options under **Appearance → Theme**: one **Icon size** for every theme, **Background opacity** for the inside of frames, **Custom text color** and **Custom selection color**. Each group can have its own **Color** from the **Groups** tab.
+- **Appearance → Selector → Wheel style** offers **Segments**: the wheel becomes a ring of wedges, one for each entry, with the pointed entry's name in the hub. It holds every entry of a Favorites group.
+- Diamond tiles are symmetric on textured themes with the border on all four sides, show a larger icon, and keep hand letters, counts and markers inside the tile. Circle tiles keep hand letters and counts inside too.
+- Cards show their key or button inside the card, at the end opposite the icon. A card with keys shown is 26 pixels wider.
+- A newly selected item's name appears beside its own group's tile. Cards that show item names carry the name themselves.
+- While the selector is open, its group's tile is outlined, and the selector's last line names the group with the entry's position.
+- An arrowhead marks the consumable the Use key takes; equipped items keep the diamond.
 - **Appearance → Theme → Equipped highlight** marks the tile of an equipped item with an outline, a tint or both, in the equipped color.
 - Every slider shows its value in percent, pixels or seconds, has **−** and **+** buttons that move one step, and a reset mark that restores its default. **Reset page** restores a whole page. Each reset is one Undo step.
 - **Presets → Keep settings with this character** stores controls, group names and appearance in that character's saves. Other characters keep the shared settings file.

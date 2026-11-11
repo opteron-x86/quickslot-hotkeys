@@ -14,6 +14,8 @@ struct HudBounds {Bounds widget,selector,equipment;std::vector<Bounds> tiles;};
 
 inline float hudTextFactor(const Options& o){return o.textScale;}
 inline float selectorTextFactor(const Options& o){return o.selectorTextScale;}
+// The room a card keeps at its outer end for its key or button label.
+inline constexpr float cardKeyColumn=26;
 struct LayoutGeometry {std::vector<Point> tiles;float width=0,height=0,tileWidth=0,tileHeight=0;};
 // Shape codes match the HUD tile renderer: circle, rectangle, diamond.
 inline float tileDistance(Point direction,float width,float height,unsigned shape,float gap) {
@@ -80,7 +82,7 @@ inline LayoutGeometry groupGeometry(const Options& o) {
     case 1:g.tileWidth=std::max(68*size,o.showLabels?76*std::max(1.f,text):0.f);g.tileHeight=o.showLabels?71*size+12*text+4:70*size;footprint={58*size,58*size};shape=1;break;
     case 2:g.tileWidth=std::max(82*size,o.showLabels?82*std::max(1.f,text):0.f);g.tileHeight=o.showLabels?100*size+12*text+4:100*size;footprint={82*size,100*size};break;
     case 3:g.tileWidth=std::max(88*size,o.showLabels?88*std::max(1.f,text):0.f);g.tileHeight=o.showLabels?88*size+12*text+4:88*size;footprint={84*size,84*size};shape=3;break;
-    default:g.tileWidth=o.showCardNames||o.showLabels?59+o.cardWidth*std::max(1.f,text):64;g.tileHeight=std::max(56.f,(o.showCardNames&&o.showLabels?26:14)*text+20);footprint={g.tileWidth,g.tileHeight-7};break;
+    default:g.tileWidth=(o.showCardNames||o.showLabels?59+o.cardWidth*std::max(1.f,text):64)+(o.showKeys?cardKeyColumn:0);g.tileHeight=std::max(56.f,(o.showCardNames&&o.showLabels?26:14)*text+20);footprint={g.tileWidth,g.tileHeight-7};break;
     }
     if(o.showLabels&&o.shape){footprint={g.tileWidth,g.tileHeight};shape=2;}
     const auto arranged=arrangeTiles(std::vector<Point>(count,footprint),o.layout,o.spacing,shape,0,unsigned(std::clamp(o.gridColumns,1.f,8.f)));
@@ -108,9 +110,12 @@ inline Point selectorOffset(const Options& o,float position) {
 struct SelectorGeometry {
     float width=420,height=155,centerY=16,ruleY=67,nameY=76,statusY=104,pagerY=132,hintY=154,listPitch=0,listHeight=46;
     std::vector<Point> ring;
-    // Wheel selectors: the center the slots surround and their distance from it.
-    Point hub;float reach=0;
+    // Wheel selectors: the center the slots surround and their distance from it. A segmented wheel is a ring
+    // from inner to outer around a hub that holds the pointed item's name.
+    Point hub;float reach=0,inner=0,outer=0,wedgeGap=0;bool segments=false;
 };
+// The depth of a segmented wheel's ring.
+inline constexpr float wedgeDepth=56;
 inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,float phase=0) {
     const float text=selectorTextFactor(o);SelectorGeometry s;
     // Strips, arcs and lists show up to selectorVisible+1 neighbors on each side of the selected item.
@@ -128,10 +133,17 @@ inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,fl
         s.ruleY=extent-24+18;
     } else if(o.selector==wheelSelector) {
         // Every entry keeps a fixed slot around the hub, starting at the top and running clockwise.
-        const auto slots=std::clamp(count,std::size_t(1),Group::limit);constexpr float pi=3.141592654f;
+        // A segmented wheel has a wedge for every entry; tiles stop at a full group.
+        const auto slots=o.wheelStyle==1?std::max(count,std::size_t(1)):std::clamp(count,std::size_t(1),Group::limit);constexpr float pi=3.141592654f;
         const float footprint=selectorTileShape(o)==2?50*std::sqrt(2.f):50;
-        s.reach=slots>1?std::max(o.wheelRadius,(footprint+o.selectorSpacing)/(2*std::sin(pi/float(slots)))):0;
-        const float extent=2*(s.reach+31);
+        s.segments=o.wheelStyle==1;
+        if(s.segments) {
+            // Each wedge is wide enough for its icon, and the hub for a name. Wedges narrow once a list outgrows a full group.
+            s.wedgeGap=std::clamp(o.selectorSpacing*.25f,1.5f,12.f);
+            s.reach=std::max({72*std::max(1.f,text)+wedgeDepth*.5f,o.wheelRadius,slots>1?((slots>Group::limit?26.f:40.f)+s.wedgeGap)/(2*std::sin(pi/float(slots))):0.f});
+            s.inner=s.reach-wedgeDepth*.5f;s.outer=s.reach+wedgeDepth*.5f;
+        } else s.reach=slots>1?std::max(o.wheelRadius,(footprint+o.selectorSpacing)/(2*std::sin(pi/float(slots)))):0;
+        const float extent=2*(s.segments?s.outer+7:s.reach+31);
         s.width=std::max(260*std::max(1.f,text),extent+24);s.hub={s.width*.5f,extent*.5f-24};
         for(std::size_t i=0;i<slots;++i){const float angle=-pi*.5f+float(i)*2*pi/float(slots);s.ring.push_back({s.hub.x+std::cos(angle)*s.reach,s.hub.y+std::sin(angle)*s.reach});}
         s.ruleY=extent-24+18;
@@ -146,9 +158,9 @@ inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,fl
         s.width=std::max(240*std::max(1.f,text),(last.x+selectorRadius(side))*2+48);
         s.ruleY=s.centerY+std::max(40.f,last.y+selectorRadius(side))+16;
     }
-    s.nameY=s.ruleY+9;s.statusY=s.nameY+28*text;s.pagerY=s.statusY+13*text+15;
-    s.hintY=s.pagerY+8+12*text+10;
-    s.height=o.showHints?s.hintY+13*text+4:s.pagerY+8+12*text+4;return s;
+    s.nameY=s.ruleY+9;s.statusY=s.nameY+28*text;s.pagerY=s.segments?s.ruleY-8:s.statusY+14*text+9;
+    s.hintY=s.pagerY+13*text+10;
+    s.height=o.showHints?s.hintY+13*text+4:s.pagerY+13*text+6;return s;
 }
 // Placement. An anchored element rests a point of itself on the matching point of the screen area, moved by an
 // offset in 1080p pixels, so it grows and shrinks away from that point. An unanchored element's position is a

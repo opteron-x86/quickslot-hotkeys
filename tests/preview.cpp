@@ -383,6 +383,8 @@ int main(int argc,char** argv) {
         const auto overlay=Json::parse(extra);
         for(auto* target:{&options,&editing.options}){auto merged=Json::parse(encodeOptions(*target));merged.update(overlay);*target=decodeOptions(merged.dump());}
     }
+    // QUICKSLOT_PREVIEW_CAPTION closes the selector and shows the just-selected item's name beside that group's tile.
+    if(const char* group=std::getenv("QUICKSLOT_PREVIEW_CAPTION");group&&*group){snapshot.browsing=false;snapshot.activeGroup=std::min<std::size_t>(std::strtoul(group,nullptr,10),Arsenal::count-1);snapshot.revealUntil=1e12;}
     const auto started=SDL_GetTicks64();   // HUD stills wait for the opening motion to settle
     bool running=true;int frames=0,previewStep=0,scrollAttempts=0,settled=0,keyboardStep=0;ImVec2 tabPoint{};
     while(running) {

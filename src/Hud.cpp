@@ -102,6 +102,24 @@ struct Paint {
                 a,{b.x,a.y},b,{a.x,b.y},row==1&&column==1?inside:tint);
         }
     }
+    // A square frame for diamonds. The cell's top and right edges fill one half and are mirrored across the
+    // diagonal into the other, so the diamond is symmetric and all four sides carry the border.
+    template<class Place> void mirroredFrame(float side,unsigned cell,const Place& place) {
+        const float left=float(cell)*256+4,top=6,artW=248,artH=308;
+        const float margin=std::min({float(theme.atlasMargin),artW*.5f,artH*.5f}),edge=std::min(margin*atlasScale,side*.5f);
+        const std::array<float,4> at{0,edge,side-edge,side},us{left,left+margin,left+artW-margin,left+artW},vs{top,top+margin,top+artH-margin,top+artH};
+        const auto tint=color(IM_COL32_WHITE),inside=color(IM_COL32_WHITE,options.backgroundOpacity);
+        const auto uv=[&](unsigned column,unsigned row){return ImVec2{us[column]/1024,vs[row]/320};};
+        const auto point=[&](unsigned column,unsigned row){return place(at[column],at[row]);};
+        for(unsigned row=0;row<3;++row)for(unsigned column=row;column<3;++column) {
+            if(at[column+1]<=at[column]||at[row+1]<=at[row])continue;
+            const auto c=row==1&&column==1?inside:tint;
+            // Cells on the diagonal are halved along it; the last two corners coincide to draw a triangle.
+            const unsigned last=column>row?column:column+1;
+            d->AddImageQuad(themeTexture,point(column,row),point(column+1,row),point(column+1,row+1),point(last,row+1),uv(column,row),uv(column+1,row),uv(column+1,row+1),uv(last,row+1),c);
+            d->AddImageQuad(themeTexture,point(row,column),point(row,column+1),point(row+1,column+1),point(row+1,last),uv(column,row),uv(column+1,row),uv(column+1,row+1),uv(last,row+1),c);
+        }
+    }
     void textureFrame(float x,float y,float w,float h,unsigned cell) {
         slicedFrame(w,h,cell,[&](float fx,float fy){return p(x+fx,y+fy);});
     }
@@ -149,10 +167,10 @@ struct Paint {
         if(themeTexture) {
             // The frame's top-left corner sits at the diamond's top point; its sides run toward the right and left points.
             const float side=r*std::sqrt(2.f);
-            slicedFrame(side,side,1,[&](float fx,float fy){const float u=fx/side,v=fy/side;return p(x+(u-v)*r,y-r+(u+v)*r);});
+            mirroredFrame(side,1,[&](float fx,float fy){const float u=fx/side,v=fy/side;return p(x+(u-v)*r,y-r+(u+v)*r);});
         }
         else {diamond(x,y,r,dark,true,options.backgroundOpacity);diamond(x,y,r,selected?selectionMark:muted,false);}
-        if(selected){line(x-r+4,y,x,y+r-4,accent(),1.2f);line(x,y+r-4,x+r-4,y,accent(),1.2f);}
+        if(selected){const float inner=r-4;const ImVec2 points[]{p(x,y-inner),p(x+inner,y),p(x,y+inner),p(x-inner,y)};d->AddPolyline(points,4,color(accent()),ImDrawFlags_Closed,std::max(1.f,1.2f*scale));}
     }
     void tile(float x,float y,float r,bool selected,unsigned shape) {
         if(shape==2)frame(x-r,y-r,2*r,2*r,selected);
@@ -180,25 +198,31 @@ struct Paint {
         else if(shape==3){const float r=w*.5f+grow*1.4f;const ImVec2 points[]{p(cx,cy-r),p(cx+r,cy),p(cx,cy+r),p(cx-r,cy)};d->AddPolyline(points,4,c,ImDrawFlags_Closed,width);}
         else d->AddRect(p(x-grow,y-grow),p(x+w+grow,y+h+grow),c,2*scale,0,width);
     }
-    // Marks an equipped tile in the equipped color: an outline, a tint over the frame, or both.
+    // Marks a tile in one color with an outline, a tint over the frame, or both; grow moves the outline outward.
     // Shapes: 1 circle, 3 diamond, otherwise rectangle.
-    void equippedHighlight(float x,float y,float w,float h,unsigned shape) {
-        const unsigned mode=options.equippedHighlight;if(!mode)return;
-        const bool outline=mode!=2,tinted=mode!=1;const float cx=x+w*.5f,cy=y+h*.5f,r=w*.5f;
-        const auto tint=color(equippedMark,.24f),halo=color(equippedMark,.28f),edge=color(equippedMark);
+    void highlight(float x,float y,float w,float h,unsigned shape,ImU32 c,bool outline,bool tinted,float grow=0) {
+        const float cx=x+w*.5f,cy=y+h*.5f,r=w*.5f+grow;
+        const auto tint=color(c,.24f),halo=color(c,.28f),edge=color(c);
         const float thin=std::max(1.5f,1.8f*scale),wide=std::max(3.f,5*scale);
         if(shape==1) {
-            if(tinted)d->AddCircleFilled(p(cx,cy),r*scale,tint,48);
+            if(tinted)d->AddCircleFilled(p(cx,cy),w*.5f*scale,tint,48);
             if(outline){d->AddCircle(p(cx,cy),r*scale,halo,48,wide);d->AddCircle(p(cx,cy),r*scale,edge,48,thin);}
         } else if(shape==3) {
-            const ImVec2 points[]{p(cx,cy-r),p(cx+r,cy),p(cx,cy+r),p(cx-r,cy)};
-            if(tinted)d->AddConvexPolyFilled(points,4,tint);
+            const float inner=w*.5f,outer=w*.5f+grow*1.4f;
+            const ImVec2 fill[]{p(cx,cy-inner),p(cx+inner,cy),p(cx,cy+inner),p(cx-inner,cy)},points[]{p(cx,cy-outer),p(cx+outer,cy),p(cx,cy+outer),p(cx-outer,cy)};
+            if(tinted)d->AddConvexPolyFilled(fill,4,tint);
             if(outline){d->AddPolyline(points,4,halo,ImDrawFlags_Closed,wide);d->AddPolyline(points,4,edge,ImDrawFlags_Closed,thin);}
         } else {
             if(tinted)d->AddRectFilled(p(x,y),p(x+w,y+h),tint,2*scale);
-            if(outline){d->AddRect(p(x,y),p(x+w,y+h),halo,2*scale,0,wide);d->AddRect(p(x,y),p(x+w,y+h),edge,2*scale,0,thin);}
+            if(outline){d->AddRect(p(x-grow,y-grow),p(x+w+grow,y+h+grow),halo,2*scale,0,wide);d->AddRect(p(x-grow,y-grow),p(x+w+grow,y+h+grow),edge,2*scale,0,thin);}
         }
     }
+    // The tile of an equipped item, marked as the Equipped highlight setting asks.
+    void equippedHighlight(float x,float y,float w,float h,unsigned shape) {
+        if(const unsigned mode=options.equippedHighlight)highlight(x,y,w,h,shape,equippedMark,mode!=2,mode!=1);
+    }
+    // A small arrowhead: the consumable its Use key takes.
+    void ready(float x,float y,float r,ImU32 c){d->AddTriangleFilled(p(x-r*.8f,y-r),p(x+r,y),p(x-r*.8f,y+r),color(c));}
     // A clockwise shade over an icon covering the remaining share of a cooldown.
     void sweep(float x,float y,float r,float fraction) {
         if(!(fraction>0))return;
@@ -238,6 +262,21 @@ struct Paint {
         const auto label=keyLabel(scan);
         text(x,y,label,12,selected?ivory:silver,true,0,true);
     }
+    float keyWidth(unsigned scan,float height)const {
+        if(scan>=256&&scan<288&&(scan-256)%16<4)return height;
+        if(options.keyIcons&&keyTexture&&scan<keyGlyphs.size()&&keyGlyphs[scan].aspect>0)return height*keyGlyphs[scan].aspect;
+        if(scan>=276&&scan<=279)return height;
+        return std::max(16.f,sans->CalcTextSizeA(12*scale,FLT_MAX,0,keyLabel(scan).c_str()).x/scale+8);
+    }
+    // The width a group's key or button label takes; zero when it shows none.
+    float groupKeyWidth(std::size_t group,bool controller,bool vr,float height=18)const {
+        if(!options.showKeys)return 0;
+        if(!controller)return keyWidth(options.keys[group],height);
+        const auto binding=(vr?options.vrGroups:options.controllerGroups)[group];const auto style=vr?2u:options.controllerStyle;
+        if(binding.button==PadButton::none)return 0;
+        if(binding.modifier==PadButton::none)return keyWidth(padGlyph(binding.button,style),height);
+        return keyWidth(padGlyph(binding.modifier,style),height*.85f)+keyWidth(padGlyph(binding.button,style),height*.85f)+12;
+    }
     void groupKey(float x,float y,std::size_t group,bool selected,bool controller,bool vr,float height=18) {
         if(!controller){key(x,y,options.keys[group],selected,height);return;}
         const auto binding=(vr?options.vrGroups:options.controllerGroups)[group];
@@ -245,14 +284,8 @@ struct Paint {
         if(binding.button==PadButton::none)return;
         if(binding.modifier==PadButton::none){key(x,y,padGlyph(binding.button,style),selected,height);return;}
         const float h=height*.85f;
-        const auto width=[&](unsigned glyph){
-            if((glyph-256)%16<4)return h;
-            if(options.keyIcons&&keyTexture&&glyph<keyGlyphs.size()&&keyGlyphs[glyph].aspect>0)return h*keyGlyphs[glyph].aspect;
-            if(glyph>=276&&glyph<=279)return h;
-            return std::max(16.f,sans->CalcTextSizeA(12*scale,FLT_MAX,0,keyLabel(glyph).c_str()).x/scale+8);
-        };
         const auto mod=padGlyph(binding.modifier,style),button=padGlyph(binding.button,style);
-        const float left=width(mod),right=width(button),start=x-(left+right+12)*.5f;
+        const float left=keyWidth(mod,h),right=keyWidth(button,h),start=x-(left+right+12)*.5f;
         key(start+left*.5f,y,mod,selected,h);text(start+left+6,y,"+",11,silver,false,0,true);key(start+left+12+right*.5f,y,button,selected,h);
     }
     void badge(float x,float y,const Entry& entry,int quantity,float cooldown,float size=13,bool rightAligned=false,WeaponStatus weapon={}) {
@@ -399,14 +432,75 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             nodePaint.tile(x,y,r,selected,shape);
             nodePaint.icon(x,y,r*1.48f,rowIconEntry(row),row.available?nodePaint.itemColor(rowIconEntry(row)):muted);
             nodePaint.sweep(x,y,r*.74f*nodePaint.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));
-            const float marker=x+(isStack(row.entry)||row.cooldown>0||(o.showAmmo&&row.weapon.ammunition>=0)||(o.showPoison&&row.weapon.poisoned)?-1.f:1.f)*r*.7f;
-            if(!row.available&&!isStack(row.entry)){nodePaint.circle(marker,y+r*.7f,6,IM_COL32(22,18,18,240),true);nodePaint.line(marker-3,y+r*.7f+3,marker+3,y+r*.7f-3,blood,1.6f);}
-            else if(row.equipped)nodePaint.diamond(marker,y+r*.7f,3.5f*nodePaint.mark(),equippedMark);
-            nodePaint.badge(x+r*.58f,y+r*.5f,row.entry,row.quantity,row.cooldown,selected?15:12,false,row.weapon);
+            // A diamond keeps its marker in its lower point and its count inside its lower right edge.
+            const bool lozenge=shape==3;
+            const float marker=lozenge?x:x+(isStack(row.entry)||row.cooldown>0||(o.showAmmo&&row.weapon.ammunition>=0)||(o.showPoison&&row.weapon.poisoned)?-1.f:1.f)*r*.7f,markerY=y+r*(lozenge?.72f:.7f);
+            if(!row.available&&!isStack(row.entry)){nodePaint.circle(marker,markerY,lozenge?4.5f:6.f,IM_COL32(22,18,18,240),true);nodePaint.line(marker-3,markerY+3,marker+3,markerY-3,blood,1.6f);}
+            else if(row.equipped)nodePaint.diamond(marker,markerY,(lozenge?2.8f:3.5f)*nodePaint.mark(),equippedMark);
+            if(lozenge)nodePaint.badge(x+r*.43f,y+r*.16f,row.entry,row.quantity,row.cooldown,selected?14:11,true,row.weapon);
+            else nodePaint.badge(x+r*.58f,y+r*.5f,row.entry,row.quantity,row.cooldown,selected?15:12,false,row.weapon);
         };
         const auto layout=selectorGeometry(o,n,displacement);
         if(active) {
-            if(o.selector==wheelSelector) {
+            if(o.selector==wheelSelector&&layout.segments) {
+                // A ring of wedges, one for each entry, starting at the top and running clockwise.
+                const auto hub=layout.hub;const float turn=2*pi/float(std::max<std::size_t>(n,1)),frameAlpha=p.tweaks.frameOpacity;
+                const auto center=p.p(hub.x,hub.y);
+                for(std::size_t i=0;i<n&&i<layout.ring.size();++i) {
+                    const auto& row=state.rows[i];const bool pointed=i==index;
+                    const float middle=-pi*.5f+float(i)*turn,inner=layout.inner,outer=layout.outer+(pointed?5.f:0.f);
+                    // The gap between wedges keeps one width from the hub to the rim.
+                    const auto inset=[&](float radius){return n>1?std::asin(std::min(1.f,layout.wedgeGap*.5f/radius)):0.f;};
+                    const int steps=std::max(4,int(turn*outer*p.scale/5));
+                    p.d->PathArcTo(center,outer*p.scale,middle-turn*.5f+inset(outer),middle+turn*.5f-inset(outer),steps);
+                    p.d->PathArcTo(center,inner*p.scale,middle+turn*.5f-inset(inner),middle-turn*.5f+inset(inner),steps);
+                    const std::vector<ImVec2> wedge(p.d->_Path.begin(),p.d->_Path.end());p.d->PathClear();
+                    // A lone entry takes the whole ring.
+                    const auto fill=[&](ImU32 c) {
+                        if(n>1)p.d->AddConcavePolyFilled(wedge.data(),int(wedge.size()),c);
+                        else p.d->AddCircle(center,(inner+outer)*.5f*p.scale,c,96,(outer-inner)*p.scale);
+                    };
+                    const auto stroke=[&](ImU32 c,float width) {
+                        if(n>1)p.d->AddPolyline(wedge.data(),int(wedge.size()),c,ImDrawFlags_Closed,std::max(1.f,width*p.scale));
+                        else for(const float radius:{inner,outer})p.d->AddCircle(center,radius*p.scale,c,96,std::max(1.f,width*p.scale));
+                    };
+                    fill(p.color(dark,o.backgroundOpacity*frameAlpha));
+                    if(row.equipped&&o.equippedHighlight!=0&&o.equippedHighlight!=1)fill(p.color(equippedMark,.24f));
+                    if(pointed)fill(p.color(selectionMark,.3f));
+                    stroke(p.color(theme.border,frameAlpha),.8f);
+                    if(row.equipped&&o.equippedHighlight!=0&&o.equippedHighlight!=2)stroke(p.color(equippedMark),1.6f);
+                    if(pointed)stroke(p.color(selectionMark),1.8f);
+                    const auto slot=layout.ring[i];
+                    const float chord=n>1?2*layout.reach*std::sin(turn*.5f)-layout.wedgeGap:wedgeDepth,size=std::clamp(std::min(wedgeDepth*.68f,chord*.8f),14.f,38.f)*(pointed?1.12f:1.f);
+                    auto item=p;if(!pointed)item.alpha*=.88f;
+                    item.icon(slot.x,slot.y,size,rowIconEntry(row),row.available?item.itemColor(rowIconEntry(row)):muted);
+                    item.sweep(slot.x,slot.y,size*.5f*item.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));
+                    const Point out{std::cos(middle),std::sin(middle)};
+                    if(row.equipped)item.diamond(hub.x+out.x*(outer-7),hub.y+out.y*(outer-7),2.8f*item.mark(),equippedMark);
+                    if(!row.available&&!isStack(row.entry)){item.circle(slot.x+size*.36f,slot.y+size*.36f,5,IM_COL32(22,18,18,240),true);item.line(slot.x+size*.36f-3,slot.y+size*.36f+3,slot.x+size*.36f+3,slot.y+size*.36f-3,blood,1.5f);}
+                    item.badge(slot.x+size*.32f,slot.y+size*.14f,row.entry,row.quantity,row.cooldown,pointed?13:11,false,row.weapon);
+                }
+                // The hub names the pointed entry on up to two lines, with its hand or count beneath.
+                const float radius=layout.inner-6;
+                p.d->AddCircleFilled(center,radius*p.scale,p.color(dark,o.backgroundOpacity*frameAlpha),64);
+                p.d->AddCircle(center,radius*p.scale,p.color(theme.border,frameAlpha),64,std::max(1.f,.8f*p.scale));
+                const float nameSize=17,statusSize=12.5f,room=2*std::sqrt(std::max(1.f,radius*radius-27*text*27*text))-12;
+                const auto measure=[&](const std::string& v){return p.medium->CalcTextSizeA(nameSize*text*p.scale,FLT_MAX,0,v.c_str()).x/p.scale;};
+                std::vector<std::string> lines{displayName(active->entry)};
+                if(measure(lines[0])>room) {
+                    // Break at the space that leaves the two lines closest in width.
+                    const auto whole=lines[0];float best=FLT_MAX;
+                    for(std::size_t at=whole.find(' ');at!=std::string::npos;at=whole.find(' ',at+1)) {
+                        const auto first=whole.substr(0,at),second=whole.substr(at+1);const float widest=std::max(measure(first),measure(second));
+                        if(!first.empty()&&!second.empty()&&widest<best){best=widest;lines={first,second};}
+                    }
+                }
+                const float block=float(lines.size())*(nameSize+2)*text+3+statusSize*text;float y=hub.y-block*.5f;
+                for(const auto& line:lines){p.label(hub.x,y,line,nameSize,active->available?ivory:muted,true,room,true);y+=(nameSize+2)*text;}
+                p.label(hub.x,y+3,rowStatus(*active),statusSize,active->available?silver:depletedMark,false,room,true);
+                // A dot on the hub's rim follows the stick or mouse.
+                if(const float length=std::hypot(state.pointerX,state.pointerY);n>1&&length>.15f)p.circle(hub.x+state.pointerX/length*radius,hub.y+state.pointerY/length*radius,3,selectionMark,true);
+            } else if(o.selector==wheelSelector) {
                 for(std::size_t i=0;i<n&&i<layout.ring.size();++i) {
                     const auto slot=layout.ring[i];
                     node(state.rows[i],slot.x,slot.y,i==index?29.f:21.f,i==index,selectorTileShape(o),i==index?1.f:.8f);
@@ -457,17 +551,15 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 if(n>1&&o.selector==3){p.line(center-70,layout.centerY-37,center-65,layout.centerY-42,muted);p.line(center-65,layout.centerY-42,center-60,layout.centerY-37,muted);p.line(center-70,layout.centerY+37,center-65,layout.centerY+42,muted);p.line(center-65,layout.centerY+42,center-60,layout.centerY+37,muted);}
                 p.d->PopClipRect();
             }
-            p.rule(center,layout.ruleY,o.selector==2||o.selector==wheelSelector?42.f:58.f);
-            const bool round=o.selector==2||o.selector==wheelSelector;
-            const float nameWidth=round?238*std::max(1.f,text):layout.width-24;
-            p.label(center,layout.nameY,displayName(active->entry),round?20.f:23.f,active->available?ivory:muted,true,nameWidth,true);
-            p.label(center,layout.statusY,rowStatus(*active),13,active->available?silver:depletedMark,false,layout.width-24,true);
-            if(n>1) {
-                const auto dots=std::min(n,std::size_t(16)),first=std::min(index>dots/2?index-dots/2:0,n-dots);
-                const float start=center-float(dots-1)*4;
-                for(std::size_t i=0;i<dots;++i)p.diamond(start+float(i)*8,layout.pagerY,i+first==index?2.7f:1.6f,i+first==index?ivory:IM_COL32(155,151,141,140),i+first==index);
-                p.label(center,layout.pagerY+6,std::to_string(index+1)+" / "+std::to_string(n),12,silver,false,100,true);
+            if(!layout.segments) {
+                p.rule(center,layout.ruleY,o.selector==2||o.selector==wheelSelector?42.f:58.f);
+                const bool round=o.selector==2||o.selector==wheelSelector;
+                const float nameWidth=round?238*std::max(1.f,text):layout.width-24;
+                p.label(center,layout.nameY,displayName(active->entry),round?20.f:23.f,active->available?ivory:muted,true,nameWidth,true);
+                p.label(center,layout.statusY,rowStatus(*active),14,active->available?silver:depletedMark,false,layout.width-24,true);
             }
+            // The last line names the group the selector belongs to and the entry's place in it.
+            p.label(center,layout.pagerY,o.names[group]+(n>1?"   ·   "+std::to_string(index+1)+" / "+std::to_string(n):std::string{}),13,p.groupAccent?p.accent():ImU32(silver),false,layout.width-24,true);
             if(o.showHints) {
                 std::string cancel;
                 if(state.controller) {
@@ -525,57 +617,104 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         // An equipped highlight takes the place of the accent line a frame draws for its equipped item.
         const bool emphasized=equipped&&!o.equippedHighlight;
         const bool ready=entry&&isConsumable(*entry)&&tile.consumable&&(!previewing||state.preview==state.selected);
+        const bool badged=(o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned);
+        const float keyWidth=q.groupKeyWidth(id,state.controller,state.vr);
         if(o.shape==0) {
-            // A mirrored card has its icon on the right, its text right-aligned and its key on the left.
+            // A card reads icon, text, key from left to right; a mirrored card reads the other way.
             const bool wide=o.showCardNames||o.showLabels,mirror=o.mirrorCards&&wide;const float side=mirror?-1.f:1.f;
-            const float width=geometry.groups.tileWidth,iconX=x+(!wide?width*.5f:mirror?width-25.f:25.f);
-            const float h=geometry.groups.tileHeight-7,cy=y+3+h*.5f,textX=mirror?x+width-51:x+51;
-            q.frame(x,y+3,width,h,emphasized);if(equipped)q.equippedHighlight(x,y+3,width,h,0);q.pulse(x,y+3,width,h,0,pulse);
+            const float width=geometry.groups.tileWidth,keyColumn=o.showKeys?std::max(cardKeyColumn,keyWidth+8):0;
+            const float iconX=x+(!wide?(width-keyColumn)*.5f:mirror?width-25.f:25.f);
+            const float h=geometry.groups.tileHeight-7,cy=y+3+h*.5f,textX=mirror?x+width-51:x+51,textWidth=width-59-keyColumn;
+            q.frame(x,y+3,width,h,emphasized);if(equipped)q.equippedHighlight(x,y+3,width,h,0);if(previewing)q.highlight(x,y+3,width,h,0,q.accent(),true,false,3);q.pulse(x,y+3,width,h,0,pulse);
             if(entry){q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted);q.sweep(iconX,cy,18*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));}
             else q.text(iconX,cy-15,"+",24,muted,false,0,true);
             const float block=(o.showLabels&&o.showCardNames?26*text+4:14*text),top=cy-block*.5f;
-            if(o.showLabels)q.label(textX,top,o.names[id],o.showCardNames?12.f:14.f,q.groupAccent?nameColor:ImU32(silver),true,width-59,false,mirror);
-            if(o.showCardNames)q.label(textX,top+(o.showLabels?12*text+4:0),entry?displayName(*entry):tr("Empty"),14,entry&&!available?muted:ivory,true,width-59,false,mirror);
-            q.groupKey(mirror?x+20:x+width-20,y-3,id,previewing,state.controller,state.vr);
-            if(previewing)q.diamond(x+width*.5f,y-3,2.5f,q.accent());
-            if(hands)q.text(iconX-18*side,cy+((o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned)?-22.f:14.f),handMarker(hands),10*q.mark(),equippedMark,false,0,mirror);
-            else if(equipped||ready)q.diamond(iconX+18*side,cy+15,2.5f*q.mark(),equippedMark);
+            if(o.showLabels)q.label(textX,top,o.names[id],o.showCardNames?12.f:14.f,q.groupAccent?nameColor:ImU32(silver),true,textWidth,false,mirror);
+            if(o.showCardNames)q.label(textX,top+(o.showLabels?12*text+4:0),entry?displayName(*entry):tr("Empty"),14,entry&&!available?muted:ivory,true,textWidth,false,mirror);
+            if(keyWidth>0)q.groupKey(mirror?x+4+keyColumn*.5f:x+width-4-keyColumn*.5f,cy-9,id,previewing,state.controller,state.vr);
+            // Hand letters keep to the icon's outer corner, above the icon when a count or poison mark sits below it.
+            if(hands)q.text(iconX-18*side,badged?cy-h*.5f+3:cy+h*.5f-8-10*q.mark(),handMarker(hands),10*q.mark(),equippedMark,false,0,mirror);
+            else if(equipped)q.diamond(iconX+18*side,cy+15,2.5f*q.mark(),equippedMark);
+            else if(ready)q.ready(iconX+18*side,cy+15,2.5f*q.mark(),equippedMark);
             if(entry)q.badge(iconX+2,cy+9,*entry,quantity,cooldown,11,false,weapon);
         } else {
             // The tile is drawn at its own size inside the widget; its name keeps the widget's text size.
             const float size=o.tileSize,tileWidth=geometry.groups.tileWidth/size,tileHeight=geometry.groups.tileHeight/size;
             const auto corner=q.p(x,y);q.origin=corner;q.scale*=size;q.textFactor/=size;
             const float x=0,y=0;
+            const bool round=o.shape==1,slot=o.shape==2;
             const float cx=x+tileWidth*.5f;
-            const float cy=y+(o.shape==1?37.f:o.shape==2?50.f:44.f);
-            const float markerX=cx+(entry&&(isStack(*entry)||cooldown>0||(o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned))?-1.f:1.f)*(o.shape==1?21.f:o.shape==2?28.f:0.f);
-            const float markerY=cy+(o.shape==1?21.f:o.shape==2?25.f:30.f);
-            if(o.shape==1){q.medallion(cx,cy,29,emphasized);if(equipped)q.equippedHighlight(cx-29,cy-29,58,58,1);q.pulse(cx-29,cy-29,58,58,1,pulse);}
-            else if(o.shape==2){q.frame(cx-41,y,82,100,emphasized,o.layout==5?(i==0?0u:i==2?1u:2u):1u);if(equipped)q.equippedHighlight(cx-41,y,82,100,0);q.pulse(cx-41,y,82,100,0,pulse);}
-            else {q.lozenge(cx,cy,42,emphasized);if(equipped)q.equippedHighlight(cx-42,cy-42,84,84,3);q.pulse(cx-42,cy-42,84,84,3,pulse);}
+            const float cy=y+(round?37.f:slot?50.f:44.f);
+            const float markerX=cx+(entry&&(isStack(*entry)||cooldown>0||badged)?-1.f:1.f)*(round?21.f:slot?28.f:0.f);
+            const float markerY=cy+(round?21.f:slot?25.f:31.f);
+            if(round){q.medallion(cx,cy,29,emphasized);if(equipped)q.equippedHighlight(cx-29,cy-29,58,58,1);if(previewing)q.highlight(cx-29,cy-29,58,58,1,q.accent(),true,false,3);q.pulse(cx-29,cy-29,58,58,1,pulse);}
+            else if(slot){q.frame(cx-41,y,82,100,emphasized,o.layout==5?(i==0?0u:i==2?1u:2u):1u);if(equipped)q.equippedHighlight(cx-41,y,82,100,0);if(previewing)q.highlight(cx-41,y,82,100,0,q.accent(),true,false,3);q.pulse(cx-41,y,82,100,0,pulse);}
+            else {q.lozenge(cx,cy,42,emphasized);if(equipped)q.equippedHighlight(cx-42,cy-42,84,84,3);if(previewing)q.highlight(cx-42,cy-42,84,84,3,q.accent(),true,false,3);q.pulse(cx-42,cy-42,84,84,3,pulse);}
             if(entry) {
-                const float iconY=cy+(o.shape==3?6.f:0.f),iconSize=o.shape==2?54.f:o.shape==3?36.f:40.f;
+                // A diamond's icon sits a little low under its key and takes the middle of the tile without one.
+                const float iconY=cy+(round||slot?0.f:keyWidth>0?4.f:0.f),iconSize=slot?54.f:round?40.f:keyWidth>0?42.f:46.f;
                 q.icon(cx,iconY,iconSize,*artwork,available?q.itemColor(*artwork):muted);
                 q.sweep(cx,iconY,iconSize*.5f*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));
             }
             else {q.line(cx-5,cy,cx+5,cy,muted);q.line(cx,cy-5,cx,cy+5,muted);}
-            q.groupKey(cx,y+(o.shape==1?0.f:o.shape==2?9.f:16.f),id,previewing,state.controller,state.vr,o.shape==3?16.f:18.f);
-            if(previewing)q.diamond(cx,y+tileHeight+2,2.5f,q.accent());
-            if(o.showLabels)q.label(cx,y+(o.shape==1?71.f:o.shape==2?100.f:88.f),o.names[id],12,nameColor,true,tileWidth-2,true);
-            if(hands)q.text(cx-27,cy+18,handMarker(hands),10*q.mark(),equippedMark);
-            else if(equipped||ready)q.diamond(markerX,markerY,3*q.mark(),equippedMark);
+            q.groupKey(cx,y+(round?0.f:slot?9.f:12.f),id,previewing,state.controller,state.vr,round||slot?18.f:14.f);
+            if(o.showLabels)q.label(cx,y+(round?71.f:slot?100.f:88.f),o.names[id],12,nameColor,true,tileWidth-2,true);
+            // Circles and diamonds keep hand letters and counts inside their lower corners, over the icon.
+            if(hands) {
+                if(slot)q.text(cx-27,cy+18,handMarker(hands),10*q.mark(),equippedMark);
+                else q.text(round?cx-19:cx-14,(round?cy+17:cy+20)-10*q.mark(),handMarker(hands),10*q.mark(),equippedMark);
+            }
+            else if(equipped)q.diamond(markerX,markerY,3*q.mark(),equippedMark);
+            else if(ready)q.ready(markerX,markerY,3*q.mark(),equippedMark);
             else if(entry&&!available&&!isStack(*entry)){q.circle(markerX,markerY,5,IM_COL32(22,18,18,230),true);q.line(markerX-3,markerY+3,markerX+3,markerY-3,blood,1.5f);}
-            if(entry)q.badge(cx+(o.shape==3?18.f:22.f),cy+(o.shape==3?14.f:18.f),*entry,quantity,cooldown,13,false,weapon);
+            if(entry) {
+                if(slot)q.badge(cx+22,cy+18,*entry,quantity,cooldown,13,false,weapon);
+                else q.badge(round?cx+23:cx+18,round?cy+5:cy+8,*entry,quantity,cooldown,12,true,weapon);
+            }
         }
         if(bounds){Bounds box;collect(tileStart,box);bounds->tiles.push_back(box);}
     }
-    const bool captionAbove=groups.origin.y-origin.y+(geometry.groups.height+geometry.captionHeight)*scale>screen.y-8;
-    if(!state.browsing&&showGroups&&active&&now<state.revealUntil&&groupVisibility(state,o,group,now)>0) {
-        auto caption=groups;const float width=std::min(std::max(240.f,geometry.groups.width),(screen.x-16)/scale);
-        caption.origin.x=origin.x+std::clamp(groups.origin.x-origin.x+geometry.groups.width*scale*.5f,8+width*scale*.5f,screen.x-8-width*scale*.5f);
-        const float y=captionAbove?-geometry.captionHeight:geometry.groups.height+7;
-        caption.origin.y=std::clamp(groups.origin.y+y*scale,origin.y+8,origin.y+screen.y-8-geometry.captionHeight*scale);
-        caption.label(0,0,displayName(active->entry),15,active->available?ivory:muted,true,width,true);
+    // The name of a newly selected item appears beside its group's tile: under it, over it or to one side,
+    // wherever it stays on screen clear of the other tiles. Cards that show item names already carry it.
+    bool captionAbove=false;
+    if(!state.browsing&&showGroups&&active&&now<state.revealUntil&&groupVisibility(state,o,group,now)>0&&!(o.shape==0&&o.showCardNames)) {
+        auto caption=groups;const auto name=displayName(active->entry);const float text=groups.textFactor,line=15*text;
+        const float limit=std::min(std::max(240.f,geometry.groups.width),(screen.x-16)/scale);
+        const float width=std::min(limit,caption.medium->CalcTextSizeA(line*scale,FLT_MAX,0,name.c_str()).x/scale+2);
+        const float tileWidth=geometry.groups.tileWidth,tileHeight=geometry.groups.tileHeight;
+        std::size_t slot=geometry.groups.tiles.size();
+        for(std::size_t i=0;i<geometry.groups.tiles.size();++i)if(o.groupOrder[i]==group)slot=i;
+        // Widget units to screen pixels, measured from the viewport's corner.
+        const auto screenX=[&](float x){return groups.origin.x-origin.x+x*scale;};const auto screenY=[&](float y){return groups.origin.y-origin.y+y*scale;};
+        struct Spot {float x,y;unsigned align;bool above;};std::optional<Spot> chosen;
+        if(slot<geometry.groups.tiles.size()) {
+            const auto tile=geometry.groups.tiles[slot];const float middle=tile.x+tileWidth*.5f;
+            // A centered caption slides sideways to stay on screen.
+            const float centered=std::clamp(middle-width*.5f,(8-(groups.origin.x-origin.x))/scale,(screen.x-8-(groups.origin.x-origin.x))/scale-width);
+            const std::array<Spot,4> spots{{{centered,tile.y+tileHeight+5,1,false},{centered,tile.y-line-6,1,true},
+                {tile.x+tileWidth+8,tile.y+(tileHeight-line)*.5f,0,false},{tile.x-8-width,tile.y+(tileHeight-line)*.5f,2,false}}};
+            for(const auto& spot:spots) {
+                if(screenX(spot.x)<8||screenX(spot.x+width)>screen.x-8||screenY(spot.y)<8||screenY(spot.y+line)>screen.y-8)continue;
+                bool clear=true;
+                for(std::size_t i=0;i<geometry.groups.tiles.size()&&clear;++i) {
+                    if(i==slot||groupVisibility(state,o,o.groupOrder[i],now)<=0)continue;
+                    const auto other=geometry.groups.tiles[i];
+                    clear=spot.x>=other.x+tileWidth||spot.x+width<=other.x||spot.y>=other.y+tileHeight||spot.y+line<=other.y;
+                }
+                if(clear){chosen=spot;break;}
+            }
+        }
+        if(chosen) {
+            captionAbove=chosen->above&&chosen->y<0;
+            caption.label(chosen->x+(chosen->align==1?width*.5f:chosen->align==2?width:0.f),chosen->y,name,15,active->available?ivory:muted,true,width,chosen->align==1,chosen->align==2);
+        } else {
+            // With no clear spot beside the tile, the name is centered under the widget, or over it at the screen's foot.
+            captionAbove=groups.origin.y-origin.y+(geometry.groups.height+geometry.captionHeight)*scale>screen.y-8;
+            caption.origin.x=origin.x+std::clamp(groups.origin.x-origin.x+geometry.groups.width*scale*.5f,8+limit*scale*.5f,screen.x-8-limit*scale*.5f);
+            const float y=captionAbove?-geometry.captionHeight:geometry.groups.height+7;
+            caption.origin.y=std::clamp(groups.origin.y+y*scale,origin.y+8,origin.y+screen.y-8-geometry.captionHeight*scale);
+            caption.label(0,0,name,15,active->available?ivory:muted,true,limit,true);
+        }
     }
     if(bounds)collect(widgetStart,bounds->widget);
     if(equipmentAlpha>0&&showEquipmentDisplay(state,o,now)) {

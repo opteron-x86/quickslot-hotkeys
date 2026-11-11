@@ -182,6 +182,18 @@ int main()try {
         check(nine.width>five.width&&std::abs(few.width-selectorGeometry(strip,3).width)<.01f,"More visible items widen the strip only when the group has them");
         Options wheel;wheel.selector=wheelSelector;const auto tight=selectorGeometry(wheel,4);wheel.wheelRadius=150;const auto open=selectorGeometry(wheel,4);
         check(tight.reach>=62&&std::abs(open.reach-150)<.01f&&open.width>tight.width,"Wheel radius sets the wheel's smallest size");
+        Options ring;ring.selector=wheelSelector;ring.wheelStyle=1;
+        for(const std::size_t count:{std::size_t(1),std::size_t(2),std::size_t(7),std::size_t(16),std::size_t(30)}) {
+            const auto wedges=selectorGeometry(ring,count);constexpr float pi=3.141592654f;
+            const float chord=count>1?2*wedges.reach*std::sin(pi/float(count))-wedges.wedgeGap:wedgeDepth;
+            check(wedges.segments&&wedges.ring.size()==count&&std::abs(wedges.outer-wedges.inner-wedgeDepth)<.01f&&wedges.inner>=72,"A segmented wheel has a wedge for every entry around a hub with room for a name");
+            check(chord>=(count>Group::limit?25.9f:39.9f)&&std::abs(wedges.ring[0].x-wedges.hub.x)<.01f&&wedges.ring[0].y<wedges.hub.y,"Wedges are wide enough for an icon and start at the top");
+            check(wedges.hub.y-wedges.outer>=-27&&wedges.hub.x+wedges.outer<=wedges.width&&wedges.pagerY>wedges.hub.y+wedges.outer&&wedges.height>wedges.pagerY,"The ring and the group line beneath it stay inside the selector");
+        }
+        check(!selectorGeometry(wheel,30).segments&&selectorGeometry(wheel,30).ring.size()==Group::limit,"A tile wheel keeps to a full group of slots");
+        ring.wheelStyle=7;sanitizeOptions(ring);check(ring.wheelStyle==1&&decodeOptions(encodeOptions(ring)).wheelStyle==1&&decodeOptions(encodeOptions(Options{})).wheelStyle==0,"The wheel style persists inside its range");
+        Options keyed;const auto withKeys=groupGeometry(keyed);keyed.showKeys=false;
+        check(std::abs(withKeys.tileWidth-groupGeometry(keyed).tileWidth-cardKeyColumn)<.01f,"A card keeps a column for its key while keys are shown");
         Options look;look.cardWidth=150;look.tileSize=1.4f;look.gridColumns=5;look.layout=6;look.mirrorCards=true;look.selectorVisible=2;look.wheelRadius=120;look.iconScale=1.3f;look.backgroundOpacity=.4f;
         look.customTextColor=look.customSelectionColor=true;look.textColor={.1f,.2f,.3f};look.selectionColor={.4f,.5f,.6f};look.groupColored[2]=true;look.groupColors[2]={.7f,.8f,.9f};
         const auto saved=decodeOptions(encodeOptions(look));

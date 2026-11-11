@@ -64,6 +64,7 @@ inline constexpr ChoiceSetting choiceSettings[]{
     {"selector",&Options::selector,wheelSelector,Section::selector},
     {"selectorShape",&Options::selectorShape,3,Section::selector},
     {"selectorVisible",&Options::selectorVisible,3,Section::selector,true},
+    {"wheelStyle",&Options::wheelStyle,1,Section::selector,true},
     {"selectorDock",&Options::selectorDock,4,Section::selector},
     {"equipmentAnchor",&Options::equipmentAnchor,9,Section::equipment,true},
     {"equipmentStyle",&Options::equipmentStyle,4,Section::equipment},

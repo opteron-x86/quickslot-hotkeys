@@ -24,7 +24,7 @@ Place a theme in `Data/Quickslot/themes/<folder>/theme.json`. Restart after inst
 
 `schema`, `id` and `name` are required. Use schema `2` for the options below; schema `1` packs load with their defaults. IDs use lowercase letters, digits, hyphens or underscores, up to 48 characters. Asset paths are relative to the pack folder. Colors use RGB or RGBA values from 0 to 255.
 
-`frameStyle` selects clipped corners (0), straight edges (1), double borders (2) or angular linework (3). An optional frame atlas is a **1024 × 320 RGBA PNG** with four 256 × 320 cells: top, bottom, side and interior texture. Artwork occupies x=4–251 and y=6–313 within each cell. Diamonds rotate the bottom frame; circles use the interior texture.
+`frameStyle` selects clipped corners (0), straight edges (1), double borders (2) or angular linework (3). An optional frame atlas is a **1024 × 320 RGBA PNG** with four 256 × 320 cells: top, bottom, side and interior texture. Artwork occupies x=4–251 and y=6–313 within each cell. Diamonds use the top and right edges of the bottom frame, mirrored left to right, so all four sides carry its border; circles use the interior texture.
 
 ### Interface detection
 

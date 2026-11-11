@@ -113,7 +113,7 @@ While holding a group, optional **Equip in right/left hand** actions equip the h
 
 ## Appearance
 
-Choose a theme, then customize colors, frames, icon size, text size and spacing. Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Item artwork and installed ImGui keycaps are configured independently.
+New installations start on the **Automatic** theme, which matches Dear Diary Dark Mode, Edge, Norden, Nordic, Oathvein, Untarnished or Vel'dun when that interface is installed and uses its font from `Interface/ImGuiIcons/Fonts`. Choose any theme and **Font** under **Appearance → Style**, then customize colors, frames, icon size, text size and spacing. The editor follows the selected theme. Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Item artwork and installed ImGui keycaps are configured independently.
 
 Use **Key icons** to switch between ImGui key artwork and plain hotkey labels on the frames.
 

@@ -156,6 +156,15 @@ int main(int argc,char** argv)try {
     click("##theme");click("Norden");check(adjustments(state.options).customAccent,"Returning to a theme restores its prior overrides");
     click("Reset theme");check(!adjustments(state.options).customAccent,"Theme reset removes only current overrides");
     click("Undo");check(adjustments(state.options).customAccent,"Theme reset is undoable");
+    {
+        Options automatic;check(automatic.themeId==automaticTheme&&hud.theme(automatic).id=="minimal","New installs start on the Automatic theme, which uses Minimal until an interface is recognized");
+        hud.setDetectedTheme("veldun");check(hud.theme(automatic).id=="veldun","The Automatic theme follows the recognized interface");
+        automatic.themeId="edge";check(hud.theme(automatic).id=="edge","A chosen theme takes priority over detection");
+        hud.setDetectedTheme("not-installed");check(hud.detectedTheme().empty(),"Detection ignores packs that are not installed");
+    }
+    click("##font");click("LiberationSerif-Regular");check(state.options.fontId=="quickslot/LiberationSerif-Regular.ttf"&&hud.chosenFont(state.options)&&hud.bodyFont(state.options)==hud.chosenFont(state.options),"A chosen typeface replaces the theme font");
+    check(probe::find("Installed UI font").empty(),"The installed UI font appears when the interface supplies one");
+    click("##font");click("Theme font");check(state.options.fontId.empty()&&!hud.chosenFont(state.options),"The theme font can be restored");
     click("Groups");click("Show keys");check(!state.options.showKeys,"Widget key visibility changes live");click("Undo");check(state.options.showKeys,"Key visibility is undoable");
     click("Visibility");check(probe::find("Show keys").empty(),"Key visibility has one control");
     click("##widget visibility");click("Hide when idle");check(widgetVisibility(state.options)==WidgetVisibility::hide,"Complete hiding is available as an explicit mode");
@@ -219,7 +228,7 @@ int main(int argc,char** argv)try {
     mouse(choice);frame({{EditorInputType::button,0,true}});mouse(groupTarget);frame();frame({{EditorInputType::button,0,false}});frame();
     check(state.draft.groups[2].entries.back().name=="Healing","Dragging an inventory choice onto a group adds it");
     const auto beforeRevert=state.options.themeId;click("Revert session");
-    check(state.options.themeId=="minimal"&&state.options.names[0]=="Arsenal"&&state.draft.groups[0].entries.size()==3,"Revert restores the opening groups, names and settings");
+    check(state.options.themeId==Options{}.themeId&&state.options.names[0]=="Arsenal"&&state.draft.groups[0].entries.size()==3,"Revert restores the opening groups, names and settings");
     click("Undo");check(state.options.themeId==beforeRevert&&state.options.names[0]=="Combat","Session revert can itself be undone");
     click("Close");check(!state.open,"Save closes editor and submits settings");
     state=fixture::editor();state.session=2;frame();frame();click("Appearance");click("Visibility");key(1);check(!state.open,"Escape closes with changes kept");

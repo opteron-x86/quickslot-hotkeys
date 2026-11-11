@@ -229,7 +229,7 @@ struct Paint {
     }
 };
 }
-void Hud::initialize(const std::string& directory) {
+void Hud::initialize(const std::string& directory,const std::string& installedFontDirectory) {
     auto& io=ImGui::GetIO();
     const auto root=std::filesystem::path(directory);const auto latin=root/"Jost-Regular.ttf";
     std::vector<std::filesystem::path> fallbacks{latin};
@@ -265,6 +265,26 @@ void Hud::initialize(const std::string& directory) {
         auto* result=load(path,20);cache[path]=result;return result;
     };
     for(const auto& t:themes_.all())skins_[t.id]={packFont(t.font,sans),packFont(t.titleFont.empty()?t.font:t.titleFont,medium),0};
+    fonts_.clear();
+    const auto choice=[&](const std::filesystem::path& path)->ImFont* {
+        if(auto it=cache.find(path);it!=cache.end())return it->second;
+        auto* font=add(path,20,false);if(!font)return nullptr;
+        for(const auto& fallback:fallbacks)if(fallback!=path)add(fallback,20,true);
+        cache[path]=font;return font;
+    };
+    const auto discover=[&](const std::filesystem::path& folder,const char* prefix) {
+        std::error_code error;if(folder.empty()||!std::filesystem::is_directory(folder,error))return;
+        std::vector<std::filesystem::path> files;
+        for(const auto& file:std::filesystem::directory_iterator(folder,error))if(file.is_regular_file(error)&&(file.path().extension()==".ttf"||file.path().extension()==".otf"))files.push_back(file.path());
+        std::sort(files.begin(),files.end());
+        for(const auto& file:files) {
+            if(fonts_.size()>=24)break;
+            const auto name=file.filename().string();
+            if(name.size()>96||std::any_of(name.begin(),name.end(),[](unsigned char c){return c<32;}))continue;
+            if(auto* font=choice(file))fonts_.push_back({prefix+name,file.stem().string(),font});
+        }
+    };
+    discover(installedFontDirectory,"ui/");discover(root,"quickslot/");
 }
 EquipmentMetrics Hud::equipmentMetrics(const EquippedDisplay& state,const Options& o)const {
     EquipmentMetrics metrics;auto* font=bodyFont(o);if(!font)return metrics;
@@ -287,10 +307,10 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     auto geometry=hudGeometry(o,screen.x,screen.y,equipmentRows(state.equipment,o),metrics,state.rows.size());
     if(state.editorPreview&&!state.placementPreview&&list){const auto display=ImGui::GetIO().DisplaySize;geometry=previewGeometry(o,display.x,display.y,screen.x,screen.y,state.browsing,!state.selectorOnly,state.equipmentOnly,equipmentRows(state.equipment,o),metrics,state.rows.size(),state.previewZoom);}
     const float scale=geometry.scale;
-    const auto& theme=themes_.get(o.themeId);const auto& skin=skins_.at(theme.id);
+    const auto& theme=this->theme(o);const auto& skin=skins_.at(theme.id);
     Paint p{list?list:ImGui::GetBackgroundDrawList(),
         {origin.x+geometry.origin.x+geometry.selectorOrigin.x*scale,origin.y+geometry.origin.y+geometry.selectorOrigin.y*scale},
-        scale,o.opacity*visibility,skin.title,skin.body,skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o),itemIcons_};
+        scale,o.opacity*visibility,chosenFont(o)?chosenFont(o):skin.title,chosenFont(o)?chosenFont(o):skin.body,skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o),itemIcons_};
     const auto collect=[&](int start,Bounds& box){for(int i=start;i<p.d->VtxBuffer.Size;++i){const auto v=p.d->VtxBuffer[i].pos;box.include({v.x,v.y});}};
     const int selectorStart=p.d->VtxBuffer.Size;const float text=hudTextFactor(o);
     const float center=geometry.selectorWidth*.5f;

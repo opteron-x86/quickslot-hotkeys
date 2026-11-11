@@ -28,5 +28,19 @@
       170
     ]
   },
-  "atlas": "frames.png"
+  "atlas": "frames.png",
+  "detect": [
+    {
+      "file": "Interface/hudmenu.swf",
+      "sha256": "a57a4d1aa3cb89f080dcd44499553ade3585b850c361a2cec452bcefe6377e7b"
+    },
+    {
+      "file": "Interface/startmenu.swf",
+      "sha256": "1f30a1c98f48d4efd8c65786cd25b2d443f4109d022a77c83f615c8de0620a3e"
+    },
+    {
+      "file": "Interface/tweenmenu.swf",
+      "sha256": "e917d2aad9c488dc96ab6832cba3932a218f77eb98725c1d2e15779031a20a85"
+    }
+  ]
 }

@@ -28,5 +28,19 @@
       175
     ]
   },
-  "font": "font.ttf"
+  "font": "font.ttf",
+  "detect": [
+    {
+      "file": "Interface/hudmenu.swf",
+      "sha256": "92a6d06ff49787c58bc790ebb8663cb84b9f0554fa78a3a9263fd72351bb6cfd"
+    },
+    {
+      "file": "Interface/startmenu.swf",
+      "sha256": "533be22a88888e12e3e720cd57e076b6614308f519c289afeec480daeb2c1d1f"
+    },
+    {
+      "file": "Interface/tweenmenu.swf",
+      "sha256": "28b60d3a9da84e797a6013d2f780b9352a74670a645fec790d03183012272707"
+    }
+  ]
 }

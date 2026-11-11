@@ -7,6 +7,8 @@
 - Set the **Hold delay** that separates a tap from a hold under **Controls → General → Timing**.
 - Inventory and Magic capture messages follow the selected language.
 - **Show keys** has one control, under **Appearance → Groups**.
+- The **Automatic** theme matches your installed interface mod (Dear Diary Dark Mode, Edge, Norden, Nordic, Oathvein, Untarnished or Vel'dun) and is the default for new installations. Existing settings keep their theme.
+- Choose a **Font** under **Appearance → Style**, including the font your interface mod installs in `Interface/ImGuiIcons/Fonts`.
 - Frame artwork keeps even borders and corners on cards, squares, list rows and diamonds.
 - The editor takes its surfaces, text and highlights from the selected theme.
 - Theme packs can set selection, equipped, warning, depleted, poison and editor panel colors, plus the frame corner size. See [Theme and icon packs](THEMES.md).

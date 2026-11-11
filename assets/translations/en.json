@@ -2,6 +2,11 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "Automatic uses the theme and typeface that match your installed interface mod.": "Automatic uses the theme and typeface that match your installed interface mod.",
+    "Font": "Font",
+    "Theme font": "Theme font",
+    "Installed UI font": "Installed UI font",
+    "Installed UI font uses the typeface your interface mod supplies in Interface/ImGuiIcons/Fonts.": "Installed UI font uses the typeface your interface mod supplies in Interface/ImGuiIcons/Fonts.",
     "Selection moved — choose the item again": "Selection moved — choose the item again",
     "This item cannot be added to Quickslot": "This item cannot be added to Quickslot",
     "This group is full (16 shortcuts)": "This group is full (16 shortcuts)",

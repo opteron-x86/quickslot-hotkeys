@@ -91,6 +91,7 @@ inline void sanitizeOptions(Options& o) {
     o.fadeDelay=finite(o.fadeDelay,4,0,20);o.idleOpacity=finite(o.idleOpacity,.35f,0,1);
     const auto validId=[](const std::string& id){return !id.empty()&&id.size()<=48&&std::all_of(id.begin(),id.end(),[](unsigned char c){return (c>='a'&&c<='z')||(c>='0'&&c<='9')||c=='-'||c=='_';});};
     if(!validId(o.themeId))o.themeId="minimal";
+    if(o.fontId.size()>128||std::any_of(o.fontId.begin(),o.fontId.end(),[](unsigned char c){return c<32;}))o.fontId.clear();
     for(auto it=o.themeAdjustments.begin();it!=o.themeAdjustments.end();) {
         if(!validId(it->first)){it=o.themeAdjustments.erase(it);continue;}
         auto& a=it->second;for(auto& c:a.accent)c=finite(c,.5f,0,1);
@@ -108,7 +109,7 @@ inline std::string encodeOptions(Options o) {
     Json modes=Json::array();for(const auto mode:o.groupModes)modes.push_back(unsigned(mode));
     Json selectorBindings=Json::array();for(const auto b:o.selectorBindings)selectorBindings.push_back(Json::array({b.key,b.modifiers}));
     Json controllerActions=Json::array();for(const auto b:o.controllerActions)controllerActions.push_back(binding(b));
-    return Json{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"holdDelay",o.holdDelay},{"cycleDelay",o.cycleDelay},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"themeAdjustments",tweaks},
+    return Json{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"holdDelay",o.holdDelay},{"cycleDelay",o.cycleDelay},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"fontId",o.fontId},{"themeAdjustments",tweaks},
         {"pngiiIcons",o.pngiiIcons},{"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
         {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},
         {"groupCaptureRightHotkey",o.groupCaptureRightHotkey},{"groupCaptureLeftHotkey",o.groupCaptureLeftHotkey},{"groupMoveHotkey",o.groupMoveHotkey},
@@ -200,7 +201,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.selectorShape=j.at("selectorShape").get<decltype(o.selectorShape)>();o.selectorSpacing=j.at("selectorSpacing").get<decltype(o.selectorSpacing)>();
     o.showKeys=j.at("showKeys").get<decltype(o.showKeys)>();o.placementGrid=j.at("placementGrid").get<decltype(o.placementGrid)>();o.placementSnap=j.at("placementSnap").get<decltype(o.placementSnap)>();
     o.showLabels=j.at("showLabels").get<decltype(o.showLabels)>();o.showCardNames=j.at("showCardNames").get<decltype(o.showCardNames)>();o.keyIcons=j.at("keyIcons").get<decltype(o.keyIcons)>();o.coloredMagic=j.at("coloredMagic").get<decltype(o.coloredMagic)>();
-    o.themeId=j.at("themeId").get<decltype(o.themeId)>();
+    o.themeId=j.at("themeId").get<decltype(o.themeId)>();o.fontId=j.value("fontId",std::string{});
     {
         const auto& tweaks=j.at("themeAdjustments");if(!tweaks.is_object()||tweaks.size()>32)throw std::runtime_error("Invalid theme adjustments");
         for(const auto& [id,t]:tweaks.items()){ThemeAdjustments a;a.customAccent=t.at("customAccent").get<decltype(a.customAccent)>();a.accent=t.at("accent").get<decltype(a.accent)>();a.frameOpacity=t.at("frameOpacity").get<decltype(a.frameOpacity)>();a.iconScale=t.at("iconScale").get<decltype(a.iconScale)>();o.themeAdjustments[id]=a;}

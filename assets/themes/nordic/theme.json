@@ -27,5 +27,11 @@
       12,
       200
     ]
-  }
+  },
+  "detect": [
+    {
+      "file": "Interface/hudmenu.swf",
+      "sha256": "f464ad6124b87de7707dd6bc5f81c9737476a4b1d92b1b4edb9828c5b27aed62"
+    }
+  ]
 }

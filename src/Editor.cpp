@@ -191,7 +191,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
     const auto metrics=editorGeometry(options,screen.x,screen.y);const auto px=[&](float value){return value*metrics.scale;};
 
     struct StyleGuard {float cursor;ImGuiStyle old=ImGui::GetStyle();~StyleGuard(){ImGui::GetStyle()=old;ImGui::GetStyle().MouseCursorScale=cursor;}} guard{metrics.scale};
-    ImGui::GetStyle()=ImGuiStyle{};style(hud.themes().get(options.themeId),options);ImGui::GetStyle().ScaleAllSizes(metrics.scale);
+    ImGui::GetStyle()=ImGuiStyle{};style(hud.theme(options),options);ImGui::GetStyle().ScaleAllSizes(metrics.scale);
     ImGui::PushFont(hud.bodyFont(options),px(18)*(metrics.width/metrics.scale<1000?.86f:1.f));
     std::vector<EditCommand> out;bool changed=false,listNavigation=false;
     const auto navigationList=[&]{listNavigation|=ImGui::GetCurrentContext()->NavWindow==ImGui::GetCurrentWindow();};
@@ -1001,7 +1001,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             const float controlsWidth=std::min(px(340),ImGui::GetContentRegionAvail().x*.44f);
             beginPanel("appearance",{controlsWidth,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
             if(UI::Button("Position",{-1,0})){placement_=true;placementTarget_=appearancePage_==3&&options.showEquipment?2:0;}
-            const auto id=options.themeId;const auto& currentTheme=hud.themes().get(id);
+            const auto id=options.themeId;const auto& currentTheme=hud.theme(options);const bool automatic=id==automaticTheme;
             const auto slider=[&](const char* name,float& value,float low,float high,const char* format="%.0f"){label(tr(name));ImGui::SetNextItemWidth(-1);const auto key=std::string("##")+name;changed|=UI::SliderFloat(key.c_str(),&value,low,high,format);};
             const auto combo=[&](const char* name,const char* key,unsigned& value,const char* choices){label(tr(name));int current=int(value);ImGui::SetNextItemWidth(-1);if(UI::Combo(key,&current,choices)){value=unsigned(current);changed=true;}};
             if(appearancePage_==0) {
@@ -1015,7 +1015,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     ImGui::EndCombo();
                 }
                 label(tr("Theme"));ImGui::SetNextItemWidth(-1);
-                if(ImGui::BeginCombo("##theme",currentTheme.name.c_str())) {
+                const auto automaticName=std::string(tr("Automatic"))+" · "+currentTheme.name;
+                if(ImGui::BeginCombo("##theme",automatic?automaticName.c_str():currentTheme.name.c_str())) {
+                    if(ImGui::Selectable((std::string(tr("Automatic"))+"##theme").c_str(),automatic)){options.themeId=automaticTheme;changed=true;}
+                    if(ImGui::IsItemHovered())UI::SetTooltip("Automatic uses the theme and typeface that match your installed interface mod.");
                     std::vector<const Theme*> themes;for(const auto& t:hud.themes().all())themes.push_back(&t);
                     std::stable_sort(themes.begin(),themes.end(),[](const Theme* a,const Theme* b) {
                         if((a->id=="silver")!=(b->id=="silver"))return a->id=="silver";
@@ -1025,7 +1028,18 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     for(const auto* t:themes)if(ImGui::Selectable(t->name.c_str(),id==t->id)){options.themeId=t->id;changed=true;}
                     ImGui::EndCombo();
                 }
-                if(!hud.themes().contains(id))UI::TextWrapped("Missing theme: %s",id.c_str());
+                if(!automatic&&!hud.themes().contains(id))UI::TextWrapped("Missing theme: %s",id.c_str());
+                label(tr("Font"));ImGui::SetNextItemWidth(-1);
+                const bool installedFont=std::any_of(hud.fonts().begin(),hud.fonts().end(),[](const auto& choice){return choice.id.starts_with("ui/");});
+                std::string fontName=tr(options.fontId.empty()?"Theme font":"Installed UI font");
+                for(const auto& choice:hud.fonts())if(choice.id==options.fontId)fontName=choice.name;
+                if(ImGui::BeginCombo("##font",fontName.c_str())) {
+                    if(ImGui::Selectable(tr("Theme font"),options.fontId.empty())){options.fontId.clear();changed=true;}
+                    if(installedFont&&ImGui::Selectable(tr("Installed UI font"),options.fontId=="ui")){options.fontId="ui";changed=true;}
+                    for(const auto& choice:hud.fonts()){ImGui::PushID(choice.id.c_str());if(ImGui::Selectable(choice.name.c_str(),options.fontId==choice.id)){options.fontId=choice.id;changed=true;}ImGui::PopID();}
+                    ImGui::EndCombo();
+                }
+                if(ImGui::IsItemHovered())UI::SetTooltip("Installed UI font uses the typeface your interface mod supplies in Interface/ImGuiIcons/Fonts.");
                 slider("Widget scale",options.scale,.55f,1.5f,"%.2fx");slider("Text size",options.textScale,.75f,1.5f,"%.2fx");slider("Opacity",options.opacity,.4f,1,"%.2f");
                 ImGui::Separator();auto tweak=adjustments(options);bool tuned=false;
                 if(UI::Checkbox("Custom accent",&tweak.customAccent)){tuned=true;if(tweak.customAccent){const auto color=ImGui::ColorConvertU32ToFloat4(currentTheme.accent);tweak.accent={color.x,color.y,color.z};}}

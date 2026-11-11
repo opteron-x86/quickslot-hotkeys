@@ -1,6 +1,8 @@
 #include "Themes.h"
+#include "Sha256.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
+#include <map>
 #include <set>
 
 namespace quickslot {
@@ -26,6 +28,16 @@ std::uint32_t color(const Json& j,const char* key,std::uint32_t fallback) {
 }
 }
 Themes::Themes(){Theme a;packs_.push_back(a);a.id="silver";a.name="Skyrim silver";a.accent=a.text;packs_.push_back(a);}
+std::string Themes::detect(const ResourceReader& read)const {
+    if(!read)return {};
+    std::map<std::string,std::string> digests;
+    for(const auto& pack:packs_)for(const auto& signature:pack.detect) {
+        auto [it,added]=digests.try_emplace(signature.file);
+        if(added){const auto bytes=read(signature.file);if(!bytes.empty())it->second=sha256(bytes);}
+        if(it->second==signature.sha256)return pack.id;
+    }
+    return {};
+}
 std::uint32_t themePanel(const Theme& t) {
     if(t.panel>>24)return t.panel;
     // An opaque surface in the background's hue, lifted slightly so controls separate from it.
@@ -57,6 +69,17 @@ void Themes::load(const std::filesystem::path& directory) {
         t.warning=color(palette,"warning",t.warning);t.depleted=color(palette,"depleted",t.depleted);t.poison=color(palette,"poison",t.poison);
         t.panel=color(palette,"panel",0);t.panelBorder=color(palette,"panelBorder",0);
         t.atlasMargin=std::min(j.value("atlasMargin",t.atlasMargin),120u);
+        if(j.contains("detect")) {
+            const auto& signatures=j.at("detect");if(!signatures.is_array()||signatures.size()>8)throw std::runtime_error("Invalid detection list");
+            for(const auto& entry:signatures) {
+                ThemeSignature signature{entry.at("file").get<std::string>(),entry.at("sha256").get<std::string>()};
+                const bool path=!signature.file.empty()&&signature.file.size()<=160&&signature.file.front()!='/'&&signature.file.find("..")==std::string::npos&&
+                    std::all_of(signature.file.begin(),signature.file.end(),[](unsigned char c){return c>=32&&c<127&&c!='\\'&&c!=':';});
+                const bool digest=signature.sha256.size()==64&&std::all_of(signature.sha256.begin(),signature.sha256.end(),[](char c){return (c>='0'&&c<='9')||(c>='a'&&c<='f');});
+                if(!path||!digest)throw std::runtime_error("Invalid detection signature");
+                t.detect.push_back(std::move(signature));
+            }
+        }
         t.atlas=asset(path.parent_path(),j,"atlas");t.font=asset(path.parent_path(),j,"font");t.titleFont=asset(path.parent_path(),j,"titleFont");
         for(const auto& p:{t.atlas,t.font,t.titleFont})if(!p.empty()&&!std::filesystem::is_regular_file(p))warnings_.push_back(t.id+": missing "+p.filename().string()+"; using fallback");
         seen.insert(t.id);const auto it=std::find_if(packs_.begin(),packs_.end(),[&](const auto& p){return p.id==t.id;});

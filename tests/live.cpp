@@ -1,6 +1,7 @@
 #include "LiveEditor.h"
 #include "Settings.h"
 #include "Themes.h"
+#include "Sha256.h"
 #include "Layout.h"
 #include "HudMotion.h"
 #include "Assets.h"
@@ -17,7 +18,7 @@ void check(bool value,const char* reason,std::source_location at=std::source_loc
 bool near(float a,float b){return std::abs(a-b)<.001f;}
 int main(int argc,char** argv)try {
     if(argc!=2)throw std::runtime_error("Expected source directory");
-    Options o;check(o.themeId=="minimal","Default appearance has an explicit theme ID");
+    Options o;check(o.themeId==automaticTheme,"Default appearance follows the installed interface");
     o.themeId="norden";o.themeAdjustments["norden"]={true,{.2f,.6f,.9f},.7f,1.1f};o.selectorDock=4;o.selectorX=.3f;o.selectorY=.2f;o.fadeIdle=true;o.idleOpacity=.2f;
     const auto bytes=encodeOptions(o);check(encodeOptions(decodeOptions(bytes))==bytes,"Theme overrides, free placement, animation and fading persist exactly");
     o.themeId="oathvein";check(adjustments(o).iconScale==1,"Switching themes does not copy unrelated overrides");
@@ -46,6 +47,26 @@ int main(int argc,char** argv)try {
     write("roles",{{"schema",2},{"id","roles"},{"name","Roles"},{"atlasMargin",500},{"palette",{{"text",{200,200,200}},{"selection",{1,2,3}},{"equipped",{4,5,6}},{"warning",{7,8,9}},{"depleted",{10,11,12}},{"poison",{13,14,15}},{"panel",{16,17,18,240}},{"panelBorder",{19,20,21}}}}});
     themes.load(roles.parent_path());const auto& styled=themes.get("roles");
     check(styled.selection==rgba(1,2,3)&&styled.equipped==rgba(4,5,6)&&styled.warning==rgba(7,8,9)&&styled.depleted==rgba(10,11,12)&&styled.poison==rgba(13,14,15),"Schema 2 packs set each optional role");
+    {
+        const auto bytes=[](std::string_view text){return std::vector<unsigned char>(text.begin(),text.end());};
+        check(sha256(bytes(""))=="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"&&sha256(bytes("abc"))=="ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad","SHA-256 matches its published vectors");
+        check(sha256(bytes(std::string(1000,'a')))=="41edece42d63e8d9bf515a9ba6932e1c20cbc9f5a5d134645adb5db1b9737ea3","SHA-256 handles multi-block input");
+        const auto marks=temp/"marks";std::filesystem::remove_all(marks);
+        const auto pack=[&](const char* id,Json detect){auto folder=marks/id;std::filesystem::create_directories(folder);std::ofstream(folder/"theme.json")<<Json{{"schema",2},{"id",id},{"name",id},{"detect",detect}}.dump();};
+        pack("first",Json::array({{{"file","Interface/hudmenu.swf"},{"sha256",sha256(bytes("first hud"))}}}));
+        pack("second",Json::array({{{"file","Interface/hudmenu.swf"},{"sha256",sha256(bytes("second hud"))}},{{"file","Interface/startmenu.swf"},{"sha256",sha256(bytes("second start"))}}}));
+        pack("unsafe",Json::array({{{"file","../Skyrim.ini"},{"sha256",sha256(bytes("x"))}}}));
+        Themes marked;marked.load(marks);
+        check(marked.contains("first")&&marked.contains("second")&&!marked.contains("unsafe"),"Detection signatures accept Data-relative paths only");
+        unsigned reads=0;std::map<std::string,std::string> files{{"Interface/hudmenu.swf","second hud"}};
+        const auto reader=[&](const std::string& path){++reads;const auto it=files.find(path);return it==files.end()?std::vector<unsigned char>{}:bytes(it->second);};
+        check(marked.detect(reader)=="second"&&reads==1,"The pack whose interface file is installed is detected with one read per file");
+        files={{"Interface/hudmenu.swf","patched by another mod"},{"Interface/startmenu.swf","second start"}};
+        check(marked.detect(reader)=="second","Any one matching file identifies the interface");
+        files={{"Interface/hudmenu.swf","unknown"}};check(marked.detect(reader).empty()&&marked.detect({}).empty(),"An unrecognized interface matches no pack");
+        Themes bundled;bundled.load(std::filesystem::path(argv[1])/"assets/themes");unsigned signed_=0;for(const auto& t:bundled.all())signed_+=!t.detect.empty();
+        check(bundled.warnings().empty()&&signed_==7,"Each bundled interface pack carries a detection signature");
+    }
     check(themePanel(styled)==rgba(16,17,18,240)&&themePanelBorder(styled)==rgba(19,20,21)&&styled.atlasMargin==120,"Schema 2 packs set editor surfaces and a bounded corner size");
 
     Arsenal a;Entry e;e.form=0x1234;e.owner=0x14;e.unique=9;e.name="Tempered sword";a.groups[0].add(e);Options start;
@@ -61,7 +82,7 @@ int main(int argc,char** argv)try {
     check(edited.themeId=="edge","Undo of equipment does not erase the prior theme edit");
     history.prepare(a,edited);history.identity({e.form,0xff000010,0x14,0,42});a.groups[0].entries.clear();history.finish(true,false,3);
     check(history.undo(a,edited)&&a.groups[0].entries[0].unique==42,"Identity events during a native edit also update its pending checkpoint");
-    check(history.revert(a,edited)&&edited.themeId=="minimal"&&a.groups[0].entries[0].unique==42,"Session revert restores original choices with current engine identities");
+    check(history.revert(a,edited)&&edited.themeId==start.themeId&&a.groups[0].entries[0].unique==42,"Session revert restores original choices with current engine identities");
     check(history.undo(a,edited)&&edited.themeId=="edge"&&history.canRevert(),"Revert itself can be undone and reverted again");
     history.prepare(a,edited);edited.opacity=.8f;history.finish(false,false,4);
     for(unsigned i=0;i<40;++i){history.prepare(a,edited);edited.spacing=float(i);history.finish(true,false,5+i);}

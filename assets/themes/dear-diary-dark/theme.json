@@ -27,5 +27,19 @@
       13,
       205
     ]
-  }
+  },
+  "detect": [
+    {
+      "file": "Interface/hudmenu.swf",
+      "sha256": "42ee5df245f453f4c93cfb8e00412dd28816f1ccc21fa8cd1860fac7fa603978"
+    },
+    {
+      "file": "Interface/startmenu.swf",
+      "sha256": "c337a9a41fc1190e0f3ab96c50024f931a6a3d5d1aaa067447fda73b841707f8"
+    },
+    {
+      "file": "Interface/tweenmenu.swf",
+      "sha256": "ee3b3ff43fd9b2a53b00f8cdb9d81d801a8c04039a249d1513bfeba22dc2136e"
+    }
+  ]
 }

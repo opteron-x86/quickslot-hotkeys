@@ -29,5 +29,19 @@
     ]
   },
   "font": "font.ttf",
-  "atlas": "frames.png"
+  "atlas": "frames.png",
+  "detect": [
+    {
+      "file": "Interface/hudmenu.swf",
+      "sha256": "3614b25f17bbebe845c873cb3b3d46659b8f7cefdb2de6ffd2a030c10af86a71"
+    },
+    {
+      "file": "Interface/startmenu.swf",
+      "sha256": "13351b76d3af4094fe245f8563181cf4f5627d6962fa8cf8577a9bb86d97d899"
+    },
+    {
+      "file": "Interface/tweenmenu.swf",
+      "sha256": "e47ab5e932683e948fca217bbe69a415d4663f758eb69c27e35a5be94775e08a"
+    }
+  ]
 }

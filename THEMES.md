@@ -26,6 +26,22 @@ Place a theme in `Data/Quickslot/themes/<folder>/theme.json`. Restart after inst
 
 `frameStyle` selects clipped corners (0), straight edges (1), double borders (2) or angular linework (3). An optional frame atlas is a **1024 × 320 RGBA PNG** with four 256 × 320 cells: top, bottom, side and interior texture. Artwork occupies x=4–251 and y=6–313 within each cell. Diamonds rotate the bottom frame; circles use the interior texture.
 
+### Interface detection
+
+The **Automatic** theme selects the pack that matches the installed interface mod. A pack lists the files that identify its interface:
+
+```json
+"detect": [
+  { "file": "Interface/hudmenu.swf", "sha256": "3614b25f17bbebe8…" }
+]
+```
+
+`file` is a path under `Data`; `sha256` is the lowercase SHA-256 of that file. A pack matches when any listed file has the listed content, read through Skyrim's resource system (loose files or archives). List up to eight files, and add a signature for each interface release you support. `Quickslot.log` records the detected pack. Automatic uses Minimal when no pack matches.
+
+### Fonts
+
+**Appearance → Style → Font** offers the theme's font, the interface's own font and every font found. Interface mods and ImGui Icons packs install fonts in `Data/Interface/ImGuiIcons/Fonts`; **Installed UI font** uses the first `.ttf` or `.otf` there. Under the Automatic theme, an unrecognized interface keeps its own font with the Minimal palette.
+
 ### Palette roles
 
 The six colors above are the base palette. These optional roles refine it:

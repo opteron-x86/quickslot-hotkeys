@@ -57,7 +57,7 @@ struct Graphics {
         auto& io=ImGui::GetIO();io.IniFilename=nullptr;io.LogFilename=nullptr;
         io.ConfigFlags|=ImGuiConfigFlags_NoMouseCursorChange;io.MouseDrawCursor=false;
         io.ConfigErrorRecoveryEnableAssert=false;io.ConfigErrorRecoveryEnableTooltip=false;
-        hud.initialize((dataDirectory()/"Quickslot/fonts").string());
+        hud.initialize((dataDirectory()/"Quickslot/fonts").string(),(dataDirectory()/"Interface/ImGuiIcons/Fonts").string());
         const auto upload=[&](const ImageAsset& image,Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& view) {
             if(!image)return false;
             D3D11_TEXTURE2D_DESC textureDesc{};textureDesc.Width=image.width;textureDesc.Height=image.height;
@@ -73,6 +73,15 @@ struct Graphics {
             else SKSE::log::warn("Theme {} frame atlas unavailable; using vector fallback",theme.id);
         }
         for(const auto& warning:hud.themes().warnings())SKSE::log::warn("Theme pack: {}",warning);
+        hud.setDetectedTheme(hud.themes().detect([](const std::string& path) {
+            auto resource=path;std::replace(resource.begin(),resource.end(),'/','\\');
+            RE::BSResourceNiBinaryStream stream(resource);
+            if(!stream.good()||!stream.stream||!stream.stream->totalSize||stream.stream->totalSize>16*1024*1024)return std::vector<unsigned char>{};
+            std::vector<unsigned char> bytes(stream.stream->totalSize);
+            if(!stream.read(bytes.data(),unsigned(bytes.size())))bytes.clear();
+            return bytes;
+        }));
+        SKSE::log::info("Installed interface: {}",hud.detectedTheme().empty()?"no matching theme pack; Automatic uses Minimal":"matches theme "+hud.detectedTheme());
         const auto keys=loadKeyAtlas(dataDirectory()/"Interface/ImGuiIcons/Icons");
         if(upload(keys.image,keyTexture))hud.setKeys(reinterpret_cast<ImTextureID>(keyTexture.Get()),keys.glyphs);
         SKSE::log::info("Quickslot HUD assets: I4 item icons, theme packs {}, ImGui key glyphs {}",hud.themes().all().size(),keyTexture?keys.loaded:0);

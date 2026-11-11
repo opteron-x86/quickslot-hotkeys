@@ -326,7 +326,10 @@ struct Options {
     unsigned layout=0,shape=0,selector=0,selectorShape=0;
     float spacing=14,positionX=1,positionY=1;
     float selectorSpacing=16;
-    std::string themeId="minimal";
+    // "auto" follows the installed interface when a pack recognizes it.
+    std::string themeId="auto";
+    // Empty follows the theme's fonts; see Hud::FontChoice for other values.
+    std::string fontId;
     std::string language="auto";
     std::map<std::string,ThemeAdjustments> themeAdjustments;
     unsigned selectorDock=0;

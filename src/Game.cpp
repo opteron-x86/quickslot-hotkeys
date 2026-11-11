@@ -34,6 +34,7 @@ namespace log=SKSE::log;
 constexpr char slowMenuName[]="QuickslotSelection";
 constexpr char pauseMenuName[]="QuickslotSelectionPause";
 constexpr std::uint32_t recordType=0x47525031;
+constexpr std::uint32_t settingsRecordType=0x51534f31;
 using Dispatch=void(RE::BSTEventSource<RE::InputEvent*>*,RE::InputEvent**);
 REL::Relocation<Dispatch> originalDispatch;
 void inputHook(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent** events) { Game::get().dispatch(source,events); }
@@ -731,7 +732,7 @@ bool Game::initialize() {
         }
     }catch(const std::exception& e){log::warn("Editor settings ignored; using INI defaults: {}",e.what());loadNotice_=tr("Quickslot settings could not be read and use their defaults");}
     if(options_.holdDelay<=0)options_.holdDelay=iniHold;
-    selection_.holdSeconds=options_.holdDelay;
+    selection_.holdSeconds=options_.holdDelay;sharedOptions_=options_;
     localization().select(options_.language);
 
     const REL::Relocation<std::uintptr_t> poll{RELOCATION_ID(67315,68617)};
@@ -831,7 +832,7 @@ void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEdito
 void Game::reset(bool clear) {
     invalidateI4Icons();
     std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;
-    if(clear){arsenal_=Arsenal{};preservedRecord_.reset();}
+    if(clear){arsenal_=Arsenal{};preservedRecord_.reset();if(characterSettings_){characterSettings_=false;options_=sharedOptions_;optionsReplaced();}}
     choices_.clear();lastTapAt_=0;
     snapshot_=Snapshot{};groupRecall_.reset();keyboardOwned_.fill(false);mouseOwned_.fill(false);controller_.reset();stickOwned_.fill(false);nativeVoiceDown_=false;
 }
@@ -955,6 +956,12 @@ void Game::commitCycle(const Selection::Commit& commit) {
     else {selectionTime(true);sound("UIMenuPrevNext");}
 }
 void Game::sound(const char* id){if(options_.uiSounds)RE::PlaySound(id);}
+// Settings changed as a whole: a character's own settings loaded, or the shared ones returned.
+void Game::optionsReplaced() {
+    sanitizeOptions(options_);if(options_.holdDelay<=0)options_.holdDelay=Options{}.holdDelay;
+    selection_.holdSeconds=options_.holdDelay;localization().select(options_.language);
+    menuAPI().publishGroups(ready_?unsigned(options_.groupCount):0);dirty_=true;
+}
 void Game::rememberChoice(std::size_t group,const Entry& entry){if(!isConsumable(entry)&&!isVoice(entry))choices_.remember(group,entry);}
 // Re-selects the choice made before the current one, through the same path as a group tap.
 void Game::swapPrevious(bool controller) {
@@ -1471,7 +1478,7 @@ void Game::refresh() {
     syncFavoriteGroups(arsenal_,player,inventory);
     if(revision!=arsenal_.current().revision)cancel();
     const auto modes=options_.groupModes;normalizeGroupModes(options_,arsenal_);
-    if(modes!=options_.groupModes)autosave_.change(clockNow());
+    if(modes!=options_.groupModes&&!characterSettings_)autosave_.change(clockNow());
     const auto potions=potionCandidates(inventory);const auto deficits=actorDeficits(player);snapshot_.rows.clear();snapshot_.equipment=readEquipment(player,inventory);
     const auto consumableGroup=selectedConsumableGroup(arsenal_);
     const bool smart=std::any_of(arsenal_.groups.begin(),arsenal_.groups.end(),[](const auto& g){return std::any_of(g.entries.begin(),g.entries.end(),hasSmartEquipment);});
@@ -1776,7 +1783,7 @@ void Game::openEditor() {
     try {
         log::info("Editor opening: building equipment catalog");
         cancel();groupRecall_.reset();const auto session=editor_.session+1;editor_=EditorState{};editor_.session=session;editor_.open=true;
-        editor_.vr=REL::Module::IsVR();editor_.controller=controllerLast_&&!editor_.vr;editor_.draft=arsenal_;editor_.options=options_;editor_.soulsSlowdown=GetModuleHandleW(L"SkyrimSoulsRE.dll")!=nullptr;revealSavedGroups(editor_.options,editor_.draft);
+        editor_.characterSettings=characterSettings_;editor_.vr=REL::Module::IsVR();editor_.controller=controllerLast_&&!editor_.vr;editor_.draft=arsenal_;editor_.options=options_;editor_.soulsSlowdown=GetModuleHandleW(L"SkyrimSoulsRE.dll")!=nullptr;revealSavedGroups(editor_.options,editor_.draft);
         collectShortcuts(editor_.draft);
         editHistory_.begin(editor_.draft,editor_.options);
         editor_.settingsPending=autosave_.pending();editor_.saveError=settingsError_;
@@ -1972,17 +1979,18 @@ bool Game::saveCombination(const EditCommand& c) {
 }
 void Game::flushSettings(bool force) {
     if(!autosave_.pending()||(!force&&!autosave_.due(clockNow())))return;
-    try {saveSettings(options_);autosave_.saved();settingsError_.clear();}
+    try {saveSettings(characterSettings_?sharedOptions_:options_);autosave_.saved();settingsError_.clear();}
     catch(const std::exception& e){if(settingsError_!=e.what())log::error("Settings autosave failed: {}",e.what());settingsError_=e.what();autosave_.failed(clockNow());}
     editor_.settingsPending=autosave_.pending();editor_.saveError=settingsError_;
 }
 void Game::applyEditor() {
     localization().select(editor_.options.language);
     sanitizeOptions(editor_.options);revealSavedGroups(editor_.options,editor_.draft);
-    if(encodeOptions(options_)!=encodeOptions(editor_.options))autosave_.change(clockNow());
+    if(!characterSettings_&&encodeOptions(options_)!=encodeOptions(editor_.options))autosave_.change(clockNow());
     arsenal_=editor_.draft;options_=editor_.options;cancel();dirty_=true;
     if(options_.holdDelay<=0)options_.holdDelay=Options{}.holdDelay;
     selection_.holdSeconds=options_.holdDelay;menuAPI().publishGroups(unsigned(options_.groupCount));
+    if(!characterSettings_)sharedOptions_=options_;editor_.characterSettings=characterSettings_;
     editor_.canUndo=editHistory_.canUndo();editor_.canRevert=editHistory_.canRevert();
     editor_.settingsPending=autosave_.pending();editor_.saveError=settingsError_;
     refreshEditor();publish();
@@ -2042,6 +2050,13 @@ void Game::edit(const EditCommand& c) {
     if(!matchingEdit(editor_,c)){editor_.message=tr("List updated; try again");return;}
     try {
         if(c.action==EditAction::exportPreset||c.action==EditAction::importPreset||c.action==EditAction::refreshPresets||c.action==EditAction::deletePreset){presetCommand(c);return;}
+        if(c.action==EditAction::characterSettings) {
+            characterSettings_=c.replace;editor_.characterSettings=characterSettings_;
+            // Returning to shared settings makes the current ones the shared ones.
+            if(!characterSettings_){sharedOptions_=options_;autosave_.change(clockNow());}
+            editor_.message=tr(characterSettings_?"Settings now save with this character":"Settings now apply to every character");
+            log::info("Character settings {}",characterSettings_?"enabled":"disabled");return;
+        }
         if(c.action==EditAction::undo||c.action==EditAction::revert) {
             const bool restored=c.action==EditAction::undo?editHistory_.undo(editor_.draft,editor_.options):editHistory_.revert(editor_.draft,editor_.options);
             if(restored){++editor_.revision;++editor_.restoreSerial;editor_.message=c.action==EditAction::undo?tr("Undone"):tr("Session reverted");applyEditor();}
@@ -2107,6 +2122,10 @@ void Game::afterTransfer(RE::PlayerCharacter* player,RE::TESBoundObject* object,
 void Game::save(SKSE::SerializationInterface* serial) {
     std::scoped_lock lock(mutex_);
     try {
+        if(characterSettings_) {
+            const auto settings=encodeOptions(options_);
+            if(!serial->WriteRecord(settingsRecordType,1,settings.data(),std::uint32_t(settings.size())))log::error("Could not write this character's Quickslot settings");
+        }
         // A record this build could not read stays in the save until the player builds new groups.
         if(preservedRecord_&&blankArsenal(arsenal_)) {
             const auto& [version,bytes]=*preservedRecord_;
@@ -2121,8 +2140,17 @@ void Game::save(SKSE::SerializationInterface* serial) {
 }
 void Game::load(SKSE::SerializationInterface* serial) {
     std::scoped_lock lock(mutex_);closeEditor("loading saved groups");cancel();use_.reset();stopAnimationWatch();arsenal_=Arsenal{};preservedRecord_.reset();dirty_=true;
+    if(characterSettings_){characterSettings_=false;options_=sharedOptions_;optionsReplaced();}
     std::uint32_t type,version,length;bool found=false;
     while(serial->GetNextRecordInfo(type,version,length)) {
+        if(type==settingsRecordType&&version==1&&length<=65536&&!characterSettings_) {
+            std::string bytes(length,'\0');
+            if(serial->ReadRecordData(bytes.data(),length)!=length){log::error("Load failed: truncated character settings");continue;}
+            const auto recovered=recoverOptions(bytes);
+            if(!recovered){log::error("Load failed: this character's settings are unreadable; using the shared settings");loadNotice_=tr("Quickslot settings could not be read and use their defaults");continue;}
+            options_=recovered->options;characterSettings_=true;optionsReplaced();
+            log::info("Loaded this character's own settings ({} defaults restored)",recovered->reset.size());continue;
+        }
         if(type!=recordType||found)continue;
         found=true;
         if(length>8388608){log::error("Load failed: group record exceeds limit ({} bytes)",length);loadNotice_=tr("Quickslot could not read this save's groups");continue;}

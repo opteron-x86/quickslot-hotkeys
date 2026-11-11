@@ -11,6 +11,8 @@ struct EditorState {
     bool open=false,soulsSlowdown=false,controller=false,vr=false;
     std::uint64_t session=0,revision=0,catalogVersion=0,restoreSerial=0;
     bool canUndo=false,canRevert=false,settingsPending=false;
+    // True when settings are stored in this character's saves instead of the shared settings file.
+    bool characterSettings=false;
     std::string saveError;
     Arsenal draft;
     Options options;
@@ -25,7 +27,7 @@ struct EditorState {
     std::string message;
     std::vector<std::string> presets;
 };
-enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup,favoriteSource,resetFavoriteExclusions,deletePreset};
+enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup,favoriteSource,resetFavoriteExclusions,deletePreset,characterSettings};
 struct EditCommand {
     EditAction action=EditAction::select;
     std::uint64_t session=0,revision=0,catalogVersion=0,candidate=0;

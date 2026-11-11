@@ -43,6 +43,10 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     SettingsAutosave autosave_;
     std::string settingsError_;
     std::string loadNotice_;
+    // The shared settings file's contents, and whether this character's save carries its own settings instead.
+    Options sharedOptions_;
+    bool characterSettings_=false;
+    void optionsReplaced();
     std::optional<std::pair<std::uint32_t,std::string>> preservedRecord_;
     struct NativeCandidate {RE::TESBoundObject* object=nullptr;RE::ExtraDataList* extra=nullptr;bool plain=false;Entry entry;};
     std::vector<NativeCandidate> candidates_;

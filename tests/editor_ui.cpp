@@ -343,7 +343,9 @@ int main(int argc,char** argv)try {
     click("Presets");click("##preset file");click("Combat backup");click("Appearance only");click("Import preset");
     check(state.draft.groups[0].entries.size()==3,"Complete preset restores exact saved group");
     click("Undo");check(state.draft.groups[0].entries.empty(),"Preset import is a single undoable edit");
-    click("Presets");click("##preset file");click("Combat backup");click("Delete preset");check(state.presets.size()==1,"Deleting a preset asks first");
+    click("Presets");click("Keep settings with this character");check(state.characterSettings,"Settings can be kept with the character");
+    click("Keep settings with this character");check(!state.characterSettings,"Settings can return to the shared file");
+    click("##preset file");click("Combat backup");click("Delete preset");check(state.presets.size()==1,"Deleting a preset asks first");
     click("Cancel");check(state.presets.size()==1,"Cancelling keeps the preset");
     click("Delete preset");click("Delete");check(state.presets.empty()&&probe::find("Combat backup").empty(),"Confirming removes the preset from the list");
     for(const auto screen:std::array<ImVec2,3>{{{1280,720},{1920,1080},{3840,2160}}}) {

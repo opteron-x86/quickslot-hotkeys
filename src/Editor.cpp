@@ -1019,6 +1019,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             }
             if(UI::Button("Delete preset",{px(160),0}))ImGui::OpenPopup("delete preset");ImGui::SameLine();
             if(UI::Button("Import preset",{px(160),0})){auto c=command(EditAction::importPreset,groupID);c.presetName=presetFile_;c.appearanceOnly=importAppearance_;emit(c);}ImGui::EndDisabled();
+            ImGui::Separator();label(tr("CHARACTER"));
+            bool ownSettings=state.characterSettings;
+            if(UI::Checkbox("Keep settings with this character",&ownSettings)){auto c=command(EditAction::characterSettings,groupID);c.replace=ownSettings;emit(c);}
+            UI::TextWrapped("Stores controls, group names and appearance in this character's saves; other characters keep the shared settings. Changes are stored when you save the game. Turning this off makes the current settings the shared ones.");
         } else {
             const std::array<const char*,5> sections{"Style","Groups","Selector","Equipment","Visibility"};
             for(int i=0;i<5;++i){if(i)ImGui::SameLine();const bool active=appearancePage_==i;if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));if(UI::Button(sections[std::size_t(i)],{px(110),0})){appearancePage_=i;previewMode_=i==2?1:i==3?3:0;}if(active)ImGui::PopStyleColor();}

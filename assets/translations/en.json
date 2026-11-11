@@ -2,6 +2,11 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "CHARACTER": "CHARACTER",
+    "Keep settings with this character": "Keep settings with this character",
+    "Stores controls, group names and appearance in this character's saves; other characters keep the shared settings. Changes are stored when you save the game. Turning this off makes the current settings the shared ones.": "Stores controls, group names and appearance in this character's saves; other characters keep the shared settings. Changes are stored when you save the game. Turning this off makes the current settings the shared ones.",
+    "Settings now save with this character": "Settings now save with this character",
+    "Settings now apply to every character": "Settings now apply to every character",
     "No earlier selection to return to": "No earlier selection to return to",
     "Return to previous selection": "Return to previous selection",
     "Double-tap a group to return to the previous selection": "Double-tap a group to return to the previous selection",

@@ -144,7 +144,7 @@ QuickLoot input is optional under **Controls → General**. Enable keyboard/mous
 
 ## Settings and languages
 
-Changes save automatically. **Undo** and **Revert session** restore editor states; **Presets** saves appearance or a complete setup, and **Delete preset** removes a saved file. The editor remembers its current tab during the game session.
+Changes save automatically to a settings file shared by every character. Enable **Presets → Keep settings with this character** to store controls, group names and appearance in that character's saves instead; those changes are stored when you save the game, and turning the option off makes the current settings the shared ones. **Undo** and **Revert session** restore editor states; **Presets** saves appearance or a complete setup, and **Delete preset** removes a saved file. The editor remembers its current tab during the game session.
 
 Choose a menu language under **Appearance → Style**. Translation files belong in `Data/Quickslot/translations`; the English reference and format guide are included. Fonts support UTF-8 names with Cyrillic, Greek and CJK fallbacks. Theme fonts, including Futura, take priority. Install extra fallback fonts in `Data/Quickslot/fonts/fallback` and restart.
 

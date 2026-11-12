@@ -6,6 +6,9 @@
 #include "Layout.h"
 #include "ItemIcons.h"
 #include <imgui.h>
+#include <algorithm>
+#include <array>
+#include <cctype>
 #include <string>
 
 namespace quickslot {
@@ -34,12 +37,27 @@ private:
 public:
     void initialize(const std::string& fontDirectory,const std::string& installedFontDirectory={});
     const std::vector<FontChoice>& fonts()const{return fonts_;}
-    // The player's typeface, or null when the theme's fonts apply. "ui" selects the first installed interface font.
+    // The installed interface's text typeface. Interface font folders also hold rune, script and icon
+    // faces (ImGui Icons ships Daedric-Script and fa-solid), so those are skipped, and a Regular or
+    // Book weight is preferred. Null when the folder has no text face.
+    static const FontChoice* interfaceFont(const std::vector<FontChoice>& fonts) {
+        const FontChoice* first=nullptr;
+        for(const auto& choice:fonts) {
+            if(!choice.id.starts_with("ui/")||!choice.font)continue;
+            std::string name=choice.id.substr(3);for(auto& c:name)c=char(std::tolower(static_cast<unsigned char>(c)));
+            if(name.starts_with("fa-")||std::ranges::any_of(std::array{"script","rune","awesome","icon","symbol","glyph","dingbat","emoji"},[&](const char* mark){return name.contains(mark);}))continue;
+            if(name.contains("regular")||name.contains("book"))return &choice;
+            if(!first)first=&choice;
+        }
+        return first;
+    }
+    // The player's typeface, or null when the theme's fonts apply. "ui" selects the installed interface's text font.
     ImFont* chosenFont(const Options& o)const {
         // An unrecognized interface under the Automatic theme still gets its own typeface.
         const bool installed=o.fontId=="ui"||(o.fontId.empty()&&o.themeId==automaticTheme&&detected_.empty());
-        if(o.fontId.empty()&&!installed)return nullptr;
-        for(const auto& choice:fonts_)if(choice.id==o.fontId||(installed&&choice.id.starts_with("ui/")))return choice.font;
+        if(installed){const auto* choice=interfaceFont(fonts_);return choice?choice->font:nullptr;}
+        if(o.fontId.empty())return nullptr;
+        for(const auto& choice:fonts_)if(choice.id==o.fontId)return choice.font;
         return nullptr;
     }
     void setItemIconProvider(ItemIconProvider provider){itemIcons_=std::move(provider);}

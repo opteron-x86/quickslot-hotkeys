@@ -169,6 +169,11 @@ int main(int argc,char** argv)try {
         hud.setDetectedTheme("veldun");check(hud.theme(automatic).id=="veldun","The Automatic theme follows the recognized interface");
         automatic.themeId="edge";check(hud.theme(automatic).id=="edge","A chosen theme takes priority over detection");
         hud.setDetectedTheme("not-installed");check(hud.detectedTheme().empty(),"Detection ignores packs that are not installed");
+        auto* face=ImGui::GetIO().FontDefault;
+        const auto pick=[&](std::initializer_list<const char*> files){std::vector<Hud::FontChoice> list;for(const auto* file:files)list.push_back({std::string("ui/")+file,file,face});const auto* chosen=Hud::interfaceFont(list);return chosen?chosen->id:std::string{};};
+        check(pick({"Daedric-Script.ttf","Dragon-Script.ttf","Dwemer-Script.ttf","Falmer-Script.ttf","fa-solid-900.ttf","Jost-Medium.ttf","Jost-Regular.ttf","Mage-Script.ttf"})=="ui/Jost-Regular.ttf","The installed UI font skips the rune, script and icon faces ImGui Icons ships");
+        check(pick({"Daedric-Script.ttf","fa-solid-900.ttf"}).empty(),"An interface folder with only rune and icon faces leaves the theme font in place");
+        check(pick({"Futura Book Regular.ttf"})=="ui/Futura Book Regular.ttf"&&pick({"Lato-Bold.ttf","Lato-Medium.ttf"})=="ui/Lato-Bold.ttf","An interface's own text face is used");
     }
     click("##font");click("LiberationSerif-Regular");check(state.options.fontId=="quickslot/LiberationSerif-Regular.ttf"&&hud.chosenFont(state.options)&&hud.bodyFont(state.options)==hud.chosenFont(state.options),"A chosen typeface replaces the theme font");
     check(probe::find("Installed UI font").empty(),"The installed UI font appears when the interface supplies one");

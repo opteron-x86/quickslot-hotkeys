@@ -1259,7 +1259,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     }
                     if(!automatic&&!hud.themes().contains(id))UI::TextWrapped("Missing theme: %s",id.c_str());
                     rowLabel("Font");ImGui::SetNextItemWidth(-1);
-                    const bool installedFont=std::any_of(hud.fonts().begin(),hud.fonts().end(),[](const auto& choice){return choice.id.starts_with("ui/");});
+                    const bool installedFont=Hud::interfaceFont(hud.fonts())!=nullptr;
                     std::string fontName=tr(options.fontId.empty()?"Theme font":"Installed UI font");
                     for(const auto& choice:hud.fonts())if(choice.id==options.fontId)fontName=choice.name;
                     if(ImGui::BeginCombo("##font",fontName.c_str())) {

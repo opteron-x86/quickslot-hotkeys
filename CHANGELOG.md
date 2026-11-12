@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.1
+
+- With the Automatic theme and ImGui Icons installed, the widget and selector use a readable text font. The installed UI font skips the Daedric, Dragon and other script faces and the icon font in `Interface/ImGuiIcons/Fonts`.
+
 ## 0.15.0
 
 Updating: install the complete release package over the previous one. Settings, presets and positions carry over and keep their look. Translation packs keep working; new menu text shows in English until a pack adds it.

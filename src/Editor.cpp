@@ -1403,6 +1403,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 }
                 flag("Interface sounds",&Options::uiSounds);
                 if(ImGui::IsItemHovered())UI::SetTooltip("Plays Skyrim's menu sounds when the selector opens, moves and cancels.");
+                flag("Use I4 icons",&Options::i4Icons);
+                if(ImGui::IsItemHovered())UI::SetTooltip("Draws item icons from the interface's icon files. When off, tiles show PNGII artwork only. Restart the game after changing this to compare rendering.");
                 {
                     rowLabel("Screen area");int area=int(options.anchorFrame);ImGui::SetNextItemWidth(-1);
                     if(UI::Combo("##screen area",&area,"Full screen\0" "16:9\0" "2:1\0" "21:9\0"))setAnchorArea(unsigned(area));

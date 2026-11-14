@@ -103,6 +103,8 @@
     "Animate opening and fading": "Animate opening and fading",
     "Eases the widget in, opens and closes the selector, and pulses a group when its item equips or is used.": "Eases the widget in, opens and closes the selector, and pulses a group when its item equips or is used.",
     "Interface sounds": "Interface sounds",
+    "Use I4 icons": "Use I4 icons",
+    "Draws item icons from the interface's icon files. When off, tiles show PNGII artwork only. Restart the game after changing this to compare rendering.": "Draws item icons from the interface's icon files. When off, tiles show PNGII artwork only. Restart the game after changing this to compare rendering.",
     "Plays Skyrim's menu sounds when the selector opens, moves and cancels.": "Plays Skyrim's menu sounds when the selector opens, moves and cancels.",
     "Automatic uses the theme and typeface that match your installed interface mod.": "Automatic uses the theme and typeface that match your installed interface mod.",
     "Font": "Font",

@@ -718,6 +718,8 @@ int main(int argc,char** argv)try {
     check(probe::one("Close").id==closeID&&probe::one("Close").label=="Закрыть###Close","Translated controls preserve IDs and show localized labels");
     click("Appearance");check(!probe::find("Hide empty groups").empty(),"Appearance retains Visibility after group editing");
     click("General");check(!probe::find("##language").empty(),"Language selector is available in Appearance");
+    click("Use I4 icons");check(!state.options.i4Icons,"General turns I4 icon drawing off");
+    click("Use I4 icons");check(state.options.i4Icons,"General turns I4 icon drawing back on");
     click("##language");click("English");check(state.options.language=="en","Language selection applies immediately to settings");
     localization().select(state.options.language);frame();check(probe::one("Close").label=="Close","Returning to English restores editor labels");
     click("Close");check(!state.open,"Translated controls remain clickable");

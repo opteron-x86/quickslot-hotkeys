@@ -44,7 +44,7 @@ inline void copyGroupSetup(Options& target,const Options& source) {
     target.groupColored=source.groupColored;target.groupColors=source.groupColors;
 }
 inline void copyPreferences(Options& target,const Options& source) {
-    target.language=source.language;target.uiSounds=source.uiSounds;target.activePreset=source.activePreset;
+    target.language=source.language;target.uiSounds=source.uiSounds;target.i4Icons=source.i4Icons;target.activePreset=source.activePreset;
     target.controllerPreset=source.controllerPreset;target.keyboardPreset=source.keyboardPreset;
 }
 inline void importAppearance(Options& target,const Options& source) {

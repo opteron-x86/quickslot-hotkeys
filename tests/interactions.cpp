@@ -797,6 +797,11 @@ int main()try {
         check(!felt.animateHud&&!felt.uiSounds&&felt.equippedMarkerScale==2.5f&&felt.customEquippedColor&&felt.equippedColor[2]==1.f,"Motion, sound and equipped-marker settings persist inside their ranges");
         Options quiet;quiet.uiSounds=false;Options skin;skin.equippedMarkerScale=2;importAppearance(quiet,skin);
         check(!quiet.uiSounds&&quiet.equippedMarkerScale==2,"Appearance presets carry the marker size and leave sounds in place");
+        Options plain;check(plain.i4Icons,"I4 icon drawing defaults on");plain.i4Icons=false;
+        check(!decodeOptions(encodeOptions(plain)).i4Icons,"I4 icon drawing choice persists");
+        auto older=nlohmann::json::parse(encodeOptions(plain));older.erase("i4Icons");
+        check(decodeOptions(older.dump()).i4Icons,"Existing settings draw I4 icons");
+        importAppearance(plain,skin);check(!plain.i4Icons,"Appearance presets leave I4 icon drawing in place");
         check(wheelIndex(0,1,8,.3f)==std::size_t(0)&&wheelIndex(1,0,8,.3f)==std::size_t(2)&&wheelIndex(0,-1,8,.3f)==std::size_t(4)&&wheelIndex(-1,0,8,.3f)==std::size_t(6),"Wheel slots run clockwise from the top");
         check(wheelIndex(-.1f,1,8,.3f)==std::size_t(0)&&wheelIndex(.7f,.7f,8,.3f)==std::size_t(1)&&wheelIndex(-.7f,.7f,8,.3f)==std::size_t(7),"Directions select the nearest slot and wrap at the top");
         check(!wheelIndex(.1f,.1f,8,.3f)&&!wheelIndex(1,0,0,.3f)&&wheelIndex(1,0,1,.3f)==std::size_t(0)&&wheelIndex(0,-1,3,.3f)==std::size_t(2),"A resting stick selects nothing; any count maps cleanly");

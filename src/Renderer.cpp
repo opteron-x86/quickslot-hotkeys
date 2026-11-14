@@ -120,7 +120,7 @@ std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& optio
         if(r.graphics&&r.graphics->device!=device)r.graphics.reset();
         if(!r.graphics){r.graphics=std::make_unique<Graphics>();r.graphics->initialize(device,context,swap);}
         auto& g=*r.graphics;ImGui::SetCurrentContext(g.imgui);
-        g.i4->beginFrame();
+        g.i4->beginFrame(editor?editor->options.i4Icons:options.i4Icons);
         g.pngii->beginFrame(editor?editor->options.pngiiIcons:options.pngiiIcons,itemIconGeneration());
         localization().select(options.language);
         const bool vr=REL::Module::IsVR();

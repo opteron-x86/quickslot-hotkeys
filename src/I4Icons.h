@@ -14,7 +14,8 @@ class I4Icons {
 public:
     I4Icons(ID3D11Device*,ID3D11DeviceContext*);
     ~I4Icons();
-    void beginFrame();
+    // With drawing off, entries still resolve to their I4 labels and no SWF artwork is rendered.
+    void beginFrame(bool draw);
     std::optional<ItemIcon> find(const Entry&);
     std::optional<std::string_view> label(const Entry&)const;
 };

@@ -117,7 +117,7 @@ inline std::string encodeOptions(Options o) {
         {"layoutVersion",3},{"equipmentStyle",o.equipmentStyle},{"equipmentLayout",o.equipmentLayout},{"equipmentTextPosition",o.equipmentTextPosition},{"equipmentShowText",o.equipmentShowText},
         {"itemIconColor",o.itemIconColor},
         {"selectorDock",o.selectorDock},{"selectorGap",o.selectorGap},{"selectorX",o.selectorX},{"selectorY",o.selectorY},
-        {"animateHud",o.animateHud},{"uiSounds",o.uiSounds},{"equippedMarkerScale",o.equippedMarkerScale},{"customEquippedColor",o.customEquippedColor},{"equippedColor",o.equippedColor},
+        {"animateHud",o.animateHud},{"uiSounds",o.uiSounds},{"i4Icons",o.i4Icons},{"equippedMarkerScale",o.equippedMarkerScale},{"customEquippedColor",o.customEquippedColor},{"equippedColor",o.equippedColor},
         {"animateScroll",o.animateScroll},{"fadeIdle",o.fadeIdle},{"keepCombatVisible",o.keepCombatVisible},{"keepDrawnVisible",o.keepDrawnVisible},{"fadeDelay",o.fadeDelay},{"idleOpacity",o.idleOpacity},{"keys",o.keys},{"names",o.names},{"editorKey",o.editorKey},{"editorModifiers",o.editorModifiers},{"groupCount",o.groupCount},
         {"layout",o.layout},{"shape",o.shape},{"selector",o.selector},{"scale",o.scale},{"textScale",o.textScale},{"opacity",o.opacity},
         {"placementSpacing",o.placementSpacing},{"placementFrame",o.placementFrame},{"placementGridSize",o.placementGridSize},
@@ -207,7 +207,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.selectorDock=j.at("selectorDock").get<decltype(o.selectorDock)>();o.selectorGap=j.at("selectorGap").get<decltype(o.selectorGap)>();o.selectorX=j.at("selectorX").get<decltype(o.selectorX)>();o.selectorY=j.at("selectorY").get<decltype(o.selectorY)>();
     o.animateScroll=j.at("animateScroll").get<decltype(o.animateScroll)>();o.fadeIdle=j.at("fadeIdle").get<decltype(o.fadeIdle)>();o.keepCombatVisible=j.at("keepCombatVisible").get<decltype(o.keepCombatVisible)>();
     o.keepDrawnVisible=j.value("keepDrawnVisible",false);
-    o.animateHud=j.value("animateHud",true);o.uiSounds=j.value("uiSounds",true);o.equippedMarkerScale=j.value("equippedMarkerScale",1.f);
+    o.animateHud=j.value("animateHud",true);o.uiSounds=j.value("uiSounds",true);o.i4Icons=j.value("i4Icons",true);o.equippedMarkerScale=j.value("equippedMarkerScale",1.f);
     o.customEquippedColor=j.value("customEquippedColor",false);o.equippedColor=j.value("equippedColor",o.equippedColor);
     o.fadeDelay=j.at("fadeDelay").get<decltype(o.fadeDelay)>();o.idleOpacity=j.at("idleOpacity").get<decltype(o.idleOpacity)>();
     o.activePreset=j.value("activePreset",std::string{});o.controllerPreset=j.value("controllerPreset",std::string{});o.keyboardPreset=j.value("keyboardPreset",std::string{});

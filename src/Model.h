@@ -417,6 +417,8 @@ struct Options {
     bool animateScroll=true,fadeIdle=false,keepCombatVisible=true,keepDrawnVisible=false;
     // animateHud eases the HUD in, opens and closes the selector, and pulses a tile when its item equips.
     bool animateHud=true,uiSounds=true;
+    // Item icons drawn from the interface's icon SWF files. PNGII artwork is separate.
+    bool i4Icons=true;
     float equippedMarkerScale=1;
     unsigned wheelStyle=0;          // 0 tiles around a hub, 1 a ring of segments
     unsigned equippedHighlight=0;   // 0 marker only, 1 outline, 2 tint, 3 outline and tint

@@ -99,6 +99,7 @@ inline constexpr FlagSetting flagSettings[]{
     {"equipmentShowText",&Options::equipmentShowText,Section::equipment},
     {"animateHud",&Options::animateHud,Section::general},
     {"uiSounds",&Options::uiSounds,Section::general},
+    {"i4Icons",&Options::i4Icons,Section::general},
 };
 
 inline const Options& defaultOptions(){static const Options options;return options;}

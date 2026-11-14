@@ -1355,6 +1355,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     number("Icon size",&Options::iconScale);
                     choice("Icon color","##item icon color",&Options::itemIconColor,"Original\0Theme\0White\0");
                     if(flag("Use PNGII icons",&Options::pngiiIcons)&&ImGui::IsItemHovered())UI::SetTooltip("Use matching artwork from PNG Icon Injector. I4 supplies the remaining icons.");
+                    if(flag("Use I4 icons",&Options::i4Icons)&&ImGui::IsItemHovered())UI::SetTooltip("Draws item icons from the interface's icon files. When off, tiles show PNGII artwork only. Restart the game after changing this to compare rendering.");
                     if(options.itemIconColor==1)flag("Tint magic icons",&Options::coloredMagic);
                     flag("Key icons",&Options::keyIcons);
                 }

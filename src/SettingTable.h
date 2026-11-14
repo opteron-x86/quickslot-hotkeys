@@ -98,6 +98,7 @@ inline constexpr FlagSetting flagSettings[]{
     {"showEquipmentAmmo",&Options::showEquipmentAmmo,Section::equipment},
     {"equipmentShowText",&Options::equipmentShowText,Section::equipment},
     {"animateHud",&Options::animateHud,Section::general},
+    {"i4Icons",&Options::i4Icons,Section::theme},
 };
 
 inline const Options& defaultOptions(){static const Options options;return options;}
@@ -114,7 +115,7 @@ inline bool advancedSetting(unsigned Options::*member) {
     return false;
 }
 inline bool advancedSetting(bool Options::*member) {
-    for(const auto each:{&Options::customTextColor,&Options::customSelectionColor,&Options::pngiiIcons,&Options::coloredMagic,&Options::keyIcons,&Options::customEquippedColor,
+    for(const auto each:{&Options::customTextColor,&Options::customSelectionColor,&Options::pngiiIcons,&Options::i4Icons,&Options::coloredMagic,&Options::keyIcons,&Options::customEquippedColor,
         &Options::mirrorCards,&Options::showCardNames,&Options::showPoison,&Options::showAmmo,&Options::hideEmptyGroups,&Options::keepCombatVisible,&Options::keepDrawnVisible,
         &Options::showHints,&Options::animateScroll,&Options::showEquipmentAmmo})if(each==member)return true;
     return false;

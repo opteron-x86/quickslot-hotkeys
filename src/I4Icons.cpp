@@ -115,7 +115,8 @@ std::uint64_t itemIconGeneration(){return iconGeneration.load();}
 struct I4Icons::Impl {
     ComPtr<ID3D11Device> device;
     ComPtr<ID3D11DeviceContext> context;
-    DXContextState isolation;
+    // Created with the first capture, so a session with drawing off leaves the D3D context alone.
+    std::optional<DXContextState> isolation;
     struct Texture {ComPtr<ID3D11ShaderResourceView> original,mask;std::uint64_t used=0;};
     struct Form {std::optional<Spec> spec;std::uint64_t used=0;};
     std::map<std::string,Texture> textures;
@@ -124,10 +125,9 @@ struct I4Icons::Impl {
     std::deque<Entry> pending;
     std::uint64_t generation=0,frame=0;
     std::optional<unsigned> reportedAPI;
+    std::optional<bool> drawing;
     bool available=false,reported=false,captureReported=false;
-    Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c),isolation(d,c){
-        if(!isolation.available())throw std::runtime_error("I4 icons require D3D11 context-state support");
-    }
+    Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c){}
 
     static std::string key(const Spec& spec){return spec.source+'\n'+spec.label;}
     template<class Map> void trim(Map& values,std::size_t limit) {
@@ -190,7 +190,7 @@ struct I4Icons::Impl {
         if(FAILED(status))return failDX("create_readback_texture",status);
         bool targetPreserved=false;
         {
-            DXContextState::Frame saved(isolation);
+            DXContextState::Frame saved(*isolation);
             ID3D11RenderTargetView* targets[]{view.Get()};context->OMSetRenderTargets(1,targets,nullptr);
             const D3D11_VIEWPORT viewport{0,0,float(iconSize),float(iconSize),0,1};context->RSSetViewports(1,&viewport);
             const float clear[]{0,0,0,0};context->ClearRenderTargetView(view.Get(),clear);
@@ -234,10 +234,14 @@ struct I4Icons::Impl {
         trim(textures,maxTextures);auto texture=render(spec);
         textures.emplace(key(spec),std::move(texture));
     }
-    void beginFrame() {
+    void beginFrame(bool draw) {
         ++frame;
         if(generation!=iconGeneration.load()) {generation=iconGeneration.load();forms.clear();textures.clear();movies.clear();pending.clear();}
-        available=false;if(!isolation.available())return;
+        if(drawing!=draw) {
+            drawing=draw;if(!draw){textures.clear();movies.clear();}
+            SKSE::log::info("I4 icon drawing: {}",draw?"on":"off; tiles show PNGII artwork only");
+        }
+        available=false;
         auto* ui=RE::UI::GetSingleton();if(!ui)return;
         const auto hud=ui->GetMenu<RE::HUDMenu>();if(!hud||!hud->uiMovie)return;
         auto& movie=*hud->uiMovie;
@@ -259,8 +263,12 @@ struct I4Icons::Impl {
             reported=true;
         }
         if(!available){pending.clear();return;}
+        if(draw&&!isolation) {
+            isolation.emplace(device.Get(),context.Get());
+            if(!isolation->available())throw std::runtime_error("I4 icons require D3D11 context-state support");
+        }
         // Bound SWF capture to one requested icon per frame.
-        if(!textures.contains(key(placeholder()))){capture(placeholder());return;}
+        if(draw&&!textures.contains(key(placeholder()))){capture(placeholder());return;}
         for(unsigned work=0;work<8&&!pending.empty();++work) {
             auto entry=std::move(pending.front());pending.pop_front();const auto request=i4RequestKey(entry);
             auto found=forms.find(request);
@@ -269,13 +277,15 @@ struct I4Icons::Impl {
                 trim(forms,maxForms);found=forms.emplace(request,Form{spec,frame}).first;
             }
             const auto& spec=*found->second.spec;
-            if(textures.contains(key(spec)))continue;
+            if(!draw||textures.contains(key(spec)))continue;
             capture(spec);break;
         }
     }
     std::optional<ItemIcon> find(const Entry& entry) {
         if(!available)return {};
         const auto request=i4RequestKey(entry);
+        // The label still resolves so PNGII can match its artwork.
+        if(!drawing.value_or(true)){if(!forms.contains(request))queue(entry);return {};}
         if(auto form=forms.find(request);form!=forms.end()) {
             form->second.used=frame;
             if(auto icon=cached(*form->second.spec))return icon;
@@ -291,7 +301,7 @@ struct I4Icons::Impl {
 };
 I4Icons::I4Icons(ID3D11Device* d,ID3D11DeviceContext* c):impl_(std::make_unique<Impl>(d,c)){}
 I4Icons::~I4Icons()=default;
-void I4Icons::beginFrame(){impl_->beginFrame();}
+void I4Icons::beginFrame(bool draw){impl_->beginFrame(draw);}
 std::optional<ItemIcon> I4Icons::find(const Entry& entry){return impl_->find(entry);}
 std::optional<std::string_view> I4Icons::label(const Entry& entry)const {
     if(!impl_->available)return {};

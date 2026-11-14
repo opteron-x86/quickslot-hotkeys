@@ -909,7 +909,8 @@ void Game::beginSelection(std::size_t group,bool controller) {
     selectionController_=controller;wheelPointer_.reset();wheelX_=wheelY_=0;
     const auto mode=groupMode(options_,arsenal_,group);
     if(mode==GroupMode::cycle) {
-        const bool recall=groupRecall_.activate(group);
+        groupRecall_.activate(group);          // still update internal state
+        const bool recall = false;             // always advance on tap
         if(dirty_||options_.cycleKeepOtherHand)refresh();
         std::vector<bool> available,blocked;for(const auto& row:snapshot_.rows){available.push_back(row.available);blocked.push_back(row.cycleBlocked);}
         const auto index=cycleEntry(arsenal_.current(),available,options_.skipEmpty,recall,blocked);
@@ -918,7 +919,10 @@ void Game::beginSelection(std::size_t group,bool controller) {
             if(!arsenal_.current().entries.empty())notice(tr("Weapons in the other hand skipped"));
         }else if(auto commit=selection_.requestCycle(arsenal_.current(),group,*index)) {
             commit->controller=controller;
-            arsenal_.current().selected=*index;commitCycle(*commit);
+            // Force hand from group. Group 4 (1-based) is left hand → zero-based group == 3.
+            arsenal_.current().entries[*index].hand = (group == 3) ? Hand::left : Hand::right;
+            arsenal_.current().selected=*index;
+            commitCycle(*commit);
             log::info("Cycle {}: group {}, entry {}",recall?"recall":"advance",group+1,*index+1);
         }
 
@@ -939,7 +943,8 @@ void Game::finishSelection() {
             lastTapGroup_=arsenal_.active;lastTapAt_=second?0:now;
             if(second&&choices_.target(arsenal_)){selectionTime(false);swapPrevious(selectionController_);return;}
         }
-        const bool recall=groupRecall_.activate(arsenal_.active);
+        groupRecall_.activate(arsenal_.active);
+        const bool recall = false;
         if(commit->cycling) {
             std::vector<bool> available,blocked;for(const auto& row:snapshot_.rows){available.push_back(row.available);blocked.push_back(row.cycleBlocked);}
             const auto index=cycleEntry(arsenal_.current(),available,options_.skipEmpty,recall,blocked);

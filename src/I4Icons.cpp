@@ -2,7 +2,7 @@
 #include <RE/G/GFxLoader.h>
 #include "I4Icons.h"
 #include "I4Policy.h"
-#include "DXContextState.h"
+#include "DXIsolation.h"
 #include <deque>
 #include <cstring>
 
@@ -115,8 +115,7 @@ std::uint64_t itemIconGeneration(){return iconGeneration.load();}
 struct I4Icons::Impl {
     ComPtr<ID3D11Device> device;
     ComPtr<ID3D11DeviceContext> context;
-    // Created with the first capture, so a session with drawing off leaves the D3D context alone.
-    std::optional<DXContextState> isolation;
+    preview::DXIsolation outputs;
     struct Texture {ComPtr<ID3D11ShaderResourceView> original,mask;std::uint64_t used=0;};
     struct Form {std::optional<Spec> spec;std::uint64_t used=0;};
     std::map<std::string,Texture> textures;
@@ -127,7 +126,7 @@ struct I4Icons::Impl {
     std::optional<unsigned> reportedAPI;
     std::optional<bool> drawing;
     bool available=false,reported=false,captureReported=false;
-    Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c){}
+    Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c),outputs(d,c){}
 
     static std::string key(const Spec& spec){return spec.source+'\n'+spec.label;}
     template<class Map> void trim(Map& values,std::size_t limit) {
@@ -190,7 +189,9 @@ struct I4Icons::Impl {
         if(FAILED(status))return failDX("create_readback_texture",status);
         bool targetPreserved=false;
         {
-            DXContextState::Frame saved(*isolation);
+            // The movie draws in the live context, as a menu does, so the bindings it leaves stay in step with the game's record of them.
+            // Only the output targets and viewport are redirected and put back.
+            preview::DXIsolation::Frame saved(outputs,false);
             ID3D11RenderTargetView* targets[]{view.Get()};context->OMSetRenderTargets(1,targets,nullptr);
             const D3D11_VIEWPORT viewport{0,0,float(iconSize),float(iconSize),0,1};context->RSSetViewports(1,&viewport);
             const float clear[]{0,0,0,0};context->ClearRenderTargetView(view.Get(),clear);
@@ -263,10 +264,6 @@ struct I4Icons::Impl {
             reported=true;
         }
         if(!available){pending.clear();return;}
-        if(draw&&!isolation) {
-            isolation.emplace(device.Get(),context.Get());
-            if(!isolation->available())throw std::runtime_error("I4 icons require D3D11 context-state support");
-        }
         // Bound SWF capture to one requested icon per frame.
         if(draw&&!textures.contains(key(placeholder()))){capture(placeholder());return;}
         for(unsigned work=0;work<8&&!pending.empty();++work) {

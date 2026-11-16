@@ -84,6 +84,25 @@ int main()try {
     UINT viewportCount=1;D3D11_VIEWPORT restoredViewport{};context->RSGetViewports(&viewportCount,&restoredViewport);
     check(viewportCount==1&&std::memcmp(&restoredViewport,&viewport,sizeof(viewport))==0,"Movie rendering restores the viewport");
     std::cout<<"PASS: Scaleform context isolation restores the graphics pipeline after ClearState\n";
+    {
+        preview::DXIsolation outputs(device.Get(),context.Get());
+        context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        {
+            preview::DXIsolation::Frame capture(outputs,false);
+            ID3D11RenderTargetView* changed[]{second.Get()};context->OMSetRenderTargets(1,changed,nullptr);
+            const D3D11_VIEWPORT icon{0,0,256,256,0,1};context->RSSetViewports(1,&icon);
+            context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+        }
+        ID3D11RenderTargetView* restored[2]{};context->OMGetRenderTargets(2,restored,nullptr);
+        check(restored[0]==rt[0]&&restored[1]==rt[1],"Icon capture restores every render target");for(auto* p:restored)if(p)p->Release();
+        ComPtr<ID3D11UnorderedAccessView> restoredUAV;context->OMGetRenderTargetsAndUnorderedAccessViews(0,nullptr,nullptr,2,1,&restoredUAV);
+        check(restoredUAV.Get()==uav.Get(),"Icon capture restores output UAV bindings");
+        UINT count=1;D3D11_VIEWPORT actual{};context->RSGetViewports(&count,&actual);
+        check(count==1&&std::memcmp(&actual,&viewport,sizeof(viewport))==0,"Icon capture restores the viewport");
+        D3D11_PRIMITIVE_TOPOLOGY topology{};context->IAGetPrimitiveTopology(&topology);
+        check(topology==D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP,"Icon capture keeps the input bindings its draw leaves");
+    }
+    std::cout<<"PASS: icon capture restores its outputs and keeps the bindings left by the draw\n";
     ImGui::CreateContext();auto& io=ImGui::GetIO();io.IniFilename=nullptr;io.DisplaySize={320,180};io.DeltaTime=1.f/60;
     check(ImGui_ImplDX11_Init(device.Get(),context.Get()),"Initialize renderer backend");
     preview::DXIsolation isolation(device.Get(),context.Get());

@@ -125,7 +125,10 @@ struct I4Icons::Impl {
     std::uint64_t generation=0,frame=0;
     std::optional<unsigned> reportedAPI;
     std::optional<bool> drawing;
-    bool available=false,reported=false,captureReported=false;
+    // available: icons can be drawn. perItem: I4 can name each item's own artwork; without it every item uses SkyUI's
+    // category icon for its type.
+    bool available=false,perItem=false,reported=false,captureReported=false;
+    const bool installed=SKSE::GetPluginInfo("InventoryInjector")!=nullptr;
     Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c),outputs(d,c){}
 
     static std::string key(const Spec& spec){return spec.source+'\n'+spec.label;}
@@ -247,14 +250,15 @@ struct I4Icons::Impl {
         const auto hud=ui->GetMenu<RE::HUDMenu>();if(!hud||!hud->uiMovie)return;
         auto& movie=*hud->uiMovie;
         const bool processAvailable=movie.IsAvailable(processEntry),extendAvailable=movie.IsAvailable("skse.ExtendForm");
-        available=processAvailable&&extendAvailable;
+        perItem=processAvailable&&extendAvailable;available=true;
         const unsigned api=unsigned(processAvailable)|(unsigned(extendAvailable)<<1);
         if(reportedAPI!=api) {
             reportedAPI=api;
             SKSE::log::info("I4 icon APIs: ProcessEntry={}, SKSE ExtendForm={}",processAvailable,extendAvailable);
-            if(available)SKSE::log::info("I4 icon provider ready");
+            SKSE::log::info(perItem?"I4 icon provider ready":installed?"I4 icon APIs unavailable; items use SkyUI category icons":"I4 is not installed; items use SkyUI category icons");
         }
-        if(!available&&!reported) {
+        // A message box is for an installed I4 that failed to load; without I4 the category icons are the intended result.
+        if(installed&&!perItem&&!reported) {
             const char* message=!processAvailable&&!extendAvailable?
                 "Quickslot could not access the SKSE and I4 icon APIs. Check that SKSE and I4 1.1.0 or newer loaded successfully. See Quickslot.log for details.":
                 !processAvailable?"Quickslot could not access I4's ProcessEntry icon API. Install I4 1.1.0 or newer for your Skyrim version and check InventoryInjector.log.":
@@ -263,14 +267,13 @@ struct I4Icons::Impl {
             SKSE::GetTaskInterface()->AddTask([message]{RE::DebugMessageBox(message);});
             reported=true;
         }
-        if(!available){pending.clear();return;}
         // Bound SWF capture to one requested icon per frame.
         if(draw&&!textures.contains(key(placeholder()))){capture(placeholder());return;}
         for(unsigned work=0;work<8&&!pending.empty();++work) {
             auto entry=std::move(pending.front());pending.pop_front();const auto request=i4RequestKey(entry);
             auto found=forms.find(request);
             if(found==forms.end()) {
-                const auto spec=i4HasForm(entry)?resolve(movie,entry).value_or(category(entry)):category(entry);
+                const auto spec=perItem&&i4HasForm(entry)?resolve(movie,entry).value_or(category(entry)):category(entry);
                 trim(forms,maxForms);found=forms.emplace(request,Form{spec,frame}).first;
             }
             const auto& spec=*found->second.spec;
@@ -302,7 +305,7 @@ void I4Icons::beginFrame(bool draw){impl_->beginFrame(draw);}
 std::optional<ItemIcon> I4Icons::find(const Entry& entry){return impl_->find(entry);}
 std::optional<std::string_view> I4Icons::label(const Entry& entry)const {
     if(!impl_->available)return {};
-    if(!i4HasForm(entry))return i4DefaultLabel(entry);
+    if(!impl_->perItem||!i4HasForm(entry))return i4DefaultLabel(entry);
     const auto found=impl_->forms.find(i4RequestKey(entry));
     if(found!=impl_->forms.end()&&found->second.spec)return found->second.spec->label;
     return {};

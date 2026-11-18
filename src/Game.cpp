@@ -683,12 +683,9 @@ Game& Game::get(){static auto* game=new Game;return *game;}
 bool Game::initialize() {
     std::scoped_lock lock(mutex_);if(initialized_)return true;
     const auto* i4=SKSE::GetPluginInfo("InventoryInjector");
-    if(!i4) {
-        constexpr auto message="Quickslot could not find a loaded Inventory Interface Information Injector (I4) plugin. Install I4 1.1.0 or newer for your Skyrim version and check your SKSE log.";
-        SKSE::log::error("{}",message);
-        SKSE::GetTaskInterface()->AddTask([message]{RE::DebugMessageBox(message);});return false;
-    }
-    log::info("I4 provider detected; raw SKSE plugin version 0x{:08X}. Icon APIs will be checked when the HUD is available.",i4->version);
+    // I4 is optional: without it every item shows SkyUI's category icon for its type.
+    if(i4)log::info("I4 provider detected; raw SKSE plugin version 0x{:08X}. Icon APIs will be checked when the HUD is available.",i4->version);
+    else log::info("I4 is not installed; items use SkyUI category icons");
     if(!initializeVROverlay())return false;
     auto* ui=RE::UI::GetSingleton();if(!ui||!RE::BSInputDeviceManager::GetSingleton())return false;
     std::string gameLanguage="english";

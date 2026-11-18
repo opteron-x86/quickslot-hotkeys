@@ -23,6 +23,11 @@ Updating: group keys held with Ctrl, Shift or Alt now select the group during ga
 - **Settings → Reset Quickslot** returns every setting to its default and starts the character's groups from Skyrim Favorites. Presets stay and Undo restores everything while the editor is open.
 - Appearance pages start with their main settings. **Show advanced settings** adds spacing, text sizes, exact placement, idle fading and the less common display options; earlier settings start with it on.
 - A group's tile pulses when its key is pressed for an item that is already equipped.
+- I4 is optional. Without it, each item shows SkyUI's category icon for its type.
+- **Use I4 icons** is under **Appearance → Theme → Icons**. With it off, tiles show PNGII artwork only.
+- Every built-in look shows the equipment display as a vertical list at the middle of the left edge.
+- The README opens with a quick start.
+- The English translation file lists every string the menus and HUD show, and no others.
 - Built-in presets add **Cards**, with card tiles, a strip selector and an equipment list, and **Wheel**, with diamond tiles and a segmented wheel selector.
 
 ## 0.15.1

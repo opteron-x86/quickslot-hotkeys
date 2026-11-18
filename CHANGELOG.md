@@ -15,6 +15,10 @@ Updating: group keys held with Ctrl, Shift or Alt now select the group during ga
 - **Tap** and **Hold to browse** replace the three group behaviors in the **Groups** tab. Existing groups keep their behavior.
 - A group keeps its behavior when a potion, food or poison is added. In a group that steps to the next item, taps select consumables and **Use selected consumable** uses them; the editor and the HUD show a reminder while that action has no binding.
 - A favorite that runs out stays the group's remembered item and is selected again when it is restocked.
+- While the selector is open, a hand button puts the highlighted item in that hand, and pressing the button of the hand it is already in takes it out. New installations use the left and right mouse buttons and RT and LT; Escape cancels. **Use mouse buttons for hands** and **Use triggers for hands** assign them on earlier settings.
+- An item returns to the hand it was last put in. A shield or torch goes to the left hand from either hand button, and a potion, power or combination is selected.
+- **Controls → Keyboard** and **Controls → Controller** list every action with its binding on one page.
+- On new installations a held trigger no longer keeps group buttons from Quickslot, so groups work while blocking or attacking. **Modifier buttons** changes this.
 - Built-in presets add **Cards**, with card tiles, a strip selector and an equipment list, and **Wheel**, with diamond tiles and a segmented wheel selector.
 
 ## 0.15.1

@@ -57,7 +57,7 @@ int main()try {
         check(keys.selectorBindings==saved.selectorBindings&&keys.groupModifiers==saved.groupModifiers&&keys.controllerActions==saved.controllerActions&&keys.allowUnusedModifiers,"Appearance presets preserve remapped actions");
         auto legacy=Json::parse(encodeOptions(Options{}));for(const auto key:{"groupModifiers","selectorBindings","controllerActions","allowUnusedModifiers"})legacy.erase(key);
         const auto migrated=decodeOptions(legacy.dump());
-        check(migrated.groupModifiers==defaultGroupModifiers&&migrated.selectorBindings==defaultSelectorBindings&&migrated.controllerActions==defaultControllerActions&&!migrated.allowUnusedModifiers,"Old settings retain all original controls and pass-through behavior");
+        check(migrated.groupModifiers==defaultGroupModifiers&&migrated.selectorBindings==defaultSelectorBindings&&migrated.controllerActions==legacyControllerActions&&!migrated.allowUnusedModifiers,"Old settings retain all original controls and pass-through behavior");
         legacy["groupRemoveHotkey"]=false;legacy["selectorUnequipHotkey"]=false;
         auto disabled=decodeOptions(legacy.dump());
         check(!groupActionEnabled(disabled,GroupModifier::remove)&&selectorBinding(disabled,KeyboardAction::unequip)==KeyBinding{},"Older disabled shortcuts appear as None after migration");
@@ -579,7 +579,11 @@ int main()try {
     check(equipmentDimmed(used)&&equipmentTextName(used,false)=="Battle Cry · 18s"&&equipmentTextName(used,true)=="Battle Cry","Recharge timer sits on the icon or beside text-only names");
     used.cooldown=0;check(!equipmentDimmed(used),"Finished recharge restores normal brightness");
     {
-        Options hands;check(hands.mouseActions==defaultMouseActions&&!hands.selectorBindings[unsigned(KeyboardAction::rightHand)].key,"Existing configurations keep right-click cancel and no hand actions");
+        const Options fresh;
+        check(fresh.mouseActions==std::array<int,3>{-1,0,1}&&fresh.controllerActions[unsigned(ControllerAction::rightHand)]==PadBinding{PadButton::rt}&&fresh.controllerActions[unsigned(ControllerAction::leftHand)]==PadBinding{PadButton::lt},
+              "A new installation chooses hands with the mouse buttons and the triggers");
+        check(selectorBinding(fresh,KeyboardAction::cancel).key==1&&!fresh.selectorBindings[unsigned(KeyboardAction::rightHand)].key,"Escape cancels and the keyboard hand actions start unbound");
+        Options hands;hands.mouseActions=legacyMouseActions;
         assignMouseAction(hands,MouseAction::leftHand,1);
         check(hands.mouseActions[0]==-1&&hands.mouseActions[2]==1,"Assigning right-click to a hand removes its cancellation conflict");
         assignMouseAction(hands,MouseAction::rightHand,0);
@@ -588,7 +592,13 @@ int main()try {
         const auto saved=decodeOptions(encodeOptions(hands));
         check(saved.mouseActions==hands.mouseActions&&saved.selectorBindings==hands.selectorBindings,"Hand bindings persist");
         auto old=Json::parse(encodeOptions(hands));old.erase("mouseActions");old["selectorBindings"].erase(old["selectorBindings"].begin()+5,old["selectorBindings"].end());old["controllerActions"].erase(old["controllerActions"].begin()+4,old["controllerActions"].end());
-        const auto migrated=decodeOptions(old.dump());check(migrated.mouseActions==defaultMouseActions&&!migrated.selectorBindings[5].key&&migrated.controllerActions[4].button==PadButton::none,"Earlier action arrays migrate without enabling hand actions");
+        const auto migrated=decodeOptions(old.dump());check(migrated.mouseActions==legacyMouseActions&&!migrated.selectorBindings[5].key&&migrated.controllerActions[4].button==PadButton::none&&migrated.controllerActions[5].button==PadButton::none,"Earlier action arrays migrate without enabling hand actions");
+        auto older=Json::parse(encodeOptions(Options{}));older.erase("controllerActions");older.erase("controllerModifiers");const auto kept=decodeOptions(older.dump());
+        check(kept.controllerActions==legacyControllerActions&&kept.controllerModifiers==allPadButtons,"Settings from before the hand defaults keep their controller actions and modifier buttons");
+        Options pad;pad.controllerActions=legacyControllerActions;
+        check(useTriggersForHands(pad)&&pad.controllerActions==defaultControllerActions,"The trigger preset assigns both hand buttons");
+        Options taken;taken.controllerActions=legacyControllerActions;taken.controllerGroups[0]={PadButton::up,PadButton::lt};const auto before=encodeOptions(taken);
+        check(!useTriggersForHands(taken)&&encodeOptions(taken)==before,"The trigger preset leaves a trigger another binding uses");
         Options local;importAppearance(local,hands);check(local.mouseActions==defaultMouseActions,"Appearance imports preserve mouse controls");
     }
     {

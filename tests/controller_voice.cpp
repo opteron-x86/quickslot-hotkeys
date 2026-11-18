@@ -110,8 +110,12 @@ int main()try {
         Arsenal a;reorderGroup(controls,0,1);check(controls.groupModes[0]==GroupMode::cycle,"Mode follows stable group ID");
         removeGroup(a,controls,0);check(controls.groupModes[0]==GroupMode::browse,"Removed group resets mode");
     }
+    for(const auto held:{PadButton::lt,PadButton::rt}) {
+        Options controls;ControllerInput input;input.button(held,true,true,controls,true,false);
+        check(!(controls.controllerModifiers&padButtonMask(held))&&input.button(PadButton::up,true,true,controls,true,false).action==PadAction::press,"A group button works while a trigger is held for blocking or attacking");
+    }
     for(const auto codes:{PadCodeSet::xinput,PadCodeSet::orbis})for(unsigned modifier=5;modifier<unsigned(PadButton::count);++modifier) {
-        Options controls;ControllerInput input;const auto mod=PadButton(modifier);
+        Options controls;controls.controllerModifiers=allPadButtons;ControllerInput input;const auto mod=PadButton(modifier);
         input.button(mod,true,true,controls,true,false);
         const auto trigger=padButton(padCodes(codes)[unsigned(PadButton::up)],codes);
         check(!input.button(trigger,true,true,controls,true,false).consumed&&!input.active(),"A foreign controller chord does not start a bare D-pad group");
@@ -333,23 +337,21 @@ int main()try {
     check(pad.stick(0,0,.5,.45f)==0&&pad.stick(0,.8f,.6,.45f)==-1,"Center resets and upward direction browses backward");
     pad.reset();o.controllerEnabled=false;check(!pad.button(PadButton::up,true,true,o,true,false).consumed,"Controller gameplay interception can be disabled");o.controllerEnabled=true;
     {
-        Options hands;ControllerInput input;check(useBumpersForHands(hands),"Bumper hand preset accepts default controls");
-        check(hands.controllerActions[unsigned(ControllerAction::previous)].button==PadButton::none&&hands.controllerActions[unsigned(ControllerAction::next)].button==PadButton::none,"Bumper hand preset removes conflicting navigation bindings");
+        Options hands;ControllerInput input;
+        check(hands.controllerActions[unsigned(ControllerAction::previous)].button==PadButton::lb&&hands.controllerActions[unsigned(ControllerAction::next)].button==PadButton::rb,"The triggers choose hands and leave the bumpers to browsing");
         Group items;Entry sword;sword.form=1;items.add(sword);Selection browse;
-        for(const auto button:{PadButton::lb,PadButton::rb}) {
+        for(const auto button:{PadButton::lt,PadButton::rt}) {
             input.reset();input.button(PadButton::up,true,true,hands,true,false);browse.press(0,items);
             const auto result=input.button(button,true,true,hands,true,true);
-            const auto hand=button==PadButton::lb?Hand::left:Hand::right;
-            check(result.consumed&&result.action==(hand==Hand::left?PadAction::leftHand:PadAction::rightHand),"Bumpers request their assigned hand rather than browsing");
+            const auto hand=button==PadButton::lt?Hand::left:Hand::right;
+            check(result.consumed&&result.action==(hand==Hand::left?PadAction::leftHand:PadAction::rightHand),"A trigger requests its hand while the selector is open");
             const auto commit=releaseToHand(browse,items,0,hand,true);input.cancel();
             check(commit&&input.button(PadButton::up,false,false,hands,true,false).action==PadAction::none&&!browse.release(items),"Completing a hand choice suppresses the held group release");
             check(input.button(button,false,false,hands,true,false).consumed,"Hand-button releases remain balanced after selection closes");
         }
-        Options occupied;occupied.controllerGroups[0]={PadButton::up,PadButton::lb};const auto before=encodeOptions(occupied);
-        check(!useBumpersForHands(occupied)&&encodeOptions(occupied)==before,"Preset refuses to overwrite group or modifier conflicts");
-        input.reset();check(input.button(PadButton::rb,true,true,hands,true,false).action==PadAction::none,"Hand buttons remain normal gameplay input outside selection");
+        input.reset();check(input.button(PadButton::rt,true,true,hands,true,false).action==PadAction::none,"Hand buttons remain normal gameplay input outside selection");
         input.reset();input.button(PadButton::up,true,true,hands,true,false);
-        check(input.button(PadButton::rb,true,true,hands,false,true).action==PadAction::none,"Menus prevent new hand actions");
+        check(input.button(PadButton::rt,true,true,hands,false,true).action==PadAction::none,"Menus prevent new hand actions");
         input.reset();check(input.button(PadButton::rb,true,true,hands,true,true,true).action==PadAction::none,"Desktop hand bindings do not change VR controls");
     }
     const auto encoded=encodeOptions(o);const auto restored=decodeOptions(encoded);

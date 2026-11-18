@@ -531,7 +531,7 @@ int main(int argc,char** argv)try {
     click("Theme");padKey(PadButton::rt);check(!probe::find("##layout").empty(),"The right trigger opens the next page of a tab");
     padKey(PadButton::lt);padKey(PadButton::lt);check(!probe::find("##language").empty(),"Pages wrap in both directions");
     padKey(PadButton::rb);check(!probe::find("General").empty(),"Shoulder buttons step through every tab");
-    click("General");padKey(PadButton::rt);check(!probe::find("Remap actions…").empty(),"Triggers page through Controls");
+    click("General");padKey(PadButton::rt);check(!probe::find("Reset keyboard actions").empty(),"Triggers page through Controls");
     padKey(PadButton::rb);check(!probe::find("##preset name").empty(),"The Presets tab follows Controls");
     padKey(PadButton::rb);check(!probe::find("Group up").empty(),"Tabs wrap back to Groups");
     padKey(PadButton::lb);check(!probe::find("##preset name").empty(),"The left shoulder button steps back");
@@ -548,8 +548,8 @@ int main(int argc,char** argv)try {
     click("Controller");click("Button icons");click("PlayStation");check(state.options.controllerStyle==1,"Controller glyph family changes live");
     click("Browse with");click("Left stick");check(state.options.controllerStick==0,"Browse stick is configurable");
     click("Enable previous / next buttons");check(!state.options.controllerBumpers,"Combat browsing-button capture can be disabled");
-    click("Modifier buttons");click("L2");check(!(state.options.controllerModifiers&padButtonMask(PadButton::lt)),"Held trigger can be exempted from controller modifier matching");
-    click("Undo");check(state.options.controllerModifiers&padButtonMask(PadButton::lt),"Modifier protection supports Undo");
+    click("Modifier buttons");click("L1");check(!(state.options.controllerModifiers&padButtonMask(PadButton::lb)),"A held button can be exempted from controller modifier matching");
+    click("Undo");check(state.options.controllerModifiers&padButtonMask(PadButton::lb),"Modifier protection supports Undo");
     click("Enable controller");check(!state.options.controllerEnabled,"Controller gameplay bindings can be disabled");click("Undo");
 
     click("##pad button0");click("Triangle");check(state.options.controllerGroups[0].button==PadButton::y,"Controller group button changes independently of keyboard key");
@@ -894,14 +894,14 @@ int main(int argc,char** argv)try {
     check(state.options.keys[0]==0,"The Controls page can also clear a group hotkey");
     click("Undo");check(state.options.keys[0]==2,"Clearing a key in Controls is undoable");
     check(probe::find("Enable all##editing shortcuts").empty()&&probe::find("Disable all##editing shortcuts").empty(),"Keyboard actions have one configuration surface without duplicate enable/disable controls");
-    click("Remap actions…");click("##action modifier",unsigned(GroupModifier::unequip));click("None");
+    click("##action modifier",unsigned(GroupModifier::unequip));click("None");
     check(!state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey,"None disables a group action through its binding");
     click("##action modifier",unsigned(GroupModifier::remove));click("None");
     check(!state.options.groupUnequipHotkey&&!state.options.groupRemoveHotkey,"Remove can be disabled in the same binding list");
-    key(1);click("Undo");check(!state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey,"Undo restores the last cleared group binding");
+    click("Undo");check(!state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey,"Undo restores the last cleared group binding");
     click("Undo");check(state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey,"Cleared group bindings participate in editor history");
     io.DisplaySize={1280,720};state.options.groupCount=Arsenal::count;frame();frame();
-    click("Remap actions…");click("Clear##action key",unsigned(KeyboardAction::unequip));
+    click("Clear##action key",unsigned(KeyboardAction::unequip));
     check(!state.options.selectorUnequipHotkey&&!state.options.selectorBindings[unsigned(KeyboardAction::unequip)].key,"Clear disables a selected-item action without a separate switch");
     click("None##action key");key(14);
     check(state.options.selectorUnequipHotkey&&state.options.selectorBindings[unsigned(KeyboardAction::unequip)].key==14,"Assigning a new key also enables the previously disabled action");
@@ -915,20 +915,20 @@ int main(int argc,char** argv)try {
     click("Q##action key");key(2);
     check(state.options.selectorBindings[unsigned(KeyboardAction::previous)].key==16,"Action capture rejects an occupied group key");
     key(1);check(state.open&&!state.options.selectorBindings[unsigned(KeyboardAction::previous)].key,"Escape clears action capture without closing the editor");
-    check(ImGui::GetCurrentContext()->OpenPopupStack.empty(),"Escape also dismisses the action popup");click("Remap actions…");
     click("Reset keyboard actions");
     check(state.options.selectorBindings==defaultSelectorBindings&&!state.options.allowUnusedModifiers,"Keyboard action defaults can be restored without changing groups");
-    key(1);check(state.open,"Escape dismisses the action popup without closing the editor");
     io.DisplaySize={1600,900};state.options.groupCount=3;frame();frame();
     click("Controller");click("##pad modifier0");click(padLabel(PadButton::x,state.options.controllerStyle).c_str());
     check(state.options.controllerGroups[0].modifier==PadButton::x,"X can be selected as a group modifier");
-    click("Browsing actions");click("##pad button101");click(padLabel(PadButton::y,state.options.controllerStyle).c_str());
+    click("##pad button101");click(padLabel(PadButton::y,state.options.controllerStyle).c_str());
     check(state.options.controllerActions[unsigned(ControllerAction::unequip)].button==PadButton::y,"Controller unequip can be remapped in the editor");
-    click("Use bumpers for hands");
-    check(state.options.controllerActions[unsigned(ControllerAction::leftHand)].button==PadButton::lb&&state.options.controllerActions[unsigned(ControllerAction::rightHand)].button==PadButton::rb,"Controller hand preset is available through the editor");
-    click("Keyboard");click("Remap actions…");click("Use mouse buttons for hands");
+    check(probe::find("Use triggers for hands").empty(),"The trigger preset stays out of the way while both hand buttons are assigned");
+    state.options.controllerActions=legacyControllerActions;frame();frame();click("Use triggers for hands");
+    check(state.options.controllerActions[unsigned(ControllerAction::leftHand)].button==PadButton::lt&&state.options.controllerActions[unsigned(ControllerAction::rightHand)].button==PadButton::rt,"Earlier controller settings adopt the trigger hand buttons in one click");
+    click("Keyboard");check(probe::find("Use mouse buttons for hands").empty(),"The mouse preset stays out of the way while both hand buttons are assigned");
+    state.options.mouseActions=legacyMouseActions;frame();frame();click("Use mouse buttons for hands");
     check(state.options.mouseActions==std::array<int,3>{-1,0,1},"Mouse hand preset resolves right-click cancellation in the editor");
-    click("Reset keyboard actions");check(state.options.mouseActions==defaultMouseActions,"Reset restores legacy mouse cancellation");key(1);
+    state.options.mouseActions=legacyMouseActions;frame();frame();click("Reset keyboard actions");check(state.options.mouseActions==defaultMouseActions,"Reset assigns the mouse hand buttons");
 
     click("General");io.DisplaySize={1280,720};frame();frame();
     check(state.options.cycleKeepOtherHand,"Cycling protection starts checked in the editor");

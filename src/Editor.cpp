@@ -971,22 +971,49 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             changed|=UI::Checkbox("Allow controller while QuickLoot is open",&options.quickLootController);
             UI::TextWrapped("While browsing a Quickslot group, its navigation inputs go to Quickslot. Other inputs still reach QuickLoot. The editor and other game menus keep their normal restrictions.");
             }else if(controlsPage_==1){
-            label(tr("KEYS"));
+            // One page lists every keyboard and mouse action with its binding.
+            label(tr("GROUP KEYS"));
             for(std::size_t i=0;i<options.groupCount;++i){const auto id=options.groupOrder[i];ImGui::PushID(int(id));bindButton(int(id),options.keys[id],"##control binding");ImGui::SameLine();ImGui::TextUnformatted(options.names[id].c_str());ImGui::PopID();}
-            ImGui::Separator();label(tr("Editor"));bindButton(-2,options.editorKey,"##editor binding");
+            ImGui::Separator();label(tr("OTHER KEYS"));
+            bindButton(-2,options.editorKey,"##editor binding");
             ImGui::SameLine();if(UI::Button("Clear##editor binding")){options.editorKey=options.editorModifiers=0;binding_=-1;changed=true;hint_.clear();}
-            label(tr("Use selected consumable"));bindButton(-3,options.consumableKey.key,"##consumable binding");ImGui::SameLine();
+            ImGui::SameLine();ImGui::TextUnformatted(tr("Open editor"));
+            bindButton(-3,options.consumableKey.key,"##consumable binding");ImGui::SameLine();
             if(UI::Button("Clear##consumable binding")){assignConsumableBinding(options,{});binding_=-1;changed=true;hint_.clear();}
-            label(tr("Return to previous selection"));bindButton(-4,options.swapKey.key,"##swap binding");ImGui::SameLine();
+            ImGui::SameLine();ImGui::TextUnformatted(tr("Use selected consumable"));
+            bindButton(-4,options.swapKey.key,"##swap binding");ImGui::SameLine();
             if(UI::Button("Clear##swap binding")){assignSwapBinding(options,{});binding_=-1;changed=true;hint_.clear();}
-            ImGui::Separator();label(tr("Actions"));
-            UI::TextWrapped("Configure each action in one place. Choose None or clear a binding to disable it.");
-            changed|=UI::Checkbox("Use editing shortcuts during gameplay",&options.gameplayEditing);
-            if(ImGui::IsItemHovered())UI::SetTooltip("Lets a group key held with Ctrl, Shift or Alt add, unequip or remove during gameplay. While this is off those chords select the group. Adding from Inventory and Magic stays available.");
-            if(UI::Button("Remap actions…"))ImGui::OpenPopup("Keyboard action bindings");
-            ImGui::SetNextWindowSize({std::min(px(560),screen.x-40),std::min(px(540),screen.y-40)},ImGuiCond_Appearing);
-            ImGui::SetNextWindowSizeConstraints({0,0},{screen.x-40,screen.y-40});
-            if(ImGui::BeginPopup("Keyboard action bindings")) {
+            ImGui::SameLine();ImGui::TextUnformatted(tr("Return to previous selection"));
+            ImGui::Separator();label(tr("WHILE THE SELECTOR IS OPEN"));
+            UI::TextWrapped("Hold a group key to open the selector and release it to select the highlighted item. A hand button puts that item in the hand, or takes it out when it is already there.");
+            {
+                const char* actionNames[]{"Previous item","Next item","Unequip highlighted item","Remove highlighted shortcut","Cancel selection","Equip in right hand","Equip in left hand"};
+                for(unsigned i=0;i<options.selectorBindings.size();++i) {
+                    const auto binding=selectorBinding(options,KeyboardAction(i));ImGui::PushID(int(100+i));
+                    const auto text=binding_==int(100+i)?std::string(tr("Press a key…")):shortcutName(binding.key,binding.modifiers);
+                    if(UI::Button((text+"##action key").c_str(),{px(185),0})){binding_=int(100+i);hint_=tr("Press a key · Esc clears");}
+                    ImGui::SameLine();if(UI::Button("Clear##action key")){assignSelectorBinding(options,KeyboardAction(i),{});if(binding_==int(100+i))binding_=-1;changed=true;}
+                    ImGui::SameLine();ImGui::TextUnformatted(tr(actionNames[i]));ImGui::PopID();
+                }
+                UI::TextDisabled("Mouse");
+                const char* mouseNames[]{"Cancel selection","Equip in right hand","Equip in left hand"};
+                for(unsigned i=0;i<options.mouseActions.size();++i) {
+                    ImGui::PushID(int(200+i));ImGui::SetNextItemWidth(px(185));
+                    if(ImGui::BeginCombo("##mouse action",tr(mouseButtonName(options.mouseActions[i])))) {
+                        for(int button=-1;button<5;++button)if(ImGui::Selectable(tr(mouseButtonName(button)),button==options.mouseActions[i])){assignMouseAction(options,MouseAction(i),button);changed=true;}
+                        ImGui::EndCombo();
+                    }
+                    ImGui::SameLine();ImGui::TextUnformatted(tr(mouseNames[i]));ImGui::PopID();
+                }
+                if((options.mouseActions[unsigned(MouseAction::rightHand)]<0||options.mouseActions[unsigned(MouseAction::leftHand)]<0)&&UI::Button("Use mouse buttons for hands")) {
+                    options.mouseActions={-1,0,1};
+                    if(!options.selectorBindings[unsigned(KeyboardAction::cancel)].key)assignSelectorBinding(options,KeyboardAction::cancel,{1});
+                    changed=true;
+                }
+            }
+            ImGui::Separator();label(tr("GROUP KEY WITH A MODIFIER"));
+            UI::TextWrapped("Choose the modifier held with a group or navigation key. None disables that action. Assigning an existing binding swaps the two actions.");
+            {
                 const char* groupNames[]{"Add right hand / highlighted item","Add left hand","Move to another group","Unequip group item","Remove group shortcut","Reorder while browsing"};
                 UI::TextWrapped("Choose the modifier held with a group or navigation key. None disables that action. Assigning an existing binding swaps the two actions.");
                 for(unsigned i=0;i<options.groupModifiers.size();++i) {
@@ -998,39 +1025,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     }
                     ImGui::SameLine();ImGui::TextUnformatted(tr(groupNames[i]));ImGui::PopID();
                 }
+                changed|=UI::Checkbox("Use editing shortcuts during gameplay",&options.gameplayEditing);
+                if(ImGui::IsItemHovered())UI::SetTooltip("Lets a group key held with Ctrl, Shift or Alt add, unequip or remove during gameplay. While this is off those chords select the group. Adding from Inventory and Magic stays available.");
                 changed|=UI::Checkbox("Allow group selection with unused modifiers",&options.allowUnusedModifiers);
-                UI::TextWrapped("Enable to use group keys while holding a walking or other unused modifier. Set the conflicting action to None or choose another modifier first.");
-                ImGui::Separator();
-                const char* actionNames[]{"Previous item","Next item","Unequip highlighted item","Remove highlighted shortcut","Cancel selection","Equip in right hand","Equip in left hand"};
-                for(unsigned i=0;i<options.selectorBindings.size();++i) {
-                    const auto binding=selectorBinding(options,KeyboardAction(i));ImGui::PushID(int(100+i));
-                    const auto text=binding_==int(100+i)?std::string(tr("Press a key…")):shortcutName(binding.key,binding.modifiers);
-                    if(UI::Button((text+"##action key").c_str(),{px(185),0})){binding_=int(100+i);hint_=tr("Press a key · Esc clears");}
-                    ImGui::SameLine();if(UI::Button("Clear##action key")){assignSelectorBinding(options,KeyboardAction(i),{});if(binding_==int(100+i))binding_=-1;changed=true;}
-                    ImGui::SameLine();ImGui::TextUnformatted(tr(actionNames[i]));ImGui::PopID();
-                }
-                ImGui::Separator();UI::TextWrapped("Hand actions equip the highlighted item immediately for this use. Saved hands and combinations stay as configured.");
-                const char* mouseNames[]{"Cancel selection","Equip in right hand","Equip in left hand"};
-                for(unsigned i=0;i<options.mouseActions.size();++i) {
-                    ImGui::PushID(int(200+i));ImGui::SetNextItemWidth(px(185));
-                    if(ImGui::BeginCombo("##mouse action",tr(mouseButtonName(options.mouseActions[i])))) {
-                        for(int button=-1;button<5;++button)if(ImGui::Selectable(tr(mouseButtonName(button)),button==options.mouseActions[i])){assignMouseAction(options,MouseAction(i),button);changed=true;}
-                        ImGui::EndCombo();
-                    }
-                    ImGui::SameLine();ImGui::TextUnformatted(tr(mouseNames[i]));ImGui::PopID();
-                }
-                if(UI::Button("Use mouse buttons for hands")) {
-                    options.mouseActions={-1,0,1};
-                    if(!options.selectorBindings[unsigned(KeyboardAction::cancel)].key)assignSelectorBinding(options,KeyboardAction::cancel,{1});
-                    changed=true;
-                }
+                if(ImGui::IsItemHovered())UI::SetTooltip("Enable to use group keys while holding a walking or other unused modifier. Set the conflicting action to None or choose another modifier first.");
                 if(UI::Button("Reset keyboard actions")){setEditingShortcuts(options,true);options.groupModifiers=defaultGroupModifiers;options.selectorBindings=defaultSelectorBindings;options.mouseActions=defaultMouseActions;options.allowUnusedModifiers=false;binding_=-1;changed=true;}
                 if(!hint_.empty())ImGui::TextWrapped("%s",hint_.c_str());
-                ImGui::EndPopup();
-            }
-            if(UI::CollapsingHeader("Shortcuts")) {
-            ImGui::TextUnformatted(tr("Hold + scroll / navigation keys: select"));ImGui::TextUnformatted(tr("Tap: group action"));
-            const auto cancel=options.selectorBindings[unsigned(KeyboardAction::cancel)];ImGui::Text("%s / %s: %s",shortcutName(cancel.key,cancel.modifiers).c_str(),tr(mouseButtonName(options.mouseActions[0])),tr("Cancel selection"));
             }
             }else{
             changed|=UI::Checkbox("Enable controller",&options.controllerEnabled);
@@ -1079,15 +1079,16 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(!state.vr)changed|=UI::Checkbox("Enable previous / next buttons",&options.controllerBumpers);
             ImGui::SetNextItemWidth(px(220));changed|=UI::SliderFloat("Stick deadzone",&options.controllerDeadzone,.2f,.9f,"%.2f");
             if(!state.vr){int buttonStyle=int(options.controllerStyle);ImGui::SetNextItemWidth(px(220));if(UI::Combo("Button icons",&buttonStyle,"Xbox\0PlayStation\0")){options.controllerStyle=unsigned(buttonStyle);changed=true;}}
-            if(!state.vr&&UI::CollapsingHeader("Browsing actions")) {
+            if(!state.vr) {
+                ImGui::Separator();label(tr("WHILE THE SELECTOR IS OPEN"));
+                UI::TextWrapped("Hold a group button to open the selector and release it to select the highlighted item. A hand button puts that item in the hand, or takes it out when it is already there.");
                 const char* names[]{"Cancel selection","Unequip highlighted item","Previous item","Next item","Equip in right hand","Equip in left hand"};
                 for(unsigned i=0;i<options.controllerActions.size();++i)padBinding(options.controllerActions[i],tr(names[i]),100+i);
                 UI::TextWrapped("A button used as an explicit modifier does not also trigger a single-button browsing action. Rebind that action or use a chord.");
-                if(UI::Button("Use bumpers for hands")) {
-                    if(useBumpersForHands(options)){changed=true;hint_.clear();std::erase_if(padDrafts_,[](const auto& draft){return draft.first>=100;});}
-                    else hint_=tr("Bumpers are used by a group, editor or modifier binding. Choose different hand buttons or rebind those first.");
+                if((options.controllerActions[unsigned(ControllerAction::rightHand)].button==PadButton::none||options.controllerActions[unsigned(ControllerAction::leftHand)].button==PadButton::none)&&UI::Button("Use triggers for hands")) {
+                    if(useTriggersForHands(options)){changed=true;hint_.clear();std::erase_if(padDrafts_,[](const auto& draft){return draft.first>=100;});}
+                    else hint_=tr("A trigger is used by a group, editor or modifier binding. Choose different hand buttons or rebind those first.");
                 }
-                UI::TextWrapped("Hand actions equip immediately for this use. The bumper preset replaces bumper browsing; the stick can still browse.");
                 if(UI::Button("Reset controller actions")){options.controllerActions=defaultControllerActions;changed=true;std::erase_if(padDrafts_,[](const auto& draft){return draft.first>=100;});}
             }
             if(!state.vr&&UI::CollapsingHeader("Modifier buttons")) {
@@ -1096,13 +1097,6 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if((b-1)%4)ImGui::SameLine(px(20+155*((b-1)%4)));
                     ImGui::PushID(int(b));if(UI::Checkbox(padLabel(PadButton(b),style).c_str(),&enabled)){if(enabled)options.controllerModifiers|=mask;else options.controllerModifiers&=~mask;changed=true;}ImGui::PopID();
                 }
-            }
-            if(UI::CollapsingHeader("Shortcuts")) {
-            ImGui::TextUnformatted(tr("Hold: browse  |  Release: select"));
-            if(state.vr)ImGui::TextUnformatted(tr("Tap: group action  |  Main B/Y: cancel  |  Off A/X: unequip"));
-            else ImGui::Text("%s: %s | %s: %s",padLabel(options.controllerActions[0],style).c_str(),tr("Cancel selection"),padLabel(options.controllerActions[1],style).c_str(),tr("Unequip highlighted item"));
-            if(state.vr){ImGui::TextUnformatted(tr("Point + trigger: select"));ImGui::TextUnformatted(tr("Main / Off: Skyrim handedness"));}
-            else {ImGui::TextUnformatted(tr("Editor: D-pad / left stick to navigate, A / Cross to confirm"));ImGui::TextUnformatted(tr("Right stick: cursor · A / Cross: click or drag"));ImGui::TextUnformatted(tr("Start / Options: close editor"));}
             }
             }
         } else if(tab_==3) {

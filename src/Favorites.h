@@ -64,6 +64,8 @@ inline bool refreshFavorites(Group& group,const std::vector<Entry>& favorites) {
     for(auto entry:favorites) {
         if(!favoriteMatches(group,entry)||std::any_of(group.excludedFavorites.begin(),group.excludedFavorites.end(),[&](const auto& e){return sameFavorite(e,entry);}))continue;
         entry.hand=normalizedHand(entry,group.favoriteHand);entry.shortcut=0;
+        // A favorite stays in the hand it was last put in while it remains in the list.
+        for(const auto& listed:group.entries)if(sameFavorite(listed,entry)){entry.hand=normalizedHand(entry,listed.hand);break;}
         if(seen.emplace(entry.form,entry.owner,entry.unique,entry.recipe,entry.kind).second)entries.push_back(std::move(entry));
     }
     std::sort(entries.begin(),entries.end(),[](const auto& a,const auto& b){

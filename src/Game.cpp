@@ -891,7 +891,6 @@ void Game::queueUnequip(std::optional<std::size_t> index,bool controller) {
 void Game::queueHand(Hand hand,bool controller) {
     if(!selection_.held()||selection_.index()>=arsenal_.current().entries.size())return;
     const auto index=selection_.index();
-    if(!entryForHand(arsenal_.current().entries[index],hand)){cancel();notice(tr("This item cannot use that hand"));return;}
     selectionTime(false);controller_.cancel();pending_.reset();released_.reset();consumableRequest_.reset();cycleConfirm_.cancel();
     if(auto commit=releaseToHand(selection_,arsenal_.current(),arsenal_.active,hand,controller)) {
         selectionController_=controller;released_=Released{*commit};snapshot_.revealUntil=clockNow()+2;
@@ -1643,6 +1642,8 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         if(unequip&&isConsumable(entry)){notice(tr("Consumable selected"),false);return;}
         if(!resolved.row.available){notice(resolved.row.detail.empty()?(isStack(entry)?tr("Out of stock — "):tr("Unavailable — "))+entryLabel(entry):resolved.row.detail);dirty_=true;return;}
         if(castVoice&&(item.cooldown>0||item.powerUsed)){notice(item.cooldown>0?tr("Shout recharging"):tr("Power recharging"));dirty_=true;return;}
+        // A hand button on an item already in that hand takes it out.
+        if(commit.hand&&!unequip&&item.equipped&&!castVoice&&!isHandAction(entry))unequip=true;
         if(unequip&&!item.equipped){notice(tr("Already unequipped — ")+entryLabel(entry),false);return;}
         if(!unequip&&item.equipped){arsenal_.current().selected=commit.index;rememberChoice(commit.group,saved);if(castVoice)startVoice(entry);else notice(isHandAction(entry)?handName(entry)+tr(" already empty"):tr("Ready — ")+entryLabel(entry),false);dirty_=true;refresh();publish();return;}
         if(keepOtherHand&&movesOtherHandWeapon(entry,item.equipped,item.otherEquipped)){notice(tr("Weapons in the other hand skipped"));dirty_=true;return;}
@@ -1714,7 +1715,11 @@ void Game::progressEquipment() {
     case EquipmentProgress::complete:
         if(isHandAction(entry))log::info("Clear hand confirmed: {}",unsigned(entry.hand));
         if(pending.pairStep>=0){pending_.reset();equipPairStep(commit,pending.pairStep+1,pending.remove,pending.action);break;}
-        if(pending.phase!=EquipmentPhase::unequipping){arsenal_.current().selected=commit.index;rememberChoice(commit.group,saved);}
+        if(pending.phase!=EquipmentPhase::unequipping) {
+            arsenal_.current().selected=commit.index;
+            if(commit.hand&&pending.pairStep<0)rememberHand(arsenal_.current(),commit.index,*commit.hand);
+            rememberChoice(commit.group,arsenal_.current().entries[commit.index]);
+        }
         notice(isHandAction(entry)?handName(entry)+tr(" empty"):(pending.phase==EquipmentPhase::unequipping?tr("Unequipped — "):isVoice(entry)?tr("Selected — "):tr("Equipped — "))+entryLabel(entry),false);
         pending_.reset();if(pending.castVoice)startVoice(entry);dirty_=true;refresh();break;
     case EquipmentProgress::equipAfterMove:

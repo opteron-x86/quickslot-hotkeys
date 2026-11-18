@@ -149,7 +149,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.groupCaptureRightHotkey=j.value("groupCaptureRightHotkey",true);o.groupCaptureLeftHotkey=j.value("groupCaptureLeftHotkey",true);o.groupMoveHotkey=j.value("groupMoveHotkey",true);
     o.selectorReorderHotkey=j.value("selectorReorderHotkey",true);o.selectorUnequipHotkey=j.value("selectorUnequipHotkey",true);o.selectorRemoveHotkey=j.value("selectorRemoveHotkey",true);
     o.groupModifiers=j.value("groupModifiers",o.groupModifiers);o.allowUnusedModifiers=j.value("allowUnusedModifiers",false);
-    o.mouseActions=j.value("mouseActions",o.mouseActions);
+    o.mouseActions=j.value("mouseActions",legacyMouseActions);
     if(j.contains("selectorBindings")) {
         const auto& bindings=j.at("selectorBindings");
         if(!bindings.is_array()||(bindings.size()!=5&&bindings.size()!=o.selectorBindings.size()))throw std::runtime_error("Invalid keyboard actions");
@@ -177,6 +177,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.inactiveGroups=j.value("inactiveGroups",0u);o.inactiveGroupOpacity=j.value("inactiveGroupOpacity",.3f);
     o.controllerStyle=j.at("controllerStyle").get<decltype(o.controllerStyle)>();o.controllerStick=j.at("controllerStick").get<decltype(o.controllerStick)>();o.controllerDeadzone=j.at("controllerDeadzone").get<decltype(o.controllerDeadzone)>();
     const auto binding=[](const Json& value){const auto b=value.get<std::array<unsigned,2>>();return PadBinding{PadButton(b[0]),PadButton(b[1])};};
+    o.controllerActions=legacyControllerActions;
     if(j.contains("controllerActions")) {
         const auto& actions=j.at("controllerActions");
         if(!actions.is_array()||(actions.size()!=4&&actions.size()!=o.controllerActions.size()))throw std::runtime_error("Invalid controller actions");

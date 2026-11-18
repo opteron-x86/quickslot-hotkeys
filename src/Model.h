@@ -376,7 +376,8 @@ struct Options {
     bool quickLootKeyboard=false,quickLootController=false;
     float shoutCharge=1.2f;
     bool controllerEnabled=true,controllerBumpers=true;
-    unsigned controllerModifiers=allPadButtons;
+    // Held buttons that leave an unmodified group button to other mods. The triggers stay out, so groups work while blocking or attacking.
+    unsigned controllerModifiers=allPadButtons&~(padButtonMask(PadButton::lt)|padButtonMask(PadButton::rt));
     unsigned controllerStyle=0,controllerStick=1;
     float controllerDeadzone=.45f;
     std::array<PadBinding,Arsenal::count> controllerGroups{{{PadButton::up},{PadButton::right},{PadButton::down},{PadButton::left},{},{},{},{}}};
@@ -603,14 +604,14 @@ inline bool assignMouseAction(Options& o,MouseAction action,int button) {
     if(button>=0)for(unsigned i=0;i<o.mouseActions.size();++i)if(i!=index&&o.mouseActions[i]==button)o.mouseActions[i]=o.mouseActions[index];
     o.mouseActions[index]=button;return true;
 }
-inline bool useBumpersForHands(Options& o) {
-    const auto conflict=[](PadBinding b){return b.button==PadButton::lb||b.button==PadButton::rb||b.modifier==PadButton::lb||b.modifier==PadButton::rb;};
+// Assigns the triggers to the hand buttons, unless another binding already uses a trigger.
+inline bool useTriggersForHands(Options& o) {
+    const auto conflict=[](PadBinding b){return b.button==PadButton::lt||b.button==PadButton::rt||b.modifier==PadButton::lt||b.modifier==PadButton::rt;};
     if(conflict(o.controllerEditor)||conflict(o.controllerUse))return false;
     for(std::size_t i=0;i<o.groupCount;++i)if(conflict(o.controllerGroups[o.groupOrder[i]]))return false;
-    for(const auto b:o.controllerActions)if(b.modifier==PadButton::lb||b.modifier==PadButton::rb)return false;
-    for(auto& b:o.controllerActions)if(b==PadBinding{PadButton::lb}||b==PadBinding{PadButton::rb})b={};
-    o.controllerActions[unsigned(ControllerAction::rightHand)]={PadButton::rb};
-    o.controllerActions[unsigned(ControllerAction::leftHand)]={PadButton::lb};return true;
+    for(unsigned i=0;i<o.controllerActions.size();++i)if(i!=unsigned(ControllerAction::rightHand)&&i!=unsigned(ControllerAction::leftHand)&&conflict(o.controllerActions[i]))return false;
+    o.controllerActions[unsigned(ControllerAction::rightHand)]={PadButton::rt};
+    o.controllerActions[unsigned(ControllerAction::leftHand)]={PadButton::lt};return true;
 }
 // A group keeps the behavior chosen for it whatever it holds. In a group whose taps step through its items, taps
 // select consumables and the Use selected consumable binding uses them.
@@ -761,11 +762,31 @@ inline std::optional<Entry> entryForHand(const Entry& entry,Hand hand) {
     if(hand==Hand::right&&(entry.kind==Kind::shield||entry.kind==Kind::torch||smartShield(entry)))return {};
     auto action=entry;action.hand=normalizedHand(entry,hand);return action;
 }
+// The hand a hand button gives an entry: the pressed hand, or the entry's only hand for a shield or torch. Empty for
+// entries that go in no hand, such as consumables, powers and combinations.
+inline std::optional<Hand> handButtonTarget(const Entry& entry,Hand hand) {
+    if(entryForHand(entry,hand))return hand;
+    const auto other=hand==Hand::left?Hand::right:Hand::left;
+    return entryForHand(entry,other)?std::optional{other}:std::nullopt;
+}
+// A hand button commits the highlighted entry to that hand. An entry with no hand is selected as a release would.
 inline std::optional<Selection::Commit> releaseToHand(Selection& selection,const Group& group,std::size_t groupID,Hand hand,bool controller) {
     if(!selection.held())return {};
-    if(selection.index()>=group.entries.size()||!entryForHand(group.entries[selection.index()],hand)){selection.cancel();return {};}
+    if(selection.index()>=group.entries.size()){selection.cancel();return {};}
+    const auto target=handButtonTarget(group.entries[selection.index()],hand);
     auto commit=selection.release(group,groupID);
-    if(commit){commit->hand=hand;commit->browsed=true;commit->controller=controller;}
+    if(commit){if(target)commit->hand=*target;commit->browsed=true;commit->controller=controller;}
     return commit;
+}
+// Keeps the hand an item was last put in, so a tap returns it there. Shared shortcuts keep their definition, and a
+// group that already lists the item for that hand keeps both entries as they are.
+inline bool rememberHand(Group& group,std::size_t index,Hand hand) {
+    if(index>=group.entries.size())return false;
+    auto& entry=group.entries[index];
+    if(entry.shortcut||entry.kind==Kind::combo||isSmartEquipment(entry)||isHandAction(entry))return false;
+    const auto chosen=entryForHand(entry,hand);
+    if(!chosen||chosen->hand==entry.hand)return false;
+    for(const auto& other:group.entries)if(&other!=&entry&&other.same(*chosen))return false;
+    entry.hand=chosen->hand;return true;
 }
 }

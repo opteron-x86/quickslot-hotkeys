@@ -68,8 +68,9 @@ To clear a group's keyboard hotkey, click **Clear**, or click its binding and pr
 | Equip or use remembered entry | Tap group key | Tap group button |
 | Browse | Hold group key + wheel or Left/Right | Hold group button + right stick or LB/RB |
 | Select | Release group key | Release group button |
+| Choose a hand, or take the item out of it | Left mouse (right hand) / right mouse (left hand) | RT (right hand) / LT (left hand) |
 | Reorder while browsing | Ctrl + Left/Right | Editor controls |
-| Cancel | Escape / right-click | B / Circle |
+| Cancel | Escape | B / Circle |
 | Unequip highlighted entry | Backspace while browsing | X / Square |
 | Remove highlighted shortcut | Delete while browsing | Editor controls |
 | Open editor | Shift + `\` | Hold D-pad Up, then Start / Options |
@@ -86,7 +87,7 @@ During gameplay, a group key held with Ctrl, Shift or Alt selects the group, so 
 
 **Return to previous selection** re-equips the weapon, spell or combination you selected before your current one; using it again swaps back. Bind it under **Controls → Keyboard**. With **Controls → General → Double-tap a group to return to the previous selection**, two quick taps of the group you are on do the same from keyboard or controller. Double tap applies to hold-to-browse groups; cycling groups keep advancing on each tap.
 
-All keyboard actions are configured under **Controls → Keyboard → Remap actions…**. For a group editing action, choose a modifier combination or **None** to disable it. For browsing, selected-item and cancel keys, click the binding to assign it, or use **Clear** (Escape during capture also clears). Assigning an occupied binding swaps the actions. **Reset keyboard actions** restores the default bindings. Upgrades preserve your bindings and disabled actions.
+**Controls → Keyboard** lists every keyboard and mouse action with its binding: group keys, the editor and other keys, the actions available while the selector is open, and the group-key modifiers. For a group editing action, choose a modifier combination or **None** to disable it. For browsing, selected-item and cancel keys, click the binding to assign it, or use **Clear** (Escape during capture also clears). Assigning an occupied binding swaps the actions. **Reset keyboard actions** restores the default bindings. Upgrades preserve your bindings and disabled actions.
 
 With gameplay editing shortcuts on, to use Left Alt for walking, set **Remove group shortcut** to **None** or another modifier, then enable **Allow group selection with unused modifiers**. This setting lets unused modifier chords select groups. It starts disabled.
 
@@ -94,15 +95,17 @@ The right/left capture bindings apply in Inventory/Magic, and during gameplay wh
 
 While browsing, moving and reordering reserve their assigned modifiers. Set both actions to **None** to release those modifiers; capture bindings have independent settings.
 
-Controller modifiers are configured per binding. Hold the modifier first; release the group button to select. Releasing the modifier cancels browsing. Other assigned chords, such as B + D-pad, stay available to other mods. **Modifier buttons** controls which held buttons suppress unmodified group bindings.
+Controller modifiers are configured per binding. Hold the modifier first; release the group button to select. Releasing the modifier cancels browsing. Other assigned chords, such as B + D-pad, stay available to other mods. **Modifier buttons** controls which held buttons suppress unmodified group bindings. The triggers start outside that list, so group buttons work while you block or attack.
 
 Choose **Modifier** and **Button** in either order when editing a controller or VR binding. A complete, valid combination becomes active immediately. During an unfinished edit, the current binding stays active. Selecting **None** for **Button** clears the binding.
 
-Under **Controls → Controller → Browsing actions**, remap cancel, unequip, previous and next, including optional modifier chords. **Enable previous / next buttons** controls the last two actions. For example, assign X as a group modifier and Y to **Unequip highlighted entry**.
+Under **Controls → Controller → While the selector is open**, remap cancel, unequip, previous, next and the two hand buttons, including optional modifier chords. **Enable previous / next buttons** controls the last two actions. For example, assign X as a group modifier and Y to **Unequip highlighted entry**.
 
 XInput and native PS4 input are supported. Steam Input can supply XInput. Skyrim must recognize the controller first.
 
-While holding a group, optional **Equip in right/left hand** actions equip the highlighted item immediately for this use. Configure keys and mouse buttons in **Controls → Keyboard → Remap actions…**, or controller actions in **Controls → Controller → Browsing actions**. **Use mouse buttons for hands** assigns left mouse to the right hand and right mouse to the left hand, leaving keyboard cancellation available. **Use bumpers for hands** assigns RB/LB and replaces bumper browsing; the stick still browses. Shields and torches use the left hand; two-handed equipment uses both hands. Saved combinations equip their configured hands.
+While the selector is open, a hand button puts the highlighted item in that hand: the left mouse button or RT for the right hand, the right mouse button or LT for the left. Pressing the button of the hand an item is already in takes it out. Dual wielding is two presses: point at one item and press a hand button, then the other. An item returns to the hand you last put it in when you tap its group; in a Favorites group that lasts until you load a save. Shields and torches go to the left hand from either button, two-handed equipment uses both hands, and potions, powers and combinations are selected as a release would. Releasing the group key uses the item's usual hand.
+
+Settings from earlier versions keep their bindings. **Use mouse buttons for hands** under **Controls → Keyboard** and **Use triggers for hands** under **Controls → Controller** assign the hand buttons in one step while a hand button is unassigned; the mouse preset moves cancel to Escape. Keyboard keys can be assigned to the hand actions as well.
 
 ## VR controls
 

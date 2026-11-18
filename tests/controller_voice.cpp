@@ -381,7 +381,7 @@ int main()try {
         check(importPreset(file,arsenal,mine,presetPart::look|presetPart::controls,none).options.keys==theirs.keys,"An appearance preset can still supply its controls");
         check(lookMatches(look,theirs)&&!lookMatches(mine,theirs),"A look matches its preset until a setting changes");
         const auto cross=applyBuiltin(mine,"builtin:cross");
-        check(cross.layout==5&&cross.shape==2&&cross.equipmentLayout==5&&cross.themeId=="edge"&&cross.names==mine.names,"A built-in layout rearranges the HUD and keeps the theme and groups");
+        check(cross.layout==5&&cross.shape==2&&cross.equipmentLayout==1&&cross.equipmentStyle==0&&cross.equipmentAnchor==3&&cross.themeId=="edge"&&cross.names==mine.names,"A built-in layout rearranges the HUD and keeps the theme and groups");
         const auto restoredLook=applyBuiltin(cross,"builtin:default");
         check(restoredLook.layout==Options{}.layout&&restoredLook.themeId==Options{}.themeId&&restoredLook.names==mine.names&&restoredLook.skipEmpty&&restoredLook.language=="ru","The Default preset restores the look alone");
         check(encodeOptions(applyBuiltin(mine,"builtin:unknown"))==encodeOptions(mine)&&builtinPreset("builtin:circle")&&!builtinPreset("Circle"),"Built-in ids are distinct from file names");
@@ -396,6 +396,13 @@ int main()try {
             check(wheel.selector==wheelSelector&&wheel.wheelStyle==1&&wheel.shape==3&&wheel.layout==2&&!wheel.showLabels,"The Wheel preset shows diamond tiles with a segmented wheel selector");
             check(encodeOptions(applyBuiltin(wheel,"builtin:default"))==encodeOptions(fresh),"The Default preset returns from any built-in look");
             check(builtinPreset("builtin:cards")&&builtinPreset("builtin:wheel")&&builtinPreset("builtin:diamond"),"Earlier built-in ids stay valid beside the new ones");
+            for(const auto* id:{"builtin:default","builtin:cards","builtin:cross","builtin:diamond","builtin:circle","builtin:wheel"}) {
+                Options moved;moved.equipmentStyle=2;moved.equipmentLayout=4;moved.equipmentAnchor=8;moved.equipmentOffsetX=-40;moved.equipmentShowText=false;
+                const auto look=applyBuiltin(moved,id);
+                check(look.equipmentStyle==0&&look.equipmentLayout==1&&look.equipmentShowText&&look.equipmentAnchor==3&&look.equipmentOffsetX==16&&look.equipmentOffsetY==0,"Every built-in look shows equipment as a vertical list at the middle of the left edge");
+            }
+            auto unanchored=Json::parse(encodeOptions(Options{}));unanchored.erase("equipmentAnchor");unanchored.erase("equipmentOffsetX");unanchored.erase("equipmentOffsetY");
+            check(decodeOptions(unanchored.dump()).equipmentAnchor==9,"Settings from before equipment anchors keep their equipment where it was");
         }
         mine.activePreset=std::string(200,'x');sanitizeOptions(mine);check(mine.activePreset.empty(),"An oversized preset name is discarded");
         // Device presets: applied once, a moment after a device comes into use.

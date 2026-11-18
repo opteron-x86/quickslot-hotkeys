@@ -219,6 +219,8 @@ inline Options decodeOptions(const std::string& bytes) {
     o.textColor=j.value("textColor",o.textColor);o.selectionColor=j.value("selectionColor",o.selectionColor);
     o.groupColored=j.value("groupColored",o.groupColored);o.groupColors=j.value("groupColors",o.groupColors);
     decodeTable(j,o);
+    // Settings from before the equipment display had an anchor keep its proportional position.
+    if(!j.contains("equipmentAnchor")){o.equipmentAnchor=9;o.equipmentOffsetX=o.equipmentOffsetY=0;}
     if(j.value("layoutVersion",1)<3) {
         // Earlier files shared one text size and one opacity across the HUD, and widget text kept its size below 100% scale.
         const float scale=std::isfinite(o.scale)&&o.scale>0?o.scale:1,size=std::isfinite(o.textScale)?o.textScale:1,text=size*std::max(1.f,scale)/scale;

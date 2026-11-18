@@ -363,19 +363,19 @@ inline void layoutPreset(Options& o,unsigned preset) {
     else {o.layout=4;o.shape=1;o.selector=0;o.selectorShape=1;o.spacing=2;}
 }
 // Card tiles in a row with a strip selector and a list of equipment.
+// Every built-in look puts the equipment display in a vertical list at the middle of the left edge.
+inline void equipmentListPreset(Options& o) {
+    o.equipmentStyle=0;o.equipmentLayout=1;o.equipmentShowText=true;o.equipmentSpacing=8;
+    o.equipmentAnchor=3;o.equipmentOffsetX=16;o.equipmentOffsetY=0;
+}
 inline void cardsPreset(Options& o) {
     o.showLabels=true;o.layout=0;o.shape=0;o.selector=0;o.selectorShape=0;o.spacing=14;o.selectorSpacing=16;
-    o.equipmentLayout=1;o.equipmentStyle=0;o.equipmentShowText=true;o.equipmentSpacing=8;
+    equipmentListPreset(o);
 }
 // Diamond tiles with a wheel of segments for a selector.
 inline void wheelPreset(Options& o) {
     o.showLabels=false;o.layout=2;o.shape=3;o.selector=wheelSelector;o.selectorShape=3;o.wheelStyle=1;o.selectorSpacing=8;o.spacing=4;
-    o.equipmentShowText=false;o.equipmentSpacing=8;o.equipmentLayout=2;o.equipmentStyle=2;
+    equipmentListPreset(o);
 }
-inline void equipmentLayoutPreset(Options& o,unsigned preset) {
-    o.equipmentShowText=false;o.equipmentSpacing=8;
-    if(preset==0){o.equipmentLayout=5;o.equipmentStyle=3;}
-    else if(preset==1){o.equipmentLayout=2;o.equipmentStyle=2;}
-    else {o.equipmentLayout=4;o.equipmentStyle=1;}
-}
+inline void equipmentLayoutPreset(Options& o,unsigned){equipmentListPreset(o);}
 }

@@ -619,9 +619,7 @@ int main(int argc,char** argv)try {
     const std::array<const char*,3> equipmentPresets{"Cross","Diamond","Circle"};
     for(unsigned preset=0;preset<3;++preset) {
         click("Presets");click(equipmentPresets[preset]);click("Apply preset");click("Appearance");
-        check(state.options.equipmentLayout==(preset==0?5u:preset==1?2u:4u)&&!state.options.equipmentShowText,"Layout presets arrange the equipment display to match");
-        click("Show equipment names");check(state.options.equipmentShowText,"Equipment names can be enabled on preset tiles");
-        click("Undo");check(!state.options.equipmentShowText,"Equipment name visibility supports Undo");
+        check(state.options.equipmentLayout==1&&state.options.equipmentStyle==0&&state.options.equipmentAnchor==3&&state.options.equipmentShowText,"Layout presets put the equipment display in a vertical list at the left edge");
         click("Undo");check(encodeOptions(state.options)==equipmentBefore,"Layout presets support Undo as one change");
     }
     const std::array<const char*,6> equipmentLayouts{"Horizontal","Vertical","Diamond","Cross","Circle","Staggered cross"};

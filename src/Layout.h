@@ -16,7 +16,9 @@ inline float hudTextFactor(const Options& o){return o.textScale;}
 inline float selectorTextFactor(const Options& o){return o.selectorTextScale;}
 // The room a card keeps at its outer end for its key or button label.
 inline constexpr float cardKeyColumn=26;
-struct LayoutGeometry {std::vector<Point> tiles;float width=0,height=0,tileWidth=0,tileHeight=0;};
+// tileScales sizes each tile in the Free arrangement; elsewhere it is empty and every tile has scale 1.
+struct LayoutGeometry {std::vector<Point> tiles;std::vector<float> tileScales;float width=0,height=0,tileWidth=0,tileHeight=0;};
+inline float tileScale(const LayoutGeometry& g,std::size_t slot){return slot<g.tileScales.size()?g.tileScales[slot]:1.f;}
 // Shape codes match the HUD tile renderer: circle, rectangle, diamond.
 inline float tileDistance(Point direction,float width,float height,unsigned shape,float gap) {
     const float length=std::hypot(direction.x,direction.y);
@@ -241,33 +243,74 @@ inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float 
     return g;
 }
 // selectorOrigin is where the selector's content starts, in widget units from origin; its box begins 32 selector units above.
-struct HudGeometry {LayoutGeometry groups;EquipmentGeometry equipment;Point origin,groupOrigin,selectorOrigin;float scale=1,selectorScale=1,width=0,height=0,selectorHeight=150,selectorWidth=420,captionHeight=40,previewZoom=1;};
-inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={},std::size_t selectorCount=5) {
+// focus is the part of the group tiles the selector, item name and notices gather around, in group units: the whole
+// widget, or in the Free arrangement the tile of the group in use.
+struct HudGeometry {LayoutGeometry groups;EquipmentGeometry equipment;Bounds focus;Point origin,groupOrigin,selectorOrigin;float scale=1,selectorScale=1,width=0,height=0,selectorHeight=150,selectorWidth=420,captionHeight=40,previewZoom=1;};
+// Screen corners of the Free arrangement's tiles in display order. An unplaced tile sits beside the previous one.
+inline std::vector<Point> freeTileCorners(const Options& o,const LayoutGeometry& groups,float scale,float screenX,float screenY) {
+    std::vector<Point> corners;
+    for(std::size_t slot=0;slot<groups.tiles.size();++slot) {
+        const auto& place=o.tilePlaces[o.groupOrder[slot]];const float own=scale*place.scale;
+        const Point size{groups.tileWidth*own,groups.tileHeight*own};
+        if(place.anchor<unanchored)corners.push_back(placedCorner(place.anchor,place.x,place.y,0,0,size,o,screenX,screenY));
+        else if(corners.empty())corners.push_back(placedCorner(8,-8,-8,0,0,size,o,screenX,screenY));
+        else {
+            const auto previous=corners.back();const float step=groups.tileWidth*scale*o.tilePlaces[o.groupOrder[slot-1]].scale+o.spacing*scale;
+            corners.push_back({std::clamp(previous.x+step,8.f,std::max(8.f,screenX-8-size.x)),previous.y});
+        }
+    }
+    return corners;
+}
+inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={},std::size_t selectorCount=5,std::size_t activeSlot=0) {
     HudGeometry g;g.equipment=equipmentGeometry(o,screenX,screenY,rows,metrics);g.groups=groupGeometry(o);g.width=g.groups.width;g.captionHeight=15*hudTextFactor(o)+8;
     g.groupOrigin={0,o.shape==0?3.f:0.f};g.height=g.groups.height+g.groupOrigin.y;
     const auto selectorLayout=selectorGeometry(o,selectorCount);g.selectorHeight=selectorLayout.height;g.selectorWidth=selectorLayout.width;
     const float sh=g.selectorHeight+32,resolutionScale=quickslot::resolutionScale(screenY);
     const bool linked=o.selectorScaleLinked;
-    g.scale=std::max(.05f,std::min({o.scale*resolutionScale,(screenX-16)/(linked?std::max(g.width,g.selectorWidth):g.width),
-        (screenY-16)/(linked?std::max(g.height,sh):g.height)}));
+    const bool free=o.layout==freeLayout;
+    // Free tiles each keep to the screen, so only one tile has to fit.
+    const float fitWidth=free?g.groups.tileWidth:g.width,fitHeight=free?g.groups.tileHeight+g.groupOrigin.y:g.height;
+    g.scale=std::max(.05f,std::min({o.scale*resolutionScale,(screenX-16)/(linked?std::max(fitWidth,g.selectorWidth):fitWidth),
+        (screenY-16)/(linked?std::max(fitHeight,sh):fitHeight)}));
     g.selectorScale=linked?g.scale:std::max(.05f,std::min({o.selectorScale*resolutionScale,(screenX-16)/g.selectorWidth,(screenY-16)/sh}));
+    g.focus={{0,0},{g.groups.width,g.groups.height},true};
+    if(free&&!g.groups.tiles.empty()) {
+        // The widget becomes the box around the placed tiles; each tile keeps its own screen position inside it.
+        const auto corners=freeTileCorners(o,g.groups,g.scale,screenX,screenY);
+        for(std::size_t i=0;i<corners.size();++i)g.groups.tileScales.push_back(o.tilePlaces[o.groupOrder[i]].scale);
+        Bounds box;for(std::size_t i=0;i<corners.size();++i){const auto c=corners[i];const float own=g.scale*g.groups.tileScales[i];box.include(c);box.include({c.x+g.groups.tileWidth*own,c.y+g.groups.tileHeight*own});}
+        for(std::size_t i=0;i<corners.size();++i)g.groups.tiles[i]={(corners[i].x-box.min.x)/g.scale,(corners[i].y-box.min.y)/g.scale};
+        g.groups.width=box.width()/g.scale;g.groups.height=box.height()/g.scale;g.width=g.groups.width;g.height=g.groups.height+g.groupOrigin.y;
+        const auto active=std::min(activeSlot,g.groups.tiles.size()-1);const auto focused=g.groups.tiles[active];const float own=g.groups.tileScales[active];
+        g.focus={focused,{focused.x+g.groups.tileWidth*own,focused.y+g.groups.tileHeight*own},true};
+        g.origin={box.min.x-g.groupOrigin.x*g.scale,box.min.y-g.groupOrigin.y*g.scale};
+    }
     const float w=g.width*g.scale,h=g.height*g.scale,sw=g.selectorWidth*g.selectorScale,soh=sh*g.selectorScale,gap=o.selectorGap*g.scale;
-    g.origin=placedCorner(o.anchor,o.offsetX,o.offsetY,o.positionX,o.positionY,{w,h},o,screenX,screenY);
+    if(!free)g.origin=placedCorner(o.anchor,o.offsetX,o.offsetY,o.positionX,o.positionY,{w,h},o,screenX,screenY);
+    // A docked selector sits beside the focus: the whole widget, or the tile in use.
+    const Point focusCorner{g.origin.x+(g.groupOrigin.x+g.focus.min.x)*g.scale,g.origin.y+(g.groupOrigin.y+g.focus.min.y)*g.scale};
+    const float fw=g.focus.width()*g.scale,fh=g.focus.height()*g.scale;
     const auto clamp=[&](Point p){return Point{std::clamp(p.x,8.f,std::max(8.f,screenX-8-sw)),std::clamp(p.y,8.f,std::max(8.f,screenY-8-soh))};};
     Point selector;
     if(o.selectorDock==4)selector=placedCorner(o.selectorAnchor,o.selectorOffsetX,o.selectorOffsetY,o.selectorX,o.selectorY,{sw,soh},o,screenX,screenY);
     else {
-        const std::array<Point,4> docks{{{g.origin.x+(w-sw)*.5f,g.origin.y-gap-soh},{g.origin.x+(w-sw)*.5f,g.origin.y+h+gap},
-            {g.origin.x-gap-sw,g.origin.y+(h-soh)*.5f},{g.origin.x+w+gap,g.origin.y+(h-soh)*.5f}}};
+        const std::array<Point,4> docks{{{focusCorner.x+(fw-sw)*.5f,focusCorner.y-gap-soh},{focusCorner.x+(fw-sw)*.5f,focusCorner.y+fh+gap},
+            {focusCorner.x-gap-sw,focusCorner.y+(fh-soh)*.5f},{focusCorner.x+fw+gap,focusCorner.y+(fh-soh)*.5f}}};
 
         const unsigned preferred=std::min(o.selectorDock,3u);
         const std::array<unsigned,4> order{preferred,preferred^1u,(preferred+2)%4,((preferred+2)%4)^1u};
         float best=std::numeric_limits<float>::max();
         for(const auto side:order) {
             const auto p=clamp(docks[side]);
-            const float overlapX=std::max(0.f,std::min(p.x+sw,g.origin.x+w)-std::max(p.x,g.origin.x));
-            const float overlapY=std::max(0.f,std::min(p.y+soh,g.origin.y+h)-std::max(p.y,g.origin.y));
-            const float score=overlapX*overlapY;
+            // The selector avoids the tiles: the widget, or in the Free arrangement every placed tile.
+            const auto overlap=[&](Point corner,float width,float height) {
+                return std::max(0.f,std::min(p.x+sw,corner.x+width)-std::max(p.x,corner.x))*std::max(0.f,std::min(p.y+soh,corner.y+height)-std::max(p.y,corner.y));
+            };
+            float score=overlap(focusCorner,fw,fh);
+            if(free)for(std::size_t i=0;i<g.groups.tiles.size();++i) {
+                const float own=g.scale*tileScale(g.groups,i);
+                score+=overlap({g.origin.x+(g.groupOrigin.x+g.groups.tiles[i].x)*g.scale,g.origin.y+(g.groupOrigin.y+g.groups.tiles[i].y)*g.scale},g.groups.tileWidth*own,g.groups.tileHeight*own);
+            }
             if(score<best){selector=p;best=score;}
             if(score==0)break;
         }
@@ -278,21 +321,66 @@ inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsi
 // The selector's box on screen: its top-left corner and its size.
 inline Point selectorCorner(const HudGeometry& g){return {g.origin.x+g.selectorOrigin.x*g.scale,g.origin.y+g.selectorOrigin.y*g.scale-32*g.selectorScale};}
 inline Point selectorExtent(const HudGeometry& g){return {g.selectorWidth*g.selectorScale,(g.selectorHeight+32)*g.selectorScale};}
-// The three placeable elements: 0 widget, 1 selector, 2 equipment display.
+// The placeable elements: 0 widget, 1 selector, 2 equipment display, and in the Free arrangement 3 onward for the group
+// tiles in display order.
 struct ElementSlot {unsigned Options::*anchor;float Options::*x;float Options::*y;};
 inline constexpr ElementSlot elementSlots[]{{&Options::anchor,&Options::offsetX,&Options::offsetY},
     {&Options::selectorAnchor,&Options::selectorOffsetX,&Options::selectorOffsetY},{&Options::equipmentAnchor,&Options::equipmentOffsetX,&Options::equipmentOffsetY}};
-inline Point elementCorner(const HudGeometry& g,int element){return element==2?g.equipment.origin:element==1?selectorCorner(g):g.origin;}
+inline constexpr int firstTileElement=3;
+inline bool tileElement(int element){return element>=firstTileElement;}
+inline std::size_t tileSlot(int element){return std::size_t(element-firstTileElement);}
+inline Point elementCorner(const HudGeometry& g,int element) {
+    if(tileElement(element)&&tileSlot(element)<g.groups.tiles.size()) {
+        const auto tile=g.groups.tiles[tileSlot(element)];return {g.origin.x+(g.groupOrigin.x+tile.x)*g.scale,g.origin.y+(g.groupOrigin.y+tile.y)*g.scale};
+    }
+    return element==2?g.equipment.origin:element==1?selectorCorner(g):g.origin;
+}
 inline Point elementExtent(const HudGeometry& g,int element) {
+    if(tileElement(element)){const float own=g.scale*tileScale(g.groups,tileSlot(element));return {g.groups.tileWidth*own,g.groups.tileHeight*own};}
     return element==2?Point{g.equipment.width*g.equipment.scale,g.equipment.height*g.equipment.scale}:element==1?selectorExtent(g):Point{g.width*g.scale,g.height*g.scale};
+}
+inline unsigned elementAnchor(const Options& o,int element) {
+    if(tileElement(element))return tileSlot(element)<Arsenal::count?o.tilePlaces[o.groupOrder[tileSlot(element)]].anchor:unanchored;
+    return o.*elementSlots[element].anchor;
 }
 // An element's anchor and offset: the saved ones, or for an unanchored element those that match where it sits now.
 inline Anchored elementPlacement(const Options& o,const HudGeometry& g,int element,float screenX,float screenY) {
-    const auto& slot=elementSlots[element];
-    if(o.*slot.anchor<unanchored)return {o.*slot.anchor,o.*slot.x,o.*slot.y};
+    if(tileElement(element)) {
+        if(tileSlot(element)<Arsenal::count){const auto& t=o.tilePlaces[o.groupOrder[tileSlot(element)]];if(t.anchor<unanchored)return {t.anchor,t.x,t.y};}
+    }else {
+        const auto& slot=elementSlots[element];
+        if(o.*slot.anchor<unanchored)return {o.*slot.anchor,o.*slot.x,o.*slot.y};
+    }
     return anchorFor(elementCorner(g,element),elementExtent(g,element),o,screenX,screenY);
 }
-inline void placeElement(Options& o,int element,Anchored placement){const auto& slot=elementSlots[element];o.*slot.anchor=placement.anchor;o.*slot.x=placement.x;o.*slot.y=placement.y;}
+inline void placeElement(Options& o,int element,Anchored placement) {
+    if(tileElement(element)){if(tileSlot(element)<Arsenal::count){auto& t=o.tilePlaces[o.groupOrder[tileSlot(element)]];t.anchor=placement.anchor;t.x=placement.x;t.y=placement.y;}return;}
+    const auto& slot=elementSlots[element];o.*slot.anchor=placement.anchor;o.*slot.x=placement.x;o.*slot.y=placement.y;
+}
+inline bool hasUnplacedElements(const Options& o){return o.anchor>=unanchored||o.equipmentAnchor>=unanchored||(o.selectorDock==4&&o.selectorAnchor>=unanchored);}
+// Gives every element that still uses an old proportional position the anchor and offset that keep it where it is.
+inline bool anchorUnplacedElements(Options& o,float screenX,float screenY) {
+    if(screenX<=0||screenY<=0)return false;
+    const auto g=hudGeometry(o,screenX,screenY);bool changed=false;
+    for(int element=0;element<3;++element) {
+        if(element==1&&o.selectorDock!=4)continue;
+        if(o.*elementSlots[element].anchor<unanchored)continue;
+        placeElement(o,element,anchorFor(elementCorner(g,element),elementExtent(g,element),o,screenX,screenY));changed=true;
+    }
+    return changed;
+}
+// Places every visible tile where the given arrangement puts it and switches to the Free arrangement.
+inline void freeTilesFrom(Options& o,unsigned arrangement,float screenX,float screenY) {
+    auto source=o;source.layout=arrangement==freeLayout?2u:arrangement;
+    const auto g=hudGeometry(source,screenX,screenY);
+    for(std::size_t slot=0;slot<g.groups.tiles.size();++slot) {
+        const int element=firstTileElement+int(slot);
+        o.tilePlaces[o.groupOrder[slot]]={};
+        const auto placed=anchorFor(elementCorner(g,element),elementExtent(g,element),o,screenX,screenY);
+        o.tilePlaces[o.groupOrder[slot]]={placed.anchor,placed.x,placed.y,1};
+    }
+    o.layout=freeLayout;
+}
 struct EditorGeometry {float scale=1,width=1220,height=800;};
 inline EditorGeometry editorGeometry(const Options&,float screenX,float screenY) {
     EditorGeometry g;
@@ -320,13 +408,14 @@ inline SnapAxis snapPlacementAxis(float value,float extent,float screen,float lo
     const float snapped=value+delta/travel,clamped=std::clamp(snapped,0.f,1.f);
     return {clamped,guide,snapped==clamped};
 }
-inline HudGeometry previewGeometry(const Options& o,float screenX,float screenY,float width,float height,bool selector,bool groups=true,bool equipment=false,unsigned rows=4,const EquipmentMetrics& metrics={},std::size_t selectorCount=5,float zoom=0) {
+inline HudGeometry previewGeometry(const Options& o,float screenX,float screenY,float width,float height,bool selector,bool groups=true,bool equipment=false,unsigned rows=4,const EquipmentMetrics& metrics={},std::size_t selectorCount=5,float zoom=0,std::size_t activeSlot=0) {
     const auto arrange=[&](const Options& look) {
-        auto g=hudGeometry(look,screenX,screenY,rows,metrics,selectorCount);g.origin={};g.equipment.origin={};
+        auto g=hudGeometry(look,screenX,screenY,rows,metrics,selectorCount,activeSlot);g.origin={};g.equipment.origin={};
         if(selector&&groups&&!equipment) {
-            const float ratio=g.selectorScale/g.scale,w=g.width,h=g.height,sw=g.selectorWidth*ratio,sh=(g.selectorHeight+32)*ratio,gap=look.selectorGap;
-            const std::array<Point,4> docks{{{(w-sw)*.5f,-gap-sh},{(w-sw)*.5f,h+gap},
-                {-gap-sw,(h-sh)*.5f},{w+gap,(h-sh)*.5f}}};
+            // A docked selector sits beside the focus: the whole widget, or in the Free arrangement the tile in use.
+            const float ratio=g.selectorScale/g.scale,fx=g.groupOrigin.x+g.focus.min.x,fy=g.groupOrigin.y+g.focus.min.y,w=g.focus.width(),h=g.focus.height(),sw=g.selectorWidth*ratio,sh=(g.selectorHeight+32)*ratio,gap=look.selectorGap;
+            const std::array<Point,4> docks{{{fx+(w-sw)*.5f,fy-gap-sh},{fx+(w-sw)*.5f,fy+h+gap},
+                {fx-gap-sw,fy+(h-sh)*.5f},{fx+w+gap,fy+(h-sh)*.5f}}};
 
             g.selectorOrigin=docks[look.selectorDock<4?look.selectorDock:0];g.selectorOrigin.y+=32*ratio;
         }

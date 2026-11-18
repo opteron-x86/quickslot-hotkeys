@@ -36,6 +36,8 @@ class Editor {
     std::map<unsigned,PadDraft> padDrafts_;
     bool placement_=false,previewOpen_=true;
     int placementPanelTarget_=-1;
+    // The group tile, by display position, that Free placement controls work on.
+    std::size_t placementTile_=0;
     bool placementPanelRight_=false;
     std::string hint_;
     ImVec2 mouse_{},dragStart_{},nudge_{};

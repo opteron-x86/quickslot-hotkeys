@@ -64,7 +64,7 @@ int main(int argc,char** argv)try {
     const std::string bytes((std::istreambuf_iterator<char>(file)),{});const auto saved=Json::parse(bytes);const auto persisted=decodeArsenal(bytes,identity);
     check(persisted.size()==23&&[&]{auto upgraded=Json::parse(encodeArsenal(persisted));upgraded.erase("shortcuts");for(auto& group:upgraded["groups"])for(auto& entry:group["entries"])entry.erase("shortcut");return upgraded==saved;}(),"Current save retains every entry, identity and selection");
 
-    Options o;o.names[5]="Magie — Épée";o.layout=3;o.selector=2;o.shape=1;o.groupCount=6;o.positionX=.27f;o.positionY=.38f;o.keys[5]=61;o.showHints=true;o.themeId="oathvein";o.selectorShape=3;o.selectorSpacing=0;o.showLabels=false;o.keyIcons=false;o.coloredMagic=false;
+    Options o;o.names[5]="Magie — Épée";o.layout=3;o.selector=2;o.shape=1;o.groupCount=6;o.anchor=unanchored;o.positionX=.27f;o.positionY=.38f;o.keys[5]=61;o.showHints=true;o.themeId="oathvein";o.selectorShape=3;o.selectorSpacing=0;o.showLabels=false;o.keyIcons=false;o.coloredMagic=false;
     const auto settings=encodeOptions(o);check(encodeOptions(decodeOptions(settings))==settings,"Names, bindings, eight groups and independent layouts persist");
     for(unsigned preset=0;preset<3;++preset) {
         auto styled=o;layoutPreset(styled,preset);
@@ -76,7 +76,7 @@ int main(int argc,char** argv)try {
     auto broken=o;broken.keys[0]=14;broken.keys[1]=broken.keys[2];broken.editorKey=broken.keys[3];broken.scale=NAN;broken.spacing=999;broken.groupCount=999;broken.layout=999;
     sanitizeOptions(broken);check(broken.keys[0]!=14&&broken.keys[1]!=broken.keys[2],"Reserved/duplicate group keys sanitized");
     check(!broken.editorKey||std::find(broken.keys.begin(),broken.keys.end(),broken.editorKey)==broken.keys.end(),"Editor key cannot collide with any group");
-    check(broken.scale==1&&broken.spacing==128&&broken.groupCount==8&&broken.layout==6,"Invalid layout settings bounded");
+    check(broken.scale==1&&broken.spacing==128&&broken.groupCount==8&&broken.layout==freeLayout,"Invalid layout settings bounded");
     const auto defaults=decodeOptions(encodeOptions(Options{}));
     check(!Options{}.introSeen&&!defaults.introSeen&&!defaults.gameplayEditing,"A new installation shows the first-run hint and keeps editing chords out of gameplay");
     {
@@ -111,7 +111,7 @@ int main(int argc,char** argv)try {
     for(const auto& [field,value]:complete.items()) {
         if(storedSetting(field)||field=="activePreset"||field=="controllerPreset"||field=="keyboardPreset"||field=="textColor"||field=="selectionColor"||field=="groupColored"||field=="groupColors")continue;
         if(field=="swapKey"||field=="doubleTapSwap"||field=="animateHud"||field=="uiSounds"||field=="i4Icons"||field=="equippedMarkerScale"||field=="customEquippedColor"||field=="equippedColor"||field=="fontId"||field=="holdDelay"||field=="cycleDelay"||field=="separateConsumableUse"||field=="consumableKey"||field=="controllerUse"||field=="vrUse"||field=="cycleKeepOtherHand"||field=="pngiiIcons"||field=="layoutVersion"||field=="equipmentShowText"||field=="showEquipmentAmmo"||field=="showPoison"||field=="showAmmo"||field=="mouseActions"||field=="groupModifiers"||field=="selectorBindings"||field=="allowUnusedModifiers"||field=="controllerActions")continue;
-        if(field=="gameplayEditing"||field=="introSeen"||field=="advancedAppearance"||field=="quickLootKeyboard"||field=="quickLootController"||field=="controllerModifiers"||field=="groupModes"||field=="autoSort"||field=="groupUnequipHotkey"||field=="groupRemoveHotkey"||field=="groupCaptureRightHotkey"||field=="groupCaptureLeftHotkey"||field=="groupMoveHotkey"||field=="selectorReorderHotkey"||field=="selectorUnequipHotkey"||field=="selectorRemoveHotkey"||field=="language"||field=="keepDrawnVisible"||field=="textScale"||field=="placementSpacing"||field=="placementFrame"||field=="placementGridSize"||
+        if(field=="tilePlaces"||field=="gameplayEditing"||field=="introSeen"||field=="advancedAppearance"||field=="quickLootKeyboard"||field=="quickLootController"||field=="controllerModifiers"||field=="groupModes"||field=="autoSort"||field=="groupUnequipHotkey"||field=="groupRemoveHotkey"||field=="groupCaptureRightHotkey"||field=="groupCaptureLeftHotkey"||field=="groupMoveHotkey"||field=="selectorReorderHotkey"||field=="selectorUnequipHotkey"||field=="selectorRemoveHotkey"||field=="language"||field=="keepDrawnVisible"||field=="textScale"||field=="placementSpacing"||field=="placementFrame"||field=="placementGridSize"||
            field=="equipmentX"||field=="equipmentY"||field=="equipmentScale"||field=="equipmentTextScale"||field=="equipmentSpacing"||field=="showEquipment"||field=="hideEmptyGroups"||field=="inactiveGroups"||field=="inactiveGroupOpacity"||
            field=="equipmentDim"||field=="equipmentStyle"||field=="equipmentLayout"||field=="equipmentTextPosition"||field=="equipmentFadeDelay"||field=="equipmentIdleOpacity")continue;
         auto incomplete=complete;incomplete.erase(field);bool rejected=false;

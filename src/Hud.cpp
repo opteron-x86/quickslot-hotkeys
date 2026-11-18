@@ -400,8 +400,11 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     const bool notification=noticed||tipped;
     const auto screen=viewport.x>0&&viewport.y>0?viewport:ImGui::GetIO().DisplaySize;
     const auto metrics=equipmentMetrics(state.equipment,o);
-    auto geometry=hudGeometry(o,screen.x,screen.y,equipmentRows(state.equipment,o),metrics,state.rows.size());
-    if(state.editorPreview&&!state.placementPreview&&list){const auto display=ImGui::GetIO().DisplaySize;geometry=previewGeometry(o,display.x,display.y,screen.x,screen.y,state.browsing,!state.selectorOnly,state.equipmentOnly,equipmentRows(state.equipment,o),metrics,state.rows.size(),state.previewZoom);}
+    // The display position of the group in use; the Free arrangement gathers the selector and notices around its tile.
+    std::size_t activeSlot=0;for(std::size_t i=0;i<o.groupOrder.size();++i)if(o.groupOrder[i]==state.activeGroup)activeSlot=i;
+    auto geometry=hudGeometry(o,screen.x,screen.y,equipmentRows(state.equipment,o),metrics,state.rows.size(),activeSlot);
+    if(state.editorPreview&&!state.placementPreview&&list){const auto display=ImGui::GetIO().DisplaySize;geometry=previewGeometry(o,display.x,display.y,screen.x,screen.y,state.browsing,!state.selectorOnly,state.equipmentOnly,equipmentRows(state.equipment,o),metrics,state.rows.size(),state.previewZoom,activeSlot);}
+    const auto& focus=geometry.focus;
     const float scale=geometry.scale;
     const auto& theme=this->theme(o);const auto& skin=skins_.at(theme.id);
     Paint p{list?list:ImGui::GetBackgroundDrawList(),
@@ -611,8 +614,10 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         const int quantity=selected&&active?active->quantity:tile.quantity;
         const float cooldown=selected&&active?active->cooldown:tile.cooldown;
         const auto weapon=selected&&active?active->weapon:tile.weapon;
-        const auto pos=geometry.groups.tiles[i];const float x=pos.x,y=pos.y;
+        const auto pos=geometry.groups.tiles[i];float x=pos.x,y=pos.y;
         auto q=groups;q.alpha*=groupAlpha;q.groupAccent=groupColor(id);
+        // A Free tile with its own size draws from its corner at that size.
+        if(const float own=tileScale(geometry.groups,i);own!=1){q.origin=q.p(x,y);q.scale*=own;x=y=0;}
         const float text=groups.textFactor;   // card rows follow the widget's text size
         const ImU32 nameColor=q.groupAccent?*q.groupAccent:selected?ImU32(ivory):ImU32(silver);
         const bool previewing=selected&&state.browsing;
@@ -713,9 +718,9 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             caption.label(chosen->x+(chosen->align==1?width*.5f:chosen->align==2?width:0.f),chosen->y,name,15,active->available?ivory:muted,true,width,chosen->align==1,chosen->align==2);
         } else {
             // With no clear spot beside the tile, the name is centered under the widget, or over it at the screen's foot.
-            captionAbove=groups.origin.y-origin.y+(geometry.groups.height+geometry.captionHeight)*scale>screen.y-8;
-            caption.origin.x=origin.x+std::clamp(groups.origin.x-origin.x+geometry.groups.width*scale*.5f,8+limit*scale*.5f,screen.x-8-limit*scale*.5f);
-            const float y=captionAbove?-geometry.captionHeight:geometry.groups.height+7;
+            captionAbove=groups.origin.y-origin.y+(focus.max.y+geometry.captionHeight)*scale>screen.y-8;
+            caption.origin.x=origin.x+std::clamp(groups.origin.x-origin.x+(focus.min.x+focus.width()*.5f)*scale,8+limit*scale*.5f,screen.x-8-limit*scale*.5f);
+            const float y=captionAbove?focus.min.y-geometry.captionHeight:focus.max.y+7;
             caption.origin.y=std::clamp(groups.origin.y+y*scale,origin.y+8,origin.y+screen.y-8-geometry.captionHeight*scale);
             caption.label(0,0,name,15,active->available?ivory:muted,true,limit,true);
         }
@@ -763,13 +768,13 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         // A notice sits above the open selector, or above the widget while the selector is closed.
         auto toast=state.browsing?p:groups;if(noticed)toast.alpha*=float(std::clamp((state.noticeUntil-now)/.35,0.,1.));const float text=toast.textFactor;
         if(!state.browsing){
-            const float width=std::min(std::max(240.f,geometry.groups.width),(screen.x-16)/scale);
-            toast.origin.x=origin.x+std::clamp(groups.origin.x-origin.x+geometry.groups.width*scale*.5f,8+width*scale*.5f,screen.x-8-width*scale*.5f)-center*scale;
-            toast.origin.y=groups.origin.y-(captionAbove&&showGroups&&active?geometry.captionHeight+8:8.f)*scale;
-            if(toast.origin.y-origin.y-27*text*scale<8)toast.origin.y=groups.origin.y+(geometry.height+geometry.captionHeight+35*text)*scale;
+            const float width=std::min(std::max(240.f,focus.width()),(screen.x-16)/scale);
+            toast.origin.x=origin.x+std::clamp(groups.origin.x-origin.x+(focus.min.x+focus.width()*.5f)*scale,8+width*scale*.5f,screen.x-8-width*scale*.5f)-center*scale;
+            toast.origin.y=groups.origin.y+(focus.min.y-(captionAbove&&showGroups&&active?geometry.captionHeight+8:8.f))*scale;
+            if(toast.origin.y-origin.y-27*text*scale<8)toast.origin.y=groups.origin.y+(focus.max.y+geometry.captionHeight+35*text)*scale;
             toast.origin.y=std::clamp(toast.origin.y,origin.y+8+27*text*scale,origin.y+screen.y-8);
         }
-        toast.label(center,-27*text,noticed?state.notice:state.tip,13,ivory,false,state.browsing?410.f:std::max(240.f,geometry.groups.width),true);
+        toast.label(center,-27*text,noticed?state.notice:state.tip,13,ivory,false,state.browsing?410.f:std::max(240.f,focus.width()),true);
         toast.rule(center,-6,36);
         if(bounds)collect(noticeStart,state.browsing?bounds->selector:bounds->widget);
     }

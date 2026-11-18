@@ -1767,6 +1767,13 @@ void Game::draw(bool editing) {
     if(snapshot.visible||editing||REL::Module::IsVR()) {
         auto commands=renderHud(snapshot,options,editing?&editor:nullptr,input);
         for(auto& command:commands)SKSE::GetTaskInterface()->AddTask([this,c=std::move(command)]{edit(c);});
+        // Settings from before anchors keep their place once, as an anchor and offset, now that the screen size is known.
+        if(!editing&&hasUnplacedElements(options))SKSE::GetTaskInterface()->AddTask([this]{
+            std::scoped_lock lock(mutex_);const auto [width,height]=renderSize();
+            if(editor_.open||!anchorUnplacedElements(options_,width,height))return;
+            if(!characterSettings_){sharedOptions_=options_;autosave_.change(clockNow());}
+            dirty_=true;log::info("Placement converted to anchors");
+        });
     }
 }
 void Game::drawVR() {

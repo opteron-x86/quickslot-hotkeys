@@ -25,6 +25,8 @@ inline constexpr char editorMenuName[]="QuickslotEditor";
 double clockNow();
 std::filesystem::path dataDirectory();
 std::vector<EditCommand> renderHud(const Snapshot&,const Options&,const EditorState*,const std::vector<EditorInput>&);
+// The size of the last frame the HUD drew, or zero before the first.
+std::pair<float,float> renderSize();
 bool renderHasFocus();
 void runUIIconTasks();
 class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,

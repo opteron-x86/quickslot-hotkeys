@@ -23,6 +23,8 @@ Updating: group keys held with Ctrl, Shift or Alt now select the group during ga
 - **Settings → Reset Quickslot** returns every setting to its default and starts the character's groups from Skyrim Favorites. Presets stay and Undo restores everything while the editor is open.
 - Appearance pages start with their main settings. **Show advanced settings** adds spacing, text sizes, exact placement, idle fading and the less common display options; earlier settings start with it on.
 - A group's tile pulses when its key is pressed for an item that is already equipped.
+- **Free** under **Appearance → Widget → Arrangement** gives each group's tile its own position and size. Drag and resize tiles one at a time in **Position**, or set them under **Placement**. The selector, item name and notices gather around the tile in use.
+- Positions saved by earlier versions as a share of the screen become an anchor and offset the first time the HUD draws, without moving.
 - I4 is optional. Without it, each item shows SkyUI's category icon for its type.
 - **Use I4 icons** is under **Appearance → Theme → Icons**. With it off, tiles show PNGII artwork only.
 - Every built-in look shows the equipment display as a vertical list at the middle of the left edge.

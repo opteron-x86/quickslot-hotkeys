@@ -2,6 +2,9 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "Tile": "Tile",
+    "Reset tile positions": "Reset tile positions",
+    "Each group's tile has its own position and size. Drag them in Position.": "Each group's tile has its own position and size. Drag them in Position.",
     "FAVORITES": "FAVORITES",
     "Favorite items in Skyrim's Inventory or Magic menu to add them here. This group shows every matching favorite in name order.": "Favorite items in Skyrim's Inventory or Magic menu to add them here. This group shows every matching favorite in name order.",
     "Switch back to Manual to restore the original group contents. Exclude hides an entry from this group without changing Skyrim Favorites.": "Switch back to Manual to restore the original group contents. Exclude hides an entry from this group without changing Skyrim Favorites.",

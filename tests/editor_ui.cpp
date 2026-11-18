@@ -194,7 +194,7 @@ int main(int argc,char** argv)try {
     const auto cornerOf=[&](int target){return elementCorner(currentGeometry(state.options),target);};
     const auto near=[](Point a,Point b,float slack=.05f){return std::abs(a.x-b.x)<slack&&std::abs(a.y-b.y)<slack;};
     click("Position");check(!probe::find("Drag widget").empty(),"Full-screen placement opens");
-    check(state.options.anchor==unanchored,"Opening Position mode leaves an untouched widget as it was");
+    check(state.options.anchor==Options{}.anchor,"Opening Position mode leaves an untouched widget as it was");
     const auto untouched=cornerOf(0);
     const auto dragArea=probe::one("Drag widget").rect;mouse(dragArea.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,-60,-40}});frame({{EditorInputType::button,0,false}});frame();
@@ -783,7 +783,7 @@ int main(int argc,char** argv)try {
             Snapshot fresh;fresh.visible=true;fresh.revealUntil=1e12;fresh.activeGroup=3;fresh.selected=0;
             Entry axe=unarmedEntry();axe.name="Axe";fresh.rows.push_back({axe,true,true,{}});
             for(std::size_t i=0;i<4;++i)fresh.groups[i]={axe,1,true,i==3};
-            Options row;row.groupCount=4;row.layout=0;row.shape=3;row.showLabels=false;row.spacing=60;row.positionX=row.positionY=.5f;row.animateHud=false;
+            Options row;row.groupCount=4;row.layout=0;row.shape=3;row.showLabels=false;row.spacing=60;row.anchor=unanchored;row.positionX=row.positionY=.5f;row.animateHud=false;
             const auto below=[&](const Options& look,HudBounds& b) {
                 ImGui::NewFrame();hud.draw(fresh,look,300,{}, {},nullptr,&b);ImGui::Render();
                 float floor=0;for(const auto& tile:b.tiles)floor=std::max(floor,tile.max.y);
@@ -793,7 +793,7 @@ int main(int argc,char** argv)try {
             check(b.tiles.size()==4&&caption.valid&&caption.min.x>b.tiles[2].max.x-8&&caption.max.x<b.tiles[3].max.x+8,"A newly selected item's name appears under its own group's tile");
             fresh.activeGroup=0;fresh.groups[0].equipped=true;const auto first=below(row,b);
             check(first.valid&&first.max.x<b.tiles[1].min.x+8,"The name follows the selected group");
-            Options named;cardsPreset(named);named.groupCount=4;named.shape=0;named.showCardNames=true;named.positionX=named.positionY=.5f;named.animateHud=false;
+            Options named;cardsPreset(named);named.groupCount=4;named.shape=0;named.showCardNames=true;named.anchor=unanchored;named.positionX=named.positionY=.5f;named.animateHud=false;
             check(!below(named,b).valid,"Cards that show item names carry the name themselves");
             // A browsed group's tile is outlined in its accent.
             Options tinted=row;tinted.groupColored[0]=true;tinted.groupColors[0]={1,0,1};
@@ -1051,6 +1051,30 @@ int main(int argc,char** argv)try {
     click("##group tap");click("Step to the next item");
     check(state.options.groupModes[0]==GroupMode::cycleBrowse&&probe::find("Consumables").empty(),"A stepping group selects consumables and needs no separate choice");
     click("Undo");check(state.options.groupModes[0]==GroupMode::browse&&state.options.separateConsumableUse[0]&&!probe::find("Consumables").empty(),"Undo restores the group's behavior and its consumable choice");
+    {
+        // The Free arrangement places and sizes each group's tile.
+        state=fixture::editor();state.session=session++;io.DisplaySize={1600,900};state.options.groupCount=4;frame();frame();
+        click("Appearance");click("Widget");click("##layout");click("Free");
+        check(state.options.layout==freeLayout&&state.options.tilePlaces[state.options.groupOrder[0]].anchor<unanchored&&state.options.tilePlaces[state.options.groupOrder[3]].anchor<unanchored,"Choosing Free places every visible tile");
+        click("Undo");check(state.options.layout!=freeLayout,"Choosing Free is one undoable change");
+        click("##layout");click("Free");
+        check(!probe::find("##free tile").empty()&&!probe::find("##free tile size").empty()&&!probe::find("Reset tile positions").empty(),"Free shows a tile picker, a tile size and a reset");
+        click("##free tile");click("Magic");
+        const auto magic=state.options.groupOrder[2];const auto beforeSize=state.options.tilePlaces[magic].scale;
+        // Tiles spread to the four edges, so each one can be grabbed on its own.
+        for(int slot=0;slot<4;++slot)state.options.tilePlaces[state.options.groupOrder[std::size_t(slot)]]={std::array<unsigned,4>{3,5,1,7}[std::size_t(slot)],0,0,1};frame();
+        click("Position");
+        check(!probe::find("Drag tile 1").empty()&&!probe::find("Drag tile 4").empty()&&probe::find("Drag widget").empty(),"Position mode drags each tile in place of the whole widget");
+        check(!probe::find("Tile size").empty(),"Position mode sizes the chosen tile");
+        // The tile on the right edge is clear of the Position panel.
+        const auto start=state.options.tilePlaces[state.options.groupOrder[1]];const auto others=state.options.tilePlaces[state.options.groupOrder[0]];
+        mouse(probe::one("Drag tile 2").rect.GetCenter());frame({{EditorInputType::button,0,true}});
+        frame({{EditorInputType::move,0,false,-200,40}});frame({{EditorInputType::button,0,false}});frame();
+        check(!(state.options.tilePlaces[state.options.groupOrder[1]]==start)&&state.options.tilePlaces[state.options.groupOrder[0]]==others,"Dragging one tile leaves the others where they are");
+        check(state.options.tilePlaces[magic].scale==beforeSize,"Dragging leaves tile sizes alone");
+        click("Back");click("Reset tile positions");
+        check(state.options.layout==freeLayout&&state.options.tilePlaces[state.options.groupOrder[0]].scale==1,"Reset tile positions lines the tiles up again");
+    }
     {
         // Settings holds the preferences and the reset; Appearance has a simple and an advanced view.
         state=fixture::editor();state.session=session++;io.DisplaySize={1600,900};frame();frame();

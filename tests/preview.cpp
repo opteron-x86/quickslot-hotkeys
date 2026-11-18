@@ -174,7 +174,7 @@ int main(int argc,char** argv) {
     if(scene=="editor-behavior-pause")editing.options.selectionSpeed=0;
     if(scene.starts_with("edge-")) {
         options.groupCount=4;layoutPreset(options,0);options.scale=1.25f;
-        options.positionX=scene.find("left")!=std::string::npos?0.f:1.f;
+        options.anchor=unanchored;options.positionX=scene.find("left")!=std::string::npos?0.f:1.f;
         options.positionY=scene.find("top")!=std::string::npos?0.f:1.f;
         snapshot.activeGroup=0;snapshot.rows.clear();
         for(const auto i:{0,1,2})snapshot.rows.push_back({editing.catalog[i].entry,true,i==1,{}});
@@ -192,7 +192,7 @@ int main(int argc,char** argv) {
             snapshot.groups[1]={snapshot.rows[0].entry,3,true,true,32};
         }
     }
-    if(scene=="editor-position-grid"){editing.options.placementGrid=editing.options.placementSnap=true;editing.options.positionX=.75f;editing.options.positionY=.8f;}
+    if(scene=="editor-position-grid"){editing.options.placementGrid=editing.options.placementSnap=true;editing.options.anchor=unanchored;editing.options.positionX=.75f;editing.options.positionY=.8f;}
     if(scene=="editor-presets") {
         editing.presets={"Combat - Oathvein","Nordic circles"};std::map<std::string,PresetInfo> info;
         Options oathvein=editing.options;oathvein.themeId="oathvein";layoutPreset(oathvein,1);info["Combat - Oathvein"]={true,oathvein};
@@ -214,7 +214,7 @@ int main(int argc,char** argv) {
     }
     if(scene.starts_with("v081-")) {
         layoutPreset(options,2);options.themeId="oathvein";options.groupCount=4;
-        options.positionX=.85f;options.positionY=.85f;options.selectorDock=2;
+        options.anchor=unanchored;options.positionX=.85f;options.positionY=.85f;options.selectorDock=2;
         options.names={"Arsenal","Offhand","Supplies","Voice","Group 5","Group 6","Group 7","Group 8"};
         snapshot.activeGroup=0;snapshot.rows.clear();
         for(const auto i:{0,1,2,3,4,5,6})snapshot.rows.push_back({editing.catalog[i].entry,true,i==0,{}});
@@ -249,12 +249,12 @@ int main(int argc,char** argv) {
     }
     if(scene=="editor-position-bounds"||scene=="editor-position-custom") {
         editing.options.themeId="oathvein";editing.options.placementGrid=true;editing.options.placementSnap=true;
-        editing.options.placementFrame=3;editing.options.placementSpacing=2;editing.options.positionX=.8f;editing.options.positionY=.7f;
+        editing.options.placementFrame=3;editing.options.placementSpacing=2;editing.options.anchor=unanchored;editing.options.positionX=.8f;editing.options.positionY=.7f;
         editing.options.groupCount=4;layoutPreset(editing.options,1);
         if(scene=="editor-position-custom"){editing.options.placementSpacing=3;editing.options.placementGridSize=48;}
     }
     if(scene.starts_with("text-")) {
-        options.themeId="oathvein";options.scale=.55f;options.showHints=true;options.showLabels=true;options.positionX=.6f;options.positionY=.8f;
+        options.themeId="oathvein";options.scale=.55f;options.showHints=true;options.showLabels=true;options.anchor=unanchored;options.positionX=.6f;options.positionY=.8f;
         options.groupCount=4;options.shape=1;options.layout=2;
         if(scene.find("large")!=std::string::npos)options.textScale=1.5f;
         if(scene.find("ring")!=std::string::npos)options.selector=2;
@@ -270,7 +270,7 @@ int main(int argc,char** argv) {
         if(scene.find("text")!=std::string::npos)options.equipmentStyle=4;
         if(scene.find("ring")!=std::string::npos){options.selector=2;options.shape=1;}
         if(scene.find("small")!=std::string::npos){options.scale=.55f;options.textScale=1.5f;}
-        if(scene.find("diamonds")!=std::string::npos){options.themeId="oathvein";options.shape=3;options.selectorShape=3;options.selector=1;options.layout=2;options.groupCount=4;options.spacing=4;options.selectorSpacing=8;options.scale=1.5f;options.equipmentStyle=1;options.positionX=.5f;options.positionY=1;options.showLabels=false;}
+        if(scene.find("diamonds")!=std::string::npos){options.themeId="oathvein";options.shape=3;options.selectorShape=3;options.selector=1;options.layout=2;options.groupCount=4;options.spacing=4;options.selectorSpacing=8;options.scale=1.5f;options.equipmentStyle=1;options.anchor=unanchored;options.positionX=.5f;options.positionY=1;options.showLabels=false;}
     }
     if(scene.find("equipment-ammo")!=std::string::npos) {
         options.showEquipment=options.showEquipmentAmmo=true;Entry ammo;ammo.kind=Kind::ammo;ammo.name="Dwarven Bolts";snapshot.equipment.ammo=Row{ammo,true,true,{},147};
@@ -284,7 +284,7 @@ int main(int argc,char** argv) {
     std::vector<std::string> previewClicks;
     if(scene.starts_with("equipped-")) {
         options.themeId="oathvein";layoutPreset(options,2);options.groupCount=4;options.showEquipment=true;options.inactiveGroups=1;
-        options.positionX=.9f;options.positionY=.8f;options.showCardNames=true;
+        options.anchor=unanchored;options.positionX=.9f;options.positionY=.8f;options.showCardNames=true;
         snapshot.browsing=false;snapshot.equipment=editing.equippedDisplay;snapshot.selected=snapshot.preview=0;
         snapshot.activeGroup=0;snapshot.rows={{editing.catalog[0].entry,true,true}};
         snapshot.groups[0]={editing.catalog[0].entry,4,true,true};
@@ -333,6 +333,7 @@ int main(int argc,char** argv) {
     if(scene=="editor-controller-position"){editing.options.placementGrid=true;previewClicks={"Appearance","Widget","Position"};}
     if(scene=="editor-layout")previewClicks={"Appearance"};
     if(scene=="editor-settings")previewClicks={"Settings##main"};
+    if(scene=="editor-free"||scene=="editor-free-position"){editing.options.groupCount=4;editing.options.layout=freeLayout;for(int slot=0;slot<4;++slot)editing.options.tilePlaces[editing.options.groupOrder[std::size_t(slot)]]={std::array<unsigned,4>{3,5,1,7}[std::size_t(slot)],0,0,slot==2?1.6f:1.f};previewClicks=scene=="editor-free"?std::vector<std::string>{"Appearance","Widget"}:std::vector<std::string>{"Appearance","Widget","Position"};}
     if(scene=="editor-simple")previewClicks={"Appearance","Widget","Show advanced settings"};
     if(scene=="editor-pngii")previewClicks={"Appearance","Theme","Use PNGII icons","Use PNGII icons"};
     if(scene=="editor-groups")previewClicks={"Appearance","Widget"};

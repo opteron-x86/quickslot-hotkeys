@@ -123,7 +123,7 @@ int main()try {
         }
     }
     for(unsigned dock=0;dock<5;++dock)for(float own:{.5f,2.f}) {
-        Options sized;sized.selectorDock=dock;sized.scale=1;sized.positionX=.5f;sized.positionY=.6f;const auto linked=hudGeometry(sized,1920,1080);
+        Options sized;sized.selectorDock=dock;sized.scale=1;sized.anchor=unanchored;sized.positionX=.5f;sized.positionY=.6f;const auto linked=hudGeometry(sized,1920,1080);
         sized.selectorScaleLinked=false;sized.selectorScale=own;const auto free=hudGeometry(sized,1920,1080);
         check(linked.selectorScale==linked.scale&&std::abs(free.selectorScale-own*free.scale)<.001f&&free.scale==linked.scale,"The selector takes its own scale once unlinked and the widget keeps its size");
         check(free.origin.x==linked.origin.x&&free.origin.y==linked.origin.y,"Resizing the selector leaves the widget where it is");
@@ -151,7 +151,7 @@ int main()try {
     }
     {
         Options fresh;const auto g=hudGeometry(fresh,1920,1080);const auto shown=elementPlacement(fresh,g,0,1920,1080);
-        check(fresh.anchor==unanchored&&shown.anchor==8&&std::abs(shown.x+8)<.01f&&std::abs(shown.y+8)<.01f,"A new installation shows its bottom-right position as an anchor and offset");
+        check(fresh.anchor==8&&shown.anchor==8&&std::abs(shown.x+8)<.01f&&std::abs(shown.y+8)<.01f,"A new installation shows its bottom-right position as an anchor and offset");
         auto anchored=fresh;placeElement(anchored,0,shown);const auto after=hudGeometry(anchored,1920,1080);
         check(std::abs(after.origin.x-g.origin.x)<.01f&&std::abs(after.origin.y-g.origin.y)<.01f,"Saving that anchor keeps the widget in place");
         anchored.selectorDock=4;placeElement(anchored,1,{4,25,-40});placeElement(anchored,2,{6,30,-190});anchored.anchorFrame=1;
@@ -161,7 +161,7 @@ int main()try {
         earlier["positionX"]=.3f;earlier["positionY"]=.6f;const auto loaded=decodeOptions(earlier.dump());
         check(loaded.anchor==unanchored&&loaded.selectorAnchor==unanchored&&loaded.equipmentAnchor==unanchored&&loaded.positionX==.3f&&loaded.positionY==.6f,"Settings saved before anchors keep their proportional positions");
         Options wild;wild.anchor=77;wild.offsetX=1e9f;wild.offsetY=NAN;wild.anchorFrame=12;sanitizeOptions(wild);
-        check(wild.anchor==unanchored&&wild.offsetX==8000&&wild.offsetY==0&&wild.anchorFrame==3,"Invalid placement values are bounded");
+        check(wild.anchor==unanchored&&wild.offsetX==8000&&wild.offsetY==Options{}.offsetY&&wild.anchorFrame==3,"Invalid placement values are bounded");
         Options look;importAppearance(look,anchored);check(look.anchor==8&&look.selectorAnchor==4&&look.anchorFrame==1,"Appearance presets carry anchored placement");
     }
     {
@@ -260,5 +260,53 @@ int main()try {
     const auto smaller=previewGeometry(resized,1920,1080,600,440,false,true,false,4,{},5,1);resized.scale=1.5f;
     const auto larger=previewGeometry(resized,1920,1080,600,440,false,true,false,4,{},5,1);
     check(larger.scale>smaller.scale*1.9f,"Widget scale changes icon size in the preview");
+    {
+        // The Free arrangement: every group tile has its own anchor, offset and size.
+        const float W=1920,H=1080;
+        Options arranged;arranged.groupCount=4;arranged.layout=2;arranged.shape=3;
+        const auto before=hudGeometry(arranged,W,H);
+        auto free=arranged;freeTilesFrom(free,2,W,H);const auto after=hudGeometry(free,W,H);
+        check(free.layout==freeLayout,"Choosing Free switches the arrangement");
+        bool same=true;for(int slot=0;slot<4;++slot){const auto a=elementCorner(before,firstTileElement+slot),b=elementCorner(after,firstTileElement+slot);same&=std::abs(a.x-b.x)<.5f&&std::abs(a.y-b.y)<.5f;}
+        check(same,"Free starts with every tile where the previous arrangement had it");
+        auto split=free;placeElement(split,firstTileElement+0,{3,16,0});placeElement(split,firstTileElement+1,{3,16,120});
+        placeElement(split,firstTileElement+2,{5,-16,0});placeElement(split,firstTileElement+3,{5,-16,120});
+        const auto sides=hudGeometry(split,W,H);
+        const auto left=elementCorner(sides,firstTileElement+0),right=elementCorner(sides,firstTileElement+2);
+        check(left.x<W*.2f&&right.x+elementExtent(sides,firstTileElement+2).x>W*.8f&&std::abs(left.y+elementExtent(sides,firstTileElement).y*.5f-H*.5f)<2,"Two tiles can sit on each side of the screen");
+        check(std::abs(sides.scale-hudGeometry(arranged,W,H).scale)<.001f,"Spreading tiles across the screen leaves their size alone");
+        const auto moved=split.tilePlaces[split.groupOrder[0]];
+        auto reordered=split;std::swap(reordered.groupOrder[0],reordered.groupOrder[1]);
+        check(reordered.tilePlaces[reordered.groupOrder[1]]==moved,"A tile's position belongs to its group, not to its place in the order");
+        auto sized=split;sized.tilePlaces[sized.groupOrder[2]].scale=2;const auto big=hudGeometry(sized,W,H);
+        check(std::abs(elementExtent(big,firstTileElement+2).x-2*elementExtent(sides,firstTileElement+2).x)<.5f&&std::abs(elementExtent(big,firstTileElement+0).x-elementExtent(sides,firstTileElement+0).x)<.01f,"A tile's own size changes that tile alone");
+        auto added=split;added.groupCount=5;const auto five=hudGeometry(added,W,H);
+        const auto last=elementCorner(five,firstTileElement+3),fresh=elementCorner(five,firstTileElement+4);
+        check(fresh.x>last.x&&std::abs(fresh.y-last.y)<.5f,"A group added later sits beside the last tile");
+        auto docked=split;docked.selectorDock=0;
+        const auto atRight=hudGeometry(docked,W,H,4,{},5,2),atLeft=hudGeometry(docked,W,H,4,{},5,0);
+        const auto rightTile=elementCorner(atRight,firstTileElement+2),leftTile=elementCorner(atLeft,firstTileElement+0);
+        check(selectorCorner(atRight).x>W*.5f&&selectorCorner(atLeft).x<W*.5f&&selectorCorner(atRight).y<rightTile.y&&selectorCorner(atLeft).y<leftTile.y,"A docked selector opens beside the tile in use");
+        const auto round=decodeOptions(encodeOptions(sized));
+        check(round.tilePlaces==sized.tilePlaces&&round.layout==freeLayout,"Free tile positions and sizes survive reload");
+        auto older=Json::parse(encodeOptions(sized));older["tilePlaces"][0]=Json::array({3,10,20});older["tilePlaces"][1]=Json::array({99,1e9,"x"});
+        const auto olderLoaded=decodeOptions(older.dump());
+        check(olderLoaded.tilePlaces[0]==TilePlace{3,10,20,1}&&olderLoaded.tilePlaces[1]==TilePlace{},"A tile saved without a size gets 100% and an unreadable one keeps its default");
+        Options wildTiles;wildTiles.tilePlaces[0]={40,1e9f,NAN,9};sanitizeOptions(wildTiles);
+        check(wildTiles.tilePlaces[0]==TilePlace{9,8000,0,3},"Invalid tile placements are bounded");
+        Options look;importAppearance(look,sized);check(look.tilePlaces==sized.tilePlaces&&look.layout==freeLayout,"Free tile positions travel with appearance presets");
+    }
+    {
+        // Settings from before anchors take the anchor and offset that keep each element where it was.
+        Options legacy;legacy.anchor=unanchored;legacy.positionX=.3f;legacy.positionY=.6f;legacy.equipmentAnchor=unanchored;legacy.equipmentX=.1f;legacy.equipmentY=.4f;
+        legacy.selectorDock=4;legacy.selectorAnchor=unanchored;legacy.selectorX=.7f;legacy.selectorY=.2f;
+        check(hasUnplacedElements(legacy)&&!hasUnplacedElements(Options{}),"Old proportional positions are recognised and new installations have none");
+        const auto was=hudGeometry(legacy,2560,1440);auto converted=legacy;
+        check(anchorUnplacedElements(converted,2560,1440)&&!hasUnplacedElements(converted)&&!anchorUnplacedElements(converted,2560,1440),"Conversion anchors every element once");
+        const auto now=hudGeometry(converted,2560,1440);bool kept=true;
+        for(int element=0;element<3;++element){const auto a=elementCorner(was,element),b=elementCorner(now,element);kept&=std::abs(a.x-b.x)<.5f&&std::abs(a.y-b.y)<.5f;}
+        check(kept,"Converted elements stay where they were");
+        check(!anchorUnplacedElements(converted,0,0),"Nothing converts before the screen size is known");
+    }
     std::cout<<"PASS: "<<checks<<" preset, ammo, feedback, fixed editor, grid and preview checks\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

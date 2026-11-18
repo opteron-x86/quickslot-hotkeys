@@ -346,6 +346,10 @@ template<class IsDown> inline unsigned keyboardModifiers(IsDown down) {
 }
 enum class GroupMode : unsigned {browse,cycle,cycleBrowse};
 inline bool cyclesOnTap(GroupMode mode){return mode==GroupMode::cycle||mode==GroupMode::cycleBrowse;}
+// Where one group's tile sits in the Free arrangement: an anchor from 0 to 8 and an offset in 1080p pixels.
+// Anchor 9 means not placed yet; the tile then sits beside the previous one.
+struct TilePlace {unsigned anchor=9;float x=0,y=0,scale=1;bool operator==(const TilePlace&)const=default;};
+inline constexpr unsigned freeLayout=7;
 struct Options {
     std::array<unsigned,Arsenal::count> keys{2,3,4,5,6,7,8,9};
     std::array<std::string,Arsenal::count> names{"Arsenal","Group 2","Group 3","Group 4","Group 5","Group 6","Group 7","Group 8"};
@@ -396,8 +400,11 @@ struct Options {
     // itself on the matching point of the screen area, moved by an offset in 1080p pixels. Anchor values run 0-8 across
     // then down (top-left to bottom-right); unanchored elements use their proportional position fields instead.
     // The equipment display starts as a vertical list at the middle of the left edge.
-    unsigned anchor=9,selectorAnchor=9,equipmentAnchor=3;
-    float offsetX=0,offsetY=0,selectorOffsetX=0,selectorOffsetY=0,equipmentOffsetX=16,equipmentOffsetY=0;
+    unsigned anchor=8,selectorAnchor=9,equipmentAnchor=3;
+    // Per group, by group id: tile positions for the Free arrangement.
+    std::array<TilePlace,Arsenal::count> tilePlaces{};
+    // The widget starts 8 pixels in from the bottom-right corner.
+    float offsetX=-8,offsetY=-8,selectorOffsetX=0,selectorOffsetY=0,equipmentOffsetX=16,equipmentOffsetY=0;
     // The screen area anchors refer to: the full screen or a centered 16:9, 2:1 or 21:9 frame.
     unsigned anchorFrame=0;
     // A new installation shows diamond tiles in a diamond with an arc selector, the look of the Diamond preset.

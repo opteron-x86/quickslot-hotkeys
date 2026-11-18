@@ -320,6 +320,8 @@ struct Snapshot {
     bool holding=false,placementPreview=false,equipmentOnly=false;
     // The binding that opens the editor on the device in use, and a line shown by the widget until the editor has been opened.
     std::string editorShortcut,tip;
+    // Counts presses a group accepted that changed nothing, so its tile can acknowledge them.
+    std::array<std::uint32_t,Arsenal::count> nudges{};
     float previewZoom=0;
     double revealUntil=0;
 };
@@ -363,6 +365,8 @@ struct Options {
     bool gameplayEditing=false;
     // Set once the editor has been opened. Until then the HUD shows how to open it.
     bool introSeen=false;
+    // Appearance shows its less common settings while this is on.
+    bool advancedAppearance=false;
     // Seconds. holdDelay separates a tap from a hold; cycleDelay keeps a tapped choice open before it equips (0 equips at once).
     float holdDelay=.18f,cycleDelay=0;
     bool groupCaptureRightHotkey=true,groupCaptureLeftHotkey=true,groupMoveHotkey=true;

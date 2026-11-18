@@ -51,4 +51,11 @@ inline void starterGroups(Options& options,Arsenal& arsenal) {
     }
     arsenal.active=0;
 }
+// Returns Quickslot to what a new installation shows a new character: default settings, the first-run hint and groups
+// that follow Skyrim Favorites. Preset files and the character's preset identity stay.
+inline void resetToUnplayed(Options& options,Arsenal& arsenal) {
+    const auto identity=arsenal.presetIdentity;
+    options=Options{};arsenal=Arsenal{};arsenal.presetIdentity=identity;
+    starterGroups(options,arsenal);
+}
 }

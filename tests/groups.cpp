@@ -187,6 +187,13 @@ int main()try {
         check(fresh.groups[0].entries.size()==2&&fresh.groups[1].entries.size()==2&&fresh.groups[2].entries.size()==3&&fresh.groups[3].entries.size()==1,"Weapons and shields, spells and scrolls, consumables, and powers each have a group");
         check(!blankArsenal(fresh)&&withGroupSetup(Options{},encodeGroupSetup(first))->names==first.names,"A starter setup is saved like any other");
 
+        // Reset Quickslot returns to what a new installation shows a new character.
+        Options played;played.scale=2;played.gameplayEditing=played.introSeen=true;played.names[0]="Mine";played.language="ru";
+        Arsenal used;used.presetIdentity="character";used.groups[0].add(item(1));used.groups[5].add(item(2));
+        resetToUnplayed(played,used);
+        check(encodeOptions(played)==[]{Options o;Arsenal a;starterGroups(o,a);return encodeOptions(o);}()&&!played.introSeen&&used.presetIdentity=="character"&&used.groups[5].entries.empty()&&used.groups[0].automatic(),
+              "Reset restores every default, keeps the character's preset identity and starts the groups from Favorites");
+
         // A favorite that runs out is remembered until it returns.
         Group potions;setFavoriteSource(potions,FavoriteSource::potions,Hand::right);
         const std::vector<Entry> stock{favorite(20,Kind::potion,"A"),favorite(21,Kind::potion,"B"),favorite(22,Kind::potion,"C")};

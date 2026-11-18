@@ -1645,7 +1645,7 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         // A hand button on an item already in that hand takes it out.
         if(commit.hand&&!unequip&&item.equipped&&!castVoice&&!isHandAction(entry))unequip=true;
         if(unequip&&!item.equipped){notice(tr("Already unequipped — ")+entryLabel(entry),false);return;}
-        if(!unequip&&item.equipped){arsenal_.current().selected=commit.index;rememberChoice(commit.group,saved);if(castVoice)startVoice(entry);else notice(isHandAction(entry)?handName(entry)+tr(" already empty"):tr("Ready — ")+entryLabel(entry),false);dirty_=true;refresh();publish();return;}
+        if(!unequip&&item.equipped){arsenal_.current().selected=commit.index;rememberChoice(commit.group,saved);++snapshot_.nudges[commit.group];if(castVoice)startVoice(entry);else notice(isHandAction(entry)?handName(entry)+tr(" already empty"):tr("Ready — ")+entryLabel(entry),false);dirty_=true;refresh();publish();return;}
         if(keepOtherHand&&movesOtherHandWeapon(entry,item.equipped,item.otherEquipped)){notice(tr("Weapons in the other hand skipped"));dirty_=true;return;}
         const bool move=!unequip&&item.otherEquipped;
 
@@ -2068,6 +2068,12 @@ bool Game::presetCommand(const EditCommand& c) {
             }
             editor_.message=tr(rename?"Renamed: ":"Copied: ")+c.presetTarget;log::info("Preset {}: {} -> {}",rename?"renamed":"copied",c.presetName,c.presetTarget);return false;
         }
+        if(c.action==EditAction::resetAll) {
+            editHistory_.prepare(editor_.draft,editor_.options);
+            resetToUnplayed(editor_.options,editor_.draft);++editor_.revision;++editor_.restoreSerial;
+            editHistory_.finish(true,false,clockNow());applyEditor();
+            editor_.message=tr("Quickslot reset");log::info("Quickslot reset to a new installation's settings and Favorites groups");return true;
+        }
         if(c.action==EditAction::builtinPreset) {
             const auto* preset=builtinPreset(c.presetName);if(!preset)throw std::runtime_error("Unknown built-in preset");
             editHistory_.prepare(editor_.draft,editor_.options);
@@ -2119,7 +2125,7 @@ void Game::edit(const EditCommand& c) {
     if(const auto reason=editorBlockReason();!reason.empty()){closeEditor(reason);return;}
     if(!matchingEdit(editor_,c)){editor_.message=tr("List updated; try again");return;}
     try {
-        if(c.action==EditAction::exportPreset||c.action==EditAction::importPreset||c.action==EditAction::refreshPresets||c.action==EditAction::deletePreset||c.action==EditAction::renamePreset||c.action==EditAction::copyPreset||c.action==EditAction::builtinPreset){presetCommand(c);return;}
+        if(c.action==EditAction::exportPreset||c.action==EditAction::importPreset||c.action==EditAction::refreshPresets||c.action==EditAction::deletePreset||c.action==EditAction::renamePreset||c.action==EditAction::copyPreset||c.action==EditAction::builtinPreset||c.action==EditAction::resetAll){presetCommand(c);return;}
         if(c.action==EditAction::characterSettings) {
             characterSettings_=c.replace;editor_.characterSettings=characterSettings_;
             // Returning to shared settings makes the current ones the shared ones.

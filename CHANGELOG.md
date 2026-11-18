@@ -19,6 +19,10 @@ Updating: group keys held with Ctrl, Shift or Alt now select the group during ga
 - An item returns to the hand it was last put in. A shield or torch goes to the left hand from either hand button, and a potion, power or combination is selected.
 - **Controls → Keyboard** and **Controls → Controller** list every action with its binding on one page.
 - On new installations a held trigger no longer keeps group buttons from Quickslot, so groups work while blocking or attacking. **Modifier buttons** changes this.
+- A **Settings** tab holds language, interface sounds, input device presets, QuickLoot input and **Keep settings with this character**.
+- **Settings → Reset Quickslot** returns every setting to its default and starts the character's groups from Skyrim Favorites. Presets stay and Undo restores everything while the editor is open.
+- Appearance pages start with their main settings. **Show advanced settings** adds spacing, text sizes, exact placement, idle fading and the less common display options; earlier settings start with it on.
+- A group's tile pulses when its key is pressed for an item that is already equipped.
 - Built-in presets add **Cards**, with card tiles, a strip selector and an equipment list, and **Wheel**, with diamond tiles and a segmented wheel selector.
 
 ## 0.15.1

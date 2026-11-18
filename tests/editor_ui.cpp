@@ -463,12 +463,13 @@ int main(int argc,char** argv)try {
         click("Undo");check(lookMatches(state.options,state.presetInfo->at("Field kit").options),"Undo returns to the preset's look");
         click("Field kit 2");click("Delete preset");click("Delete");check(state.presets==std::vector<std::string>{"Field kit"},"A duplicate deletes independently");
     }
-    click("Presets");click("Keep settings with this character");check(state.characterSettings,"Settings can be kept with the character");
+    click("Settings##main");click("Keep settings with this character");check(state.characterSettings,"Settings can be kept with the character");
     click("Keep settings with this character");check(!state.characterSettings,"Settings can return to the shared file");
+    click("Presets");check(probe::find("Keep settings with this character").empty(),"The character option lives in Settings alone");
     click("Field kit");click("Delete preset");check(state.presets.size()==1,"Deleting a preset asks first");
     click("Cancel");check(state.presets.size()==1,"Cancelling keeps the preset");
     click("Delete preset");click("Delete");check(state.presets.empty()&&probe::find("Field kit").empty(),"Confirming removes the preset from the list");
-    click("Appearance");click("General");click("##controller preset");click("Circle");click("##keyboard preset");click("Default");
+    click("Settings##main");click("##controller preset");click("Circle");click("##keyboard preset");click("Default");
     check(state.options.controllerPreset=="builtin:circle"&&state.options.keyboardPreset=="builtin:default","Each input device can be given a preset");
     click("##controller preset");click("None");check(state.options.controllerPreset.empty(),"A device preset can be cleared");
     click("Presets");
@@ -529,12 +530,13 @@ int main(int argc,char** argv)try {
     click("Groups##main");
     padKey(PadButton::rb);check(!probe::find("Theme").empty(),"The right shoulder button opens the next tab");
     click("Theme");padKey(PadButton::rt);check(!probe::find("##layout").empty(),"The right trigger opens the next page of a tab");
-    padKey(PadButton::lt);padKey(PadButton::lt);check(!probe::find("##language").empty(),"Pages wrap in both directions");
+    padKey(PadButton::lt);padKey(PadButton::lt);check(!probe::find("##screen area").empty()&&probe::find("##language").empty(),"Pages wrap in both directions");
     padKey(PadButton::rb);check(!probe::find("General").empty(),"Shoulder buttons step through every tab");
     click("General");padKey(PadButton::rt);check(!probe::find("Reset keyboard actions").empty(),"Triggers page through Controls");
     padKey(PadButton::rb);check(!probe::find("##preset name").empty(),"The Presets tab follows Controls");
+    padKey(PadButton::rb);check(!probe::find("Reset Quickslot").empty(),"The Settings tab follows Presets");
     padKey(PadButton::rb);check(!probe::find("Group up").empty(),"Tabs wrap back to Groups");
-    padKey(PadButton::lb);check(!probe::find("##preset name").empty(),"The left shoulder button steps back");
+    padKey(PadButton::lb);padKey(PadButton::lb);check(!probe::find("##preset name").empty(),"The left shoulder button steps back");
     click("Groups##main");padKey(PadButton::right);
     check(ImGui::GetCurrentContext()->NavId==probe::one("Appearance").id,"D-pad moves between actual top-level tabs");
     padKey(PadButton::a);check(!probe::find("Theme").empty(),"A activates focused tab without mouse input");
@@ -720,7 +722,7 @@ int main(int argc,char** argv)try {
     localization().load(translations,"russian");localization().select("auto");frame();frame();
     check(probe::one("Close").id==closeID&&probe::one("Close").label=="Закрыть###Close","Translated controls preserve IDs and show localized labels");
     click("Appearance");check(!probe::find("Hide empty groups").empty(),"Appearance retains Visibility after group editing");
-    click("General");check(!probe::find("##language").empty(),"Language selector is available in Appearance");
+    click("Settings##main");check(!probe::find("##language").empty(),"Language selector is available in Settings");
     click("##language");click("English");check(state.options.language=="en","Language selection applies immediately to settings");
     localization().select(state.options.language);frame();check(probe::one("Close").label=="Close","Returning to English restores editor labels");
     click("Close");check(!state.open,"Translated controls remain clickable");
@@ -935,6 +937,7 @@ int main(int argc,char** argv)try {
     click("Keep the other hand equipped while cycling");
     check(!state.options.cycleKeepOtherHand&&!decodeOptions(encodeOptions(state.options)).cycleKeepOtherHand,"Cycling protection can be disabled and saved through the editor");
     click("Undo");check(state.options.cycleKeepOtherHand,"Undo restores cycling protection");
+    check(probe::find("Allow keyboard / mouse while QuickLoot is open").empty(),"QuickLoot options live in Settings alone");click("Settings##main");
     click("Allow keyboard / mouse while QuickLoot is open");
     check(state.options.quickLootKeyboard&&!state.options.quickLootController,"QuickLoot keyboard allowance leaves controller navigation alone");
     click("Allow controller while QuickLoot is open");
@@ -1050,5 +1053,25 @@ int main(int argc,char** argv)try {
     click("##group tap");click("Step to the next item");
     check(state.options.groupModes[0]==GroupMode::cycleBrowse&&probe::find("Consumables").empty(),"A stepping group selects consumables and needs no separate choice");
     click("Undo");check(state.options.groupModes[0]==GroupMode::browse&&state.options.separateConsumableUse[0]&&!probe::find("Consumables").empty(),"Undo restores the group's behavior and its consumable choice");
+    {
+        // Settings holds the preferences and the reset; Appearance has a simple and an advanced view.
+        state=fixture::editor();state.session=session++;io.DisplaySize={1600,900};frame();frame();
+        click("Appearance");click("Widget");
+        check(!probe::find("Hide empty groups").empty()&&!probe::find("##Spacing").empty(),"The advanced view shows every Widget setting");
+        click("Show advanced settings");
+        check(!state.options.advancedAppearance&&probe::find("Hide empty groups").empty()&&probe::find("##Spacing").empty()&&!probe::find("##layout").empty()&&!probe::find("##Scale").empty()&&!probe::find("Position").empty(),
+              "The simple view keeps arrangement, shape, scale and Position and leaves the rest out");
+        click("Theme");check(probe::find("Custom text color").empty()&&!probe::find("##theme").empty()&&!probe::find("Custom accent").empty(),"The simple Theme page keeps the theme, font and accent");
+        click("Undo");check(state.options.advancedAppearance,"The view choice supports Undo");
+        click("Settings##main");
+        check(!probe::find("##language").empty()&&!probe::find("Interface sounds").empty()&&!probe::find("Reset Quickslot").empty(),"Settings gathers language, sounds, device presets, QuickLoot, the character option and the reset");
+        state.options.scale=2;state.options.names[0]="Blades";state.options.gameplayEditing=true;frame();frame();const auto before=encodeOptions(state.options);const auto groupsBefore=state.draft.groups[0].entries.size();
+        click("Reset Quickslot");click("Cancel##reset quickslot");check(encodeOptions(state.options)==before,"Cancelling the reset changes nothing");
+        click("Reset Quickslot");click("Reset##quickslot");
+        check(state.options.scale==1&&!state.options.gameplayEditing&&!state.options.introSeen&&state.options.names[0]=="Weapons"&&state.options.groupCount==4&&state.draft.groups[0].automatic()&&state.draft.groups[3].automatic(),
+              "Reset Quickslot restores every default and starts the groups from Favorites");
+        click("Undo");check(encodeOptions(state.options)==before&&state.draft.groups[0].entries.size()==groupsBefore&&!state.draft.groups[0].automatic(),"Undo restores the settings and groups from before the reset");
+        click("Groups##main");padKey(PadButton::lb);check(!probe::find("Reset Quickslot").empty(),"Shoulder buttons reach the Settings tab");
+    }
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

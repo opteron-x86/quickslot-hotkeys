@@ -812,6 +812,9 @@ int main()try {
         TilePulse doses;doses.update(true,false,0x30,0,5,true,1);
         check(doses.update(true,false,0x30,0,4,true,2)==0&&doses.update(true,false,0x30,0,6,true,3)<0,"Using a dose pulses; restocking does not");
         TilePulse appeared;check(appeared.update(true,true,0x10,1,1,false,1)<0,"Items already equipped when the HUD appears do not pulse");
+        TilePulse tapped;tapped.update(true,true,0x10,1,1,false,1);
+        check(tapped.update(true,true,0x10,1,1,false,2,0)<0&&tapped.update(true,true,0x10,1,1,false,3,1)>=0&&tapped.update(true,true,0x10,1,1,false,3.1,1)>=0&&tapped.update(true,true,0x10,1,1,false,4,1)<0,
+              "A press on the item already in hand pulses its tile once");
         CooldownScale cooldown;
         check(cooldown.fraction(0x40,30)==1&&cooldown.fraction(0x40,15)==.5f&&cooldown.fraction(0x40,0)==0,"A cooldown shade shrinks from full to empty");
         check(cooldown.fraction(0x40,10)==1,"Each cooldown starts from its own length");

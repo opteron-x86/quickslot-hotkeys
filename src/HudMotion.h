@@ -48,14 +48,16 @@ class TilePulse {
     std::uint32_t form_=0;
     std::uint16_t unique_=0;
     int quantity_=0;
+    std::uint32_t nudge_=0;
     double started_=-1;
 public:
     static constexpr double duration=.45;
     // Returns progress from 0 to 1 while a pulse plays and -1 otherwise.
-    float update(bool present,bool equipped,std::uint32_t form,std::uint16_t unique,int quantity,bool stack,double now) {
+    // A nudge is a press the group accepted without changing anything, such as a tap on the item already in hand.
+    float update(bool present,bool equipped,std::uint32_t form,std::uint16_t unique,int quantity,bool stack,double now,std::uint32_t nudge=0) {
         const bool changed=form!=form_||unique!=unique_;
-        if(seen_&&present&&((equipped&&(!equipped_||changed))||(stack&&!changed&&quantity<quantity_)))started_=now;
-        seen_=true;equipped_=present&&equipped;form_=form;unique_=unique;quantity_=quantity;
+        if(seen_&&present&&((equipped&&(!equipped_||changed))||(stack&&!changed&&quantity<quantity_)||nudge!=nudge_))started_=now;
+        seen_=true;equipped_=present&&equipped;form_=form;unique_=unique;quantity_=quantity;nudge_=nudge;
         const double progress=started_<0?-1:(now-started_)/duration;
         return progress>=0&&progress<1?float(progress):-1;
     }

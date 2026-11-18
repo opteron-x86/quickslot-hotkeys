@@ -332,6 +332,8 @@ int main(int argc,char** argv) {
     if(scene=="editor-controller-keyboard")previewClicks={"Groups##main","Items"};
     if(scene=="editor-controller-position"){editing.options.placementGrid=true;previewClicks={"Appearance","Widget","Position"};}
     if(scene=="editor-layout")previewClicks={"Appearance"};
+    if(scene=="editor-settings")previewClicks={"Settings##main"};
+    if(scene=="editor-simple")previewClicks={"Appearance","Widget","Show advanced settings"};
     if(scene=="editor-pngii")previewClicks={"Appearance","Theme","Use PNGII icons","Use PNGII icons"};
     if(scene=="editor-groups")previewClicks={"Appearance","Widget"};
     if(scene.starts_with("editor-spacing-")) {

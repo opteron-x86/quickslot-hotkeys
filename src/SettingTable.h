@@ -98,10 +98,27 @@ inline constexpr FlagSetting flagSettings[]{
     {"showEquipmentAmmo",&Options::showEquipmentAmmo,Section::equipment},
     {"equipmentShowText",&Options::equipmentShowText,Section::equipment},
     {"animateHud",&Options::animateHud,Section::general},
-    {"uiSounds",&Options::uiSounds,Section::general},
 };
 
 inline const Options& defaultOptions(){static const Options options;return options;}
+// Settings Appearance shows only with Show advanced settings on.
+inline bool advancedSetting(float Options::*member) {
+    for(const auto each:{&Options::backgroundOpacity,&Options::equippedMarkerScale,&Options::spacing,&Options::cardWidth,&Options::tileSize,&Options::textScale,
+        &Options::inactiveGroupOpacity,&Options::fadeDelay,&Options::idleOpacity,&Options::selectorSpacing,&Options::wheelRadius,&Options::selectorTextScale,
+        &Options::selectorOpacity,&Options::selectorGap,&Options::equipmentFadeDelay,&Options::equipmentIdleOpacity,&Options::equipmentSpacing,
+        &Options::equipmentTextScale,&Options::equipmentOpacity})if(each==member)return true;
+    return false;
+}
+inline bool advancedSetting(unsigned Options::*member) {
+    for(const auto each:{&Options::selectorVisible,&Options::inactiveGroups,&Options::equipmentTextPosition})if(each==member)return true;
+    return false;
+}
+inline bool advancedSetting(bool Options::*member) {
+    for(const auto each:{&Options::customTextColor,&Options::customSelectionColor,&Options::pngiiIcons,&Options::coloredMagic,&Options::keyIcons,&Options::customEquippedColor,
+        &Options::mirrorCards,&Options::showCardNames,&Options::showPoison,&Options::showAmmo,&Options::hideEmptyGroups,&Options::keepCombatVisible,&Options::keepDrawnVisible,
+        &Options::showHints,&Options::animateScroll,&Options::showEquipmentAmmo})if(each==member)return true;
+    return false;
+}
 inline const FloatSetting& setting(float Options::*member) {
     for(const auto& s:floatSettings)if(s.value==member)return s;
     throw std::logic_error("Setting has no table row");

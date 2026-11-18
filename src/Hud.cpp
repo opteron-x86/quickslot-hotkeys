@@ -604,7 +604,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         const auto* entry=selected&&active?&active->entry:tile.entry?&*tile.entry:nullptr;
         // The pulse follows the group's own remembered item, whatever the selector is previewing.
         const auto* identity=tile.iconEntry?&*tile.iconEntry:tile.entry?&*tile.entry:nullptr;
-        const float pulse=animate?pulses_[id].update(identity!=nullptr,tile.equipped,identity?identity->form:0,identity?identity->unique:std::uint16_t(0),tile.quantity,identity&&isStack(*identity),now):-1;
+        const float pulse=animate?pulses_[id].update(identity!=nullptr,tile.equipped,identity?identity->form:0,identity?identity->unique:std::uint16_t(0),tile.quantity,identity&&isStack(*identity),now,state.nudges[id]):-1;
         const auto* artwork=selected&&active?&rowIconEntry(*active):tile.iconEntry?&*tile.iconEntry:entry;
         const bool equipped=selected&&active?active->equipped:tile.equipped;
         const bool available=selected&&active?active->available:tile.available;

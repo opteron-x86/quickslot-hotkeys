@@ -347,7 +347,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         for(const auto pressed:padDowns_) {
             const int step=pressed==PadButton::rb||pressed==PadButton::rt?1:pressed==PadButton::lb||pressed==PadButton::lt?-1:0;
             if(!step)continue;
-            if(pressed==PadButton::lb||pressed==PadButton::rb)tab_=(tab_+4+step)%4;
+            if(pressed==PadButton::lb||pressed==PadButton::rb)tab_=(tab_+5+step)%5;
             else if(tab_==1){appearancePage_=(appearancePage_+5+step)%5;previewMode_=appearancePage_==2?1:appearancePage_==3?3:0;}
             else if(tab_==2)controlsPage_=(controlsPage_+3+step)%3;
         }
@@ -551,7 +551,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         ImGui::Begin("Quickslot",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings);
         label(tr("Quickslot"));
         placementPanelTarget_=-1;
-        const std::array<const char*,4> tabs{"Groups##main","Appearance","Controls","Presets"};
+        const std::array<const char*,5> tabs{"Groups##main","Appearance","Controls","Presets","Settings##main"};
         for(std::size_t i=0;i<tabs.size();++i){if(i)ImGui::SameLine();const bool active=tab_==int(i);if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));if(UI::Button(tabs[i],{px(i==1?130:114),0}))tab_=int(i);if(active)ImGui::PopStyleColor();}
         ImGui::Separator();
         const float contentHeight=std::max(px(120),ImGui::GetContentRegionAvail().y-px(87));
@@ -574,7 +574,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         if(UI::Button("Remove group",{-1,0}))emit(command(EditAction::removeGroup,state.draft.active));ImGui::EndDisabled();
         endPanel();ImGui::SameLine();
         }
-        beginPanel("workspace",{0,contentHeight},ImGuiChildFlags_NavFlattened|(tab_==2?ImGuiChildFlags_Borders:0));
+        beginPanel("workspace",{0,contentHeight},ImGuiChildFlags_NavFlattened|(tab_==2||tab_==4?ImGuiChildFlags_Borders:0));
         const auto groupID=state.draft.active;const auto& group=state.draft.current();
         if(tab_==0) {
             ImGui::SetNextItemWidth(std::max(px(100),ImGui::GetContentRegionAvail().x-px(390)));
@@ -966,10 +966,6 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             ImGui::Separator();label(tr("DEFAULT ACTIVATION"));
             changed|=UI::Checkbox("Activate with group hotkey",&options.voiceHotkey);
             ImGui::SetNextItemWidth(px(240));changed|=UI::SliderFloat("Shout charge",&options.shoutCharge,.05f,2.5f,"%.2f s");
-            ImGui::Separator();label(tr("QUICKLOOT"));
-            changed|=UI::Checkbox("Allow keyboard / mouse while QuickLoot is open",&options.quickLootKeyboard);
-            changed|=UI::Checkbox("Allow controller while QuickLoot is open",&options.quickLootController);
-            UI::TextWrapped("While browsing a Quickslot group, its navigation inputs go to Quickslot. Other inputs still reach QuickLoot. The editor and other game menus keep their normal restrictions.");
             }else if(controlsPage_==1){
             // One page lists every keyboard and mouse action with its binding.
             label(tr("GROUP KEYS"));
@@ -1198,14 +1194,66 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(UI::Button("Duplicate",{px(120),0})){auto c=command(EditAction::copyPreset,groupID);c.presetName=presetSelected_;c.presetTarget=typed;emit(c);presetSelected_=typed;}
             if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("Select one of your presets and type a new name to copy it.");
             ImGui::EndDisabled();
+            endPanel();
+        } else if(tab_==4) {
+            // Preferences that belong to the player, not to a look or a control scheme.
+            label(tr("LANGUAGE AND SOUND"));
+            {
+                ImGui::AlignTextToFramePadding();UI::TextDisabled("Language");ImGui::SameLine(px(200));ImGui::SetNextItemWidth(px(320));
+                const char* languageName=options.language=="auto"?tr("Automatic"):options.language=="en"?"English":options.language.c_str();
+                for(const auto& pack:localization().packs())if(pack->id==options.language)languageName=pack->name.c_str();
+                if(ImGui::BeginCombo("##language",languageName)) {
+                    if(ImGui::Selectable(tr("Automatic"),options.language=="auto")){options.language="auto";changed=true;}
+                    if(ImGui::Selectable("English",options.language=="en")){options.language="en";changed=true;}
+                    for(const auto& pack:localization().packs())if(pack->id!="en"&&ImGui::Selectable(pack->name.c_str(),options.language==pack->id)){options.language=pack->id;changed=true;}
+                    ImGui::EndCombo();
+                }
+                changed|=UI::Checkbox("Interface sounds",&options.uiSounds);
+                if(ImGui::IsItemHovered())UI::SetTooltip("Plays Skyrim's menu sounds when the selector opens, moves and cancels.");
+            }
+            if(!state.vr) {
+                ImGui::Separator();label(tr("INPUT DEVICE PRESETS"));
+                // Each device can have a preset whose look is applied when that device comes into use.
+                const auto devicePreset=[&](const char* name,const char* key,std::string& chosen) {
+                    ImGui::AlignTextToFramePadding();UI::TextDisabled(name);ImGui::SameLine(px(200));ImGui::SetNextItemWidth(px(320));
+                    const auto* builtin=builtinPreset(chosen);const bool listed=std::find(state.presets.begin(),state.presets.end(),chosen)!=state.presets.end();
+                    const auto shown=chosen.empty()?std::string(tr("None")):builtin?std::string(tr(builtin->name)):listed?chosen:chosen+" "+tr("(missing)");
+                    if(ImGui::BeginCombo(key,shown.c_str())) {
+                        if(ImGui::Selectable(tr("None"),chosen.empty())){chosen.clear();changed=true;}
+                        ImGui::PushID("builtin");for(const auto& preset:builtinPresets)if(ImGui::Selectable(translatedLabel(preset.name).c_str(),chosen==preset.id)){chosen=preset.id;changed=true;}ImGui::PopID();
+                        ImGui::PushID("files");for(const auto& preset:state.presets)if(ImGui::Selectable(preset.c_str(),chosen==preset)){chosen=preset;changed=true;}ImGui::PopID();
+                        ImGui::EndCombo();
+                    }
+                };
+                devicePreset("Controller","##controller preset",options.controllerPreset);
+                devicePreset("Keyboard and mouse","##keyboard preset",options.keyboardPreset);
+                UI::TextWrapped("Applies the preset's look when you start using that device. Choose one for each device to switch back and forth; changes you make afterwards stay until the device changes again.");
+            }
+            ImGui::Separator();label(tr("QUICKLOOT"));
+            changed|=UI::Checkbox("Allow keyboard / mouse while QuickLoot is open",&options.quickLootKeyboard);
+            changed|=UI::Checkbox("Allow controller while QuickLoot is open",&options.quickLootController);
+            UI::TextWrapped("While browsing a Quickslot group, its navigation inputs go to Quickslot. Other inputs still reach QuickLoot. The editor and other game menus keep their normal restrictions.");
             ImGui::Separator();label(tr("CHARACTER"));
             bool ownSettings=state.characterSettings;
             if(UI::Checkbox("Keep settings with this character",&ownSettings)){auto c=command(EditAction::characterSettings,groupID);c.replace=ownSettings;emit(c);}
-            UI::TextWrapped("Stores controls, group names and appearance in this character's saves; other characters keep the shared settings. Changes are stored when you save the game. Turning this off makes the current settings the shared ones.");
-            endPanel();
+            UI::TextWrapped("Stores this character's controls, appearance and preferences in its saves; other characters keep the shared settings. Changes are stored when you save the game. Turning this off makes the current settings the shared ones. Groups always belong to the character.");
+            ImGui::Separator();label(tr("RESET"));
+            if(UI::Button("Reset Quickslot",{px(220),0}))ImGui::OpenPopup("reset quickslot");
+            ImGui::SameLine();UI::TextDisabled("Returns every setting to its default and replaces this character's groups.");
+            if(ImGui::BeginPopup("reset quickslot")) {
+                UI::Text("Reset Quickslot to a new installation?");
+                UI::TextDisabled("Every setting returns to its default and this character's groups follow Skyrim Favorites.");
+                UI::TextDisabled("Presets stay. Undo restores everything while the editor is open.");
+                if(UI::Button("Reset##quickslot")){emit(command(EditAction::resetAll,groupID));ImGui::CloseCurrentPopup();}
+                ImGui::SameLine();if(UI::Button("Cancel##reset quickslot"))ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
+            }
         } else {
             const std::array<const char*,5> sections{"Theme","Widget","Selector","Equipment","General"};
             for(int i=0;i<5;++i){if(i)ImGui::SameLine();const bool active=appearancePage_==i;if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));if(UI::Button(sections[std::size_t(i)],{px(110),0})){appearancePage_=i;previewMode_=i==2?1:i==3?3:0;}if(active)ImGui::PopStyleColor();}
+            ImGui::SameLine(0,px(18));changed|=UI::Checkbox("Show advanced settings",&options.advancedAppearance);
+            if(ImGui::IsItemHovered())UI::SetTooltip("Adds spacing, text sizes, opacity, exact placement, idle fading and the less common display options to each page.");
+            const bool advanced=options.advancedAppearance;
             ImGui::Separator();
             const float controlsWidth=std::min(px(470),ImGui::GetContentRegionAvail().x*.46f);
             beginPanel("appearance",{controlsWidth,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
@@ -1230,7 +1278,9 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(modified&&hovered)UI::SetTooltip("Reset to default");
                 return clicked;
             };
+            // Each row helper returns whether it drew its row; the simple view leaves the advanced settings out.
             const auto number=[&](const char* name,float Options::*member) {
+                if(!advanced&&advancedSetting(member))return false;
                 const auto& s=setting(member);float& value=options.*member;const float fallback=defaultOptions().*member;
                 rowLabel(name);
                 const float shownScale=s.unit==Unit::percent?100.f:1.f;
@@ -1244,13 +1294,16 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 ImGui::SameLine(0,gap);if(ImGui::Button(("+"+key).c_str(),{side,side})){value=steppedSetting(s,value,1);changed=true;}
                 ImGui::PopItemFlag();
                 if(resetMark(name,std::abs(value-fallback)>s.step*.01f)){value=fallback;changed=true;}
+                return true;
             };
             const auto choice=[&](const char* name,const char* key,unsigned Options::*member,const char* choices) {
+                if(!advanced&&advancedSetting(member))return false;
                 rowLabel(name);int current=int(options.*member);ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-side-gap));
                 if(UI::Combo(key,&current,choices)){options.*member=unsigned(current);changed=true;}
                 if(resetMark(name,options.*member!=defaultOptions().*member)){options.*member=defaultOptions().*member;changed=true;}
+                return true;
             };
-            const auto flag=[&](const char* name,bool Options::*member){changed|=UI::Checkbox(name,&(options.*member));};
+            const auto flag=[&](const char* name,bool Options::*member){if(!advanced&&advancedSetting(member))return false;changed|=UI::Checkbox(name,&(options.*member));return true;};
             const auto resetPage=[&](Section section){ImGui::Separator();if(UI::Button("Reset page",{-1,0})){resetSection(options,section);changed=true;}if(ImGui::IsItemHovered())UI::SetTooltip("Returns every setting on this page to its default.");};
             const auto place=[&](int target){if(UI::Button("Position",{-1,0})){placement_=true;placementTarget_=target;if(target==1)previewOpen_=true;}};
             if(appearancePage_==0) {
@@ -1284,35 +1337,31 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     auto tweak=adjustments(options);bool tuned=false;
                     if(UI::Checkbox("Custom accent",&tweak.customAccent)){tuned=true;if(tweak.customAccent){const auto color=ImGui::ColorConvertU32ToFloat4(currentTheme.accent);tweak.accent={color.x,color.y,color.z};}}
                     if(tweak.customAccent){ImGui::SameLine();tuned|=ImGui::ColorEdit3("##accent",tweak.accent.data(),ImGuiColorEditFlags_NoInputs);}
-                    rowLabel("Frame opacity");ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-side-gap));
-                    float frameOpacity=tweak.frameOpacity*100;if(UI::SliderFloat("##Frame opacity",&frameOpacity,0,100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){tweak.frameOpacity=frameOpacity/100;tuned=true;}
-                    if(resetMark("Frame opacity",tweak.frameOpacity!=1)){tweak.frameOpacity=1;tuned=true;}
+                    if(advanced) {
+                        rowLabel("Frame opacity");ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-side-gap));
+                        float frameOpacity=tweak.frameOpacity*100;if(UI::SliderFloat("##Frame opacity",&frameOpacity,0,100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){tweak.frameOpacity=frameOpacity/100;tuned=true;}
+                        if(resetMark("Frame opacity",tweak.frameOpacity!=1)){tweak.frameOpacity=1;tuned=true;}
+                    }
                     if(tuned){options.themeAdjustments[options.themeId]=tweak;changed=true;}
                     if(UI::Button("Reset theme",{-1,0})){options.themeAdjustments.erase(options.themeId);changed=true;}
                     if(ImGui::IsItemHovered())UI::SetTooltip("Restores this theme's accent and frame opacity.");
                 }
-                if(heading("Colors")) {
-                    number("Background opacity",&Options::backgroundOpacity);
-                    if(ImGui::IsItemHovered())UI::SetTooltip("Fades the inside of frames and keeps their borders. Frame opacity fades both.");
-                    flag("Custom text color",&Options::customTextColor);
-                    if(options.customTextColor){ImGui::SameLine();changed|=ImGui::ColorEdit3("##text color",options.textColor.data(),ImGuiColorEditFlags_NoInputs);}
-                    flag("Custom selection color",&Options::customSelectionColor);
-                    if(options.customSelectionColor){ImGui::SameLine();changed|=ImGui::ColorEdit3("##selection color",options.selectionColor.data(),ImGuiColorEditFlags_NoInputs);}
+                if(advanced&&heading("Colors")) {
+                    if(number("Background opacity",&Options::backgroundOpacity)&&ImGui::IsItemHovered())UI::SetTooltip("Fades the inside of frames and keeps their borders. Frame opacity fades both.");
+                    if(flag("Custom text color",&Options::customTextColor)&&options.customTextColor){ImGui::SameLine();changed|=ImGui::ColorEdit3("##text color",options.textColor.data(),ImGuiColorEditFlags_NoInputs);}
+                    if(flag("Custom selection color",&Options::customSelectionColor)&&options.customSelectionColor){ImGui::SameLine();changed|=ImGui::ColorEdit3("##selection color",options.selectionColor.data(),ImGuiColorEditFlags_NoInputs);}
                 }
                 if(heading("Icons")) {
                     number("Icon size",&Options::iconScale);
                     choice("Icon color","##item icon color",&Options::itemIconColor,"Original\0Theme\0White\0");
-                    flag("Use PNGII icons",&Options::pngiiIcons);
-                    if(ImGui::IsItemHovered())UI::SetTooltip("Use matching artwork from PNG Icon Injector. I4 supplies the remaining icons.");
+                    if(flag("Use PNGII icons",&Options::pngiiIcons)&&ImGui::IsItemHovered())UI::SetTooltip("Use matching artwork from PNG Icon Injector. I4 supplies the remaining icons.");
                     if(options.itemIconColor==1)flag("Tint magic icons",&Options::coloredMagic);
                     flag("Key icons",&Options::keyIcons);
                 }
                 if(heading("Equipped marker")) {
-                    choice("Equipped highlight","##equipped highlight",&Options::equippedHighlight,"Marker only\0Outline\0Tint\0Outline and tint\0");
-                    if(ImGui::IsItemHovered())UI::SetTooltip("Marks the tile of an equipped item with an outline or a tint in the equipped color.");
+                    if(choice("Equipped highlight","##equipped highlight",&Options::equippedHighlight,"Marker only\0Outline\0Tint\0Outline and tint\0")&&ImGui::IsItemHovered())UI::SetTooltip("Marks the tile of an equipped item with an outline or a tint in the equipped color.");
                     number("Equipped marker size",&Options::equippedMarkerScale);
-                    flag("Custom equipped color",&Options::customEquippedColor);
-                    if(options.customEquippedColor){ImGui::SameLine();changed|=ImGui::ColorEdit3("##equipped color",options.equippedColor.data(),ImGuiColorEditFlags_NoInputs);}
+                    if(flag("Custom equipped color",&Options::customEquippedColor)&&options.customEquippedColor){ImGui::SameLine();changed|=ImGui::ColorEdit3("##equipped color",options.equippedColor.data(),ImGuiColorEditFlags_NoInputs);}
                 }
                 resetPage(Section::theme);
             } else if(appearancePage_==1) {
@@ -1321,7 +1370,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(options.layout==6)number("Columns",&Options::gridColumns);
                     choice("Tile shape","##shape",&Options::shape,"Cards\0Circles\0Squares\0Diamonds\0");
                     number("Spacing",&Options::spacing);
-                    if(options.shape==0&&(options.showCardNames||options.showLabels)){flag("Mirror cards",&Options::mirrorCards);if(ImGui::IsItemHovered())UI::SetTooltip("Puts the icon on the right and aligns the text to it, for a widget on the right side of the screen.");}
+                    if(options.shape==0&&(options.showCardNames||options.showLabels)){if(flag("Mirror cards",&Options::mirrorCards)&&ImGui::IsItemHovered())UI::SetTooltip("Puts the icon on the right and aligns the text to it, for a widget on the right side of the screen.");}
                 }
                 if(heading("Size")) {
                     number("Scale",&Options::scale);
@@ -1329,7 +1378,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     else number("Tile size",&Options::tileSize);
                     number("Text size",&Options::textScale);number("Opacity",&Options::opacity);
                 }
-                if(heading("Placement")){placementControls(0);place(0);}
+                if(heading("Placement")){if(advanced)placementControls(0);place(0);}
                 if(heading("Content")) {
                     flag("Show group names",&Options::showLabels);flag("Show keys",&Options::showKeys);
                     if(options.shape==0)flag("Show card item names",&Options::showCardNames);
@@ -1341,7 +1390,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(heading("Visibility")) {
                     rowLabel("Widget visibility");ImGui::SetNextItemWidth(-1);int visibility=int(widgetVisibility(options));
                     if(UI::Combo("##widget visibility",&visibility,"Always visible\0Fade when idle\0Hide when idle\0Only while selecting\0")){setWidgetVisibility(options,WidgetVisibility(visibility));changed=true;}
-                    if(options.showIdle&&options.fadeIdle) {
+                    if(advanced&&options.showIdle&&options.fadeIdle) {
                         number("Idle delay",&Options::fadeDelay);
                         if(widgetVisibility(options)==WidgetVisibility::fade)number("Idle opacity",&Options::idleOpacity);
                         flag("Keep visible in combat",&Options::keepCombatVisible);
@@ -1368,10 +1417,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(heading("Placement")) {
                     choice("Position","##selector dock",&Options::selectorDock,"Above widget\0Below widget\0Left of widget\0Right of widget\0Independent\0");
                     if(options.selectorDock!=4)number("Distance",&Options::selectorGap);
-                    else placementControls(1);
+                    else if(advanced)placementControls(1);
                     place(options.selectorDock==4?1:0);
                 }
-                if(heading("Content")) {
+                if(advanced&&heading("Content")) {
                     flag("Show selector hints",&Options::showHints);
                     flag("Animate scrolling",&Options::animateScroll);
                 }
@@ -1392,10 +1441,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     number("Scale",&Options::equipmentScale);number("Text size",&Options::equipmentTextScale);number("Opacity",&Options::equipmentOpacity);
                 }
                 if(heading("Placement")) {
-                    placementControls(2);
+                    if(advanced)placementControls(2);
                     if(options.showEquipment)place(2);
                 }
-                if(heading("Content")) {
+                if((advanced||(options.equipmentStyle>0&&options.equipmentStyle<4))&&heading("Content")) {
                     if(options.equipmentStyle>0&&options.equipmentStyle<4) {
                         flag("Show equipment names",&Options::equipmentShowText);
                         if(options.equipmentShowText)choice("Text position","##equipment text",&Options::equipmentTextPosition,"Top\0Bottom\0Left\0Right\0");
@@ -1404,41 +1453,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 }
                 resetPage(Section::equipment);
             } else {
-                rowLabel("Language");ImGui::SetNextItemWidth(-1);
-                const char* languageName=options.language=="auto"?tr("Automatic"):options.language=="en"?"English":options.language.c_str();
-                for(const auto& pack:localization().packs())if(pack->id==options.language)languageName=pack->name.c_str();
-                if(ImGui::BeginCombo("##language",languageName)) {
-                    if(ImGui::Selectable(tr("Automatic"),options.language=="auto")){options.language="auto";changed=true;}
-                    if(ImGui::Selectable("English",options.language=="en")){options.language="en";changed=true;}
-                    for(const auto& pack:localization().packs())if(pack->id!="en"&&ImGui::Selectable(pack->name.c_str(),options.language==pack->id)){options.language=pack->id;changed=true;}
-                    ImGui::EndCombo();
-                }
-                flag("Interface sounds",&Options::uiSounds);
-                if(ImGui::IsItemHovered())UI::SetTooltip("Plays Skyrim's menu sounds when the selector opens, moves and cancels.");
                 {
                     rowLabel("Screen area");int area=int(options.anchorFrame);ImGui::SetNextItemWidth(-1);
                     if(UI::Combo("##screen area",&area,"Full screen\0" "16:9\0" "2:1\0" "21:9\0"))setAnchorArea(unsigned(area));
                     if(ImGui::IsItemHovered())UI::SetTooltip("Anchors hold on to this area. On an ultrawide screen, 16:9 keeps the HUD within the central part of the screen.");
                 }
-                flag("Animate opening and fading",&Options::animateHud);
-                if(!state.vr&&heading("Input device presets")) {
-                    // Each device can have a preset whose look is applied when that device comes into use.
-                    const auto devicePreset=[&](const char* name,const char* key,std::string& chosen) {
-                        rowLabel(name);ImGui::SetNextItemWidth(-1);
-                        const auto* builtin=builtinPreset(chosen);const bool listed=std::find(state.presets.begin(),state.presets.end(),chosen)!=state.presets.end();
-                        const auto shown=chosen.empty()?std::string(tr("None")):builtin?std::string(tr(builtin->name)):listed?chosen:chosen+" "+tr("(missing)");
-                        if(ImGui::BeginCombo(key,shown.c_str())) {
-                            if(ImGui::Selectable(tr("None"),chosen.empty())){chosen.clear();changed=true;}
-                            ImGui::PushID("builtin");for(const auto& preset:builtinPresets)if(ImGui::Selectable(translatedLabel(preset.name).c_str(),chosen==preset.id)){chosen=preset.id;changed=true;}ImGui::PopID();
-                            ImGui::PushID("files");for(const auto& preset:state.presets)if(ImGui::Selectable(preset.c_str(),chosen==preset)){chosen=preset;changed=true;}ImGui::PopID();
-                            ImGui::EndCombo();
-                        }
-                    };
-                    devicePreset("Controller","##controller preset",options.controllerPreset);
-                    devicePreset("Keyboard and mouse","##keyboard preset",options.keyboardPreset);
-                    UI::TextWrapped("Applies the preset's look when you start using that device. Choose one for each device to switch back and forth; changes you make afterwards stay until the device changes again.");
-                }
-                if(ImGui::IsItemHovered())UI::SetTooltip("Eases the widget in, opens and closes the selector, and pulses a group when its item equips or is used.");
+                if(flag("Animate opening and fading",&Options::animateHud)&&ImGui::IsItemHovered())UI::SetTooltip("Eases the widget in, opens and closes the selector, and pulses a group when its item equips or is used.");
                 resetPage(Section::general);
                 if(UI::Button("Reset all appearance",{-1,0})){auto c=command(EditAction::builtinPreset,groupID);c.presetName="builtin:default";emit(c);}
                 if(ImGui::IsItemHovered())UI::SetTooltip("Applies the Default preset: every Appearance page returns to its defaults. Controls, groups and language stay.");

@@ -1,5 +1,6 @@
 #include "EditorModel.h"
 #include "Settings.h"
+#include "Presets.h"
 #include "Transfer.h"
 #include "Layout.h"
 #include "EditorLaunch.h"
@@ -77,6 +78,15 @@ int main(int argc,char** argv)try {
     check(!broken.editorKey||std::find(broken.keys.begin(),broken.keys.end(),broken.editorKey)==broken.keys.end(),"Editor key cannot collide with any group");
     check(broken.scale==1&&broken.spacing==128&&broken.groupCount==8&&broken.layout==6,"Invalid layout settings bounded");
     const auto defaults=decodeOptions(encodeOptions(Options{}));
+    check(!Options{}.introSeen&&!defaults.introSeen&&!defaults.gameplayEditing,"A new installation shows the first-run hint and keeps editing chords out of gameplay");
+    {
+        auto earlier=Json::parse(encodeOptions(Options{}));earlier.erase("introSeen");earlier.erase("gameplayEditing");const auto upgraded=decodeOptions(earlier.dump());
+        check(upgraded.introSeen&&!upgraded.gameplayEditing,"Settings from an earlier version skip the first-run hint and start with gameplay editing off");
+        Options chosen;chosen.gameplayEditing=chosen.introSeen=true;const auto reloaded=decodeOptions(encodeOptions(chosen));
+        check(reloaded.gameplayEditing&&reloaded.introSeen,"The gameplay editing switch and the first-run flag survive reload");
+        Options controls;copyControls(controls,chosen);check(controls.gameplayEditing&&!controls.introSeen,"Controls from a preset carry the gameplay editing switch");
+        Options look;importAppearance(look,chosen);check(!look.introSeen&&!look.gameplayEditing,"An appearance preset leaves the first-run flag and the controls alone");
+    }
     check(defaults.editorKey==43&&defaults.editorModifiers==keyModifier::shift,"Shift + backslash is the default and survives reload");
     for(const unsigned shift:{42u,54u}) {
         const auto modifiers=keyboardModifiers([&](unsigned scan){return scan==shift;});
@@ -100,7 +110,7 @@ int main(int argc,char** argv)try {
     for(const auto& [field,value]:complete.items()) {
         if(storedSetting(field)||field=="activePreset"||field=="controllerPreset"||field=="keyboardPreset"||field=="textColor"||field=="selectionColor"||field=="groupColored"||field=="groupColors")continue;
         if(field=="swapKey"||field=="doubleTapSwap"||field=="animateHud"||field=="uiSounds"||field=="equippedMarkerScale"||field=="customEquippedColor"||field=="equippedColor"||field=="fontId"||field=="holdDelay"||field=="cycleDelay"||field=="separateConsumableUse"||field=="consumableKey"||field=="controllerUse"||field=="vrUse"||field=="cycleKeepOtherHand"||field=="pngiiIcons"||field=="layoutVersion"||field=="equipmentShowText"||field=="showEquipmentAmmo"||field=="showPoison"||field=="showAmmo"||field=="mouseActions"||field=="groupModifiers"||field=="selectorBindings"||field=="allowUnusedModifiers"||field=="controllerActions")continue;
-        if(field=="quickLootKeyboard"||field=="quickLootController"||field=="controllerModifiers"||field=="groupModes"||field=="autoSort"||field=="groupUnequipHotkey"||field=="groupRemoveHotkey"||field=="groupCaptureRightHotkey"||field=="groupCaptureLeftHotkey"||field=="groupMoveHotkey"||field=="selectorReorderHotkey"||field=="selectorUnequipHotkey"||field=="selectorRemoveHotkey"||field=="language"||field=="keepDrawnVisible"||field=="textScale"||field=="placementSpacing"||field=="placementFrame"||field=="placementGridSize"||
+        if(field=="gameplayEditing"||field=="introSeen"||field=="quickLootKeyboard"||field=="quickLootController"||field=="controllerModifiers"||field=="groupModes"||field=="autoSort"||field=="groupUnequipHotkey"||field=="groupRemoveHotkey"||field=="groupCaptureRightHotkey"||field=="groupCaptureLeftHotkey"||field=="groupMoveHotkey"||field=="selectorReorderHotkey"||field=="selectorUnequipHotkey"||field=="selectorRemoveHotkey"||field=="language"||field=="keepDrawnVisible"||field=="textScale"||field=="placementSpacing"||field=="placementFrame"||field=="placementGridSize"||
            field=="equipmentX"||field=="equipmentY"||field=="equipmentScale"||field=="equipmentTextScale"||field=="equipmentSpacing"||field=="showEquipment"||field=="hideEmptyGroups"||field=="inactiveGroups"||field=="inactiveGroupOpacity"||
            field=="equipmentDim"||field=="equipmentStyle"||field=="equipmentLayout"||field=="equipmentTextPosition"||field=="equipmentFadeDelay"||field=="equipmentIdleOpacity")continue;
         auto incomplete=complete;incomplete.erase(field);bool rejected=false;

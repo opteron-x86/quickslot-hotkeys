@@ -11,7 +11,8 @@ inline void rows(EditorState& s) {
     }}
 }
 inline EditorState editor() {
-    EditorState s;s.open=true;s.session=1;s.revision=1;s.catalogVersion=1;s.options.names[0]="Arsenal";s.options.names[1]="Offhand";s.options.names[2]="Magic";
+    // The editor checks were written against card tiles, a strip selector and an equipment list.
+    EditorState s;s.open=true;s.session=1;s.revision=1;s.catalogVersion=1;cardsPreset(s.options);s.options.names[0]="Arsenal";s.options.names[1]="Offhand";s.options.names[2]="Magic";
     const std::pair<const char*,Kind> examples[]={{"Imperial Sword (Superior)",Kind::sword},{"Iron Mace",Kind::mace},{"Steel Dagger",Kind::dagger},{"Long Bow (Fine)",Kind::bow},{"Flames",Kind::spell},{"Healing",Kind::spell},{"Iron Shield",Kind::shield},{"Torch",Kind::torch},{"Chain Lightning",Kind::spell},{"Enchanted Dragonbone Greatsword of the Inferno",Kind::greatsword}};
     unsigned id=1;
     for(const auto& [name,kind]:examples){Entry e;e.form=0x123400+id;e.name=name;e.kind=kind;e.spell=kind==Kind::spell;if(tracksInstance(e)){e.owner=0x14;e.unique=std::uint16_t(id);}e.twoHanded=kind==Kind::greatsword||kind==Kind::bow;e.hand=normalizedHand(e,Hand::right);s.catalog.push_back({e,id,1,id==1,true,{}});++id;}

@@ -383,6 +383,18 @@ int main()try {
         const auto restoredLook=applyBuiltin(cross,"builtin:default");
         check(restoredLook.layout==Options{}.layout&&restoredLook.themeId==Options{}.themeId&&restoredLook.names==mine.names&&restoredLook.skipEmpty&&restoredLook.language=="ru","The Default preset restores the look alone");
         check(encodeOptions(applyBuiltin(mine,"builtin:unknown"))==encodeOptions(mine)&&builtinPreset("builtin:circle")&&!builtinPreset("Circle"),"Built-in ids are distinct from file names");
+        {
+            const Options fresh;
+            check(fresh.layout==2&&fresh.shape==3&&fresh.selector==1&&fresh.selectorShape==3&&!fresh.showLabels,"A new installation shows diamond tiles with an arc selector");
+            check(encodeOptions(applyBuiltin(fresh,"builtin:diamond"))==encodeOptions(fresh),"The default look is the Diamond preset's look");
+            const auto cards=applyBuiltin(fresh,"builtin:cards");
+            check(cards.layout==0&&cards.shape==0&&cards.selector==0&&cards.showLabels&&cards.equipmentStyle==0&&cards.equipmentShowText,"The Cards preset shows card tiles, a strip selector and an equipment list");
+            check(decodeOptions(encodeOptions(cards)).shape==0&&decodeOptions(encodeOptions(cards)).layout==0,"Saved card settings stay cards");
+            const auto wheel=applyBuiltin(cards,"builtin:wheel");
+            check(wheel.selector==wheelSelector&&wheel.wheelStyle==1&&wheel.shape==3&&wheel.layout==2&&!wheel.showLabels,"The Wheel preset shows diamond tiles with a segmented wheel selector");
+            check(encodeOptions(applyBuiltin(wheel,"builtin:default"))==encodeOptions(fresh),"The Default preset returns from any built-in look");
+            check(builtinPreset("builtin:cards")&&builtinPreset("builtin:wheel")&&builtinPreset("builtin:diamond"),"Earlier built-in ids stay valid beside the new ones");
+        }
         mine.activePreset=std::string(200,'x');sanitizeOptions(mine);check(mine.activePreset.empty(),"An oversized preset name is discarded");
         // Device presets: applied once, a moment after a device comes into use.
         DevicePresetSwitch devices;devices.reset(false);

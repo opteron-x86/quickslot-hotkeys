@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Updating: group keys held with Ctrl, Shift or Alt now select the group during gameplay. Turn on **Controls → Keyboard → Use editing shortcuts during gameplay** to keep adding, unequipping and removing with those chords outside menus.
+
+- **Use editing shortcuts during gameplay**, under **Controls → Keyboard**, controls the Ctrl, Shift and Alt group-key chords outside menus. It starts off. Adding from Inventory and Magic with Ctrl and Ctrl + Shift stays available.
+- Until the editor has been opened, the widget shows the shortcut that opens it. An empty group's selector shows how to add items.
+- The **Groups** tab labels the **Contents** and **Behavior** choices and explains them, **Items** and **New** on hover.
+- Typing or selecting an existing preset's name sets the save scope to that preset's own. Choosing **Appearance only** for a complete preset shows that its groups will be removed. **Export preset** is now **Save preset**.
+- A full group reports "This group is full (16 items)" from gameplay and from Inventory and Magic.
+- New installations, the **Default** preset and the reset buttons show diamond tiles with an arc selector. Existing settings keep their look.
+- Built-in presets add **Cards**, with card tiles, a strip selector and an equipment list, and **Wheel**, with diamond tiles and a segmented wheel selector.
+
 ## 0.15.1
 
 - With the Automatic theme and ImGui Icons installed, the widget and selector use a readable text font. The installed UI font skips the Daedric, Dragon and other script faces and the icon font in `Interface/ImGuiIcons/Fonts`.

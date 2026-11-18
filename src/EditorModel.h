@@ -10,6 +10,8 @@ namespace quickslot {
 
 struct CatalogItem {Entry entry;std::uint64_t id=0;int count=1;bool equipped=false,addable=true;std::string detail;};
 // A preset file as the editor lists it: whether it holds groups as well, and its settings for previews.
+// A key binding as the editor names it, such as "Shift + \". Defined with the editor.
+std::string shortcutLabel(unsigned scan,unsigned modifiers);
 struct PresetInfo {bool complete=false;Options options;};
 struct EditorState {
     bool open=false,soulsSlowdown=false,controller=false,vr=false;

@@ -810,6 +810,13 @@ void Game::publish(){
     if(snapshot_.visible)if(auto* player=RE::PlayerCharacter::GetSingleton()) {
         snapshot_.inCombat=player->IsInCombat();snapshot_.weaponsDrawn=player->AsActorState()->IsWeaponDrawn();
     }
+    snapshot_.editorShortcut.clear();
+    if(snapshot_.vr||snapshot_.controller) {
+        const auto binding=snapshot_.vr?options_.vrEditor:options_.controllerEditor;
+        if(binding.button!=PadButton::none)snapshot_.editorShortcut=padLabel(binding,snapshot_.vr?2u:options_.controllerStyle);
+    }
+    if(snapshot_.editorShortcut.empty()&&options_.editorKey)snapshot_.editorShortcut=shortcutLabel(options_.editorKey,options_.editorModifiers);
+    snapshot_.tip=options_.introSeen||snapshot_.editorShortcut.empty()?std::string{}:trNamed("Press %s to set up Quickslot",snapshot_.editorShortcut);
     syncHudMenu();
 }
 void Game::syncHudMenu() {
@@ -1145,7 +1152,7 @@ bool Game::consume(RE::InputEvent* event) {
         auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
         const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
         const auto groupID=std::size_t(key-options_.keys.begin());
-        const auto action=groupKeyAction(options_,modifiers,selection_.held()&&groupID!=arsenal_.active);
+        const auto action=gameplayKeyAction(options_,modifiers,selection_.held()&&groupID!=arsenal_.active);
         if(action==GroupKeyAction::pass)return false;
         *owned=true;
         if(voice_.active()){notice(tr("Voice action in progress"));return true;}
@@ -1361,7 +1368,7 @@ void Game::menuCapture(std::size_t groupID,Hand hand) {
             Entry e;e.form=formID;e.hand=hand;
             if(!identify(selectedForm,e)){report(tr("This item cannot be added to Quickslot"));return;}
             e.name=gameName(selectedForm->GetName());
-            if(arsenal_.groups[groupID].entries.size()>=Group::limit){report(tr("This group is full (16 shortcuts)"));return;}
+            if(arsenal_.groups[groupID].entries.size()>=Group::limit){report(tr("This group is full (16 items)"));return;}
             if(tracksInstance(e)) {
                 auto* object=selectedForm->As<RE::TESBoundObject>();const auto sample=sampleInventory(player,object);
                 std::vector<std::uintptr_t> row;
@@ -1470,7 +1477,7 @@ void Game::capture(Hand hand) {
     entry.name=cleanName(entry.name);
     auto& group=arsenal_.current();
     const bool duplicate=std::any_of(group.entries.begin(),group.entries.end(),[&](const Entry& e){return e.same(entry);});
-    if(!duplicate&&group.entries.size()>=Group::limit){notice(tr("This group is full (16 items); Alt + group key removes one"));return;}
+    if(!duplicate&&group.entries.size()>=Group::limit){notice(tr("This group is full (16 items)"));return;}
     const auto label=entryLabel(entry);group.add(std::move(entry),options_.autoSort[arsenal_.active]);dirty_=true;
     notice((duplicate?tr("Already in "):tr("Added to "))+options_.names[arsenal_.active]+" — "+label);
 }
@@ -1786,6 +1793,7 @@ void Game::openEditor() {
     try {
         log::info("Editor opening: building equipment catalog");
         cancel();groupRecall_.reset();const auto session=editor_.session+1;editor_=EditorState{};editor_.session=session;editor_.open=true;
+        if(!options_.introSeen){options_.introSeen=sharedOptions_.introSeen=true;if(!characterSettings_)autosave_.change(clockNow());}
         editor_.characterSettings=characterSettings_;editor_.vr=REL::Module::IsVR();editor_.controller=controllerLast_&&!editor_.vr;editor_.draft=arsenal_;editor_.options=options_;editor_.soulsSlowdown=GetModuleHandleW(L"SkyrimSoulsRE.dll")!=nullptr;revealSavedGroups(editor_.options,editor_.draft);
         collectShortcuts(editor_.draft);
         editHistory_.begin(editor_.draft,editor_.options);

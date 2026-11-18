@@ -430,8 +430,10 @@ int main(int argc,char** argv)try {
     click("Close");check(!state.open,"Largest 4K editor remains interactive");
     state=fixture::editor();state.session=session++;state.draft.presetIdentity="ui-character";io.DisplaySize={1920,1080};frame();frame();
     click("Presets");click("##preset name");for(const auto ch:std::string("Combat backup"))frame({{EditorInputType::character,unsigned(ch)}});
-    click("##export scope");click("Complete setup");click("Export preset");check(state.presets.size()==1&&state.options.activePreset=="Combat backup","Export command saves named preset and makes it the current one");
+    click("##export scope");click("Complete setup");click("Save preset");check(state.presets.size()==1&&state.options.activePreset=="Combat backup","Export command saves named preset and makes it the current one");
     click("Update preset");check(state.presets.size()==1,"Updating a preset retains one list entry");
+    // Choosing the preset again returns the save scope to the preset's own, so the update below keeps its groups.
+    click("##export scope");click("Appearance only");click("Combat backup");click("Update preset");
     click("Groups##main");click("Clear group");check(state.draft.groups[0].entries.empty(),"Fixture changed before preset restore");
     click("Presets");click("Combat backup");click("Groups##part");click("Apply preset");
     check(state.draft.groups[0].entries.size()==3,"Complete preset restores exact saved group");
@@ -572,7 +574,7 @@ int main(int argc,char** argv)try {
     click("Presets");padKey(PadButton::down);
     check(ImGui::GetCurrentContext()->NavId==probe::one("Apply preset").id,"D-pad enters the preset controls directly");
     mouse(probe::one("##preset name").rect.GetCenter());frame({{EditorInputType::stick,1,false,.21f,0}});frame({{EditorInputType::stick,1,false,0,0}});padKey(PadButton::a);
-    click("Clear text");click("p");click("a");click("d");click("Done");click("Export preset");
+    click("Clear text");click("p");click("a");click("d");click("Done");click("Save preset");
     check(std::find(state.presets.begin(),state.presets.end(),"pad")!=state.presets.end(),"Controller text entry can name an exported preset");
     padKey(PadButton::start);check(!state.open,"Start closes the editor with live edits retained");
 
@@ -730,6 +732,14 @@ int main(int argc,char** argv)try {
     ++hidden.interaction;check(vertices(104)>0,"A repeated hotkey wakes the rendered widget");
     hidden.browsing=true;check(vertices(105)>0,"Selector is visible while using hidden-idle mode");
     hidden.visible=false;check(vertices(106)==0,"A blocking game menu hides the complete HUD including its selector");
+    {
+        Snapshot first;first.visible=true;first.interaction=1;Options plain;
+        const auto drawn=[&]{ImGui::NewFrame();auto* draw=ImGui::GetBackgroundDrawList();const auto before=draw->VtxBuffer.Size;hud.draw(first,plain,200,{}, {},draw);const auto count=draw->VtxBuffer.Size-before;ImGui::Render();return count;};
+        const auto bare=drawn();first.tip="Press Shift + \\ to set up Quickslot";const auto tipped=drawn();
+        check(tipped>bare,"The first-run tip is drawn beside the widget");
+        first.notice="Ready";first.noticeUntil=1e9;const auto noticed=drawn();first.tip.clear();check(noticed==drawn(),"A notice takes the tip's place");
+        first.notice.clear();first.browsing=true;const auto empty=drawn();first.editorShortcut="Shift + \\";check(drawn()>0&&empty>0,"An empty group's selector names the editor shortcut");
+    }
     hidden.visible=true;hidden.browsing=false;setWidgetVisibility(visibility,WidgetVisibility::selecting);check(vertices(107)==0,"Selection-only mode leaves no idle notification behind");
     hidden.editorPreview=true;check(vertices(108)>0,"Editor and positioning preview remain visible in selection-only mode");
     hidden=Snapshot{};hidden.visible=true;hidden.equipment=fixture::editor().equippedDisplay;
@@ -760,12 +770,12 @@ int main(int argc,char** argv)try {
         const auto display=io.DisplaySize;io.DisplaySize={1920,1080};
         Snapshot sample;sample.visible=true;sample.editorPreview=true;   // empty groups, so each tile's bounds are its frame, key and names
         const auto drawn=[&](const Options& look){ImGui::NewFrame();HudBounds b;hud.draw(sample,look,300,{}, {},nullptr,&b);ImGui::Render();return b;};
-        Options cards;cards.showLabels=true;const auto plain=drawn(cards);cards.selectorTextScale=3;cards.selectorOpacity=.2f;const auto other=drawn(cards);
+        Options cards;cardsPreset(cards);cards.showLabels=true;const auto plain=drawn(cards);cards.selectorTextScale=3;cards.selectorOpacity=.2f;const auto other=drawn(cards);
         check(!plain.tiles.empty()&&std::abs(plain.tiles[0].height()-other.tiles[0].height())<.5f&&std::abs(plain.tiles[0].width()-other.tiles[0].width())<.5f,"The selector's text size leaves the widget's cards as they are");
         cards.textScale=2;const auto larger=drawn(cards);check(larger.tiles[0].height()>plain.tiles[0].height()+4&&larger.tiles[0].width()>plain.tiles[0].width()+20,"The widget's text size resizes its cards");
         Options tiles;tiles.shape=2;tiles.showLabels=false;const auto small=drawn(tiles);tiles.tileSize=2;const auto large=drawn(tiles);
         check(!small.tiles.empty()&&large.tiles.size()==small.tiles.size()&&std::abs(large.tiles[0].width()-small.tiles[0].width()*2)<4,"Rendered tiles follow the tile size");
-        Options mirrored;mirrored.mirrorCards=true;const auto flipped=drawn(mirrored),straight=drawn(Options{});
+        Options mirrored;cardsPreset(mirrored);const auto straight=drawn(mirrored);mirrored.mirrorCards=true;const auto flipped=drawn(mirrored);
         check(!flipped.tiles.empty()&&std::abs(flipped.tiles[0].width()-straight.tiles[0].width())<2&&std::abs(flipped.tiles[0].height()-straight.tiles[0].height())<2,"Mirrored cards keep their size");
         {
             // Four spaced diamonds; group 3's item was just selected.
@@ -782,7 +792,7 @@ int main(int argc,char** argv)try {
             check(b.tiles.size()==4&&caption.valid&&caption.min.x>b.tiles[2].max.x-8&&caption.max.x<b.tiles[3].max.x+8,"A newly selected item's name appears under its own group's tile");
             fresh.activeGroup=0;fresh.groups[0].equipped=true;const auto first=below(row,b);
             check(first.valid&&first.max.x<b.tiles[1].min.x+8,"The name follows the selected group");
-            Options named;named.groupCount=4;named.shape=0;named.showCardNames=true;named.positionX=named.positionY=.5f;named.animateHud=false;
+            Options named;cardsPreset(named);named.groupCount=4;named.shape=0;named.showCardNames=true;named.positionX=named.positionY=.5f;named.animateHud=false;
             check(!below(named,b).valid,"Cards that show item names carry the name themselves");
             // A browsed group's tile is outlined in its accent.
             Options tinted=row;tinted.groupColored[0]=true;tinted.groupColors[0]={1,0,1};

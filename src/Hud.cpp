@@ -395,7 +395,9 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     const float selectorTarget=state.browsing?1.f:0.f,selectorShown=animate?selectorOpen_.update(selectorTarget,now,.1f,.08f):selectorTarget;
     const auto equipmentAlpha=equipmentFade_.update(state,o,now);
     if(visibility<=0&&equipmentAlpha<=0)return;
-    const bool notification=!state.notice.empty()&&now<state.noticeUntil;
+    // A tip takes the notice's place by the widget while no notice is showing and the selector is closed.
+    const bool noticed=!state.notice.empty()&&now<state.noticeUntil,tipped=!noticed&&!state.tip.empty()&&!state.browsing;
+    const bool notification=noticed||tipped;
     const auto screen=viewport.x>0&&viewport.y>0?viewport:ImGui::GetIO().DisplaySize;
     const auto metrics=equipmentMetrics(state.equipment,o);
     auto geometry=hudGeometry(o,screen.x,screen.y,equipmentRows(state.equipment,o),metrics,state.rows.size());
@@ -583,6 +585,8 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             const float y=std::min(layout.centerY,75.f);
             p.diamond(center,y,26,IM_COL32(155,151,141,130),false);p.text(center,y-18,"+",26,silver,false,0,true);
             p.label(center,y+46,tr("No items"),22,ivory,true,layout.width-24,true);
+            // An empty group says where its items come from.
+            p.label(center,y+46+30*p.textFactor,state.editorShortcut.empty()?std::string(tr("Add items in the Quickslot editor")):trNamed("Press %s to add items",state.editorShortcut),13,silver,false,layout.width-24,true);
         }
     }
     if(selectorVisible)p.d->PopClipRect();
@@ -757,7 +761,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     if(notification&&visibility>0) {
         const int noticeStart=p.d->VtxBuffer.Size;
         // A notice sits above the open selector, or above the widget while the selector is closed.
-        auto toast=state.browsing?p:groups;toast.alpha*=float(std::clamp((state.noticeUntil-now)/.35,0.,1.));const float text=toast.textFactor;
+        auto toast=state.browsing?p:groups;if(noticed)toast.alpha*=float(std::clamp((state.noticeUntil-now)/.35,0.,1.));const float text=toast.textFactor;
         if(!state.browsing){
             const float width=std::min(std::max(240.f,geometry.groups.width),(screen.x-16)/scale);
             toast.origin.x=origin.x+std::clamp(groups.origin.x-origin.x+geometry.groups.width*scale*.5f,8+width*scale*.5f,screen.x-8-width*scale*.5f)-center*scale;
@@ -765,7 +769,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             if(toast.origin.y-origin.y-27*text*scale<8)toast.origin.y=groups.origin.y+(geometry.height+geometry.captionHeight+35*text)*scale;
             toast.origin.y=std::clamp(toast.origin.y,origin.y+8+27*text*scale,origin.y+screen.y-8);
         }
-        toast.label(center,-27*text,state.notice,13,ivory,false,state.browsing?410.f:std::max(240.f,geometry.groups.width),true);
+        toast.label(center,-27*text,noticed?state.notice:state.tip,13,ivory,false,state.browsing?410.f:std::max(240.f,geometry.groups.width),true);
         toast.rule(center,-6,36);
         if(bounds)collect(noticeStart,state.browsing?bounds->selector:bounds->widget);
     }

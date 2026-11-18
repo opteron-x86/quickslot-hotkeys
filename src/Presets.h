@@ -22,7 +22,7 @@ namespace presetPart {constexpr unsigned look=1,controls=2,groups=4,all=7;}
 inline void copyControls(Options& target,const Options& source) {
     target.keys=source.keys;target.editorKey=source.editorKey;target.editorModifiers=source.editorModifiers;
     target.skipEmpty=source.skipEmpty;target.cycleKeepOtherHand=source.cycleKeepOtherHand;target.holdDelay=source.holdDelay;target.cycleDelay=source.cycleDelay;
-    target.menuCapture=source.menuCapture;target.selectionSpeed=source.selectionSpeed;
+    target.menuCapture=source.menuCapture;target.gameplayEditing=source.gameplayEditing;target.selectionSpeed=source.selectionSpeed;
     target.groupUnequipHotkey=source.groupUnequipHotkey;target.groupRemoveHotkey=source.groupRemoveHotkey;
     target.groupCaptureRightHotkey=source.groupCaptureRightHotkey;target.groupCaptureLeftHotkey=source.groupCaptureLeftHotkey;target.groupMoveHotkey=source.groupMoveHotkey;
     target.selectorReorderHotkey=source.selectorReorderHotkey;target.selectorUnequipHotkey=source.selectorUnequipHotkey;target.selectorRemoveHotkey=source.selectorRemoveHotkey;
@@ -45,7 +45,7 @@ inline void copyGroupSetup(Options& target,const Options& source) {
 }
 inline void copyPreferences(Options& target,const Options& source) {
     target.language=source.language;target.uiSounds=source.uiSounds;target.activePreset=source.activePreset;
-    target.controllerPreset=source.controllerPreset;target.keyboardPreset=source.keyboardPreset;
+    target.controllerPreset=source.controllerPreset;target.keyboardPreset=source.keyboardPreset;target.introSeen=source.introSeen;
 }
 inline void importAppearance(Options& target,const Options& source) {
     const auto previous=target;target=source;
@@ -62,7 +62,7 @@ inline Options mergeOptions(const Options& current,const Options& source,unsigne
 // Built-in presets ship with the mod and cannot be changed. Default restores the whole look;
 // the layouts rearrange the widget, selector and equipment display and keep everything else.
 struct BuiltinPreset {const char* id;const char* name;};
-inline constexpr BuiltinPreset builtinPresets[]{{"builtin:default","Default"},{"builtin:cross","Cross"},{"builtin:diamond","Diamond"},{"builtin:circle","Circle"}};
+inline constexpr BuiltinPreset builtinPresets[]{{"builtin:default","Default"},{"builtin:cards","Cards"},{"builtin:cross","Cross"},{"builtin:diamond","Diamond"},{"builtin:circle","Circle"},{"builtin:wheel","Wheel"}};
 inline const BuiltinPreset* builtinPreset(std::string_view id) {
     for(const auto& preset:builtinPresets)if(id==preset.id)return &preset;
     return nullptr;
@@ -70,7 +70,9 @@ inline const BuiltinPreset* builtinPreset(std::string_view id) {
 inline Options applyBuiltin(const Options& current,std::string_view id) {
     auto result=current;
     if(id=="builtin:default")importAppearance(result,Options{});
-    else if(const auto* preset=builtinPreset(id)){const auto layout=unsigned(preset-builtinPresets)-1;layoutPreset(result,layout);equipmentLayoutPreset(result,layout);}
+    else if(id=="builtin:cards")cardsPreset(result);
+    else if(id=="builtin:wheel")wheelPreset(result);
+    else if(id=="builtin:cross"||id=="builtin:diamond"||id=="builtin:circle"){const unsigned layout=id=="builtin:cross"?0u:id=="builtin:diamond"?1u:2u;layoutPreset(result,layout);equipmentLayoutPreset(result,layout);}
     return result;
 }
 // True when applying the preset's look would change nothing.

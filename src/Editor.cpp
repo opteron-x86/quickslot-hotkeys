@@ -91,6 +91,7 @@ static std::string shortcutName(unsigned scan,unsigned modifiers) {
     if(!scan)return "None";
     return (modifiers?modifierName(modifiers)+" + ":std::string{})+scanName(scan);
 }
+std::string shortcutLabel(unsigned scan,unsigned modifiers){return shortcutName(scan,modifiers);}
 void Editor::beginSession(const EditorState& state) {
     if(session_!=state.session||restoreSerial_!=state.restoreSerial||vrMode_!=state.vr)padDrafts_.clear();
     std::erase_if(padDrafts_,[&](const auto& draft){return draft.first<Arsenal::count&&!groupVisible(state.options,draft.first);});
@@ -582,7 +583,9 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(ImGui::IsItemHovered())UI::SetTooltip("Gives this group its own color for its highlights, its name and the selector while it is open.");
             if(options.groupColored[groupID]){ImGui::SameLine();changed|=ImGui::ColorEdit3("##group color",options.groupColors[groupID].data(),ImGuiColorEditFlags_NoInputs);}
             ImGui::SameLine();UI::TextDisabled("Key");ImGui::SameLine();bindButton(int(groupID),options.keys[groupID],"##group binding");
-            ImGui::SetNextItemWidth(px(235));
+            ImGui::AlignTextToFramePadding();UI::TextDisabled("Contents");
+            if(ImGui::IsItemHovered())UI::SetTooltip("Manual holds the items you add. A Favorites choice fills the group from the Skyrim Favorites categories you check.");
+            ImGui::SameLine();ImGui::SetNextItemWidth(px(235));
             if(ImGui::BeginCombo("##group source",tr(favoriteSourceName(group.source)),ImGuiComboFlags_HeightLarge)) {
                 for(unsigned i=0;i<=unsigned(FavoriteSource::all);++i)if(ImGui::Selectable(tr(favoriteSourceName(FavoriteSource(i))),i==unsigned(group.source))) {
                     auto c=command(EditAction::favoriteSource,groupID);c.source=FavoriteSource(i);c.hand=group.favoriteHand;emit(c);
@@ -630,7 +633,9 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             };
             ImGui::BeginDisabled(group.automatic());
             if(UI::Button("Items")){builder_=0;shortcutIndex_.reset();editingLibrary_=0;}
+            if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("Shows your inventory, spells and saved shortcuts to add to this group.");
             ImGui::SameLine();if(UI::Button("New"))ImGui::OpenPopup("new entry");
+            if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("Creates a combination, a smart choice or a hand action for this group.");
             if(ImGui::BeginPopup("new entry")) {
                 if(UI::MenuItem("Combination"))newShortcut(1);
                 if(UI::MenuItem("Smart potion"))newShortcut(2);
@@ -641,11 +646,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 ImGui::EndPopup();
             }
             ImGui::EndDisabled();
-            ImGui::SameLine();ImGui::SetNextItemWidth(px(280));
+            ImGui::SameLine();UI::TextDisabled("Behavior");ImGui::SameLine();ImGui::SetNextItemWidth(px(280));
             const bool consumables=hasConsumables(group);int mode=int(groupMode(options,state.draft,groupID));
             ImGui::BeginDisabled(consumables&&!options.separateConsumableUse[groupID]);
             if(UI::Combo("##group mode",&mode,"Hold to browse\0Tap to cycle\0Tap to cycle / hold to browse\0")){options.groupModes[groupID]=GroupMode(mode);changed=true;}
-            if(mode==int(GroupMode::cycleBrowse)&&ImGui::IsItemHovered())ImGui::SetTooltip("%s",tr("Tap and release to cycle. Hold to browse, then release to select the highlighted entry."));
+            if(ImGui::IsItemHovered())UI::SetTooltip(mode==int(GroupMode::browse)?"Tap the group key to equip or use the last item. Hold it to browse, then release to select.":
+                mode==int(GroupMode::cycle)?"Each tap of the group key equips the next item.":"Tap and release to cycle. Hold to browse, then release to select the highlighted entry.");
             ImGui::EndDisabled();
             if(consumables&&!options.separateConsumableUse[groupID]&&ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))ImGui::SetTooltip("%s",tr("Consumables: tap to use, hold to browse"));
             if(consumables||group.automatic()||options.separateConsumableUse[groupID]) {
@@ -968,6 +974,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(UI::Button("Clear##swap binding")){assignSwapBinding(options,{});binding_=-1;changed=true;hint_.clear();}
             ImGui::Separator();label(tr("Actions"));
             UI::TextWrapped("Configure each action in one place. Choose None or clear a binding to disable it.");
+            changed|=UI::Checkbox("Use editing shortcuts during gameplay",&options.gameplayEditing);
+            if(ImGui::IsItemHovered())UI::SetTooltip("Lets a group key held with Ctrl, Shift or Alt add, unequip or remove during gameplay. While this is off those chords select the group. Adding from Inventory and Magic stays available.");
             if(UI::Button("Remap actions…"))ImGui::OpenPopup("Keyboard action bindings");
             ImGui::SetNextWindowSize({std::min(px(560),screen.x-40),std::min(px(540),screen.y-40)},ImGuiCond_Appearing);
             ImGui::SetNextWindowSizeConstraints({0,0},{screen.x-40,screen.y-40});
@@ -1116,7 +1124,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(state.presets.empty())UI::TextDisabled("Save your current settings below to add a preset.");
             ImGui::PushID("files");
             for(const auto& name:state.presets) {
-                if(ImGui::Selectable(name.c_str(),presetSelected_==name)){presetSelected_=name;std::snprintf(presetName_.data(),presetName_.size(),"%s",name.c_str());}
+                if(ImGui::Selectable(name.c_str(),presetSelected_==name)){presetSelected_=name;presetScopeName_.clear();std::snprintf(presetName_.data(),presetName_.size(),"%s",name.c_str());}
                 if(ImGui::IsItemHovered()||ImGui::IsItemFocused())hovered=name;
                 if(const auto* preset=info(name)){const char* scope=tr(preset->complete?"Complete":"Look");ImGui::SameLine(std::max(0.f,ImGui::GetContentRegionAvail().x-ImGui::CalcTextSize(scope).x));ImGui::TextDisabled("%s",scope);}
             }
@@ -1175,9 +1183,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             ImGui::SetNextItemWidth(px(300));textField("##preset name","Preset name",presetName_);ImGui::SameLine();
             ImGui::SetNextItemWidth(px(200));UI::Combo("##export scope",&exportScope_,"Appearance only\0Complete setup\0");
             const std::string typed=presetName_.data();const bool validName=validPresetName(typed),exists=listed(typed);
+            // Naming an existing preset selects its own scope, so updating it keeps what it holds.
+            if(typed!=presetScopeName_){presetScopeName_=typed;if(const auto* named=info(typed))exportScope_=named->complete?1:0;}
+            if(const auto* named=info(typed);named&&named->complete&&exportScope_==0)UI::TextWrapped("Updating this preset as Appearance only removes its groups.");
             if(!typed.empty()&&!validName)UI::TextWrapped("Use letters, numbers, spaces, - or _");
             ImGui::BeginDisabled(!validName);
-            if(UI::Button(exists?"Update preset":"Export preset",{px(160),0})){auto c=command(EditAction::exportPreset,groupID);c.presetName=typed;c.appearanceOnly=exportScope_==0;c.replace=exists;emit(c);presetSelected_=typed;}
+            if(UI::Button(exists?"Update preset":"Save preset",{px(160),0})){auto c=command(EditAction::exportPreset,groupID);c.presetName=typed;c.appearanceOnly=exportScope_==0;c.replace=exists;emit(c);presetSelected_=typed;}
             ImGui::EndDisabled();ImGui::SameLine();
             ImGui::BeginDisabled(!fileSelected||!validName||exists);
             if(UI::Button("Rename",{px(120),0})){auto c=command(EditAction::renamePreset,groupID);c.presetName=presetSelected_;c.presetTarget=typed;emit(c);presetSelected_=typed;}

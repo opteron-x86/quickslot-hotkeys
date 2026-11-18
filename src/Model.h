@@ -316,6 +316,8 @@ struct Snapshot {
     double noticeUntil=0;
     EquippedDisplay equipment;
     bool holding=false,placementPreview=false,equipmentOnly=false;
+    // The binding that opens the editor on the device in use, and a line shown by the widget until the editor has been opened.
+    std::string editorShortcut,tip;
     float previewZoom=0;
     double revealUntil=0;
 };
@@ -354,6 +356,11 @@ struct Options {
     bool doubleTapSwap=false;
     PadBinding controllerUse,vrUse;
     bool skipEmpty=false,menuCapture=true,cycleKeepOtherHand=true;
+    // The add, unequip and remove chords on a group key apply during gameplay only while this is on. With it off a
+    // chord that names one of those actions selects the group. Inventory and Magic capture has its own switch.
+    bool gameplayEditing=false;
+    // Set once the editor has been opened. Until then the HUD shows how to open it.
+    bool introSeen=false;
     // Seconds. holdDelay separates a tap from a hold; cycleDelay keeps a tapped choice open before it equips (0 equips at once).
     float holdDelay=.18f,cycleDelay=0;
     bool groupCaptureRightHotkey=true,groupCaptureLeftHotkey=true,groupMoveHotkey=true;
@@ -385,7 +392,8 @@ struct Options {
     float offsetX=0,offsetY=0,selectorOffsetX=0,selectorOffsetY=0,equipmentOffsetX=0,equipmentOffsetY=0;
     // The screen area anchors refer to: the full screen or a centered 16:9, 2:1 or 21:9 frame.
     unsigned anchorFrame=0;
-    unsigned layout=0,shape=0,selector=0,selectorShape=0;
+    // A new installation shows diamond tiles in a diamond with an arc selector, the look of the Diamond preset.
+    unsigned layout=2,shape=3,selector=1,selectorShape=3;
     // cardWidth is the name area of a card tile in pixels; tileSize scales circle, square and diamond tiles around their
     // labels; gridColumns applies to the Grid arrangement. mirrorCards puts a card's icon on the right.
     float cardWidth=97,tileSize=1,gridColumns=4;
@@ -400,8 +408,8 @@ struct Options {
     // A group with its own color uses it for its highlights, its name and the selector while it is open.
     std::array<bool,Arsenal::count> groupColored{};
     std::array<std::array<float,3>,Arsenal::count> groupColors=[]{std::array<std::array<float,3>,Arsenal::count> colors;colors.fill({.62f,.25f,.21f});return colors;}();
-    float spacing=14,positionX=1,positionY=1;
-    float selectorSpacing=16;
+    float spacing=4,positionX=1,positionY=1;
+    float selectorSpacing=8;
     // "auto" follows the installed interface when a pack recognizes it.
     std::string themeId="auto";
     // The preset last applied or saved: a file name or a built-in id. The editor shows whether the look still matches it.
@@ -427,7 +435,7 @@ struct Options {
     float scale=1,textScale=1,opacity=.92f;
     bool selectorScaleLinked=true;
     float selectorScale=1,selectorTextScale=1,selectorOpacity=.92f,equipmentOpacity=.92f;
-    bool showIdle=true,showHints=false,showLabels=true,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
+    bool showIdle=true,showHints=false,showLabels=false,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
     bool showPoison=true,showAmmo=true;
     unsigned itemIconColor=1;
     bool pngiiIcons=true;
@@ -435,8 +443,8 @@ struct Options {
     bool showEquipment=false,equipmentDim=false,hideEmptyGroups=false,showEquipmentAmmo=false;
     float equipmentX=.02f,equipmentY=.8f;
     float equipmentScale=1,equipmentTextScale=1,equipmentSpacing=8;
-    unsigned equipmentStyle=0,equipmentLayout=1,equipmentTextPosition=3;
-    bool equipmentShowText=true;
+    unsigned equipmentStyle=2,equipmentLayout=2,equipmentTextPosition=3;
+    bool equipmentShowText=false;
     float equipmentFadeDelay=4,equipmentIdleOpacity=.35f;
     unsigned inactiveGroups=0;
     float inactiveGroupOpacity=.3f;
@@ -519,6 +527,12 @@ inline GroupKeyAction groupKeyAction(const Options& o,unsigned modifiers,bool mo
         if(matches(choice.modifier)&&bits>specificity){specificity=bits;result=choice.enabled?choice.action:disabled;}
     }
     return result;
+}
+// What a group key does during gameplay. Moving a shortcut needs an open selector, so it stays available.
+inline GroupKeyAction gameplayKeyAction(const Options& o,unsigned modifiers,bool moving=false) {
+    const auto action=groupKeyAction(o,modifiers,moving);
+    if(o.gameplayEditing||action==GroupKeyAction::move||action==GroupKeyAction::pass)return action;
+    return GroupKeyAction::select;
 }
 inline std::optional<Hand> menuCaptureHand(const Options& o,unsigned modifiers) {
     if(!o.menuCapture)return {};

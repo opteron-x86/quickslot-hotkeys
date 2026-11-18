@@ -176,9 +176,9 @@ int main()try {
         check(std::abs(doubled.tileWidth-normal.tileWidth*2)<.01f&&std::abs(doubled.tileHeight-normal.tileHeight*2)<.01f,"Tile size scales circle, square and diamond tiles");
         sized.showLabels=true;sized.tileSize=1;const auto named=groupGeometry(sized);sized.tileSize=2;const auto namedLarge=groupGeometry(sized);
         check(std::abs((namedLarge.tileHeight-named.tileHeight)-71)<.01f,"The name under a resized tile keeps its own height");
-        Options cards;const auto standard=groupGeometry(cards);cards.cardWidth=180;const auto wider=groupGeometry(cards);cards.tileSize=2;
+        Options cards;cardsPreset(cards);const auto standard=groupGeometry(cards);cards.cardWidth=180;const auto wider=groupGeometry(cards);cards.tileSize=2;
         check(std::abs(wider.tileWidth-standard.tileWidth-(180-97))<.01f&&groupGeometry(cards).tileHeight==standard.tileHeight,"Card width widens the name area and tile size leaves cards alone");
-        Options strip;strip.selector=0;const auto five=selectorGeometry(strip,12);strip.selectorVisible=3;const auto nine=selectorGeometry(strip,12),few=selectorGeometry(strip,3);strip.selectorVisible=1;
+        Options strip;cardsPreset(strip);strip.selector=0;const auto five=selectorGeometry(strip,12);strip.selectorVisible=3;const auto nine=selectorGeometry(strip,12),few=selectorGeometry(strip,3);strip.selectorVisible=1;
         check(nine.width>five.width&&std::abs(few.width-selectorGeometry(strip,3).width)<.01f,"More visible items widen the strip only when the group has them");
         Options wheel;wheel.selector=wheelSelector;const auto tight=selectorGeometry(wheel,4);wheel.wheelRadius=150;const auto open=selectorGeometry(wheel,4);
         check(tight.reach>=62&&std::abs(open.reach-150)<.01f&&open.width>tight.width,"Wheel radius sets the wheel's smallest size");
@@ -192,7 +192,7 @@ int main()try {
         }
         check(!selectorGeometry(wheel,30).segments&&selectorGeometry(wheel,30).ring.size()==Group::limit,"A tile wheel keeps to a full group of slots");
         ring.wheelStyle=7;sanitizeOptions(ring);check(ring.wheelStyle==1&&decodeOptions(encodeOptions(ring)).wheelStyle==1&&decodeOptions(encodeOptions(Options{})).wheelStyle==0,"The wheel style persists inside its range");
-        Options keyed;const auto withKeys=groupGeometry(keyed);keyed.showKeys=false;
+        Options keyed;cardsPreset(keyed);const auto withKeys=groupGeometry(keyed);keyed.showKeys=false;
         check(std::abs(withKeys.tileWidth-groupGeometry(keyed).tileWidth-cardKeyColumn)<.01f,"A card keeps a column for its key while keys are shown");
         Options look;look.cardWidth=150;look.tileSize=1.4f;look.gridColumns=5;look.layout=6;look.mirrorCards=true;look.selectorVisible=2;look.wheelRadius=120;look.iconScale=1.3f;look.backgroundOpacity=.4f;
         look.customTextColor=look.customSelectionColor=true;look.textColor={.1f,.2f,.3f};look.selectionColor={.4f,.5f,.6f};look.groupColored[2]=true;look.groupColors[2]={.7f,.8f,.9f};
@@ -214,7 +214,7 @@ int main()try {
     check(textReload.textScale==1.35f&&textReload.placementSpacing==3&&textReload.placementFrame==2&&textReload.placementGridSize==27,"Text and grid settings persist");
     Options textImported;importAppearance(textImported,textOptions);
     check(textImported.textScale==1.35f&&textImported.placementFrame==2&&textImported.placementGridSize==27,"Appearance presets include text size and grid options");
-    Options cards;cards.shape=0;cards.showLabels=false;const auto namedCards=groupGeometry(cards);cards.showCardNames=false;
+    Options cards;cardsPreset(cards);cards.shape=0;cards.showLabels=false;const auto namedCards=groupGeometry(cards);cards.showCardNames=false;
     check(groupGeometry(cards).tileWidth<namedCards.tileWidth,"Hidden card names reclaim horizontal space");
     cards.selector=4;const auto savedCards=decodeOptions(encodeOptions(cards));
     check(!savedCards.showCardNames&&savedCards.selector==4,"Card visibility and list layout survive settings roundtrip");

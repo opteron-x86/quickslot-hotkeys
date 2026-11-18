@@ -104,7 +104,7 @@ inline std::string encodeOptions(Options o) {
     Json controllerActions=Json::array();for(const auto b:o.controllerActions)controllerActions.push_back(binding(b));
     Json j{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"holdDelay",o.holdDelay},{"cycleDelay",o.cycleDelay},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"fontId",o.fontId},{"themeAdjustments",tweaks},
         {"pngiiIcons",o.pngiiIcons},{"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
-        {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},
+        {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},{"gameplayEditing",o.gameplayEditing},{"introSeen",o.introSeen},
         {"groupCaptureRightHotkey",o.groupCaptureRightHotkey},{"groupCaptureLeftHotkey",o.groupCaptureLeftHotkey},{"groupMoveHotkey",o.groupMoveHotkey},
         {"selectorReorderHotkey",o.selectorReorderHotkey},{"selectorUnequipHotkey",o.selectorUnequipHotkey},{"selectorRemoveHotkey",o.selectorRemoveHotkey},
         {"mouseActions",o.mouseActions},{"groupModifiers",o.groupModifiers},{"selectorBindings",selectorBindings},{"allowUnusedModifiers",o.allowUnusedModifiers},{"controllerActions",controllerActions},
@@ -144,6 +144,8 @@ inline Options decodeOptions(const std::string& bytes) {
     o.autoSort=j.value("autoSort",o.autoSort);
     o.groupUnequipHotkey=j.value("groupUnequipHotkey",true);o.groupRemoveHotkey=j.value("groupRemoveHotkey",true);
     o.quickLootKeyboard=j.value("quickLootKeyboard",false);o.quickLootController=j.value("quickLootController",false);
+    // Settings saved before the first-run hint existed belong to a player who has already found the editor.
+    o.gameplayEditing=j.value("gameplayEditing",false);o.introSeen=j.value("introSeen",true);
     o.groupCaptureRightHotkey=j.value("groupCaptureRightHotkey",true);o.groupCaptureLeftHotkey=j.value("groupCaptureLeftHotkey",true);o.groupMoveHotkey=j.value("groupMoveHotkey",true);
     o.selectorReorderHotkey=j.value("selectorReorderHotkey",true);o.selectorUnequipHotkey=j.value("selectorUnequipHotkey",true);o.selectorRemoveHotkey=j.value("selectorRemoveHotkey",true);
     o.groupModifiers=j.value("groupModifiers",o.groupModifiers);o.allowUnusedModifiers=j.value("allowUnusedModifiers",false);

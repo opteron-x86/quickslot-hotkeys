@@ -66,7 +66,7 @@ void run() {
         check(std::abs(nearest-requested)<.03f,"Ring selector spacing uses the visible frame edges");
     }
     EquipmentMetrics metrics;metrics.measured=true;metrics.textWidths={80,120,40,65,30};
-    Options equipment;equipment.equipmentStyle=3;equipment.equipmentLayout=0;equipment.equipmentTextPosition=3;
+    Options equipment;equipment.equipmentStyle=3;equipment.equipmentLayout=0;equipment.equipmentTextPosition=3;equipment.equipmentShowText=true;
     for(float requested:{0.f,16.f,32.f,128.f}) {
         equipment.equipmentSpacing=requested;const auto g=equipmentGeometry(equipment,3840,2160,5,metrics);
         for(unsigned i=0;i<5;++i) {

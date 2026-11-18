@@ -20,6 +20,20 @@ void check(bool value,const char* why,std::source_location at=std::source_locati
 }
 int main()try {
     {
+        Options play;
+        check(!play.gameplayEditing,"Editing chords start disabled during gameplay");
+        for(const unsigned chord:{keyModifier::alt,keyModifier::shift,keyModifier::ctrl,keyModifier::ctrl|keyModifier::shift,keyModifier::shift|keyModifier::alt})
+            check(gameplayKeyAction(play,chord)==GroupKeyAction::select,"A group key held with a movement modifier selects the group during gameplay");
+        check(gameplayKeyAction(play,0)==GroupKeyAction::select,"A bare group key selects");
+        check(gameplayKeyAction(play,keyModifier::ctrl,true)==GroupKeyAction::move,"Moving a shortcut from an open selector stays available");
+        check(menuCaptureHand(play,keyModifier::ctrl)==std::optional{Hand::right}&&menuCaptureHand(play,keyModifier::ctrl|keyModifier::shift)==std::optional{Hand::left},"Inventory and Magic capture does not depend on the gameplay switch");
+        play.gameplayEditing=true;
+        check(gameplayKeyAction(play,keyModifier::alt)==GroupKeyAction::remove&&gameplayKeyAction(play,keyModifier::shift)==GroupKeyAction::unequip&&
+              gameplayKeyAction(play,keyModifier::ctrl)==GroupKeyAction::captureRight&&gameplayKeyAction(play,keyModifier::ctrl|keyModifier::shift)==GroupKeyAction::captureLeft,"Turning the switch on restores the editing chords");
+        Options passing;passing.groupRemoveHotkey=false;
+        check(gameplayKeyAction(passing,keyModifier::alt)==GroupKeyAction::pass,"A chord whose action is disabled still reaches the game");
+    }
+    {
         Options keys;keys.groupRemoveHotkey=false;
         check(groupKeyAction(keys,keyModifier::alt)==GroupKeyAction::pass,"Existing disabled Alt editing still passes through by default");
         keys.allowUnusedModifiers=true;
@@ -398,7 +412,7 @@ int main()try {
     }
     for(unsigned style=0;style<5;++style)for(unsigned text=0;text<4;++text)for(unsigned layout=0;layout<6;++layout)
         for(float t:{.75f,1.5f})for(float edge:{0.f,1.f})for(unsigned count:{3u,4u})for(float spacing:{0.f,1.f,4.f}) {
-            Options look;look.equipmentStyle=style;look.equipmentTextPosition=text;look.equipmentLayout=layout;look.textScale=t;look.equipmentX=look.equipmentY=edge;
+            Options look;look.equipmentStyle=style;look.equipmentTextPosition=text;look.equipmentLayout=layout;look.equipmentShowText=true;look.textScale=t;look.equipmentX=look.equipmentY=edge;
             look.equipmentScale=2;look.equipmentTextScale=1.5f;look.equipmentSpacing=spacing;
             const auto g=equipmentGeometry(look,1280,720,count);
             check(g.origin.x>=8&&g.origin.y>=8&&g.origin.x+g.width*g.scale<=1272.1f&&g.origin.y+g.height*g.scale<=712.1f,"Every equipment layout fits screen extremes");

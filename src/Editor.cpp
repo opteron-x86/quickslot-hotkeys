@@ -624,7 +624,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             shortcutRevision_=state.revision;
             const auto& navigation=*ImGui::GetCurrentContext();
             const bool enterCatalog=navigation.NavMoveScoringItems&&navigation.NavMoveDir==ImGuiDir_Down&&
-                (navigation.NavId==ImGui::GetID(translatedLabel("Items").c_str())||navigation.NavId==ImGui::GetID(translatedLabel("New").c_str())||navigation.NavId==ImGui::GetID("##group mode"));
+                (navigation.NavId==ImGui::GetID(translatedLabel("Items").c_str())||navigation.NavId==ImGui::GetID(translatedLabel("New").c_str())||navigation.NavId==ImGui::GetID("##group tap")||navigation.NavId==ImGui::GetID(translatedLabel("Hold to browse").c_str()));
             if(!group.entries.empty())selected_=std::min(selected_,group.entries.size()-1);
             const auto newShortcut=[&](int type) {
                 builder_=type;shortcutIndex_.reset();editingLibrary_=0;comboCandidates_={};comboName_.fill(0);handSearch_={};
@@ -646,17 +646,24 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 ImGui::EndPopup();
             }
             ImGui::EndDisabled();
-            ImGui::SameLine();UI::TextDisabled("Behavior");ImGui::SameLine();ImGui::SetNextItemWidth(px(280));
-            const bool consumables=hasConsumables(group);int mode=int(groupMode(options,state.draft,groupID));
-            ImGui::BeginDisabled(consumables&&!options.separateConsumableUse[groupID]);
-            if(UI::Combo("##group mode",&mode,"Hold to browse\0Tap to cycle\0Tap to cycle / hold to browse\0")){options.groupModes[groupID]=GroupMode(mode);changed=true;}
-            if(ImGui::IsItemHovered())UI::SetTooltip(mode==int(GroupMode::browse)?"Tap the group key to equip or use the last item. Hold it to browse, then release to select.":
-                mode==int(GroupMode::cycle)?"Each tap of the group key equips the next item.":"Tap and release to cycle. Hold to browse, then release to select the highlighted entry.");
+            ImGui::SameLine();UI::TextDisabled("Tap");
+            if(ImGui::IsItemHovered())UI::SetTooltip("What a tap of the group key does.");
+            ImGui::SameLine();ImGui::SetNextItemWidth(px(230));
+            const bool consumables=hasConsumables(group);const auto mode=groupMode(options,state.draft,groupID);
+            int tap=cyclesOnTap(mode)?1:0;bool hold=mode!=GroupMode::cycle;
+            if(UI::Combo("##group tap",&tap,"Equip the last item\0Step to the next item\0")){options.groupModes[groupID]=groupModeFor(tap==1,hold);changed=true;}
+            if(ImGui::IsItemHovered())UI::SetTooltip(tap==0?"A tap equips or uses the item you chose last. Hold the key to browse, then release to select.":"Each tap moves to the group's next item and equips it.");
+            ImGui::SameLine();ImGui::BeginDisabled(tap==0);
+            if(UI::Checkbox("Hold to browse",&hold)){options.groupModes[groupID]=groupModeFor(tap==1,hold);changed=true;}
             ImGui::EndDisabled();
-            if(consumables&&!options.separateConsumableUse[groupID]&&ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))ImGui::SetTooltip("%s",tr("Consumables: tap to use, hold to browse"));
-            if(consumables||group.automatic()||options.separateConsumableUse[groupID]) {
+            if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("Holding the group key opens the selector. Browse, then release to select the highlighted item.");
+            if(tap==0&&(consumables||group.automatic()||options.separateConsumableUse[groupID])) {
                 int use=options.separateConsumableUse[groupID]?1:0;ImGui::SetNextItemWidth(px(280));
-                if(UI::Combo("Consumables",&use,"Tap to use\0Use selected consumable action\0")){options.separateConsumableUse[groupID]=use==1;normalizeGroupModes(options,state.draft);changed=true;}
+                if(UI::Combo("Consumables",&use,"Tap to use\0Use selected consumable action\0")){options.separateConsumableUse[groupID]=use==1;changed=true;}
+            } else if(tap==1&&(consumables||group.automatic())) {
+                const bool bound=state.vr?options.vrUse.button!=PadButton::none:options.consumableKey.key||options.controllerUse.button!=PadButton::none;
+                UI::TextWrapped(bound?"Taps select potions, food and poisons in this group. Use selected consumable uses the selected one.":
+                    "Taps select potions, food and poisons in this group. Bind Use selected consumable under Controls to use the selected one.");
             }
             const auto builtCommand=[&] {
                 auto c=command(shortcut_.kind==Kind::combo?EditAction::saveCombination:EditAction::saveShortcut,groupID,shortcutIndex_.value_or(0));

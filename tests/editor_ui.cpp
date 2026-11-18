@@ -501,7 +501,7 @@ int main(int argc,char** argv)try {
     for(const auto screen:std::array<ImVec2,3>{{{1280,720},{1920,1080},{3840,2160}}}) {
         state=fixture::editor();state.session=session++;state.draft.groups[0]={};fixture::rows(state);io.DisplaySize=screen;frame();frame();
         check(probe::find("Shortcuts").empty(),"Group editing has no separate shortcuts tab");
-        click("##group mode");key(1);check(state.open&&ImGui::GetCurrentContext()->OpenPopupStack.empty(),"Escape dismisses a group popup without closing the editor");
+        click("##group tap");key(1);check(state.open&&ImGui::GetCurrentContext()->OpenPopupStack.empty(),"Escape dismisses a group popup without closing the editor");
         click("New");click("Combination");click("##right component");frame();check(io.WantTextInput,"Opening a hand picker focuses search");
         for(const auto ch:std::string("healing"))frame({{EditorInputType::character,unsigned(ch)}});
         check(probe::find("Flames").empty()&&!probe::find("Healing").empty(),"Hand picker searches known spells directly");
@@ -513,11 +513,12 @@ int main(int argc,char** argv)try {
         click("Undo");check(state.draft.current().entries[0].parts[1].name=="Healing","Combination edit is one undoable action");
         click("New");click("Combination");click("Use equipped");click("Add combination");
         check(state.draft.current().entries.back().parts[0].name=="Imperial Sword (Superior)"&&state.draft.current().entries.back().parts[1].kind==Kind::emptyHand,"Current equipment creates a combination directly");
-        click("##group mode");click("Tap to cycle");
-        check(state.options.groupModes[0]==GroupMode::cycle,"Group mode applies live at every resolution");
-        click("##group mode");click("Tap to cycle / hold to browse");
-        check(state.options.groupModes[0]==GroupMode::cycleBrowse,"Combined mode is selectable at every editor resolution");
-        click("Undo");check(state.options.groupModes[0]==GroupMode::cycle,"Undo restores the previous cycle mode");
+        check(probe::one("Hold to browse").disabled,"A group that equips its last item always has the selector");
+        click("##group tap");click("Step to the next item");
+        check(state.options.groupModes[0]==GroupMode::cycleBrowse,"Stepping through a group keeps hold to browse at every resolution");
+        click("Hold to browse");
+        check(state.options.groupModes[0]==GroupMode::cycle,"Hold to browse can be turned off for a stepping group");
+        click("Undo");check(state.options.groupModes[0]==GroupMode::cycleBrowse,"Undo restores hold to browse");
         check(probe::find("Controller tap").empty()&&probe::find("Hold action").empty(),"Independent overrides are absent");
         click("2   Offhand\n     1 / 16");check(state.options.groupModes[1]==GroupMode::browse,"Mode does not leak to other groups");
         click("Undo");check(state.options.groupModes[0]==GroupMode::browse,"Mode change supports Undo");
@@ -665,10 +666,10 @@ int main(int argc,char** argv)try {
     click("##entry");click("Hand");click("Left");check(state.draft.groups[0].entries[0].hand==Hand::left,"Smart weapon hand changes live");
     click("New");click("Smart ammo");click("Type");click("Bolts");click("Add smart ammo");
     check(state.draft.groups[0].entries.back().kind==Kind::smartAmmo&&state.draft.groups[0].entries.back().equipmentType==1,"Smart bolts add from the unified editor");
-    click("##group mode");click("Tap to cycle");check(state.options.groupModes[0]==GroupMode::cycle,"Smart weapon group can cycle");
+    click("##group tap");click("Step to the next item");click("Hold to browse");check(state.options.groupModes[0]==GroupMode::cycle,"Smart weapon group can cycle");
     click("New");click("Smart potion");click("Add smart potion");
-    check(state.options.groupModes[0]==GroupMode::browse&&probe::one("##group mode").disabled,"Adding a consumable restores browse/use and disables incompatible mode");
-    click("Undo");check(state.options.groupModes[0]==GroupMode::cycle&&state.draft.groups[0].entries.size()==2,"Undo restores contents and cycle mode together");
+    check(state.options.groupModes[0]==GroupMode::cycle&&!probe::one("##group tap").disabled&&probe::find("Consumables").empty(),"Adding a consumable leaves the group's behavior as chosen");
+    click("Undo");check(state.options.groupModes[0]==GroupMode::cycle&&state.draft.groups[0].entries.size()==2,"Undo restores the contents and keeps the behavior");
 
     click("Items");click("##filter");click("Shortcuts");
     check(probe::find("##candidate").size()==2,"Shortcut filter shows both created smart definitions");
@@ -1043,12 +1044,11 @@ int main(int argc,char** argv)try {
     click("Controls");click("Keyboard");click("None##consumable binding");key(35);
     check(state.options.consumableKey==KeyBinding{35,0}&&decodeOptions(encodeOptions(state.options)).consumableKey.key==35,"Keyboard use binding applies and persists through the editor");
     click("Clear##consumable binding");check(!state.options.consumableKey.key,"The use key can be cleared");click("Undo");check(state.options.consumableKey.key==35,"Undo restores the use key");
-    click("Groups##main");check(probe::one("##group mode").disabled,"Tap-to-use consumables keep the existing group behavior");
+    click("Groups##main");check(!probe::one("##group tap").disabled,"A group with consumables keeps its behavior choices");
     click("Consumables");click("Use selected consumable action");
-    check(state.options.separateConsumableUse[0]&&!probe::one("##group mode").disabled,"Separate use unlocks group cycling modes");
-    click("##group mode");click("Tap to cycle / hold to browse");
-    check(state.options.groupModes[0]==GroupMode::cycleBrowse,"Consumables can combine tap-to-cycle with hold-to-browse");
-    click("Consumables");click("Tap to use");check(!state.options.separateConsumableUse[0]&&state.options.groupModes[0]==GroupMode::browse,"Tap-to-use restores the legacy consumable gesture");
-    click("Undo");check(state.options.separateConsumableUse[0]&&state.options.groupModes[0]==GroupMode::cycleBrowse,"Undo restores consumable behavior and its group mode together");
+    check(state.options.separateConsumableUse[0]&&state.options.groupModes[0]==GroupMode::browse,"A group that equips its last item can leave consumables to the use binding");
+    click("##group tap");click("Step to the next item");
+    check(state.options.groupModes[0]==GroupMode::cycleBrowse&&probe::find("Consumables").empty(),"A stepping group selects consumables and needs no separate choice");
+    click("Undo");check(state.options.groupModes[0]==GroupMode::browse&&state.options.separateConsumableUse[0]&&!probe::find("Consumables").empty(),"Undo restores the group's behavior and its consumable choice");
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

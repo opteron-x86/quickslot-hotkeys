@@ -11,6 +11,7 @@
 #include "Settings.h"
 #include "Recovery.h"
 #include "Presets.h"
+#include "GroupSetup.h"
 #include "MenuFramework.h"
 #include "MenuAPI.h"
 #include "EquippedState.h"
@@ -35,6 +36,7 @@ constexpr char slowMenuName[]="QuickslotSelection";
 constexpr char pauseMenuName[]="QuickslotSelectionPause";
 constexpr std::uint32_t recordType=0x47525031;
 constexpr std::uint32_t settingsRecordType=0x51534f31;
+constexpr std::uint32_t groupSetupRecordType=0x47535531;
 using Dispatch=void(RE::BSTEventSource<RE::InputEvent*>*,RE::InputEvent**);
 REL::Relocation<Dispatch> originalDispatch;
 void inputHook(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent** events) { Game::get().dispatch(source,events); }
@@ -733,7 +735,7 @@ bool Game::initialize() {
         }
     }catch(const std::exception& e){log::warn("Editor settings ignored; using INI defaults: {}",e.what());loadNotice_="Quickslot settings could not be read and use their defaults";}
     if(options_.holdDelay<=0)options_.holdDelay=iniHold;
-    selection_.holdSeconds=options_.holdDelay;sharedOptions_=options_;
+    selection_.holdSeconds=options_.holdDelay;sharedOptions_=legacyGroups_=options_;
     localization().select(options_.language);
 
     const REL::Relocation<std::uintptr_t> poll{RELOCATION_ID(67315,68617)};
@@ -816,7 +818,8 @@ void Game::publish(){
         if(binding.button!=PadButton::none)snapshot_.editorShortcut=padLabel(binding,snapshot_.vr?2u:options_.controllerStyle);
     }
     if(snapshot_.editorShortcut.empty()&&options_.editorKey)snapshot_.editorShortcut=shortcutLabel(options_.editorKey,options_.editorModifiers);
-    snapshot_.tip=options_.introSeen||snapshot_.editorShortcut.empty()?std::string{}:trNamed("Press %s to set up Quickslot",snapshot_.editorShortcut);
+    snapshot_.tip=options_.introSeen||snapshot_.editorShortcut.empty()?std::string{}:
+        trNamed(hasFavoriteGroups(arsenal_)?"Quickslot shows your Skyrim Favorites. Press %s to customize.":"Press %s to set up Quickslot",snapshot_.editorShortcut);
     syncHudMenu();
 }
 void Game::syncHudMenu() {
@@ -835,13 +838,20 @@ bool Game::allowHudMenuTransition() {
 void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
     if(arsenal_.presetIdentity.empty()){GUID id{};if(SUCCEEDED(CoCreateGuid(&id))){char key[40];std::snprintf(key,sizeof(key),"%08lx%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",id.Data1,id.Data2,id.Data3,id.Data4[0],id.Data4[1],id.Data4[2],id.Data4[3],id.Data4[4],id.Data4[5],id.Data4[6],id.Data4[7]);arsenal_.presetIdentity=key;}}
     if(auto* devices=RE::BSInputDeviceManager::GetSingleton())controllerLast_=controllerConnected_=REL::Module::IsVR()||devices->IsGamepadEnabled();
+    if(!saveHasGroups_&&!saveHasSetup_&&blankArsenal(arsenal_)) {
+        starterGroups(options_,arsenal_);optionsReplaced();log::info("New character: groups follow Skyrim Favorites");
+    }
     revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);menuAPI().publishGroups(unsigned(options_.groupCount));dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);
     // Load notices hold English keys; they are translated here, once the language is known.
     if(!loadNotice_.empty()){const std::string text=tr(loadNotice_.c_str());notice(text);snapshot_.noticeUntil=clockNow()+10;RE::SendHUDMessage::ShowHUDMessage(text.c_str());loadNotice_.clear();}}
 void Game::reset(bool clear) {
     invalidateI4Icons();
     std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;
-    if(clear){arsenal_=Arsenal{};preservedRecord_.reset();if(characterSettings_){characterSettings_=false;options_=sharedOptions_;optionsReplaced();}}
+    if(clear) {
+        arsenal_=Arsenal{};preservedRecord_.reset();saveHasGroups_=saveHasSetup_=false;
+        if(characterSettings_){characterSettings_=false;options_=sharedOptions_;}
+        copyCharacterGroups(options_,legacyGroups_);optionsReplaced();
+    }
     choices_.clear();lastTapAt_=0;
     snapshot_=Snapshot{};groupRecall_.reset();keyboardOwned_.fill(false);mouseOwned_.fill(false);controller_.reset();stickOwned_.fill(false);nativeVoiceDown_=false;
 }
@@ -1487,8 +1497,6 @@ void Game::refresh() {
     const auto revision=arsenal_.current().revision;
     syncFavoriteGroups(arsenal_,player,inventory);
     if(revision!=arsenal_.current().revision)cancel();
-    const auto modes=options_.groupModes;normalizeGroupModes(options_,arsenal_);
-    if(modes!=options_.groupModes&&!characterSettings_)autosave_.change(clockNow());
     const auto potions=potionCandidates(inventory);const auto deficits=actorDeficits(player);snapshot_.rows.clear();snapshot_.equipment=readEquipment(player,inventory);
     const auto consumableGroup=selectedConsumableGroup(arsenal_);
     const bool smart=std::any_of(arsenal_.groups.begin(),arsenal_.groups.end(),[](const auto& g){return std::any_of(g.entries.begin(),g.entries.end(),hasSmartEquipment);});
@@ -1601,7 +1609,12 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         const auto action=selectionAction(saved,commit,options_);
         if(!unequip&&action==SelectionAction::none)return;
         if(!unequip&&action==SelectionAction::select) {
-            arsenal_.current().selected=commit.index;rememberConsumable(arsenal_,commit.group,commit.index);pending_.reset();notice(tr("Selected — ")+saved.name,false);dirty_=true;refresh();publish();return;
+            arsenal_.current().selected=commit.index;rememberConsumable(arsenal_,commit.group,commit.index);pending_.reset();
+            // A selected consumable needs the use binding; say so while the device in use has none.
+            const bool bound=REL::Module::IsVR()?options_.vrUse.button!=PadButton::none:commit.controller?options_.controllerUse.button!=PadButton::none:options_.consumableKey.key!=0;
+            if(isConsumable(saved)&&!bound&&consumablesNeedUseKey(options_,arsenal_,commit.group))notice(trNamed("%s selected. Bind Use selected consumable under Controls to use it.",saved.name));
+            else notice(tr("Selected — ")+saved.name,false);
+            dirty_=true;refresh();publish();return;
         }
         if(!unequip&&isConsumable(saved)) {
             if(useConsumable(saved,commit.controller)){arsenal_.current().selected=commit.index;rememberConsumable(arsenal_,commit.group,commit.index);dirty_=true;refresh();publish();}
@@ -1834,7 +1847,9 @@ void Game::updateEditorTextInput() {
 void Game::saveSettings(const Options& options) {
     const auto path=dataDirectory()/"SKSE/Plugins/Quickslot.settings.json";
     const auto temporary=path.wstring()+L".tmp";
-    {std::ofstream file(temporary,std::ios::binary|std::ios::trunc);const auto bytes=encodeOptions(options);file<<bytes<<'\n';file.flush();if(!file)throw std::runtime_error("Cannot write Quickslot.settings.json");}
+    // Group setups live in each character's saves. The file keeps the setup it started with for saves that have none.
+    auto stored=options;copyCharacterGroups(stored,legacyGroups_);
+    {std::ofstream file(temporary,std::ios::binary|std::ios::trunc);const auto bytes=encodeOptions(stored);file<<bytes<<'\n';file.flush();if(!file)throw std::runtime_error("Cannot write Quickslot.settings.json");}
     if(!MoveFileExW(temporary.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))
         throw std::runtime_error("Cannot replace Quickslot.settings.json (Windows error "+std::to_string(GetLastError())+")");
 }
@@ -2176,6 +2191,8 @@ void Game::save(SKSE::SerializationInterface* serial) {
             const auto settings=encodeOptions(options_);
             if(!serial->WriteRecord(settingsRecordType,1,settings.data(),std::uint32_t(settings.size())))log::error("Could not write this character's Quickslot settings");
         }
+        const auto setup=encodeGroupSetup(options_);
+        if(!serial->WriteRecord(groupSetupRecordType,1,setup.data(),std::uint32_t(setup.size())))log::error("Could not write this character's group setup");
         // A record this build could not read stays in the save until the player builds new groups.
         if(preservedRecord_&&blankArsenal(arsenal_)) {
             const auto& [version,bytes]=*preservedRecord_;
@@ -2191,8 +2208,13 @@ void Game::save(SKSE::SerializationInterface* serial) {
 void Game::load(SKSE::SerializationInterface* serial) {
     std::scoped_lock lock(mutex_);closeEditor("loading saved groups");cancel();use_.reset();stopAnimationWatch();arsenal_=Arsenal{};preservedRecord_.reset();dirty_=true;
     if(characterSettings_){characterSettings_=false;options_=sharedOptions_;optionsReplaced();}
-    std::uint32_t type,version,length;bool found=false;
+    std::uint32_t type,version,length;bool found=false;std::string setup;
     while(serial->GetNextRecordInfo(type,version,length)) {
+        if(type==groupSetupRecordType) {
+            std::string bytes(length<=65536?length:0,'\0');
+            if(version!=1||bytes.empty()||serial->ReadRecordData(bytes.data(),length)!=length){log::error("Load failed: this character's group setup (version {}, {} bytes) is unreadable",version,length);continue;}
+            setup=std::move(bytes);continue;
+        }
         if(type==settingsRecordType&&version==1&&length<=65536&&!characterSettings_) {
             std::string bytes(length,'\0');
             if(serial->ReadRecordData(bytes.data(),length)!=length){log::error("Load failed: truncated character settings");continue;}
@@ -2202,7 +2224,7 @@ void Game::load(SKSE::SerializationInterface* serial) {
             log::info("Loaded this character's own settings ({} defaults restored)",recovered->reset.size());continue;
         }
         if(type!=recordType||found)continue;
-        found=true;
+        found=saveHasGroups_=true;
         if(length>8388608){log::error("Load failed: group record exceeds limit ({} bytes)",length);loadNotice_="Quickslot could not read this save's groups";continue;}
         std::string bytes(length,'\0');
         if(serial->ReadRecordData(bytes.data(),length)!=length){log::error("Load failed: truncated group record");loadNotice_="Quickslot could not read this save's groups";continue;}
@@ -2218,6 +2240,11 @@ void Game::load(SKSE::SerializationInterface* serial) {
             log::warn("Load repaired: {} unreadable shortcuts removed; {} entries kept",recovered->dropped,arsenal_.size());
             loadNotice_="Quickslot restored your groups; some shortcuts could not be read";
         }
+    }
+    // The setup is applied last so it also lies over a character's own settings record.
+    if(!setup.empty()) {
+        if(const auto merged=withGroupSetup(options_,setup)){options_=*merged;saveHasSetup_=true;optionsReplaced();log::info("Loaded this character's group setup");}
+        else log::error("Load failed: this character's group setup is unreadable; using the shared group setup");
     }
 }
 RE::BSEventNotifyControl Game::ProcessEvent(const RE::MenuOpenCloseEvent* e,RE::BSTEventSource<RE::MenuOpenCloseEvent>*) {

@@ -318,7 +318,7 @@ int main(int argc,char** argv) {
     if(scene=="editor-equipped"){editing.options.showEquipment=true;editing.options.themeId="oathvein";previewClicks={"Appearance","Equipment"};}
     if(scene=="editor-equipped-spacing"){editing.options.showEquipment=true;editing.options.themeId="oathvein";editing.options.equipmentStyle=1;editing.options.equipmentSpacing=128;previewClicks={"Appearance","Equipment"};}
     if(scene=="editor-equipped-layout"){editing.options.showEquipment=true;editing.options.themeId="oathvein";previewClicks={"Appearance","Equipment","##equipment style","Circles","##equipment layout","Horizontal","##equipment text","Bottom"};}
-    if(scene=="editor-cycle")previewClicks={"##group mode"};
+    if(scene=="editor-cycle")previewClicks={"##group tap"};
     if(scene=="editor-library")previewClicks={"##filter","Shortcuts"};
     if(scene=="editor-library-edit")previewClicks={"##filter","Shortcuts","##candidate","Edit shortcut"};
     if(scene=="editor-favorites")previewClicks={"##group source","Favorite weapons"};
@@ -374,7 +374,7 @@ int main(int argc,char** argv) {
     if(scene=="editor-smart")previewClicks={"New","Smart potion"};
     if(scene=="editor-combinations")previewClicks={"New","Combination","##right component","Healing","Both hands"};
     if(scene=="editor-hand-picker")previewClicks={"New","Combination","##right component"};
-    if(scene=="editor-group-behavior")previewClicks={"##group mode"};
+    if(scene=="editor-group-behavior")previewClicks={"##group tap"};
     EditHistory history;history.begin(editing.draft,editing.options);
     // QUICKSLOT_PREVIEW_THEME shows any scene, including the editor, under another theme.
     if(const char* theme=std::getenv("QUICKSLOT_PREVIEW_THEME");theme&&*theme)options.themeId=editing.options.themeId=theme;

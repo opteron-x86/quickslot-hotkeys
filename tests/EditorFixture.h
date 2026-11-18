@@ -81,6 +81,6 @@ inline bool apply(EditorState& s,const EditCommand& c,EditHistory& history) {
         if(c.action==EditAction::addGroup||c.action==EditAction::removeGroup||c.action==EditAction::favoriteSource)++s.restoreSerial;
         history.finish(c.action!=EditAction::select&&c.action!=EditAction::refresh,c.continuous,double(s.revision));
     }
-    normalizeGroupModes(s.options,s.draft);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;rows(s);return true;
+    s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;rows(s);return true;
 }
 }

@@ -47,6 +47,11 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     std::string loadNotice_;
     // The shared settings file's contents, and whether this character's save carries its own settings instead.
     Options sharedOptions_;
+    // The group setup the settings file held when the game started. Saves made before group setups were stored
+    // with the character take it, so it stays as it was read.
+    Options legacyGroups_;
+    // Whether the loaded save holds Quickslot groups and a group setup of its own.
+    bool saveHasGroups_=false,saveHasSetup_=false;
     bool characterSettings_=false;
     void optionsReplaced();
     std::optional<std::pair<std::uint32_t,std::string>> preservedRecord_;

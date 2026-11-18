@@ -108,6 +108,8 @@ struct Group {
     std::vector<Entry> manualEntries,excludedFavorites;
     std::size_t manualSelected=0;
     std::optional<Entry> rememberedFavorite;
+    // True while the remembered favorite is out of the list, so the first entry stands in for it.
+    bool rememberedMissing=false;
     bool automatic()const{return source!=FavoriteSource::manual;}
     auto& savedEntries(){return automatic()?manualEntries:entries;}
     const auto& savedEntries()const{return automatic()?manualEntries:entries;}
@@ -610,11 +612,14 @@ inline bool useBumpersForHands(Options& o) {
     o.controllerActions[unsigned(ControllerAction::rightHand)]={PadButton::rb};
     o.controllerActions[unsigned(ControllerAction::leftHand)]={PadButton::lb};return true;
 }
-inline GroupMode groupMode(const Options& o,const Arsenal& a,std::size_t group) {
-    return group<Arsenal::count&&(!hasConsumables(a.groups[group])||o.separateConsumableUse[group])?o.groupModes[group]:GroupMode::browse;
-}
-inline void normalizeGroupModes(Options& o,const Arsenal& a) {
-    for(std::size_t g=0;g<Arsenal::count;++g)if(hasConsumables(a.groups[g])&&!o.separateConsumableUse[g])o.groupModes[g]=GroupMode::browse;
+// A group keeps the behavior chosen for it whatever it holds. In a group whose taps step through its items, taps
+// select consumables and the Use selected consumable binding uses them.
+inline GroupMode groupMode(const Options& o,const Arsenal&,std::size_t group){return group<Arsenal::count?o.groupModes[group]:GroupMode::browse;}
+// A behavior from what a tap does and whether holding opens the selector. A tap that equips the last item always has the selector.
+inline GroupMode groupModeFor(bool tapSteps,bool holdBrowses){return !tapSteps?GroupMode::browse:holdBrowses?GroupMode::cycleBrowse:GroupMode::cycle;}
+// True when the group key selects this group's consumables and a separate binding uses them.
+inline bool consumablesNeedUseKey(const Options& o,const Arsenal& a,std::size_t group) {
+    return group<Arsenal::count&&(o.separateConsumableUse[group]||cyclesOnTap(groupMode(o,a,group)));
 }
 inline std::size_t nextEntry(const Group& group,const std::vector<bool>& available,bool skipEmpty) {
     if(group.entries.empty())return 0;

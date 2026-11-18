@@ -10,6 +10,11 @@ Updating: group keys held with Ctrl, Shift or Alt now select the group during ga
 - Typing or selecting an existing preset's name sets the save scope to that preset's own. Choosing **Appearance only** for a complete preset shows that its groups will be removed. **Export preset** is now **Save preset**.
 - A full group reports "This group is full (16 items)" from gameplay and from Inventory and Magic.
 - New installations, the **Default** preset and the reset buttons show diamond tiles with an arc selector. Existing settings keep their look.
+- A character new to Quickslot starts with four groups that follow its Skyrim Favorites: Weapons, Spells, Potions and Powers & shouts.
+- Each group's name, bindings, order, behavior and color are stored in the character's saves with its contents. Saves from earlier versions keep the setup from the settings file.
+- **Tap** and **Hold to browse** replace the three group behaviors in the **Groups** tab. Existing groups keep their behavior.
+- A group keeps its behavior when a potion, food or poison is added. In a group that steps to the next item, taps select consumables and **Use selected consumable** uses them; the editor and the HUD show a reminder while that action has no binding.
+- A favorite that runs out stays the group's remembered item and is selected again when it is restocked.
 - Built-in presets add **Cards**, with card tiles, a strip selector and an equipment list, and **Wheel**, with diamond tiles and a segmented wheel selector.
 
 ## 0.15.1

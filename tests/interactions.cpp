@@ -272,9 +272,9 @@ int main()try {
     check(commit->browsed,"Early wheel movement is browsing");
     ++group.revision;check(!selection.accepts(*commit,group),"Edits invalidate released actions");
     o.groupModes[0]=GroupMode::cycle;
-    check(groupMode(o,a,0)==GroupMode::browse,"Mixed group with a potion retains quick-use controls");
-    for(auto kind:{Kind::food,Kind::poison,Kind::smartPotion}){group.entries[2].kind=kind;check(groupMode(o,a,0)==GroupMode::browse,"Every consumable type protects quick-use");}
-    normalizeGroupModes(o,a);check(o.groupModes[0]==GroupMode::browse,"Adding consumables clears incompatible cycle preference");
+    check(groupMode(o,a,0)==GroupMode::cycle&&consumablesNeedUseKey(o,a,0),"A group with a potion keeps its chosen behavior and leaves the potion to the use binding");
+    for(auto kind:{Kind::food,Kind::poison,Kind::smartPotion}){group.entries[2].kind=kind;check(groupMode(o,a,0)==GroupMode::cycle,"No consumable type changes a group's behavior");}
+    check(groupModeFor(false,true)==GroupMode::browse&&groupModeFor(false,false)==GroupMode::browse&&groupModeFor(true,true)==GroupMode::cycleBrowse&&groupModeFor(true,false)==GroupMode::cycle,"Tap and hold choices map onto the three behaviors");
     group.entries[2]=potion;
     a.groups[1].add(spell);o.groupModes[1]=GroupMode::cycle;check(groupMode(o,a,1)==GroupMode::cycle,"Equipment group permits cycle");
     const auto round=decodeOptions(encodeOptions(o));check(round.groupModes==o.groupModes,"Modes round trip");
@@ -322,10 +322,9 @@ int main()try {
     {
         Arsenal setup;Options controls;setup.presetIdentity="same";auto& mixed=setup.groups[0];
         Entry drink=potion;drink.form=901;drink.name="Health";mixed.add(drink);mixed.add(sword);
-        controls.groupModes[0]=GroupMode::cycleBrowse;normalizeGroupModes(controls,setup);
-        check(groupMode(controls,setup,0)==GroupMode::browse,"Existing consumable groups keep tap-to-use behavior");
-        controls.separateConsumableUse[0]=true;controls.groupModes[0]=GroupMode::cycleBrowse;normalizeGroupModes(controls,setup);
-        check(groupMode(controls,setup,0)==GroupMode::cycleBrowse,"Separate use enables combined cycling and browsing for mixed groups");
+        check(groupMode(controls,setup,0)==GroupMode::browse&&!consumablesNeedUseKey(controls,setup,0),"A group that equips its last item uses consumables on a tap");
+        controls.separateConsumableUse[0]=true;controls.groupModes[0]=GroupMode::cycleBrowse;
+        check(groupMode(controls,setup,0)==GroupMode::cycleBrowse&&consumablesNeedUseKey(controls,setup,0),"Mixed groups combine stepping and browsing with the use binding");
         Selection selection;const auto tap=selection.request(mixed,0,0);
         for(const auto kind:{Kind::potion,Kind::food,Kind::poison,Kind::smartPotion}) {auto item=drink;item.kind=kind;check(selectionAction(item,*tap,controls)==SelectionAction::select,"Group activation selects each consumable type in separate-use mode");}
         check(selectionAction(sword,*tap,controls)==SelectionAction::equip,"Mixed-group equipment keeps its normal equip action");

@@ -43,7 +43,10 @@ void inputHook(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent** even
 class Menu final : public RuntimeMenu {
 public:
     Menu():RuntimeMenu(menuName) {
-        depthPriority=3;
+        // Share the HUD's depth. Skyrim updates the enchantment charge meter only while the topmost menu below depth 6
+        // has depth 2, so a depth-3 HUD menu suppresses it. The stack keeps equal depths in opening order, so this menu still
+        // draws above the HUD and below fades, dialogue and other depth-3 menus.
+        depthPriority=2;
         menuFlags.set(RE::UI_MENU_FLAGS::kAlwaysOpen,RE::UI_MENU_FLAGS::kRequiresUpdate,
                       RE::UI_MENU_FLAGS::kCustomRendering,RE::UI_MENU_FLAGS::kAllowSaving);
     }

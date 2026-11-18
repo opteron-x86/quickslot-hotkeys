@@ -31,6 +31,7 @@ Updating: group keys held with Ctrl, Shift or Alt now select the group during ga
 - The README opens with a quick start.
 - The English translation file lists every string the menus and HUD show, and no others.
 - Built-in presets add **Cards**, with card tiles, a strip selector and an equipment list, and **Wheel**, with diamond tiles and a segmented wheel selector.
+- The HUD shows the weapon enchantment charge meter while the Quickslot widget is on screen.
 
 ## 0.15.1
 

@@ -399,7 +399,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         ImGui::SameLine(0,px(12));ImGui::BeginGroup();
         const auto axis=[&](const char* name,float Anchored::*member,float limit) {
             ImGui::AlignTextToFramePadding();label(name);ImGui::SameLine(0,px(8));
-            const auto key=std::string("##")+name;float value=std::round(placement.*member);
+            // Adding zero turns a negative zero into 0.
+            const auto key=std::string("##")+name;float value=std::round(placement.*member)+0.f;
             ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat,true);
             if(ImGui::Button(("-"+key).c_str(),{side,side})){placement.*member=value-1;setPlacement(target,placement);}
             ImGui::SameLine(0,px(4));ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-side-px(4)));
@@ -498,8 +499,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         }
         for(const auto& box:bounds.tiles)if(box.valid)guides->AddRect({box.min.x,box.min.y},{box.max.x,box.max.y},IM_COL32(225,224,218,50));
         const auto& selected=targetBox(placementTarget_);
-        // The selector shares the widget's scale until it is given its own under Appearance.
-        const auto scaleMember=placementTarget_==2?&Options::equipmentScale:placementTarget_==1&&!options.selectorScaleLinked?&Options::selectorScale:&Options::scale;
+        // Each element scales on its own: the widget, the selector, the equipment display, or a Free tile.
+        const auto scaleMember=placementTarget_==2?&Options::equipmentScale:placementTarget_==1?&Options::selectorScale:&Options::scale;
         // A Free tile resizes on its own; the other targets use their element's scale.
         const auto scaleValue=[&]()->float&{return tileElement(placementTarget_)?options.tilePlaces[options.groupOrder[tileSlot(placementTarget_)]].scale:options.*scaleMember;};
         const auto& scaleRange=setting(tileElement(placementTarget_)?&Options::scale:scaleMember);
@@ -535,27 +536,80 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         const float panelWidth=std::min(px(350),screen.x-px(40));
         if(placementPanelTarget_!=placementTarget_){placementPanelTarget_=placementTarget_;placementPanelRight_=selected.min.x+selected.width()*.5f<screen.x*.5f;}
         const float panelX=placementPanelRight_?screen.x-panelWidth-px(20):px(20);
-        ImGui::SetNextWindowPos({panelX,px(20)},ImGuiCond_Always);ImGui::SetNextWindowSize({panelWidth,0});
+        ImGui::SetNextWindowPos({panelX,px(20)},ImGuiCond_Always);ImGui::SetNextWindowSizeConstraints({panelWidth,0},{panelWidth,screen.y-px(40)});
         ImGui::Begin("Position",nullptr,ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoCollapse);
-        if(freeTiles) {
-            // Each group tile is chosen by its group's name.
-            if(UI::RadioButton("Tile",tileElement(placementTarget_)))placementTarget_=firstTileElement+int(placementTile_);ImGui::SameLine();
-            ImGui::SetNextItemWidth(px(140));
-            if(ImGui::BeginCombo("##placement tile",options.names[options.groupOrder[std::min(placementTile_,options.groupCount-1)]].c_str())) {
-                for(std::size_t slot=0;slot<options.groupCount;++slot){ImGui::PushID(int(slot));if(ImGui::Selectable(options.names[options.groupOrder[slot]].c_str(),placementTile_==slot)){placementTile_=slot;placementTarget_=firstTileElement+int(slot);}ImGui::PopID();}
+        {
+            // One list picks what to place: the widget or, in the Free arrangement, each group's tile; then the selector
+            // and the equipment display.
+            const auto elementName=[&](int target)->std::string {
+                if(tileElement(target))return std::string(tr("Tile"))+" · "+options.names[options.groupOrder[std::min(tileSlot(target),options.groupCount-1)]];
+                return tr(target==2?"Equipment":target==1?"Selector":"Widget");
+            };
+            std::vector<int> elements;
+            if(freeTiles)for(std::size_t slot=0;slot<options.groupCount;++slot)elements.push_back(firstTileElement+int(slot));else elements.push_back(0);
+            elements.push_back(1);if(options.showEquipment)elements.push_back(2);
+            ImGui::AlignTextToFramePadding();UI::TextDisabled("Element");ImGui::SameLine();ImGui::SetNextItemWidth(-1);
+            if(ImGui::BeginCombo("##placement element",elementName(placementTarget_).c_str())) {
+                for(const int target:elements) {
+                    ImGui::PushID(target);
+                    if(ImGui::Selectable(elementName(target).c_str(),placementTarget_==target)) {
+                        placementTarget_=target;if(tileElement(target))placementTile_=tileSlot(target);
+                        if(target==1){detachSelector();previewOpen_=true;}
+                    }
+                    ImGui::PopID();
+                }
                 ImGui::EndCombo();
             }
-            ImGui::SameLine();
         }
-        else if(UI::RadioButton("Widget",placementTarget_==0))placementTarget_=0;
-        if(!freeTiles)ImGui::SameLine();
-        if(UI::RadioButton("Selector",placementTarget_==1)){placementTarget_=1;detachSelector();previewOpen_=true;}
-        if(options.showEquipment){ImGui::SameLine();if(UI::RadioButton("Equipment",placementTarget_==2))placementTarget_=2;}
         placementControls(placementTarget_);
         UI::Checkbox("Pick the nearest anchor when dragging",&autoAnchor_);
         {
             float percent=scaleValue()*100;ImGui::SetNextItemWidth(-px(90));
             if(UI::SliderFloat(tileElement(placementTarget_)?"Tile size":"Scale",&percent,scaleRange.low*100,scaleRange.high*100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){if(elementAnchor(options,placementTarget_)>=unanchored)placeElement(options,placementTarget_,placementOf(placementTarget_));scaleValue()=percent/100;changed=true;}
+        }
+        if(UI::CollapsingHeader("Appearance##position")) {
+            // The chosen element's main look settings, so it can be tuned where it sits.
+            const auto slider=[&](const char* name,float Options::*member) {
+                const auto& s=setting(member);const float shown=s.unit==Unit::percent?100.f:1.f;float value=options.*member*shown;
+                const char* format=s.unit==Unit::percent?"%.0f%%":s.unit==Unit::pixels?"%.0f px":s.unit==Unit::seconds?"%.1f s":s.unit==Unit::degrees?"%.0f°":"%.0f";
+                ImGui::SetNextItemWidth(-px(120));
+                if(UI::SliderFloat((std::string(name)+"##position").c_str(),&value,s.low*shown,s.high*shown,format,ImGuiSliderFlags_AlwaysClamp)){options.*member=value/shown;changed=true;}
+            };
+            const auto pick=[&](const char* name,unsigned Options::*member,const char* choices) {
+                int value=int(options.*member);ImGui::SetNextItemWidth(-px(120));
+                if(UI::Combo((std::string(name)+"##position").c_str(),&value,choices)){options.*member=unsigned(value);changed=true;return true;}
+                return false;
+            };
+            const auto toggle=[&](const char* name,bool Options::*member){changed|=UI::Checkbox((std::string(name)+"##position").c_str(),&(options.*member));};
+            if(placementTarget_==1) {
+                pick("Arrangement",&Options::selector,"Horizontal strip\0Arc\0Ring\0Vertical strip\0List\0Wheel\0");
+                const bool wheel=options.selector==wheelSelector,segments=wheel&&options.wheelStyle==1;
+                if(wheel)pick("Wheel style",&Options::wheelStyle,"Tiles\0Segments\0");
+                if(options.selector!=4&&!segments)pick("Item shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
+                if(!segments)slider("Spacing",&Options::selectorSpacing);
+                if(wheel)slider("Wheel size",&Options::wheelSize);else if(options.selector!=2)pick("Visible items",&Options::selectorVisible,"3\0005\0007\0009\0");
+                if(segments) {
+                    slider("Ring thickness",&Options::wheelThickness);slider("Gap",&Options::wheelGap);
+                    pick("Item name",&Options::wheelName,"In the center\0Below the wheel\0Hidden\0");
+                    pick("Highlight",&Options::wheelHighlight,"Fill and outline\0Fill\0Outline\0Rim\0");
+                    slider("Ring opacity",&Options::wheelOpacity);
+                }
+                if(wheel){toggle("Show center circle",&Options::wheelHubCircle);slider("Rotation",&Options::wheelRotation);}
+                slider("Text size",&Options::selectorTextScale);slider("Opacity",&Options::selectorOpacity);
+                toggle("Show enchantment charge",&Options::showCharge);
+            } else if(placementTarget_==2) {
+                pick("Style",&Options::equipmentStyle,"List\0Circles\0Diamonds\0Squares\0Text only\0");
+                pick("Arrangement",&Options::equipmentLayout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
+                slider("Spacing",&Options::equipmentSpacing);slider("Text size",&Options::equipmentTextScale);slider("Opacity",&Options::equipmentOpacity);
+                if(options.equipmentStyle>0&&options.equipmentStyle<4)toggle("Show equipment names",&Options::equipmentShowText);
+            } else {
+                const unsigned arrangedBefore=options.layout;
+                if(pick("Arrangement",&Options::layout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0Grid\0Free\0")&&options.layout==freeLayout&&arrangedBefore!=freeLayout)
+                    {options.layout=arrangedBefore;freeTilesFrom(options,arrangedBefore,screen.x,screen.y);placementTarget_=firstTileElement;placementTile_=0;}
+                pick("Tile shape",&Options::shape,"Cards\0Circles\0Squares\0Diamonds\0");
+                slider("Spacing",&Options::spacing);slider("Text size",&Options::textScale);slider("Opacity",&Options::opacity);
+                toggle("Show group names",&Options::showLabels);toggle("Show keys",&Options::showKeys);
+            }
         }
         ImGui::Separator();
         changed|=UI::Checkbox("Grid",&options.placementGrid);ImGui::SameLine();changed|=UI::Checkbox("Snap to grid",&options.placementSnap);
@@ -1312,7 +1366,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 const auto& s=setting(member);float& value=options.*member;const float fallback=defaultOptions().*member;
                 rowLabel(name);
                 const float shownScale=s.unit==Unit::percent?100.f:1.f;
-                const char* format=s.unit==Unit::percent?"%.0f%%":s.unit==Unit::pixels?"%.0f px":s.unit==Unit::seconds?"%.1f s":s.unit==Unit::count?"%.0f":"%.3f";
+                const char* format=s.unit==Unit::percent?"%.0f%%":s.unit==Unit::pixels?"%.0f px":s.unit==Unit::seconds?"%.1f s":s.unit==Unit::count?"%.0f":s.unit==Unit::degrees?"%.0f°":"%.3f";
                 const auto key=std::string("##")+name;
                 ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat,true);
                 if(ImGui::Button(("-"+key).c_str(),{side,side})){value=steppedSetting(s,value,-1);changed=true;}
@@ -1386,6 +1440,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(flag("Use I4 icons",&Options::i4Icons)&&ImGui::IsItemHovered())UI::SetTooltip("Draws item icons from the interface's icon files. When off, tiles show PNGII artwork only. Restart the game after changing this to compare rendering.");
                     if(options.itemIconColor==1)flag("Tint magic icons",&Options::coloredMagic);
                     flag("Key icons",&Options::keyIcons);
+                    if(flag("Soul gem on enchanted weapons",&Options::soulGems)&&ImGui::IsItemHovered())UI::SetTooltip("Marks enchanted weapons with a small soul gem that fills with their remaining charge.");
                 }
                 if(heading("Equipped marker")) {
                     if(choice("Equipped highlight","##equipped highlight",&Options::equippedHighlight,"Marker only\0Outline\0Tint\0Outline and tint\0")&&ImGui::IsItemHovered())UI::SetTooltip("Marks the tile of an equipped item with an outline or a tint in the equipped color.");
@@ -1450,24 +1505,41 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     choice("Arrangement","##selector",&Options::selector,"Horizontal strip\0Arc\0Ring\0Vertical strip\0List\0Wheel\0");
                     if(options.selector==wheelSelector)UI::TextWrapped("Every item keeps its place on the wheel. Point at one with the browsing stick or the mouse; scrolling and previous / next still step.");
                     if(options.selector==wheelSelector)choice("Wheel style","##wheel style",&Options::wheelStyle,"Tiles\0Segments\0");
-                    if(options.selector!=4&&!(options.selector==wheelSelector&&options.wheelStyle==1))choice("Item shape","##selector shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
-                    number("Spacing",&Options::selectorSpacing);
-                    if(options.selector==wheelSelector)number("Wheel radius",&Options::wheelRadius);
+                    const bool wheel=options.selector==wheelSelector,segments=wheel&&options.wheelStyle==1;
+                    if(options.selector!=4&&!segments)choice("Item shape","##selector shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
+                    if(!segments)number("Spacing",&Options::selectorSpacing);
+                    if(wheel){if(number("Wheel size",&Options::wheelSize)&&ImGui::IsItemHovered())UI::SetTooltip("The wheel's outer radius. Its ring, icons and center grow with it.");}
                     else if(options.selector!=2)choice("Visible items","##selector visible",&Options::selectorVisible,"3\0005\0007\0009\0");
                 }
+                if(options.selector==wheelSelector&&heading("Wheel")) {
+                    const bool segments=options.wheelStyle==1;
+                    if(segments) {
+                        if(number("Ring thickness",&Options::wheelThickness)&&ImGui::IsItemHovered())UI::SetTooltip("How much of the wheel's radius the ring of items takes. At 100% the segments reach the center.");
+                        number("Gap",&Options::wheelGap);
+                        if(choice("Item name","##wheel name",&Options::wheelName,"In the center\0Below the wheel\0Hidden\0")&&ImGui::IsItemHovered())UI::SetTooltip("Where the pointed item's name appears. A center too small for it sends the name below the wheel.");
+                        if(choice("Highlight","##wheel highlight",&Options::wheelHighlight,"Fill and outline\0Fill\0Outline\0Rim\0")&&ImGui::IsItemHovered())UI::SetTooltip("How the pointed segment stands out. Rim draws a band of the accent color along its outer edge.");
+                        if(flag("Raise the pointed segment",&Options::wheelLift)&&ImGui::IsItemHovered())UI::SetTooltip("Moves the pointed segment outward and enlarges its icon.");
+                        if(number("Ring opacity",&Options::wheelOpacity)&&ImGui::IsItemHovered())UI::SetTooltip("The opacity of the segments and the center behind the icons.");
+                        if(flag("Item names on segments",&Options::wheelLabels)&&ImGui::IsItemHovered())UI::SetTooltip("Writes each item's name under its icon when the ring is thick enough.");
+                    }
+                    flag("Show center circle",&Options::wheelHubCircle);
+                    if(flag("Show pointer",&Options::wheelPointer)&&ImGui::IsItemHovered())UI::SetTooltip("A dot in the center that follows the stick or the mouse.");
+                    if(number("Rotation",&Options::wheelRotation)&&ImGui::IsItemHovered())UI::SetTooltip("Turns the wheel so its first item sits away from the top.");
+                }
                 if(heading("Size")) {
-                    if(UI::Checkbox("Match widget scale",&options.selectorScaleLinked)){if(!options.selectorScaleLinked)options.selectorScale=options.scale;changed=true;}
-                    if(ImGui::IsItemHovered())UI::SetTooltip("The selector uses the widget's scale. Turn this off to size it on its own.");
-                    if(!options.selectorScaleLinked)number("Scale",&Options::selectorScale);
+                    number("Scale",&Options::selectorScale);
                     number("Text size",&Options::selectorTextScale);number("Opacity",&Options::selectorOpacity);
                 }
                 if(heading("Placement")) {
-                    choice("Position","##selector dock",&Options::selectorDock,"Above widget\0Below widget\0Left of widget\0Right of widget\0Independent\0");
+                    if(choice("Attach","##selector dock",&Options::selectorDock,"Above widget\0Below widget\0Left of widget\0Right of widget\0Independent\0")&&ImGui::IsItemHovered())
+                        UI::SetTooltip(options.layout==freeLayout?"Where the selector opens beside the tile in use, or Independent to place it yourself.":"Where the selector opens beside the widget, or Independent to place it yourself.");
                     if(options.selectorDock!=4)number("Distance",&Options::selectorGap);
                     else if(advanced)placementControls(1);
                     place(options.selectorDock==4?1:0);
                 }
-                if(advanced&&heading("Content")) {
+                if(heading("Content")) {
+                    if(flag("Show enchantment charge",&Options::showCharge)&&ImGui::IsItemHovered())UI::SetTooltip("Shows a weapon's remaining enchantment charge as five diamonds beside its hand, under its name.");
+                    flag("Show group and position",&Options::selectorFooter);
                     flag("Show selector hints",&Options::showHints);
                     flag("Animate scrolling",&Options::animateScroll);
                 }

@@ -274,11 +274,12 @@ struct ChoiceHistory {
 // Two taps of one group inside this window count as a double tap.
 inline constexpr double doubleTapSeconds=.35;
 inline constexpr unsigned wheelSelector=5;
-// The wheel slot a direction points at. Slot 0 is at the top and slots run clockwise; y grows upward.
-inline std::optional<std::size_t> wheelIndex(float x,float y,std::size_t count,float deadzone) {
+// The wheel slot a direction points at. Slot 0 is at the top, turned clockwise by rotation (radians), and slots run
+// clockwise; y grows upward.
+inline std::optional<std::size_t> wheelIndex(float x,float y,std::size_t count,float deadzone,float rotation=0) {
     if(!count||!std::isfinite(x)||!std::isfinite(y)||std::hypot(x,y)<deadzone)return {};
     constexpr float turn=6.283185307f;
-    float angle=std::atan2(x,y);if(angle<0)angle+=turn;
+    float angle=std::fmod(std::atan2(x,y)-(std::isfinite(rotation)?rotation:0.f),turn);if(angle<0)angle+=turn;
     return std::size_t(std::floor(angle/turn*float(count)+.5f))%count;
 }
 // Gathers mouse movement into a direction for the wheel selector.
@@ -293,11 +294,18 @@ public:
         if(const float length=std::hypot(x_,y_);length>reach){x_*=reach/length;y_*=reach/length;}
     }
     // Screen y grows downward.
-    std::optional<std::size_t> index(std::size_t count)const{return wheelIndex(x_,-y_,count,threshold);}
+    std::optional<std::size_t> index(std::size_t count,float rotation=0)const{return wheelIndex(x_,-y_,count,threshold,rotation);}
     float x()const{return x_/reach;}
     float y()const{return y_/reach;}
 };
-struct WeaponStatus {bool poisoned=false;int ammunition=-1;};
+// charge: remaining enchantment charge from 0 to 1, or below 0 for a weapon without a chargeable enchantment.
+struct WeaponStatus {bool poisoned=false;int ammunition=-1;float charge=-1;};
+// Charge as a share of capacity. A current value below 0 means the item has no stored charge and is full.
+inline float chargeFraction(float current,float capacity) {
+    if(!(capacity>0))return -1;
+    if(!std::isfinite(current)||current<0)return 1;
+    return std::clamp(current/capacity,0.f,1.f);
+}
 struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry;bool cycleBlocked=false; };
 inline const Entry& rowIconEntry(const Row& row){return row.iconEntry?*row.iconEntry:row.entry;}
 struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=false,equipped=false;int quantity=0;float cooldown=0;bool voice=false,consumable=false;WeaponStatus weapon;std::optional<Entry> iconEntry;};
@@ -415,7 +423,12 @@ struct Options {
     bool mirrorCards=false;
     // Items shown on each side of the selected one in strips, arcs and lists, less one; and the wheel's smallest radius.
     unsigned selectorVisible=1;
-    float wheelRadius=62;
+    // The segmented wheel: outer radius in pixels, ring thickness as a share of that radius, the gap between segments,
+    // and a turn in degrees for where the first item sits.
+    float wheelSize=130,wheelThickness=.45f,wheelGap=3,wheelRotation=0,wheelOpacity=1;
+    // wheelName: 0 in the center, 1 below the wheel, 2 hidden. wheelHighlight: 0 fill and outline, 1 fill, 2 outline, 3 rim.
+    unsigned wheelName=0,wheelHighlight=0;
+    bool wheelHubCircle=true,wheelLift=true,wheelLabels=false,wheelPointer=true;
     // iconScale sizes every item icon; backgroundOpacity fades the inside of frames and leaves their borders.
     float iconScale=1,backgroundOpacity=1;
     bool customTextColor=false,customSelectionColor=false;
@@ -450,10 +463,13 @@ struct Options {
     float fadeDelay=4,idleOpacity=.35f;
     // Each part of the HUD has its own scale, text size and opacity. The selector follows the widget's scale while linked.
     float scale=1,textScale=1,opacity=.92f;
-    bool selectorScaleLinked=true;
     float selectorScale=1,selectorTextScale=1,selectorOpacity=.92f,equipmentOpacity=.92f;
     bool showIdle=true,showHints=false,showLabels=false,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
     bool showPoison=true,showAmmo=true;
+    // Enchantment charge: pips beside the item's hand under its name while selecting, and a soul gem on weapon icons.
+    bool showCharge=true,soulGems=true;
+    // The last line of the selector: the group's name and the item's place in it.
+    bool selectorFooter=true;
     unsigned itemIconColor=1;
     bool pngiiIcons=true;
     bool placementGrid=false,placementSnap=false;
@@ -468,6 +484,8 @@ struct Options {
     unsigned placementSpacing=1,placementFrame=0;
     float placementGridSize=16;
 };
+// The wheel's turn in radians; its first slot sits this far clockwise from the top.
+inline float wheelTurn(const Options& o){return std::isfinite(o.wheelRotation)?o.wheelRotation*3.141592654f/180:0.f;}
 // Decides when to apply the preset chosen for an input device: once, after the device has been in use for a moment.
 class DevicePresetSwitch {
     bool controller_=false,pending_=false;double since_=0;

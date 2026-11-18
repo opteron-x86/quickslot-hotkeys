@@ -108,10 +108,10 @@ int main()try {
         textOptions.scale=scale;textOptions.textScale=textOptions.selectorTextScale=size;
         {
             auto earlier=Json::parse(encodeOptions(Options{}));earlier["layoutVersion"]=2;earlier["scale"]=scale;earlier["textScale"]=size;earlier["opacity"]=.6f;earlier["equipmentTextScale"]=1.2f;
-            for(const char* added:{"selectorScale","selectorTextScale","selectorOpacity","equipmentOpacity","selectorScaleLinked"})earlier.erase(added);
+            for(const char* added:{"selectorScale","selectorTextScale","selectorOpacity","equipmentOpacity"})earlier.erase(added);
             const auto migrated=decodeOptions(earlier.dump());const float kept=std::max(scale,1.f)*size;
             check(std::abs(migrated.scale*hudTextFactor(migrated)-kept)<.001f&&std::abs(migrated.scale*selectorTextFactor(migrated)-kept)<.001f,"Settings from earlier versions keep their widget and selector label sizes");
-            check(std::abs(migrated.equipmentTextScale-1.2f*size)<.001f&&migrated.selectorOpacity==.6f&&migrated.equipmentOpacity==.6f&&migrated.selectorScaleLinked,"Earlier settings carry their text size and opacity to each part of the HUD");
+            check(std::abs(migrated.equipmentTextScale-1.2f*size)<.001f&&migrated.selectorOpacity==.6f&&migrated.equipmentOpacity==.6f&&migrated.selectorScale==migrated.scale,"Earlier settings carry their scale, text size and opacity to each part of the HUD");
             check(encodeOptions(decodeOptions(encodeOptions(migrated)))==encodeOptions(migrated),"Converted settings load unchanged afterwards");
         }
         for(unsigned layout=0;layout<5;++layout) {
@@ -123,18 +123,18 @@ int main()try {
         }
     }
     for(unsigned dock=0;dock<5;++dock)for(float own:{.5f,2.f}) {
-        Options sized;sized.selectorDock=dock;sized.scale=1;sized.anchor=unanchored;sized.positionX=.5f;sized.positionY=.6f;const auto linked=hudGeometry(sized,1920,1080);
-        sized.selectorScaleLinked=false;sized.selectorScale=own;const auto free=hudGeometry(sized,1920,1080);
-        check(linked.selectorScale==linked.scale&&std::abs(free.selectorScale-own*free.scale)<.001f&&free.scale==linked.scale,"The selector takes its own scale once unlinked and the widget keeps its size");
+        Options sized;sized.selectorDock=dock;sized.scale=1.5f;sized.selectorScale=1.5f;sized.anchor=unanchored;sized.positionX=.5f;sized.positionY=.6f;const auto linked=hudGeometry(sized,1920,1080);
+        sized.selectorScale=own;const auto free=hudGeometry(sized,1920,1080);
+        check(linked.selectorScale==linked.scale&&std::abs(free.selectorScale-own)<.001f&&free.scale==linked.scale,"The selector has its own scale and the widget keeps its size");
         check(free.origin.x==linked.origin.x&&free.origin.y==linked.origin.y,"Resizing the selector leaves the widget where it is");
         const auto corner=selectorCorner(free),extent=selectorExtent(free);
         check(std::abs(extent.x-free.selectorWidth*own)<.01f&&corner.x>=7.9f&&corner.y>=7.9f&&corner.x+extent.x<=1912.1f&&corner.y+extent.y<=1072.1f,"A resized selector stays on screen at every dock");
         if(dock==0)check(std::abs(corner.y+extent.y+sized.selectorGap*free.scale-free.origin.y)<.01f&&std::abs(corner.x+extent.x*.5f-free.origin.x-free.width*free.scale*.5f)<.01f,"A resized selector stays centered above the widget at its set distance");
         const auto fitted=previewGeometry(sized,1920,1080,780,600,true);const auto shown=selectorCorner(fitted),size=selectorExtent(fitted);
-        check(shown.x>=-.1f&&shown.y>=-.1f&&shown.x+size.x<=780.1f&&shown.y+size.y<=600.1f&&std::abs(fitted.selectorScale-own*fitted.scale)<.001f,"The editor preview fits a resized selector");
+        check(shown.x>=-.1f&&shown.y>=-.1f&&shown.x+size.x<=780.1f&&shown.y+size.y<=600.1f&&std::abs(fitted.selectorScale/fitted.scale-own/1.5f)<.001f,"The editor preview fits a resized selector");
     }
     {
-        Options huge;huge.selectorScaleLinked=false;huge.selectorScale=3;huge.scale=3;const auto g=hudGeometry(huge,1280,720);
+        Options huge;huge.selectorScale=3;huge.scale=3;const auto g=hudGeometry(huge,1280,720);
         check(g.width*g.scale<=1264.1f&&g.height*g.scale<=704.1f&&selectorExtent(g).x<=1264.1f&&selectorExtent(g).y<=704.1f,"The largest scales still fit a 720p screen");
     }
     for(const auto screen:{Point{1280,720},Point{1920,1080},Point{2560,1080},Point{3840,2160}})for(unsigned area=0;area<4;++area)for(float fx:{0.f,.2f,.5f,.8f,1.f})for(float fy:{0.f,.35f,.5f,.9f,1.f}) {
@@ -180,21 +180,49 @@ int main()try {
         check(std::abs(wider.tileWidth-standard.tileWidth-(180-97))<.01f&&groupGeometry(cards).tileHeight==standard.tileHeight,"Card width widens the name area and tile size leaves cards alone");
         Options strip;cardsPreset(strip);strip.selector=0;const auto five=selectorGeometry(strip,12);strip.selectorVisible=3;const auto nine=selectorGeometry(strip,12),few=selectorGeometry(strip,3);strip.selectorVisible=1;
         check(nine.width>five.width&&std::abs(few.width-selectorGeometry(strip,3).width)<.01f,"More visible items widen the strip only when the group has them");
-        Options wheel;wheel.selector=wheelSelector;const auto tight=selectorGeometry(wheel,4);wheel.wheelRadius=150;const auto open=selectorGeometry(wheel,4);
-        check(tight.reach>=62&&std::abs(open.reach-150)<.01f&&open.width>tight.width,"Wheel radius sets the wheel's smallest size");
-        Options ring;ring.selector=wheelSelector;ring.wheelStyle=1;
+        Options wheel;wheel.selector=wheelSelector;const auto tight=selectorGeometry(wheel,4);wheel.wheelSize=181;const auto open=selectorGeometry(wheel,4);
+        check(tight.reach>=62&&std::abs(open.reach-150)<.01f&&open.width>tight.width,"Wheel size sets how far a wheel's tiles sit from its center");
+        Options ring;ring.selector=wheelSelector;ring.wheelStyle=1;constexpr float pi=3.141592654f;
         for(const std::size_t count:{std::size_t(1),std::size_t(2),std::size_t(7),std::size_t(16),std::size_t(30)}) {
-            const auto wedges=selectorGeometry(ring,count);constexpr float pi=3.141592654f;
-            const float chord=count>1?2*wedges.reach*std::sin(pi/float(count))-wedges.wedgeGap:wedgeDepth;
-            check(wedges.segments&&wedges.ring.size()==count&&std::abs(wedges.outer-wedges.inner-wedgeDepth)<.01f&&wedges.inner>=72,"A segmented wheel has a wedge for every entry around a hub with room for a name");
+            const auto wedges=selectorGeometry(ring,count);
+            const float chord=count>1?2*wedges.reach*std::sin(pi/float(count))-wedges.wedgeGap:wedges.outer;
+            check(wedges.segments&&wedges.ring.size()==count&&wedges.outer>=ring.wheelSize&&std::abs(wedges.outer-wedges.inner-wedges.outer*ring.wheelThickness)<.01f,"A segmented wheel has a wedge for every entry in a ring that takes its share of the wheel");
             check(chord>=(count>Group::limit?25.9f:39.9f)&&std::abs(wedges.ring[0].x-wedges.hub.x)<.01f&&wedges.ring[0].y<wedges.hub.y,"Wedges are wide enough for an icon and start at the top");
-            check(wedges.hub.y-wedges.outer>=-27&&wedges.hub.x+wedges.outer<=wedges.width&&wedges.pagerY>wedges.hub.y+wedges.outer&&wedges.height>wedges.pagerY,"The ring and the group line beneath it stay inside the selector");
+            check(wedges.hub.y-wedges.outer-wedges.lift>=-27&&wedges.hub.x+wedges.outer+wedges.lift<=wedges.width&&wedges.pagerY>wedges.hub.y+wedges.outer&&wedges.height>wedges.pagerY,"The ring and the group line beneath it stay inside the selector");
+        }
+        check(selectorGeometry(ring,7).outer==ring.wheelSize&&selectorGeometry(ring,30).outer>ring.wheelSize,"A wheel keeps its size until its entries need more room");
+        {
+            // The ring grows with the wheel instead of leaving a larger empty center.
+            Options big=ring;big.wheelSize=600;const auto small=selectorGeometry(ring,8),large=selectorGeometry(big,8);
+            check(std::abs((large.outer-large.inner)/(small.outer-small.inner)-600/ring.wheelSize)<.01f&&std::abs(large.inner/large.outer-small.inner/small.outer)<.01f,"The ring keeps its proportion as the wheel grows");
+            check(small.nameInHub&&!small.nameBelow&&large.nameInHub,"The pointed item's name sits in a roomy center");
+            Options filled=ring;filled.wheelThickness=1;const auto pie=selectorGeometry(filled,8);
+            check(pie.inner==0&&pie.hubRadius==0&&!pie.nameInHub&&pie.nameBelow&&pie.reach>pie.outer*.5f,"A ring filled to the center moves the name below and its icons outward");
+            Options hidden=ring;hidden.wheelName=2;const auto quiet=selectorGeometry(hidden,8);Options below=ring;below.wheelName=1;const auto under=selectorGeometry(below,8);
+            check(!quiet.nameInHub&&!quiet.nameBelow&&quiet.height<under.height&&under.nameBelow&&!under.nameInHub,"The name can sit below the wheel or be hidden");
+            Options footless=ring;footless.selectorFooter=false;check(selectorGeometry(footless,8).height<small.height,"Hiding the group line shortens the selector");
+            Options turned=ring;turned.wheelRotation=90;const auto side=selectorGeometry(turned,4);
+            check(side.ring[0].x>side.hub.x+side.reach*.99f&&std::abs(side.ring[0].y-side.hub.y)<.01f,"Rotation turns the first slot away from the top");
+            check(wheelIndex(1,0,4,.1f,wheelTurn(turned))==0&&wheelIndex(0,1,4,.1f,wheelTurn(turned))==3&&wheelIndex(0,1,4,.1f)==0,"Pointing follows a turned wheel");
+            Options lifted=ring;const auto raised=selectorGeometry(lifted,8);lifted.wheelLift=false;check(raised.lift>0&&selectorGeometry(lifted,8).lift==0,"The pointed segment can stay in line");
+            Options odd=ring;odd.wheelSize=NAN;odd.wheelThickness=7;odd.wheelGap=-4;odd.wheelRotation=INFINITY;odd.wheelOpacity=-1;odd.wheelName=9;odd.wheelHighlight=11;sanitizeOptions(odd);
+            check(std::isfinite(odd.wheelSize)&&odd.wheelThickness==1&&odd.wheelGap==0&&std::isfinite(odd.wheelRotation)&&odd.wheelOpacity==0&&odd.wheelName==2&&odd.wheelHighlight==3,"Invalid wheel settings are bounded");
+        }
+        {
+            // Settings from before the wheel had a size draw the same ring.
+            auto earlier=Json::parse(encodeOptions(Options{}));earlier.erase("wheelSize");earlier.erase("wheelThickness");earlier["wheelRadius"]=150;
+            const auto migrated=decodeOptions(earlier.dump());
+            check(migrated.wheelSize==178&&std::abs(migrated.wheelSize*migrated.wheelThickness-56)<.01f,"An earlier wheel radius becomes a wheel size with the same ring");
+            auto linked=Json::parse(encodeOptions(Options{}));linked["scale"]=1.5f;linked["selectorScale"]=2;linked["selectorScaleLinked"]=true;
+            auto unlinked=linked;unlinked["selectorScaleLinked"]=false;auto current=linked;current.erase("selectorScaleLinked");
+            check(decodeOptions(linked.dump()).selectorScale==1.5f&&decodeOptions(unlinked.dump()).selectorScale==2&&decodeOptions(current.dump()).selectorScale==2,"A selector that matched the widget's scale keeps that size");
+            check(chargeFraction(50,100)==.5f&&chargeFraction(0,100)==0&&chargeFraction(150,100)==1&&chargeFraction(-1,100)==1&&chargeFraction(NAN,100)==1&&chargeFraction(10,0)<0&&chargeFraction(10,NAN)<0,"Enchantment charge reads as a share of the weapon's capacity");
         }
         check(!selectorGeometry(wheel,30).segments&&selectorGeometry(wheel,30).ring.size()==Group::limit,"A tile wheel keeps to a full group of slots");
         ring.wheelStyle=7;sanitizeOptions(ring);check(ring.wheelStyle==1&&decodeOptions(encodeOptions(ring)).wheelStyle==1&&decodeOptions(encodeOptions(Options{})).wheelStyle==0,"The wheel style persists inside its range");
         Options keyed;cardsPreset(keyed);const auto withKeys=groupGeometry(keyed);keyed.showKeys=false;
         check(std::abs(withKeys.tileWidth-groupGeometry(keyed).tileWidth-cardKeyColumn)<.01f,"A card keeps a column for its key while keys are shown");
-        Options look;look.cardWidth=150;look.tileSize=1.4f;look.gridColumns=5;look.layout=6;look.mirrorCards=true;look.selectorVisible=2;look.wheelRadius=120;look.iconScale=1.3f;look.backgroundOpacity=.4f;
+        Options look;look.cardWidth=150;look.tileSize=1.4f;look.gridColumns=5;look.layout=6;look.mirrorCards=true;look.selectorVisible=2;look.wheelSize=220;look.wheelThickness=.6f;look.wheelHubCircle=false;look.wheelHighlight=3;look.iconScale=1.3f;look.backgroundOpacity=.4f;
         look.customTextColor=look.customSelectionColor=true;look.textColor={.1f,.2f,.3f};look.selectionColor={.4f,.5f,.6f};look.groupColored[2]=true;look.groupColors[2]={.7f,.8f,.9f};
         const auto saved=decodeOptions(encodeOptions(look));
         check(encodeOptions(saved)==encodeOptions(look)&&saved.layout==6&&saved.gridColumns==5&&saved.mirrorCards&&saved.textColor[2]==.3f&&saved.groupColored[2]&&saved.groupColors[2][0]==.7f,"The new look settings persist");

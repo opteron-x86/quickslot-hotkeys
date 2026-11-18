@@ -12,6 +12,8 @@ namespace quickslot {
 namespace {
 // Palette roles. These zero-alpha tokens stand for the active theme's colors; Paint::color resolves them.
 constexpr ImU32 ivory=1,silver=2,muted=3,blood=4,dark=5,selectionMark=6,equippedMark=7,poisonMark=8,depletedMark=9;
+// Enchantment charge, in the violet of Skyrim's own charge meter.
+constexpr ImU32 chargeViolet=IM_COL32(138,108,214,255);
 // Atlas cells hold 248 x 308 artwork; this factor matches the size of a square tile.
 constexpr float atlasScale=82.f/248;
 constexpr float pi=3.141592654f;
@@ -224,6 +226,41 @@ struct Paint {
     // A small arrowhead: the consumable its Use key takes.
     void ready(float x,float y,float r,ImU32 c){d->AddTriangleFilled(p(x-r*.8f,y-r),p(x+r,y),p(x-r*.8f,y+r),color(c));}
     // A clockwise shade over an icon covering the remaining share of a cooldown.
+    // A small soul gem at an icon's upper left marks an enchanted weapon; it fills with the remaining charge and turns
+    // red at a fifth or less. An empty gem keeps a red outline.
+    void soulGem(float x,float y,float r,float fraction) {
+        if(!options.soulGems||!(fraction>=0))return;
+        const float f=std::clamp(fraction,0.f,1.f),gx=x-r*.8f,gy=y-r*.56f,s=std::max(3.5f,r*.24f),line=std::max(1.f,scale);
+        const ImVec2 points[]{p(gx,gy-s*1.25f),p(gx+s*.8f,gy-s*.35f),p(gx+s*.55f,gy+s),p(gx-s*.55f,gy+s),p(gx-s*.8f,gy-s*.35f)};
+        d->AddConvexPolyFilled(points,5,color(IM_COL32(10,8,16,210)));
+        if(f>0) {
+            const float cut=gy+s-2.25f*s*f;
+            d->PushClipRect(p(gx-s,cut),p(gx+s,gy+s+1),true);d->AddConvexPolyFilled(points,5,color(f<=.2f?ImU32(theme.warning):chargeViolet,.95f));d->PopClipRect();
+            d->AddLine(p(gx-s*.3f,gy-s*.6f),p(gx+s*.05f,gy-s*.95f),color(IM_COL32(220,206,255,255),.6f),line);
+        }
+        d->AddPolyline(points,5,f>0?color(IM_COL32(0,0,0,200)):color(theme.warning,.9f),ImDrawFlags_Closed,line*1.2f);
+    }
+    // Five diamonds for enchantment charge, a fifth each, from left; a partly used one is dimmed.
+    static float pipsWidth(float size){return size*.62f*2+size*1.9f*4;}
+    void chargePips(float left,float y,float fraction,float size) {
+        const float f=std::clamp(fraction,0.f,1.f),pitch=size*1.9f,r=size*.62f;
+        for(int i=0;i<5;++i) {
+            const float gx=left+r+float(i)*pitch,lit=std::clamp(f*5-float(i),0.f,1.f);
+            diamond(gx,y,r+.8f,dark,true);
+            if(lit>0)diamond(gx,y,r,f<=.2f?blood:chargeViolet,true,lit<1?.35f+.65f*lit:1.f);
+            else diamond(gx,y,r,f>0?muted:blood,false,.7f);
+        }
+    }
+    // A row's status line, centered on x: its enchantment charge, then its hand and state.
+    void statusLine(float x,float y,const Row& row,float size,ImU32 c,float maxWidth) {
+        const auto status=rowStatus(row);
+        if(!options.showCharge||!(row.weapon.charge>=0)){label(x,y,status,size,c,false,maxWidth,true);return;}
+        const float pip=size*textFactor*.42f,width=pipsWidth(pip),gap=status.empty()?0:pip*1.8f;
+        const float words=status.empty()?0:std::min(sans->CalcTextSizeA(size*textFactor*scale,FLT_MAX,0,status.c_str()).x/scale,std::max(0.f,maxWidth-width-gap));
+        const float left=x-(width+gap+words)*.5f;
+        chargePips(left,y+size*textFactor*.56f,row.weapon.charge,pip);
+        if(!status.empty())label(left+width+gap,y,status,size,c,false,std::max(1.f,maxWidth-width-gap));
+    }
     void sweep(float x,float y,float r,float fraction) {
         if(!(fraction>0))return;
         const int segments=std::max(2,int(32*std::min(fraction,1.f)));const float span=2*pi*std::min(fraction,1.f);const auto shade=color(IM_COL32(0,0,0,150));
@@ -391,6 +428,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     const auto displacement=motion_.update(state,o,now);const auto visibilityTarget=fade_.update(state,o,now);
     // Editor previews show the settled layout; gameplay eases the HUD in and the selector open and closed.
     const bool animate=o.animateHud&&!state.editorPreview;
+    if(!state.browsing)wheelHighlightSet_=false;
     const auto visibility=animate?shown_.update(visibilityTarget,now,.12f,.15f):visibilityTarget;
     const float selectorTarget=state.browsing?1.f:0.f,selectorShown=animate?selectorOpen_.update(selectorTarget,now,.1f,.08f):selectorTarget;
     const auto equipmentAlpha=equipmentFade_.update(state,o,now);
@@ -436,7 +474,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             auto nodePaint=p;nodePaint.alpha*=opacity;
             nodePaint.tile(x,y,r,selected,shape);
             nodePaint.icon(x,y,r*1.48f,rowIconEntry(row),row.available?nodePaint.itemColor(rowIconEntry(row)):muted);
-            nodePaint.sweep(x,y,r*.74f*nodePaint.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));
+            nodePaint.sweep(x,y,r*.74f*nodePaint.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));nodePaint.soulGem(x,y,r*.74f*nodePaint.tweaks.iconScale,row.weapon.charge);
             // A diamond keeps its marker in its lower point and its count inside its lower right edge.
             const bool lozenge=shape==3;
             const float marker=lozenge?x:x+(isStack(row.entry)||row.cooldown>0||(o.showAmmo&&row.weapon.ammunition>=0)||(o.showPoison&&row.weapon.poisoned)?-1.f:1.f)*r*.7f,markerY=y+r*(lozenge?.72f:.7f);
@@ -448,63 +486,106 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         const auto layout=selectorGeometry(o,n,displacement);
         if(active) {
             if(o.selector==wheelSelector&&layout.segments) {
-                // A ring of wedges, one for each entry, starting at the top and running clockwise.
+                // A ring of segments, one for each entry, from the first slot clockwise around a hub.
                 const auto hub=layout.hub;const float turn=2*pi/float(std::max<std::size_t>(n,1)),frameAlpha=p.tweaks.frameOpacity;
-                const auto center=p.p(hub.x,hub.y);
-                for(std::size_t i=0;i<n&&i<layout.ring.size();++i) {
-                    const auto& row=state.rows[i];const bool pointed=i==index;
-                    const float middle=-pi*.5f+float(i)*turn,inner=layout.inner,outer=layout.outer+(pointed?5.f:0.f);
-                    // The gap between wedges keeps one width from the hub to the rim.
-                    const auto inset=[&](float radius){return n>1?std::asin(std::min(1.f,layout.wedgeGap*.5f/radius)):0.f;};
+                const auto center=p.p(hub.x,hub.y);const float thickness=layout.outer-layout.inner;
+                const auto middleOf=[&](float slot){return -pi*.5f+layout.rotation+slot*turn;};
+                // A segment between two radii around a middle angle. The gap between segments keeps one width from the
+                // hub to the rim; a segment that reaches the center ends in a point set back by the gap.
+                const auto segment=[&](float middle,float inner,float outer) {
+                    const auto inset=[&](float radius){return n>1&&radius>0?std::asin(std::min(1.f,layout.wedgeGap*.5f/radius)):0.f;};
                     const int steps=std::max(4,int(turn*outer*p.scale/5));
                     p.d->PathArcTo(center,outer*p.scale,middle-turn*.5f+inset(outer),middle+turn*.5f-inset(outer),steps);
-                    p.d->PathArcTo(center,inner*p.scale,middle+turn*.5f-inset(inner),middle-turn*.5f+inset(inner),steps);
-                    const std::vector<ImVec2> wedge(p.d->_Path.begin(),p.d->_Path.end());p.d->PathClear();
-                    // A lone entry takes the whole ring.
-                    const auto fill=[&](ImU32 c) {
-                        if(n>1)p.d->AddConcavePolyFilled(wedge.data(),int(wedge.size()),c);
-                        else p.d->AddCircle(center,(inner+outer)*.5f*p.scale,c,96,(outer-inner)*p.scale);
-                    };
-                    const auto stroke=[&](ImU32 c,float width) {
-                        if(n>1)p.d->AddPolyline(wedge.data(),int(wedge.size()),c,ImDrawFlags_Closed,std::max(1.f,width*p.scale));
-                        else for(const float radius:{inner,outer})p.d->AddCircle(center,radius*p.scale,c,96,std::max(1.f,width*p.scale));
-                    };
-                    fill(p.color(dark,o.backgroundOpacity*frameAlpha));
-                    if(row.equipped&&o.equippedHighlight!=0&&o.equippedHighlight!=1)fill(p.color(equippedMark,.24f));
-                    if(pointed)fill(p.color(selectionMark,.3f));
-                    stroke(p.color(theme.border,frameAlpha),.8f);
-                    if(row.equipped&&o.equippedHighlight!=0&&o.equippedHighlight!=2)stroke(p.color(equippedMark),1.6f);
-                    if(pointed)stroke(p.color(selectionMark),1.8f);
-                    const auto slot=layout.ring[i];
-                    const float chord=n>1?2*layout.reach*std::sin(turn*.5f)-layout.wedgeGap:wedgeDepth,size=std::clamp(std::min(wedgeDepth*.68f,chord*.8f),14.f,38.f)*(pointed?1.12f:1.f);
+                    const float apex=n>1&&turn<pi?layout.wedgeGap*.5f/std::sin(turn*.5f):0;
+                    if(inner>apex+1)p.d->PathArcTo(center,inner*p.scale,middle+turn*.5f-inset(inner),middle-turn*.5f+inset(inner),steps);
+                    else p.d->PathLineTo({center.x+std::cos(middle)*apex*p.scale,center.y+std::sin(middle)*apex*p.scale});
+                    std::vector<ImVec2> points(p.d->_Path.begin(),p.d->_Path.end());p.d->PathClear();return points;
+                };
+                // A lone entry takes the whole ring.
+                const auto fill=[&](const std::vector<ImVec2>& shape,float outer,ImU32 c) {
+                    if(n>1)p.d->AddConcavePolyFilled(shape.data(),int(shape.size()),c);
+                    else if(layout.inner>0)p.d->AddCircle(center,(layout.inner+outer)*.5f*p.scale,c,96,(outer-layout.inner)*p.scale);
+                    else p.d->AddCircleFilled(center,outer*p.scale,c,96);
+                };
+                const auto stroke=[&](const std::vector<ImVec2>& shape,float outer,ImU32 c,float width) {
+                    if(n>1)p.d->AddPolyline(shape.data(),int(shape.size()),c,ImDrawFlags_Closed,std::max(1.f,width*p.scale));
+                    else for(const float radius:{layout.inner,outer})if(radius>0)p.d->AddCircle(center,radius*p.scale,c,96,std::max(1.f,width*p.scale));
+                };
+                const bool outline=o.wheelHighlight==0||o.wheelHighlight==2,filled=o.wheelHighlight==0||o.wheelHighlight==1,rim=o.wheelHighlight==3;
+                std::vector<std::vector<ImVec2>> shapes;
+                for(std::size_t i=0;i<n&&i<layout.ring.size();++i) {
+                    const auto& row=state.rows[i];const float outer=layout.outer+(i==index?layout.lift:0.f);
+                    shapes.push_back(segment(middleOf(float(i)),layout.inner,outer));
+                    fill(shapes.back(),outer,p.color(dark,o.backgroundOpacity*o.wheelOpacity*frameAlpha));
+                    if(row.equipped&&o.equippedHighlight!=0&&o.equippedHighlight!=1)fill(shapes.back(),outer,p.color(equippedMark,.24f));
+                }
+                // The highlight glides to the pointed segment while motion is on.
+                const float target=middleOf(float(index));
+                if(!animate||!wheelHighlightSet_)wheelHighlight_=target;
+                else {
+                    wheelHighlight_+=std::remainder(target-wheelHighlight_,2*pi)*std::clamp(float(now-wheelHighlightAt_)*18.f,0.f,1.f);
+                    if(std::abs(std::remainder(target-wheelHighlight_,2*pi))<.002f)wheelHighlight_=target;
+                }
+                wheelHighlightSet_=true;wheelHighlightAt_=now;
+                if(index<shapes.size()&&(filled||rim)) {
+                    const float outer=layout.outer+layout.lift;
+                    fill(segment(wheelHighlight_,layout.inner,outer),outer,p.color(selectionMark,filled?.3f:.12f));
+                    if(rim) {
+                        // A rim highlight is a band of the accent color along the segment's outer edge.
+                        const float width=std::max(3.f,thickness*.08f),edge=outer-width*.5f;
+                        const float inset=n>1&&edge>0?std::asin(std::min(1.f,layout.wedgeGap*.5f/edge)):0.f;
+                        p.d->PathArcTo(center,edge*p.scale,wheelHighlight_-turn*.5f+inset,wheelHighlight_+turn*.5f-inset,std::max(6,int(turn*edge*p.scale/4)));
+                        p.d->PathStroke(p.color(p.accent()),n>1?0:ImDrawFlags_Closed,width*p.scale);
+                    }
+                }
+                for(std::size_t i=0;i<shapes.size();++i) {
+                    const auto& row=state.rows[i];const bool pointed=i==index;const float outer=layout.outer+(pointed?layout.lift:0.f);
+                    stroke(shapes[i],outer,p.color(theme.border,frameAlpha),.8f);
+                    if(row.equipped&&o.equippedHighlight!=0&&o.equippedHighlight!=2)stroke(shapes[i],outer,p.color(equippedMark),1.6f);
+                    if(pointed&&outline)stroke(shapes[i],outer,p.color(selectionMark),1.8f);
+                }
+                for(std::size_t i=0;i<shapes.size();++i) {
+                    const auto& row=state.rows[i];const bool pointed=i==index;
+                    const float middle=middleOf(float(i)),outer=layout.outer+(pointed?layout.lift:0.f),reach=layout.reach+(pointed?layout.lift*.5f:0.f);
+                    // Icons fill the ring: as large as its thickness and the segment's width allow.
+                    const float chord=n>1?2*reach*std::sin(std::min(turn,pi)*.5f)-layout.wedgeGap:thickness;
+                    const float size=std::max(8.f,std::min(thickness*.62f,chord*.72f))*(pointed&&layout.lift>0?1.12f:1.f);
+                    const bool labelled=o.wheelLabels&&thickness>=size+16*text;
+                    const Point slot{hub.x+std::cos(middle)*reach,hub.y+std::sin(middle)*reach-(labelled?7*text:0.f)};
                     auto item=p;if(!pointed)item.alpha*=.88f;
+                    const float r=size*.5f*item.tweaks.iconScale;
                     item.icon(slot.x,slot.y,size,rowIconEntry(row),row.available?item.itemColor(rowIconEntry(row)):muted);
-                    item.sweep(slot.x,slot.y,size*.5f*item.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));
+                    item.sweep(slot.x,slot.y,r,cooldowns_.fraction(row.entry.form,row.cooldown));
+                    item.soulGem(slot.x,slot.y,r,row.weapon.charge);
+                    if(labelled)item.label(slot.x,slot.y+size*.5f+1,displayName(row.entry),11,row.available?ivory:muted,false,std::max(20.f,chord*.88f),true);
                     const Point out{std::cos(middle),std::sin(middle)};
                     if(row.equipped)item.diamond(hub.x+out.x*(outer-7),hub.y+out.y*(outer-7),2.8f*item.mark(),equippedMark);
                     if(!row.available&&!isStack(row.entry)){item.circle(slot.x+size*.36f,slot.y+size*.36f,5,IM_COL32(22,18,18,240),true);item.line(slot.x+size*.36f-3,slot.y+size*.36f+3,slot.x+size*.36f+3,slot.y+size*.36f-3,blood,1.5f);}
                     item.badge(slot.x+size*.32f,slot.y+size*.14f,row.entry,row.quantity,row.cooldown,pointed?13:11,false,row.weapon);
                 }
-                // The hub names the pointed entry on up to two lines, with its hand or count beneath.
-                const float radius=layout.inner-6;
-                p.d->AddCircleFilled(center,radius*p.scale,p.color(dark,o.backgroundOpacity*frameAlpha),64);
-                p.d->AddCircle(center,radius*p.scale,p.color(theme.border,frameAlpha),64,std::max(1.f,.8f*p.scale));
-                const float nameSize=17,statusSize=12.5f,room=2*std::sqrt(std::max(1.f,radius*radius-27*text*27*text))-12;
-                const auto measure=[&](const std::string& v){return p.medium->CalcTextSizeA(nameSize*text*p.scale,FLT_MAX,0,v.c_str()).x/p.scale;};
-                std::vector<std::string> lines{displayName(active->entry)};
-                if(measure(lines[0])>room) {
-                    // Break at the space that leaves the two lines closest in width.
-                    const auto whole=lines[0];float best=FLT_MAX;
-                    for(std::size_t at=whole.find(' ');at!=std::string::npos;at=whole.find(' ',at+1)) {
-                        const auto first=whole.substr(0,at),second=whole.substr(at+1);const float widest=std::max(measure(first),measure(second));
-                        if(!first.empty()&&!second.empty()&&widest<best){best=widest;lines={first,second};}
-                    }
+                // The hub: an optional circle, the pointed item's name when it fits, and a dot that follows the stick or mouse.
+                const float radius=layout.hubRadius;
+                if(o.wheelHubCircle&&radius>0) {
+                    p.d->AddCircleFilled(center,radius*p.scale,p.color(dark,o.backgroundOpacity*o.wheelOpacity*frameAlpha),64);
+                    p.d->AddCircle(center,radius*p.scale,p.color(theme.border,frameAlpha),64,std::max(1.f,.8f*p.scale));
                 }
-                const float block=float(lines.size())*(nameSize+2)*text+3+statusSize*text;float y=hub.y-block*.5f;
-                for(const auto& line:lines){p.label(hub.x,y,line,nameSize,active->available?ivory:muted,true,room,true);y+=(nameSize+2)*text;}
-                p.label(hub.x,y+3,rowStatus(*active),statusSize,active->available?silver:depletedMark,false,room,true);
-                // A dot on the hub's rim follows the stick or mouse.
-                if(const float length=std::hypot(state.pointerX,state.pointerY);n>1&&length>.15f)p.circle(hub.x+state.pointerX/length*radius,hub.y+state.pointerY/length*radius,3,selectionMark,true);
+                if(layout.nameInHub) {
+                    const float nameSize=17,statusSize=12.5f,room=2*std::sqrt(std::max(1.f,radius*radius-27*text*27*text))-12;
+                    const auto measure=[&](const std::string& v){return p.medium->CalcTextSizeA(nameSize*text*p.scale,FLT_MAX,0,v.c_str()).x/p.scale;};
+                    std::vector<std::string> lines{displayName(active->entry)};
+                    if(measure(lines[0])>room) {
+                        // Break at the space that leaves the two lines closest in width.
+                        const auto whole=lines[0];float best=FLT_MAX;
+                        for(std::size_t at=whole.find(' ');at!=std::string::npos;at=whole.find(' ',at+1)) {
+                            const auto first=whole.substr(0,at),second=whole.substr(at+1);const float widest=std::max(measure(first),measure(second));
+                            if(!first.empty()&&!second.empty()&&widest<best){best=widest;lines={first,second};}
+                        }
+                    }
+                    const float block=float(lines.size())*(nameSize+2)*text+3+statusSize*text;float y=hub.y-block*.5f;
+                    for(const auto& line:lines){p.label(hub.x,y,line,nameSize,active->available?ivory:muted,true,room,true);y+=(nameSize+2)*text;}
+                    p.statusLine(hub.x,y+3,*active,statusSize,active->available?silver:depletedMark,room);
+                }
+                if(const float length=std::hypot(state.pointerX,state.pointerY);o.wheelPointer&&radius>0&&n>1&&length>.15f)p.circle(hub.x+state.pointerX/length*radius,hub.y+state.pointerY/length*radius,3,selectionMark,true);
             } else if(o.selector==wheelSelector) {
                 for(std::size_t i=0;i<n&&i<layout.ring.size();++i) {
                     const auto slot=layout.ring[i];
@@ -514,10 +595,10 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     // The hub shows where the player points and which slot that selects.
                     const auto hub=layout.hub,slot=layout.ring[index];const float length=std::hypot(slot.x-hub.x,slot.y-hub.y);
                     const Point toward{(slot.x-hub.x)/length,(slot.y-hub.y)/length};const float inner=std::max(14.f,layout.reach-44);
-                    p.circle(hub.x,hub.y,10,muted,false,.8f);
+                    if(o.wheelHubCircle)p.circle(hub.x,hub.y,10,muted,false,.8f);
                     p.line(hub.x+toward.x*12,hub.y+toward.y*12,hub.x+toward.x*inner,hub.y+toward.y*inner,p.accent(),1.4f);
                     p.diamond(hub.x+toward.x*inner,hub.y+toward.y*inner,2.6f,selectionMark);
-                    p.circle(hub.x+state.pointerX*9,hub.y+state.pointerY*9,2.4f,ivory,true);
+                    if(o.wheelPointer)p.circle(hub.x+state.pointerX*9,hub.y+state.pointerY*9,2.4f,ivory,true);
                 }
             } else if(o.selector==2) {
                 const auto visible=std::min(n,std::size_t(8));
@@ -542,7 +623,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                         auto q=p;q.alpha*=opacity;
                         q.frame(12,y-layout.listHeight*.5f,layout.width-24,layout.listHeight,offset==0);
                         q.icon(37,y,32,rowIconEntry(row),row.available?q.itemColor(rowIconEntry(row)):muted);
-                        q.sweep(37,y,16*q.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));
+                        q.sweep(37,y,16*q.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));q.soulGem(37,y,16*q.tweaks.iconScale,row.weapon.charge);
                         q.label(66,y-8*text,displayName(row.entry),16,row.available?ivory:muted,true,layout.width-92);
                         if(row.equipped)q.diamond(53,y+15,2.5f*q.mark(),equippedMark);
                         else if(!row.available&&!isStack(row.entry)){q.circle(53,y+15,4,IM_COL32(22,18,18,240),true);q.line(50,y+18,56,y+12,blood,1.4f);}
@@ -556,15 +637,15 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 if(n>1&&o.selector==3){p.line(center-70,layout.centerY-37,center-65,layout.centerY-42,muted);p.line(center-65,layout.centerY-42,center-60,layout.centerY-37,muted);p.line(center-70,layout.centerY+37,center-65,layout.centerY+42,muted);p.line(center-65,layout.centerY+42,center-60,layout.centerY+37,muted);}
                 p.d->PopClipRect();
             }
-            if(!layout.segments) {
+            if(!layout.segments||layout.nameBelow) {
                 p.rule(center,layout.ruleY,o.selector==2||o.selector==wheelSelector?42.f:58.f);
                 const bool round=o.selector==2||o.selector==wheelSelector;
                 const float nameWidth=round?238*std::max(1.f,text):layout.width-24;
                 p.label(center,layout.nameY,displayName(active->entry),round?20.f:23.f,active->available?ivory:muted,true,nameWidth,true);
-                p.label(center,layout.statusY,rowStatus(*active),14,active->available?silver:depletedMark,false,layout.width-24,true);
+                p.statusLine(center,layout.statusY,*active,14,active->available?silver:depletedMark,layout.width-24);
             }
             // The last line names the group the selector belongs to and the entry's place in it.
-            p.label(center,layout.pagerY,o.names[group]+(n>1?"   ·   "+std::to_string(index+1)+" / "+std::to_string(n):std::string{}),13,p.groupAccent?p.accent():ImU32(silver),false,layout.width-24,true);
+            if(o.selectorFooter)p.label(center,layout.pagerY,o.names[group]+(n>1?"   ·   "+std::to_string(index+1)+" / "+std::to_string(n):std::string{}),13,p.groupAccent?p.accent():ImU32(silver),false,layout.width-24,true);
             if(o.showHints) {
                 std::string cancel;
                 if(state.controller) {
@@ -635,7 +716,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             const float iconX=x+(!wide?(width-keyColumn)*.5f:mirror?width-25.f:25.f);
             const float h=geometry.groups.tileHeight-7,cy=y+3+h*.5f,textX=mirror?x+width-51:x+51,textWidth=width-59-keyColumn;
             q.frame(x,y+3,width,h,emphasized);if(equipped)q.equippedHighlight(x,y+3,width,h,0);if(previewing)q.highlight(x,y+3,width,h,0,q.accent(),true,false,3);q.pulse(x,y+3,width,h,0,pulse);
-            if(entry){q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted);q.sweep(iconX,cy,18*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));}
+            if(entry){q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted);q.sweep(iconX,cy,18*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));q.soulGem(iconX,cy,18*q.tweaks.iconScale,weapon.charge);}
             else q.text(iconX,cy-15,"+",24,muted,false,0,true);
             const float block=(o.showLabels&&o.showCardNames?26*text+4:14*text),top=cy-block*.5f;
             if(o.showLabels)q.label(textX,top,o.names[id],o.showCardNames?12.f:14.f,q.groupAccent?nameColor:ImU32(silver),true,textWidth,false,mirror);
@@ -663,7 +744,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 // A diamond's icon sits a little low under its key and takes the middle of the tile without one.
                 const float iconY=cy+(round||slot?0.f:keyWidth>0?4.f:0.f),iconSize=slot?54.f:round?40.f:keyWidth>0?42.f:46.f;
                 q.icon(cx,iconY,iconSize,*artwork,available?q.itemColor(*artwork):muted);
-                q.sweep(cx,iconY,iconSize*.5f*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));
+                q.sweep(cx,iconY,iconSize*.5f*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));q.soulGem(cx,iconY,iconSize*.5f*q.tweaks.iconScale,weapon.charge);
             }
             else {q.line(cx-5,cy,cx+5,cy,muted);q.line(cx,cy-5,cx,cy+5,muted);}
             q.groupKey(cx,y+(round?0.f:slot?9.f:12.f),id,previewing,state.controller,state.vr,round||slot?18.f:14.f);
@@ -747,7 +828,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             if(box.iconSize>0) {
                 if(row) {
                     item.icon(x,y,box.iconSize,rowIconEntry(*row),item.itemColor(rowIconEntry(*row)));
-                    item.sweep(x,y,box.iconSize*.5f*item.tweaks.iconScale,cooldowns_.fraction(row->entry.form,row->cooldown));
+                    item.sweep(x,y,box.iconSize*.5f*item.tweaks.iconScale,cooldowns_.fraction(row->entry.form,row->cooldown));item.soulGem(x,y,box.iconSize*.5f*item.tweaks.iconScale,row->weapon.charge);
                     const float size=11*std::clamp(t,.8f,1.25f),radius=o.equipmentStyle==0?box.iconSize*.5f:28.f;
                     panel.badge(x+radius*(o.equipmentStyle==2?.7f:1.f),y+(o.equipmentStyle==0?radius-size:radius*.5f),row->entry,row->quantity,row->cooldown,size,true,row->weapon);
                 }

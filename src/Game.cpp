@@ -451,6 +451,20 @@ WeaponStatus readWeaponStatus(RE::TESBoundObject* object,RE::ExtraDataList* extr
     WeaponStatus status;
     auto* weapon=object?object->As<RE::TESObjectWEAP>():nullptr;if(!weapon)return status;
     if(extra)if(const auto* poison=extra->GetByType<RE::ExtraPoison>())status.poisoned=poison->poison&&poison->count>0;
+    // Enchantment charge: the copy's own enchantment and capacity, or the base weapon's. A weapon in hand keeps its
+    // charge in that hand's actor value; one in the inventory keeps it on the copy, and without a record it is full.
+    {
+        RE::EnchantmentItem* enchantment=nullptr;float capacity=0;
+        if(extra)if(const auto* own=extra->GetByType<RE::ExtraEnchantment>();own&&own->enchantment){enchantment=own->enchantment;capacity=own->charge;}
+        if(!enchantment&&weapon->formEnchanting){enchantment=weapon->formEnchanting;capacity=weapon->amountofEnchantment;}
+        if(enchantment&&capacity>0) {
+            float current=-1;
+            const bool right=extra&&extra->HasType<RE::ExtraWorn>(),left=extra&&extra->HasType<RE::ExtraWornLeft>();
+            if((right||left)&&player)current=player->AsActorValueOwner()->GetActorValue(left&&!right?RE::ActorValue::kLeftItemCharge:RE::ActorValue::kRightItemCharge);
+            else if(extra)if(const auto* charge=extra->GetByType<RE::ExtraCharge>())current=charge->charge;
+            status.charge=chargeFraction(current,capacity);
+        }
+    }
     if(weapon->IsBow()||weapon->IsCrossbow()) {
         auto* ammo=equippedAmmo(player);int count=0;
         if(ammo)if(const auto it=inventory.find(ammo);it!=inventory.end())count=it->second.first;
@@ -1038,7 +1052,7 @@ bool Game::consumeController(RE::InputEvent* event) {
         const bool captured=captureGameplayStick(stickOwned_[index],neutral,browsing,inputTaken);
         if(browsing) {
 
-            if(!vr&&wheelOpen())pointSelection(axis.x,-axis.y,wheelIndex(axis.x,axis.y,arsenal_.current().entries.size(),options_.controllerDeadzone));
+            if(!vr&&wheelOpen())pointSelection(axis.x,-axis.y,wheelIndex(axis.x,axis.y,arsenal_.current().entries.size(),options_.controllerDeadzone,wheelTurn(options_)));
             else if(!vr)if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
 
             if(auto* controls=RE::PlayerControls::GetSingleton()) {
@@ -1113,7 +1127,7 @@ bool Game::consume(RE::InputEvent* event) {
     // An open wheel takes mouse movement as its pointer; the camera stays still.
     if(auto* move=event->AsMouseMoveEvent();move&&!selectionController_&&selection_.browsing()&&wheelOpen()&&allowed(MenuPurpose::input,false)) {
         wheelPointer_.move(float(move->mouseInputX),float(move->mouseInputY));
-        pointSelection(wheelPointer_.x(),wheelPointer_.y(),wheelPointer_.index(arsenal_.current().entries.size()));return true;
+        pointSelection(wheelPointer_.x(),wheelPointer_.y(),wheelPointer_.index(arsenal_.current().entries.size(),wheelTurn(options_)));return true;
     }
     auto* button=event?event->AsButtonEvent():nullptr;if(!button)return false;
     const auto code=button->GetIDCode();const bool keyboard=event->device==RE::INPUT_DEVICE::kKeyboard,mouse=event->device==RE::INPUT_DEVICE::kMouse;
@@ -1251,7 +1265,7 @@ void Game::dispatch(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent**
                 if(!controllerConnected_){if(selectionController_)cancel();controller_.reset();stickOwned_.fill(false);}
                 else if(options_.controllerEnabled&&selection_.canBrowse()&&options_.vrStick<2&&allowed(MenuPurpose::input,true)) {
                     const auto axis=readVRAxis(devices,options_.vrStick==1);
-                    if(wheelOpen())pointSelection(axis.x,-axis.y,wheelIndex(axis.x,axis.y,arsenal_.current().entries.size(),options_.controllerDeadzone));
+                    if(wheelOpen())pointSelection(axis.x,-axis.y,wheelIndex(axis.x,axis.y,arsenal_.current().entries.size(),options_.controllerDeadzone,wheelTurn(options_)));
                     else if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
                 }
             } else if(!pad||!devices->IsGamepadEnabled()) {

@@ -83,6 +83,8 @@ int main(int argc,char** argv)try {
         frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();
     };
     const auto key=[&](unsigned scan){frame({{EditorInputType::key,scan,true}});frame({{EditorInputType::key,scan,false}});};
+    // Position mode chooses what to place from one list.
+    const auto element=[&](const std::string& name){click("##placement element");click(name);};
     frame();frame();
     check(probe::one("Close").rect.Max.y<900,"Apply is visible at normal resolution");
     click("##filter");click("Spells");click("##search");for(const auto ch:std::string("healing"))frame({{EditorInputType::character,unsigned(ch)}});frame();
@@ -141,11 +143,13 @@ int main(int argc,char** argv)try {
     check(probe::find("Rename").size()==1&&probe::one("Rename").disabled&&probe::find("Delete preset").empty(),"Built-in presets cannot be renamed or deleted");
     click("Appearance");click("Theme");click("##theme");click("Skyrim silver");check(state.options.themeId=="silver"&&state.options.shape==1,"Theme remains independent of geometry");
     click("Selector");click("##selector shape");click("Squares");check(state.options.selectorShape==2,"Selector shapes can be chosen independently");
-    check(probe::find("##Scale").empty()&&state.options.selectorScaleLinked,"A linked selector has no scale of its own");
-    click("Match widget scale");check(!state.options.selectorScaleLinked&&state.options.selectorScale==state.options.scale&&!probe::find("##Scale").empty(),"Unlinking starts the selector at the widget's scale");
-    {const float widget=state.options.scale;click("+##Scale");check(state.options.selectorScale>widget&&state.options.scale==widget,"The selector's scale changes on its own");}
-    click("+##Opacity");click("-##Opacity");click("-##Opacity");check(state.options.selectorOpacity<state.options.opacity,"The selector has its own opacity");
-    click("Undo");click("Undo");click("Undo");click("Undo");click("Undo");check(state.options.selectorScaleLinked,"Selector sizing supports Undo");
+    check(!probe::find("##Scale").empty()&&probe::find("Match widget scale").empty(),"The selector always has a scale of its own");
+    {
+        const float widget=state.options.scale,own=state.options.selectorScale,opacity=state.options.selectorOpacity;click("+##Scale");
+        check(state.options.selectorScale>own&&state.options.scale==widget,"The selector's scale changes on its own");
+        click("+##Opacity");click("-##Opacity");click("-##Opacity");check(state.options.selectorOpacity<state.options.opacity,"The selector has its own opacity");
+        click("Undo");click("Undo");click("Undo");click("Undo");check(state.options.selectorScale==own&&state.options.selectorOpacity==opacity,"Selector sizing supports Undo");
+    }
     click("Widget");click("Show group names");check(state.options.showLabels,"Names can be restored without changing theme");
     click("Theme");click("Key icons");check(!state.options.keyIcons,"Key artwork can switch to plain hotkey labels");
     click("Key icons");check(state.options.keyIcons,"Key artwork can be restored");
@@ -200,7 +204,8 @@ int main(int argc,char** argv)try {
     frame({{EditorInputType::move,0,false,-60,-40}});frame({{EditorInputType::button,0,false}});frame();
     check(near(cornerOf(0),{untouched.x-60,untouched.y-40},1)&&state.options.anchor==8&&state.options.offsetX<0&&state.options.offsetY<0,"Dragging moves the widget by the dragged distance and anchors it to the nearest corner");
     const auto widgetPosition=cornerOf(0);
-    click("Selector");check(!probe::find("Drag selector").empty(),"Selector has its own full-screen drag target");
+    check(probe::find("Match widget scale").empty()&&!probe::find("##placement element").empty(),"Position mode picks its element from one list");
+    element("Selector");check(!probe::find("Drag selector").empty(),"Selector has its own full-screen drag target");
     const auto selectorPosition=cornerOf(1);mouse(probe::one("Drag selector").rect.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,-70,-35}});frame({{EditorInputType::button,0,false}});frame();
     check(cornerOf(1).x<selectorPosition.x&&cornerOf(1).y<selectorPosition.y&&near(cornerOf(0),widgetPosition)&&state.options.selectorAnchor<unanchored,"Dragging the selector anchors it and leaves the widget in place");
@@ -225,7 +230,7 @@ int main(int argc,char** argv)try {
     check(near(cornerOf(1),{freeCorner.x+13,freeCorner.y+9}),"Shift moves freely without grid quantization");
     {
         // Anchors, offsets, nudging and the scale handle.
-        click("Grid");click("Snap to grid");click("Widget");
+        click("Grid");click("Snap to grid");element("Widget");
         const auto pixel=resolutionScale(io.DisplaySize.y);const auto before=cornerOf(0);const auto size=elementExtent(currentGeometry(state.options),0);
         click("##anchor",0);check(state.options.anchor==0&&near(cornerOf(0),before),"Choosing an anchor keeps the widget where it is");
         check(std::abs(state.options.offsetX*pixel-before.x)<.05f&&std::abs(state.options.offsetY*pixel-before.y)<.05f,"Offsets are measured from the chosen anchor");
@@ -261,11 +266,24 @@ int main(int argc,char** argv)try {
             check(std::abs(width-(small.origin.x+small.width*small.scale)-40*unit)<.05f&&std::abs(height-(small.origin.y+small.height*small.scale)-30*unit)<.05f,"An anchored corner keeps its offset at every resolution");
             check(std::abs(large.origin.x+large.width*large.scale-small.origin.x-small.width*small.scale)<.05f&&large.origin.x<small.origin.x,"A larger widget grows away from its anchored corner");
         }
-        click("Grid");click("Snap to grid");click("Selector");
+        click("Grid");click("Snap to grid");element("Selector");
+        {
+            // The Scale slider and the element's own appearance change only the chosen element.
+            const float widget=state.options.scale,own=state.options.selectorScale;
+            const auto r=probe::one("Scale").rect;mouse({r.Min.x+r.GetWidth()*.85f,r.GetCenter().y});frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();
+            check(state.options.selectorScale!=own&&state.options.scale==widget,"Position Scale resizes only the selector");
+            click("Undo");check(state.options.selectorScale==own,"The selector's Position scale supports Undo");
+            click("Appearance##position");click("Arrangement##position");click("Wheel");
+            check(state.options.selector==wheelSelector&&!probe::find("Wheel size##position").empty()&&!probe::find("Show center circle##position").empty(),"Position mode shows the selector's own look settings");
+            click("Wheel style##position");click("Segments");check(state.options.wheelStyle==1&&!probe::find("Ring thickness##position").empty()&&!probe::find("Highlight##position").empty(),"A segmented wheel's settings appear with it");
+            click("Show center circle##position");check(!state.options.wheelHubCircle&&state.options.scale==widget,"Look settings in Position apply live");
+            click("Undo");click("Undo");click("Undo");check(state.options.selector!=wheelSelector&&state.options.wheelHubCircle,"Look changes in Position support Undo");
+            click("Appearance##position");
+        }
         (void)size;
     }
     click("Back");click("##selector dock");click("Above widget");click("Position");
-    const auto docked=currentGeometry(state.options);click("Selector");
+    const auto docked=currentGeometry(state.options);element("Selector");
     const auto detached=currentGeometry(state.options);
     check(state.options.selectorDock==4&&std::abs(docked.origin.x+docked.selectorOrigin.x*docked.scale-detached.origin.x-detached.selectorOrigin.x*detached.scale)<.001f&&std::abs(docked.origin.y+docked.selectorOrigin.y*docked.scale-detached.origin.y-detached.selectorOrigin.y*detached.scale)<.001f,"Detaching the selector preserves its visible location");
     click("Back");click("Widget");const auto textSize=state.options.textScale;
@@ -285,9 +303,9 @@ int main(int argc,char** argv)try {
         click("+##Tile size");check(state.options.tileSize>1,"Tile size applies live");
         check(probe::find("##Columns").empty(),"Columns belong to the grid arrangement");
         click("##layout");click("Grid");click("-##Columns");check(state.options.layout==6&&state.options.gridColumns==3,"The grid arrangement has a column count");
-        click("Selector");click("##selector");click("Horizontal strip");click("##selector visible");click("7");check(state.options.selectorVisible==2&&probe::find("##Wheel radius").empty(),"Strips choose how many items they show");
-        click("##selector");click("Wheel");check(probe::find("##selector visible").empty()&&!probe::find("##Wheel radius").empty(),"The wheel has a radius in place of a visible count");
-        click("+##Wheel radius");check(state.options.wheelRadius==Options{}.wheelRadius+1,"Wheel radius applies live");
+        click("Selector");click("##selector");click("Horizontal strip");click("##selector visible");click("7");check(state.options.selectorVisible==2&&probe::find("##Wheel size").empty(),"Strips choose how many items they show");
+        click("##selector");click("Wheel");check(probe::find("##selector visible").empty()&&!probe::find("##Wheel size").empty(),"The wheel has a size in place of a visible count");
+        click("+##Wheel size");check(state.options.wheelSize==Options{}.wheelSize+2,"Wheel size applies live");
         check(!probe::find("##selector shape").empty(),"A wheel of tiles chooses its item shape");
         click("##wheel style");click("Segments");check(state.options.wheelStyle==1&&probe::find("##selector shape").empty(),"A segmented wheel replaces the item shape");
         click("##reset Wheel style");check(state.options.wheelStyle==0,"The wheel style resets to tiles");
@@ -601,7 +619,7 @@ int main(int argc,char** argv)try {
     padKey(PadButton::a);click("Clear text");padKey(PadButton::b);
     check(!probe::find("Healing").empty()&&probe::find("Flames").empty(),"Cancelling nested text edit preserves the parent filter and picker");
     padKey(PadButton::b);click("Appearance");click("Widget");click("Position");
-    click("Widget");const auto beforeDrag=elementCorner(hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y),0);
+    element("Widget");const auto beforeDrag=elementCorner(hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y),0);
     pointAt(probe::one("Drag widget").rect.GetCenter());
     frame({{EditorInputType::pad,unsigned(PadButton::a),true},{EditorInputType::stick,1,false,-.8f,.5f}});
     for(unsigned i=0;i<15;++i)frame();
@@ -702,7 +720,7 @@ int main(int argc,char** argv)try {
     frame({{EditorInputType::move,0,false,120,-60}});frame({{EditorInputType::button,0,false}});frame();
     {const auto widgetNow=elementCorner(hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y),0);
         check(state.options.equipmentAnchor<unanchored&&widgetNow.x==oldWidget.x&&widgetNow.y==oldWidget.y,"Dragging equipment leaves widget position unchanged");}
-    click("Grid");click("Snap to grid");click("Equipment");
+    click("Grid");click("Snap to grid");element("Equipment");
     const auto snapStart=probe::one("Drag equipment").rect;mouse(snapStart.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,47,29}});frame({{EditorInputType::button,0,false}});frame();
     const auto eqSnapped=probe::one("Drag equipment").rect;const float eqStep=placementGridStep(state.options,io.DisplaySize.y);

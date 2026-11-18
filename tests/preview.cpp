@@ -122,7 +122,7 @@ int main(int argc,char** argv) {
     if(scene.starts_with("pack-")){options.groupCount=4;layoutPreset(options,0);options.themeId=scene.substr(5);}
     if(scene=="free-selector"){options.groupCount=4;layoutPreset(options,1);options.selectorDock=4;options.selectorX=.45f;options.selectorY=.35f;}
     if(scene.find("fallback")!=std::string::npos){hud.setKeys(0,{});hud.setTheme(options.themeId,0);options.keys[1]=68;}
-    if(scene=="editor-layout"||scene=="editor-groups"||scene=="editor-selector"||scene=="editor-position-grid"||scene=="editor-presets"){editing.options.groupCount=4;layoutPreset(editing.options,0);}
+    if(scene=="editor-layout"||scene=="editor-groups"||scene=="editor-selector"||scene=="editor-position-grid"||scene=="editor-position-appearance"||scene=="editor-position-elements"||scene=="editor-presets"){editing.options.groupCount=4;layoutPreset(editing.options,0);}
     if(scene=="editor-empty"){editing.draft.groups[0]={};fixture::rows(editing);}
     if(scene.starts_with("v04-")) {
         options.groupCount=4;layoutPreset(options,0);options.scale=1.15f;
@@ -364,6 +364,8 @@ int main(int argc,char** argv) {
     if(scene=="editor-selector")previewClicks={"Appearance","Selector"};
     if(scene=="editor-position-grid"||scene=="editor-position-bounds"||scene=="editor-position-custom")previewClicks={"Appearance","Widget","Position"};
     if(scene=="editor-presets")previewClicks={"Presets","Combat - Oathvein"};
+    if(scene=="editor-position-appearance")previewClicks={"Appearance","Selector","Position","Appearance##position"};
+    if(scene=="editor-position-elements")previewClicks={"Appearance","Widget","Position","##placement element"};
     if(scene=="editor-hand-actions")previewClicks={"New","Hand action"};
     if(scene.starts_with("editor-behavior"))previewClicks={"Controls"};
     if(scene=="editor-smart-weapon")previewClicks={"New","Smart weapon"};
@@ -381,10 +383,17 @@ int main(int argc,char** argv) {
     EditHistory history;history.begin(editing.draft,editing.options);
     // QUICKSLOT_PREVIEW_THEME shows any scene, including the editor, under another theme.
     if(const char* theme=std::getenv("QUICKSLOT_PREVIEW_THEME");theme&&*theme)options.themeId=editing.options.themeId=theme;
-    // QUICKSLOT_PREVIEW_OPTIONS is a JSON object of settings laid over the scene's own, such as {"selectorScale":2,"selectorScaleLinked":false}.
+    // QUICKSLOT_PREVIEW_OPTIONS is a JSON object of settings laid over the scene's own, such as {"selectorScale":2,"wheelHubCircle":false}.
     if(const char* extra=std::getenv("QUICKSLOT_PREVIEW_OPTIONS");extra&&*extra) {
         const auto overlay=Json::parse(extra);
         for(auto* target:{&options,&editing.options}){auto merged=Json::parse(encodeOptions(*target));merged.update(overlay);*target=decodeOptions(merged.dump());}
+    }
+    // QUICKSLOT_PREVIEW_CHARGE=<0..1> gives weapons that much enchantment charge; other weapon rows step down from it to empty.
+    if(const char* charge=std::getenv("QUICKSLOT_PREVIEW_CHARGE");charge&&*charge) {
+        const float full=std::clamp(std::strtof(charge,nullptr),0.f,1.f);const std::array<float,4> steps{full,full*.5f,.12f,0};
+        std::size_t weapon=0;for(auto& row:snapshot.rows)if(!row.entry.spell)row.weapon.charge=steps[weapon++%steps.size()];
+        for(auto& group:snapshot.groups)if(group.entry&&!group.entry->spell)group.weapon.charge=full;
+        for(auto& hand:snapshot.equipment.hands)if(hand&&!hand->entry.spell)hand->weapon.charge=full;
     }
     // QUICKSLOT_PREVIEW_CAPTION closes the selector and shows the just-selected item's name beside that group's tile.
     // QUICKSLOT_PREVIEW_TIP=<binding> shows the first-run tip and names that binding in an empty group's selector.

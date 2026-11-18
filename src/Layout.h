@@ -113,11 +113,11 @@ struct SelectorGeometry {
     float width=420,height=155,centerY=16,ruleY=67,nameY=76,statusY=104,pagerY=132,hintY=154,listPitch=0,listHeight=46;
     std::vector<Point> ring;
     // Wheel selectors: the center the slots surround and their distance from it. A segmented wheel is a ring
-    // from inner to outer around a hub that holds the pointed item's name.
-    Point hub;float reach=0,inner=0,outer=0,wedgeGap=0;bool segments=false;
+    // from inner to outer around a hub of hubRadius; the pointed segment reaches out by lift. rotation turns the
+    // first slot clockwise from the top, in radians. nameInHub puts the pointed item's name in the hub; otherwise
+    // nameBelow puts it under the wheel, and with neither the name is hidden.
+    Point hub;float reach=0,inner=0,outer=0,wedgeGap=0,hubRadius=0,lift=0,rotation=0;bool segments=false,nameInHub=false,nameBelow=true;
 };
-// The depth of a segmented wheel's ring.
-inline constexpr float wedgeDepth=56;
 inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,float phase=0) {
     const float text=selectorTextFactor(o);SelectorGeometry s;
     // Strips, arcs and lists show up to selectorVisible+1 neighbors on each side of the selected item.
@@ -138,16 +138,26 @@ inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,fl
         // A segmented wheel has a wedge for every entry; tiles stop at a full group.
         const auto slots=o.wheelStyle==1?std::max(count,std::size_t(1)):std::clamp(count,std::size_t(1),Group::limit);constexpr float pi=3.141592654f;
         const float footprint=selectorTileShape(o)==2?50*std::sqrt(2.f):50;
-        s.segments=o.wheelStyle==1;
+        s.segments=o.wheelStyle==1;s.rotation=(std::isfinite(o.wheelRotation)?o.wheelRotation:0)*pi/180;
         if(s.segments) {
-            // Each wedge is wide enough for its icon, and the hub for a name. Wedges narrow once a list outgrows a full group.
-            s.wedgeGap=std::clamp(o.selectorSpacing*.25f,1.5f,12.f);
-            s.reach=std::max({72*std::max(1.f,text)+wedgeDepth*.5f,o.wheelRadius,slots>1?((slots>Group::limit?26.f:40.f)+s.wedgeGap)/(2*std::sin(pi/float(slots))):0.f});
-            s.inner=s.reach-wedgeDepth*.5f;s.outer=s.reach+wedgeDepth*.5f;
-        } else s.reach=slots>1?std::max(o.wheelRadius,(footprint+o.selectorSpacing)/(2*std::sin(pi/float(slots)))):0;
-        const float extent=2*(s.segments?s.outer+7:s.reach+31);
+            // The wheel's size is its outer radius and the ring takes a share of it, so the ring, its icons and the hub
+            // grow together. A thickness of 100% fills the wheel to the center.
+            // Icons sit in the middle of the ring; in a wheel filled near the center they move out to where segments are
+            // wider. A wheel too small for its entries grows until each wedge has room for an icon.
+            const float share=std::clamp(o.wheelThickness,.05f,1.f),depth=share<1/1.3f?1-share*.5f:1-share*.42f;
+            s.wedgeGap=std::max(0.f,o.wheelGap);
+            const float roomy=slots>1?((slots>Group::limit?26.f:40.f)+s.wedgeGap)/(2*std::sin(pi/float(slots)))/depth:0;
+            s.outer=std::max(std::isfinite(o.wheelSize)?o.wheelSize:130.f,roomy);
+            const float thickness=s.outer*share;s.inner=std::max(0.f,s.outer-thickness);s.reach=s.outer*depth;
+            s.hubRadius=std::max(0.f,s.inner-std::max(6.f,s.wedgeGap+3));
+            s.lift=o.wheelLift?std::max(4.f,thickness*.1f):0;
+            // A name needs a hub wide enough for a line of text; a smaller hub sends it under the wheel.
+            s.nameInHub=o.wheelName==0&&s.hubRadius>=34*std::max(1.f,text);
+            s.nameBelow=o.wheelName==1||(o.wheelName==0&&!s.nameInHub);
+        } else s.reach=slots>1?std::max(o.wheelSize-31,(footprint+o.selectorSpacing)/(2*std::sin(pi/float(slots)))):0;
+        const float extent=2*(s.segments?s.outer+s.lift+7:s.reach+31);
         s.width=std::max(260*std::max(1.f,text),extent+24);s.hub={s.width*.5f,extent*.5f-24};
-        for(std::size_t i=0;i<slots;++i){const float angle=-pi*.5f+float(i)*2*pi/float(slots);s.ring.push_back({s.hub.x+std::cos(angle)*s.reach,s.hub.y+std::sin(angle)*s.reach});}
+        for(std::size_t i=0;i<slots;++i){const float angle=-pi*.5f+s.rotation+float(i)*2*pi/float(slots);s.ring.push_back({s.hub.x+std::cos(angle)*s.reach,s.hub.y+std::sin(angle)*s.reach});}
         s.ruleY=extent-24+18;
     } else if(o.selector==3) {
         const float reach=selectorOffset(o,side).y+selectorRadius(side);
@@ -160,9 +170,15 @@ inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,fl
         s.width=std::max(240*std::max(1.f,text),(last.x+selectorRadius(side))*2+48);
         s.ruleY=s.centerY+std::max(40.f,last.y+selectorRadius(side))+16;
     }
-    s.nameY=s.ruleY+9;s.statusY=s.nameY+28*text;s.pagerY=s.segments?s.ruleY-8:s.statusY+14*text+9;
-    s.hintY=s.pagerY+13*text+10;
-    s.height=o.showHints?s.hintY+13*text+4:s.pagerY+13*text+6;return s;
+    // Under the selector: the name and its status line (unless the wheel holds them in its hub or hides them), the
+    // footer with the group and position, then the hints.
+    const bool name=!s.segments||s.nameBelow;
+    s.nameY=s.ruleY+9;s.statusY=s.nameY+28*text;
+    const float afterName=name?s.statusY+14*text+9:s.ruleY-8;
+    s.pagerY=afterName;
+    const float afterFooter=o.selectorFooter?s.pagerY+13*text+10:afterName;
+    s.hintY=afterFooter;
+    s.height=o.showHints?s.hintY+13*text+4:o.selectorFooter?s.pagerY+13*text+6:name?s.statusY+14*text+6:s.ruleY-2;return s;
 }
 // Placement. An anchored element rests a point of itself on the matching point of the screen area, moved by an
 // offset in 1080p pixels, so it grows and shrinks away from that point. An unanchored element's position is a
@@ -266,13 +282,12 @@ inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsi
     g.groupOrigin={0,o.shape==0?3.f:0.f};g.height=g.groups.height+g.groupOrigin.y;
     const auto selectorLayout=selectorGeometry(o,selectorCount);g.selectorHeight=selectorLayout.height;g.selectorWidth=selectorLayout.width;
     const float sh=g.selectorHeight+32,resolutionScale=quickslot::resolutionScale(screenY);
-    const bool linked=o.selectorScaleLinked;
     const bool free=o.layout==freeLayout;
     // Free tiles each keep to the screen, so only one tile has to fit.
     const float fitWidth=free?g.groups.tileWidth:g.width,fitHeight=free?g.groups.tileHeight+g.groupOrigin.y:g.height;
-    g.scale=std::max(.05f,std::min({o.scale*resolutionScale,(screenX-16)/(linked?std::max(fitWidth,g.selectorWidth):fitWidth),
-        (screenY-16)/(linked?std::max(fitHeight,sh):fitHeight)}));
-    g.selectorScale=linked?g.scale:std::max(.05f,std::min({o.selectorScale*resolutionScale,(screenX-16)/g.selectorWidth,(screenY-16)/sh}));
+    // The widget and the selector each have their own scale, kept within the screen.
+    g.scale=std::max(.05f,std::min({o.scale*resolutionScale,(screenX-16)/fitWidth,(screenY-16)/fitHeight}));
+    g.selectorScale=std::max(.05f,std::min({o.selectorScale*resolutionScale,(screenX-16)/g.selectorWidth,(screenY-16)/sh}));
     g.focus={{0,0},{g.groups.width,g.groups.height},true};
     if(free&&!g.groups.tiles.empty()) {
         // The widget becomes the box around the placed tiles; each tile keeps its own screen position inside it.

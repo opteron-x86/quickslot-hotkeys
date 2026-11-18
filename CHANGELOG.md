@@ -32,6 +32,17 @@ Updating: group keys held with Ctrl, Shift or Alt now select the group during ga
 - The English translation file lists every string the menus and HUD show, and no others.
 - Built-in presets add **Cards**, with card tiles, a strip selector and an equipment list, and **Wheel**, with diamond tiles and a segmented wheel selector.
 - The HUD shows the weapon enchantment charge meter while the Quickslot widget is on screen.
+- **Match widget scale** is removed. The widget, selector, equipment display and each Free tile have their own **Scale**; a selector that matched the widget keeps that size.
+- **Position** chooses what to place from one **Element** list, and its **Scale** slider and resize handle change only that element. An **Appearance** section in the panel holds the element's main look settings.
+- Position no longer shows "-0 px", and its panel scrolls when it is taller than the screen.
+- **Wheel size** replaces **Wheel radius**: the ring, its icons and the center grow together. Existing wheels keep their look.
+- A segmented wheel adds **Ring thickness**, **Gap**, **Item name** (center, below or hidden), **Highlight** (fill and outline, fill, outline or rim), **Raise the pointed segment**, **Ring opacity** and **Item names on segments**.
+- Every wheel adds **Show center circle**, **Show pointer** and **Rotation**.
+- A segmented wheel grows when its entries need room for their icons.
+- **Selector → Show enchantment charge** shows an enchanted weapon's charge as five diamonds under its name.
+- **Appearance → Theme → Soul gem on enchanted weapons** marks enchanted weapons on tiles, the selector and the equipment display with a soul gem that fills with their charge.
+- **Selector → Show group and position** turns off the selector's last line.
+- The selector's dock choice under **Placement** is named **Attach**.
 
 ## 0.15.1
 

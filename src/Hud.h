@@ -32,6 +32,8 @@ private:
     EquipmentFade equipmentFade_;
     Eased shown_,selectorOpen_;
     std::array<TilePulse,Arsenal::count> pulses_;
+    // The angle the wheel's highlight is drawn at; it glides toward the pointed segment.
+    float wheelHighlight_=0;bool wheelHighlightSet_=false;double wheelHighlightAt_=0;
     CooldownScale cooldowns_;
     KeyGlyphs keyGlyphs{};
 public:

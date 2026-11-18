@@ -9,8 +9,10 @@ import argparse, collections, json, pathlib, re, sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 EN = ROOT / 'assets/translations/en.json'
 # Calls whose first string argument is shown to the player.
-SHOWN = re.compile(r'\b(?:tr|trNamed|translatedLabel|UI::(?:Button|Checkbox|MenuItem|CollapsingHeader|RadioButton|SliderFloat|SetTooltip|TextWrapped|TextDisabled|Text|InputTextWithHint)|label\(tr|rowLabel|heading|flag|number|choice|padBinding|devicePreset)\(\s*"((?:[^"\\]|\\.)*)"')
+SHOWN = re.compile(r'\b(?:tr|trNamed|translatedLabel|UI::(?:Button|Checkbox|MenuItem|CollapsingHeader|RadioButton|SliderFloat|SetTooltip|TextWrapped|TextDisabled|Text|InputTextWithHint)|label\(tr|rowLabel|heading|flag|number|choice|slider|pick|toggle|padBinding|devicePreset)\(\s*"((?:[^"\\]|\\.)*)"')
 COMBO = re.compile(r'UI::Combo\(\s*"(?:[^"\\]|\\.)*"\s*,[^,]+,\s*((?:"(?:[^"\\]|\\.)*"\s*)+)')
+# The editor's choice rows: choice("Label","##id",&Options::member,"A\0B\0") and, in Position mode, pick("Label",&Options::member,"A\0B\0").
+CHOICE = re.compile(r'\b(?:choice|pick)\(\s*"(?:[^"\\]|\\.)*"\s*,(?:\s*"(?:[^"\\]|\\.)*"\s*,)?[^,"]+,\s*((?:"(?:[^"\\]|\\.)*"\s*)+)')
 LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"')
 
 def unescape(text):
@@ -28,7 +30,7 @@ def shown_strings(texts):
     for text in texts:
         for match in SHOWN.finditer(text):
             found.append(clean(match.group(1)))
-        for match in COMBO.finditer(text):
+        for match in [*COMBO.finditer(text), *CHOICE.finditer(text)]:
             joined = ''.join(unescape(m) for m in LITERAL.findall(match.group(1)))
             found.extend(part for part in joined.split('\0') if part)
     return [s for s in dict.fromkeys(found) if s.strip() and not s.startswith('%') or s.startswith('%s')]

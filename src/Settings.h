@@ -223,6 +223,14 @@ inline Options decodeOptions(const std::string& bytes) {
     // Settings from before the equipment display had an anchor keep its proportional position.
     if(!j.contains("equipmentAnchor")){o.equipmentAnchor=9;o.equipmentOffsetX=o.equipmentOffsetY=0;}
     if(!j.contains("anchor")){o.anchor=9;o.offsetX=o.offsetY=0;}
+    // A selector that followed the widget's scale starts at that scale; each element now has its own.
+    if(const auto linked=j.find("selectorScaleLinked");linked!=j.end()?linked->is_boolean()&&linked->get<bool>():j.value("layoutVersion",1)<3)o.selectorScale=o.scale;
+    // The wheel's radius measured the middle of a ring 56 pixels deep; its size is now the outer radius with a
+    // proportional thickness, set to draw the ring as it was.
+    if(const auto radius=j.find("wheelRadius");radius!=j.end()&&radius->is_number()&&!j.contains("wheelSize")) {
+        const float middle=std::isfinite(radius->get<float>())?std::max(radius->get<float>(),100.f):100.f;
+        o.wheelSize=middle+28;o.wheelThickness=56/o.wheelSize;o.wheelGap=std::clamp(o.selectorSpacing*.25f,1.5f,12.f);
+    }
     if(const auto places=j.find("tilePlaces");places!=j.end()&&places->is_array())
         for(std::size_t i=0;i<std::min(places->size(),o.tilePlaces.size());++i) {
             const auto& t=(*places)[i];
@@ -233,7 +241,7 @@ inline Options decodeOptions(const std::string& bytes) {
         // Earlier files shared one text size and one opacity across the HUD, and widget text kept its size below 100% scale.
         const float scale=std::isfinite(o.scale)&&o.scale>0?o.scale:1,size=std::isfinite(o.textScale)?o.textScale:1,text=size*std::max(1.f,scale)/scale;
         o.equipmentTextScale*=size;o.textScale=o.selectorTextScale=text;
-        o.selectorOpacity=o.equipmentOpacity=o.opacity;o.selectorScaleLinked=true;
+        o.selectorOpacity=o.equipmentOpacity=o.opacity;
         // Icon size was kept per theme; the active theme's value becomes the one icon size.
         if(const auto it=o.themeAdjustments.find(o.themeId);it!=o.themeAdjustments.end())o.iconScale=it->second.iconScale;
         for(auto& [id,adjustment]:o.themeAdjustments)adjustment.iconScale=1;

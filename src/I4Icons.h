@@ -15,7 +15,8 @@ public:
     I4Icons(ID3D11Device*,ID3D11DeviceContext*);
     ~I4Icons();
     // With drawing off, entries still resolve to their I4 labels and no SWF artwork is rendered.
-    void beginFrame(bool draw);
+    // artwork: 0 I4's icon for each item, 1 SkyUI's icon for each type, 2 no SWF icons.
+    void beginFrame(unsigned artwork);
     std::optional<ItemIcon> find(const Entry&);
     std::optional<std::string_view> label(const Entry&)const;
 };

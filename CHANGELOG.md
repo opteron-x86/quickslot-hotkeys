@@ -26,7 +26,7 @@ Updating: group keys held with Ctrl, Shift or Alt now select the group during ga
 - **Free** under **Appearance → Widget → Arrangement** gives each group's tile its own position and size. Drag and resize tiles one at a time in **Position**, or set them under **Placement**. The selector, item name and notices gather around the tile in use.
 - Positions saved by earlier versions as a share of the screen become an anchor and offset the first time the HUD draws, without moving.
 - I4 is optional. Without it, each item shows SkyUI's category icon for its type.
-- **Use I4 icons** is under **Appearance → Theme → Icons**. With it off, tiles show PNGII artwork only.
+- **Appearance → Theme → Icons → Item icons** chooses **I4**, **SkyUI** or **PNGII** icons. Settings with **Use I4 icons** off start on SkyUI.
 - Every built-in look shows the equipment display as a vertical list at the middle of the left edge.
 - The README opens with a quick start.
 - The English translation file lists every string the menus and HUD show, and no others.

@@ -124,10 +124,12 @@ struct I4Icons::Impl {
     std::deque<Entry> pending;
     std::uint64_t generation=0,frame=0;
     std::optional<unsigned> reportedAPI;
-    std::optional<bool> drawing;
-    // available: icons can be drawn. perItem: I4 can name each item's own artwork; without it every item uses SkyUI's
-    // category icon for its type.
-    bool available=false,perItem=false,reported=false,captureReported=false;
+    std::optional<unsigned> artwork;
+    // available: icons can be drawn. perItem: I4 can name each item's own artwork, which PNGII matching uses too.
+    // ownArtwork: items draw that artwork; otherwise each uses SkyUI's category icon for its type.
+    bool available=false,perItem=false,ownArtwork=false,reported=false,captureReported=false;
+    bool drawing()const{return artwork.value_or(0)!=2;}
+    Spec drawn(const Entry& entry,const Spec& resolved)const{return ownArtwork?resolved:category(entry);}
     const bool installed=SKSE::GetPluginInfo("InventoryInjector")!=nullptr;
     Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c),outputs(d,c){}
 
@@ -238,19 +240,22 @@ struct I4Icons::Impl {
         trim(textures,maxTextures);auto texture=render(spec);
         textures.emplace(key(spec),std::move(texture));
     }
-    void beginFrame(bool draw) {
+    void beginFrame(unsigned mode) {
         ++frame;
         if(generation!=iconGeneration.load()) {generation=iconGeneration.load();forms.clear();textures.clear();movies.clear();pending.clear();}
-        if(drawing!=draw) {
-            drawing=draw;if(!draw){textures.clear();movies.clear();}
-            SKSE::log::info("I4 icon drawing: {}",draw?"on":"off; tiles show PNGII artwork only");
+        if(artwork!=mode) {
+            if(artwork)textures.clear();
+            if(mode==2)movies.clear();
+            artwork=mode;
+            SKSE::log::info("Item icons: {}",mode==0?"I4":mode==1?"SkyUI":"PNGII only");
         }
+        const bool draw=drawing();
         available=false;
         auto* ui=RE::UI::GetSingleton();if(!ui)return;
         const auto hud=ui->GetMenu<RE::HUDMenu>();if(!hud||!hud->uiMovie)return;
         auto& movie=*hud->uiMovie;
         const bool processAvailable=movie.IsAvailable(processEntry),extendAvailable=movie.IsAvailable("skse.ExtendForm");
-        perItem=processAvailable&&extendAvailable;available=true;
+        perItem=processAvailable&&extendAvailable;ownArtwork=perItem&&mode==0;available=true;
         const unsigned api=unsigned(processAvailable)|(unsigned(extendAvailable)<<1);
         if(reportedAPI!=api) {
             reportedAPI=api;
@@ -276,7 +281,7 @@ struct I4Icons::Impl {
                 const auto spec=perItem&&i4HasForm(entry)?resolve(movie,entry).value_or(category(entry)):category(entry);
                 trim(forms,maxForms);found=forms.emplace(request,Form{spec,frame}).first;
             }
-            const auto& spec=*found->second.spec;
+            const auto spec=drawn(entry,*found->second.spec);
             if(!draw||textures.contains(key(spec)))continue;
             capture(spec);break;
         }
@@ -285,11 +290,11 @@ struct I4Icons::Impl {
         if(!available)return {};
         const auto request=i4RequestKey(entry);
         // The label still resolves so PNGII can match its artwork.
-        if(!drawing.value_or(true)){if(!forms.contains(request))queue(entry);return {};}
+        if(!drawing()){if(!forms.contains(request))queue(entry);return {};}
         if(auto form=forms.find(request);form!=forms.end()) {
-            form->second.used=frame;
-            if(auto icon=cached(*form->second.spec))return icon;
-            if(!textures.contains(key(*form->second.spec)))queue(entry);
+            form->second.used=frame;const auto spec=drawn(entry,*form->second.spec);
+            if(auto icon=cached(spec))return icon;
+            if(!textures.contains(key(spec)))queue(entry);
             else {
                 auto fallback=entry;fallback.form=0;
                 if(auto icon=cached(category(fallback)))return icon;
@@ -301,7 +306,7 @@ struct I4Icons::Impl {
 };
 I4Icons::I4Icons(ID3D11Device* d,ID3D11DeviceContext* c):impl_(std::make_unique<Impl>(d,c)){}
 I4Icons::~I4Icons()=default;
-void I4Icons::beginFrame(bool draw){impl_->beginFrame(draw);}
+void I4Icons::beginFrame(unsigned artwork){impl_->beginFrame(artwork);}
 std::optional<ItemIcon> I4Icons::find(const Entry& entry){return impl_->find(entry);}
 std::optional<std::string_view> I4Icons::label(const Entry& entry)const {
     if(!impl_->available)return {};

@@ -102,6 +102,7 @@ inline constexpr FlagSetting flagSettings[]{
     {"wheelLabels",&Options::wheelLabels,Section::selector,true},
     {"wheelPointer",&Options::wheelPointer,Section::selector,true},
     {"showCharge",&Options::showCharge,Section::selector,true},
+    {"showDescriptions",&Options::showDescriptions,Section::selector,true},
     {"selectorFooter",&Options::selectorFooter,Section::selector,true},
     {"showHints",&Options::showHints,Section::selector},
     {"animateScroll",&Options::animateScroll,Section::selector},

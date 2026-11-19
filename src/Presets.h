@@ -21,7 +21,7 @@ inline bool validPresetName(const std::string& name) {
 namespace presetPart {constexpr unsigned look=1,controls=2,groups=4,all=7;}
 inline void copyControls(Options& target,const Options& source) {
     target.keys=source.keys;target.editorKey=source.editorKey;target.editorModifiers=source.editorModifiers;
-    target.skipEmpty=source.skipEmpty;target.cycleKeepOtherHand=source.cycleKeepOtherHand;target.holdDelay=source.holdDelay;target.cycleDelay=source.cycleDelay;
+    target.skipEmpty=source.skipEmpty;target.cycleKeepOtherHand=source.cycleKeepOtherHand;target.tapRecall=source.tapRecall;target.holdDelay=source.holdDelay;target.cycleDelay=source.cycleDelay;
     target.menuCapture=source.menuCapture;target.gameplayEditing=source.gameplayEditing;target.selectionSpeed=source.selectionSpeed;
     target.groupUnequipHotkey=source.groupUnequipHotkey;target.groupRemoveHotkey=source.groupRemoveHotkey;
     target.groupCaptureRightHotkey=source.groupCaptureRightHotkey;target.groupCaptureLeftHotkey=source.groupCaptureLeftHotkey;target.groupMoveHotkey=source.groupMoveHotkey;

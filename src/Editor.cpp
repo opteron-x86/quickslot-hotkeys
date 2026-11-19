@@ -1031,6 +1031,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             changed|=UI::Checkbox("Skip unavailable items",&options.skipEmpty);
             changed|=UI::Checkbox("Keep the other hand equipped while cycling",&options.cycleKeepOtherHand);
             if(ImGui::IsItemHovered())UI::SetTooltip("Tap-to-cycle skips one-handed weapon copies held in the other hand. Smart weapons choose an eligible copy. Browsing hand actions can move a weapon between hands.");
+            changed|=UI::Checkbox("First tap on another group equips its item",&options.tapRecall);
+            if(ImGui::IsItemHovered())UI::SetTooltip("In groups that step on a tap, the first tap after using another group equips that group's current item and later taps step to the next. Turn off to step on every tap.");
             changed|=UI::Checkbox("Double-tap a group to return to the previous selection",&options.doubleTapSwap);
             if(ImGui::IsItemHovered())UI::SetTooltip("Tap a group twice quickly to re-equip what you selected before your current choice. Return to previous selection under Keyboard does the same from one key.");
             changed|=UI::Checkbox("Add from Inventory / Magic",&options.menuCapture);
@@ -1538,6 +1540,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 }
                 if(heading("Content")) {
                     if(flag("Show enchantment charge",&Options::showCharge)&&ImGui::IsItemHovered())UI::SetTooltip("Shows a weapon's remaining enchantment charge as five diamonds beside its hand, under its name.");
+                    if(flag("Show item descriptions",&Options::showDescriptions)&&ImGui::IsItemHovered())UI::SetTooltip("Shows what a potion, food, poison or scroll does under its name.");
                     flag("Show group and position",&Options::selectorFooter);
                     flag("Show selector hints",&Options::showHints);
                     flag("Animate scrolling",&Options::animateScroll);

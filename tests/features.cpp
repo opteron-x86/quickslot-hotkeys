@@ -123,7 +123,7 @@ int main()try {
         }
     }
     for(unsigned dock=0;dock<5;++dock)for(float own:{.5f,2.f}) {
-        Options sized;sized.selectorDock=dock;sized.scale=1.5f;sized.selectorScale=1.5f;sized.anchor=unanchored;sized.positionX=.5f;sized.positionY=.6f;const auto linked=hudGeometry(sized,1920,1080);
+        Options sized;sized.selectorDock=dock;sized.scale=1.5f;sized.selectorScale=1.5f;sized.anchor=unanchored;sized.positionX=.5f;sized.positionY=.8f;const auto linked=hudGeometry(sized,1920,1080);
         sized.selectorScale=own;const auto free=hudGeometry(sized,1920,1080);
         check(linked.selectorScale==linked.scale&&std::abs(free.selectorScale-own)<.001f&&free.scale==linked.scale,"The selector has its own scale and the widget keeps its size");
         check(free.origin.x==linked.origin.x&&free.origin.y==linked.origin.y,"Resizing the selector leaves the widget where it is");
@@ -210,6 +210,10 @@ int main()try {
             Options marked;marked.chargeIcons=9;sanitizeOptions(marked);check(marked.chargeIcons==2&&Options{}.chargeIcons==1&&decodeOptions(encodeOptions(marked)).chargeIcons==2,"The charge on icons is a choice that persists inside its range");
             Options plain;plain.selector=1;const auto pips=selectorGeometry(plain);plain.showCharge=false;const auto bare=selectorGeometry(plain);
             check(pips.pagerY>bare.pagerY&&pips.height>bare.height,"Shown charge gets its own line under the status");
+            Options described;described.selector=1;const auto with=selectorGeometry(described);described.showDescriptions=false;const auto without=selectorGeometry(described);
+            check(with.pagerY>=with.descriptionY+2*14-.01f&&with.descriptionY>with.statusY&&with.height>without.height&&decodeOptions(encodeOptions(described)).showDescriptions==false,"Descriptions get two lines above the group line and can be turned off");
+            Options taps;check(taps.tapRecall,"The first tap on another group equips its item by default");taps.tapRecall=false;
+            auto tapJson=Json::parse(encodeOptions(taps));check(!decodeOptions(tapJson.dump()).tapRecall,"Stepping on every tap persists");tapJson.erase("tapRecall");check(decodeOptions(tapJson.dump()).tapRecall,"Earlier settings keep the first-tap recall");
         }
         {
             // Settings from before the wheel had a size draw the same ring.

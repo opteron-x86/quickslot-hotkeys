@@ -306,7 +306,8 @@ inline float chargeFraction(float current,float capacity) {
     if(!std::isfinite(current)||current<0)return 1;
     return std::clamp(current/capacity,0.f,1.f);
 }
-struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry;bool cycleBlocked=false; };
+// description: what a potion, food, poison or scroll does, from its effects.
+struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry;bool cycleBlocked=false;std::string description; };
 inline const Entry& rowIconEntry(const Row& row){return row.iconEntry?*row.iconEntry:row.entry;}
 struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=false,equipped=false;int quantity=0;float cooldown=0;bool voice=false,consumable=false;WeaponStatus weapon;std::optional<Entry> iconEntry;};
 struct EquippedDisplay {
@@ -372,6 +373,8 @@ struct Options {
     bool doubleTapSwap=false;
     PadBinding controllerUse,vrUse;
     bool skipEmpty=false,menuCapture=true,cycleKeepOtherHand=true;
+    // tapRecall: the first tap on a group other than the last one used equips its current item; later taps step.
+    bool tapRecall=true;
     // The add, unequip and remove chords on a group key apply during gameplay only while this is on. With it off a
     // chord that names one of those actions selects the group. Inventory and Magic capture has its own switch.
     bool gameplayEditing=false;
@@ -467,7 +470,7 @@ struct Options {
     bool showIdle=true,showHints=false,showLabels=false,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
     bool showPoison=true,showAmmo=true;
     // Enchantment charge: pips beside the item's hand under its name while selecting, and a soul gem on weapon icons.
-    bool showCharge=true;
+    bool showCharge=true,showDescriptions=true;
     unsigned chargeIcons=1; // enchantment charge on item icons: 0 off, 1 fill the icon, 2 soul gem
     // The last line of the selector: the group's name and the item's place in it.
     bool selectorFooter=true;

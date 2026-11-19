@@ -50,7 +50,7 @@ A combination has a searchable picker for each hand. Choose inventory, spells or
 Choose what a tap of each group's key does under **Tap**:
 
 - **Equip the last item:** tap equips or uses the remembered entry; hold, browse and release chooses another.
-- **Step to the next item:** the first press when returning to a group recalls its selection. Further presses advance and equip. With **Hold to browse** on, hold to open the selector, browse in either direction and release to select the highlighted entry; with it off, every press steps at once.
+- **Step to the next item:** the first press when returning to a group recalls its selection; turn off **Controls → General → First tap on another group equips its item** to step on that press too. Further presses advance and equip. With **Hold to browse** on, hold to open the selector, browse in either direction and release to select the highlighted entry; with it off, every press steps at once.
 
 **Keep the other hand equipped while cycling**, under **Controls → General**, starts enabled. A group that steps to the next item skips one-handed weapon copies held in the opposite hand. Smart weapons choose the strongest eligible copy. This applies to manual and Favorites-linked groups. Browsing hand actions can move a weapon between hands; turn the option off to allow those transfers during cycling too.
 
@@ -190,6 +190,8 @@ Each element's **Placement** section holds its anchor and its X/Y offset in pixe
 Equipped entries carry a diamond marker or their hand letters, and an arrowhead marks the consumable the Use key takes. After a selection, the item's name appears beside its group's tile for a moment; cards that show item names carry it themselves. Set the marker's size and color with **Equipped marker size** and **Custom equipped color** under **Appearance → Theme**. **Equipped highlight** on the same page marks the whole tile of an equipped item with an outline, a tint or both in that color. Shout cooldowns drain as a clockwise shade over the icon. The widget eases in, the selector opens and closes smoothly, and a group pulses when its item equips, a dose is used, or its key is pressed for an item already in hand; **Appearance → General → Animate opening and fading** controls this motion. **Settings → Interface sounds** plays Skyrim's menu sounds as the selector opens, moves and cancels.
 
 **Appearance → Theme → Enchantment charge** shows an enchanted weapon's remaining charge on its icon in the widget, the selector and the equipment display: **Fill the icon** keeps the icon's color up to the charge and dims the spent part above it, and **Soul gem** adds a small gem that fills with the charge and turns red when empty. While browsing, **Selector → Show enchantment charge** shows the highlighted weapon's charge as five diamonds on the line under its hand.
+
+While browsing, potions, food, poisons and scrolls show what they do under their name, such as "Restore 25 points of Health."; **Selector → Show item descriptions** turns this off.
 
 Poisoned weapons display a green droplet. Bows and crossbows display the equipped arrow or bolt count. These indicators also appear on smart weapon shortcuts. Both indicators can be disabled under **Appearance → Widget**.
 

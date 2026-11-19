@@ -110,7 +110,7 @@ inline Point selectorOffset(const Options& o,float position) {
     return o.selector==3?Point{0,shift}:Point{shift,std::abs(position)*rise};
 }
 struct SelectorGeometry {
-    float width=420,height=155,centerY=16,ruleY=67,nameY=76,statusY=104,pagerY=132,hintY=154,listPitch=0,listHeight=46;
+    float width=420,height=155,centerY=16,ruleY=67,nameY=76,statusY=104,descriptionY=0,pagerY=132,hintY=154,listPitch=0,listHeight=46;
     std::vector<Point> ring;
     // Wheel selectors: the center the slots surround and their distance from it. A segmented wheel is a ring
     // from inner to outer around a hub of hubRadius; the pointed segment reaches out by lift. rotation turns the
@@ -175,11 +175,14 @@ inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,fl
     const bool name=!s.segments||s.nameBelow;
     // With charge shown, a row under the status holds the enchantment charge.
     s.nameY=s.ruleY+9;s.statusY=s.nameY+28*text;const float charge=o.showCharge?14*text*1.1f:0;
+    // Two lines describe a potion, food, poison or scroll.
     const float afterName=name?s.statusY+14*text+charge+9:s.ruleY-8;
-    s.pagerY=afterName;
-    const float afterFooter=o.selectorFooter?s.pagerY+13*text+10:afterName;
+    s.descriptionY=afterName-(name?4:0);
+    const float afterDescription=o.showDescriptions?s.descriptionY+2*14*text+8:afterName;
+    s.pagerY=afterDescription;
+    const float afterFooter=o.selectorFooter?s.pagerY+13*text+10:afterDescription;
     s.hintY=afterFooter;
-    s.height=o.showHints?s.hintY+13*text+4:o.selectorFooter?s.pagerY+13*text+6:name?s.statusY+14*text+charge+6:s.ruleY-2;return s;
+    s.height=o.showHints?s.hintY+13*text+4:o.selectorFooter?s.pagerY+13*text+6:o.showDescriptions?afterDescription-3:name?s.statusY+14*text+charge+6:s.ruleY-2;return s;
 }
 // Placement. An anchored element rests a point of itself on the matching point of the screen area, moved by an
 // offset in 1080p pixels, so it grows and shrinks away from that point. An unanchored element's position is a

@@ -2,6 +2,10 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "First tap on another group equips its item": "First tap on another group equips its item",
+    "In groups that step on a tap, the first tap after using another group equips that group's current item and later taps step to the next. Turn off to step on every tap.": "In groups that step on a tap, the first tap after using another group equips that group's current item and later taps step to the next. Turn off to step on every tap.",
+    "Show item descriptions": "Show item descriptions",
+    "Shows what a potion, food, poison or scroll does under its name.": "Shows what a potion, food, poison or scroll does under its name.",
     "PNGII uses PNG Icon Injector artwork first, then I4, then SkyUI. I4 uses each item's icon from your I4 packs, then SkyUI's. SkyUI uses SkyUI's icon for each item's type.": "PNGII uses PNG Icon Injector artwork first, then I4, then SkyUI. I4 uses each item's icon from your I4 packs, then SkyUI's. SkyUI uses SkyUI's icon for each item's type.",
     "Item icons": "Item icons",
     "I4": "I4",

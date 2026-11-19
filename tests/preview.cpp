@@ -395,6 +395,8 @@ int main(int argc,char** argv) {
         for(auto& group:snapshot.groups)if(group.entry&&!group.entry->spell)group.weapon.charge=full;
         for(auto& hand:snapshot.equipment.hands)if(hand&&!hand->entry.spell)hand->weapon.charge=full;
     }
+    // QUICKSLOT_PREVIEW_DESCRIPTION=<text> describes every row, as the game does for potions.
+    if(const char* text=std::getenv("QUICKSLOT_PREVIEW_DESCRIPTION");text&&*text)for(auto& row:snapshot.rows)row.description=text;
     // QUICKSLOT_PREVIEW_CAPTION closes the selector and shows the just-selected item's name beside that group's tile.
     // QUICKSLOT_PREVIEW_TIP=<binding> shows the first-run tip and names that binding in an empty group's selector.
     if(const char* binding=std::getenv("QUICKSLOT_PREVIEW_TIP");binding&&*binding){snapshot.editorShortcut=binding;snapshot.tip=trNamed("Press %s to set up Quickslot",binding);}

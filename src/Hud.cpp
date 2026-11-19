@@ -78,6 +78,22 @@ struct Paint {
     void label(float x,float y,const std::string& str,float size=14,ImU32 c=ivory,bool title=false,float maxWidth=0,bool center=false,bool right=false) {
         text(x,y,str,size*textFactor,c,title,maxWidth,center,right);
     }
+    // Centered text wrapped at spaces onto up to `lines` lines; the last line ends with an ellipsis when it runs over.
+    void paragraph(float x,float y,const std::string& str,float size,ImU32 c,float maxWidth,int lines) {
+        const float px=size*textFactor;
+        const auto measure=[&](const std::string& v){return sans->CalcTextSizeA(px*scale,FLT_MAX,0,v.c_str()).x/scale;};
+        std::string rest=str;
+        for(int line=0;line<lines&&!rest.empty();++line) {
+            std::string current=rest;
+            if(line+1<lines&&measure(rest)>maxWidth) {
+                std::size_t cut=std::string::npos;
+                for(auto at=rest.find(' ');at!=std::string::npos&&measure(rest.substr(0,at))<=maxWidth;at=rest.find(' ',at+1))cut=at;
+                if(cut!=std::string::npos)current=rest.substr(0,cut);
+            }
+            text(x,y+float(line)*(px+2),current,px,c,false,maxWidth,true);
+            rest=current.size()<rest.size()?rest.substr(std::min(rest.size(),current.size()+1)):std::string{};
+        }
+    }
     void circle(float x,float y,float r,ImU32 c,bool fill=false,float width=1) {
         if(fill)d->AddCircleFilled(p(x,y),r*scale,color(c),48);
         else d->AddCircle(p(x,y),r*scale,color(c),48,std::max(1.f,width*scale));
@@ -654,6 +670,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 p.label(center,layout.nameY,displayName(active->entry),round?20.f:23.f,active->available?ivory:muted,true,nameWidth,true);
                 p.statusLine(center,layout.statusY,*active,14,active->available?silver:depletedMark,layout.width-24);
             }
+            if(o.showDescriptions&&!active->description.empty())p.paragraph(center,layout.descriptionY,active->description,13,silver,layout.width-32,2);
             // The last line names the group the selector belongs to and the entry's place in it.
             if(o.selectorFooter)p.label(center,layout.pagerY,o.names[group]+(n>1?"   ·   "+std::to_string(index+1)+" / "+std::to_string(n):std::string{}),13,p.groupAccent?p.accent():ImU32(silver),false,layout.width-24,true);
             if(o.showHints) {

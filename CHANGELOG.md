@@ -42,6 +42,8 @@ Updating: group keys held with Ctrl, Shift or Alt now select the group during ga
 - **Selector → Show enchantment charge** shows an enchanted weapon's charge as five diamonds on their own line under its hand.
 - **Appearance → Theme → Enchantment charge** shows a weapon's charge on its icon in tiles, the selector and the equipment display: **Fill the icon** (the default) or a **Soul gem**.
 - **Selector → Show group and position** turns off the selector's last line.
+- The selector shows what the highlighted potion, food, poison or scroll does under its name. **Selector → Show item descriptions** turns this off.
+- **Controls → General → First tap on another group equips its item** can be turned off so every tap steps to the next item.
 - The selector's dock choice under **Placement** is named **Attach**.
 
 ## 0.15.1

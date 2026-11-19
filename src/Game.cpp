@@ -170,6 +170,25 @@ bool voiceButton(RE::INPUT_DEVICE device,unsigned code,float value,float held) {
     controls->shoutHandler->ProcessButton(event,&controls->data);return true;
 }
 std::string gameName(const char* text){return cleanName(gameTextUTF8(text?text:"",localization().codepage()));}
+// What a potion, food, poison or scroll does: each shown effect's description with its magnitude and duration filled in.
+std::string magicDescription(std::uint32_t formID) {
+    auto* form=RE::TESForm::LookupByID(formID);auto* magic=form?form->As<RE::MagicItem>():nullptr;if(!magic||form->Is(RE::FormType::Spell))return {};
+    std::string text;
+    for(auto* effect:magic->effects) {
+        if(!effect||!effect->baseEffect||effect->baseEffect->data.flags.any(RE::EffectSetting::EffectSettingData::Flag::kHideInUI))continue;
+        const char* raw=effect->baseEffect->magicItemDescription.c_str();if(!raw||!*raw)continue;
+        auto line=gameTextUTF8(raw,localization().codepage());
+        const auto number=[](float value){return std::isfinite(value)?std::to_string(int(std::lround(value))):std::string{};};
+        for(const auto& [tag,value]:{std::pair{std::string("<mag>"),number(effect->GetMagnitude())},std::pair{std::string("<dur>"),std::to_string(effect->GetDuration())}})
+            for(auto at=line.find(tag);at!=std::string::npos;at=line.find(tag,at+value.size()))line.replace(at,tag.size(),value);
+        // Other tags, such as a global's name, are left out.
+        for(auto open=line.find('<');open!=std::string::npos;open=line.find('<',open)){const auto close=line.find('>',open);if(close==std::string::npos)break;line.erase(open,close-open+1);}
+        if(!text.empty())text+=' ';
+        text+=line;
+        if(text.size()>400)break;
+    }
+    return text;
+}
 bool worn(RE::ExtraDataList* extra,const Entry& entry) {
     if(!extra)return false;
     return wornForEntry(entry,extra->HasType<RE::ExtraWorn>(),extra->HasType<RE::ExtraWornLeft>());
@@ -939,7 +958,7 @@ void Game::beginSelection(std::size_t group,bool controller) {
     selectionController_=controller;wheelPointer_.reset();wheelX_=wheelY_=0;
     const auto mode=groupMode(options_,arsenal_,group);
     if(mode==GroupMode::cycle) {
-        const bool recall=groupRecall_.activate(group);
+        const bool recall=groupRecall_.activate(group)&&options_.tapRecall;
         if(dirty_||options_.cycleKeepOtherHand)refresh();
         std::vector<bool> available,blocked;for(const auto& row:snapshot_.rows){available.push_back(row.available);blocked.push_back(row.cycleBlocked);}
         const auto index=cycleEntry(arsenal_.current(),available,options_.skipEmpty,recall,blocked);
@@ -969,7 +988,7 @@ void Game::finishSelection() {
             lastTapGroup_=arsenal_.active;lastTapAt_=second?0:now;
             if(second&&choices_.target(arsenal_)){selectionTime(false);swapPrevious(selectionController_);return;}
         }
-        const bool recall=groupRecall_.activate(arsenal_.active);
+        const bool recall=groupRecall_.activate(arsenal_.active)&&options_.tapRecall;
         if(commit->cycling) {
             std::vector<bool> available,blocked;for(const auto& row:snapshot_.rows){available.push_back(row.available);blocked.push_back(row.cycleBlocked);}
             const auto index=cycleEntry(arsenal_.current(),available,options_.skipEmpty,recall,blocked);
@@ -1523,6 +1542,7 @@ void Game::refresh() {
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             if(i==arsenal_.active) {
                 snapshot_.rows.push_back(resolved.row);
+                if(options_.showDescriptions&&(isConsumable(entry)||entry.kind==Kind::scroll))snapshot_.rows.back().description=magicDescription(rowIconEntry(resolved.row).form);
                 if(group.automatic()&&tracksInstance(entry)&&!entry.owner)snapshot_.rows.back().detail=tr("Equip one copy first");
             }
             if(j==group.selected){

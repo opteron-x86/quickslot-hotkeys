@@ -257,7 +257,7 @@ struct I4Icons::Impl {
         if(reportedAPI!=api) {
             reportedAPI=api;
             SKSE::log::info("I4 icon APIs: ProcessEntry={}, SKSE ExtendForm={}",processAvailable,extendAvailable);
-            SKSE::log::info(perItem?"I4 icon provider ready":installed?"I4 icon APIs unavailable; items use SkyUI category icons":"I4 is not installed; items use SkyUI category icons");
+            SKSE::log::info("{}",perItem?"I4 icon provider ready":installed?"I4 icon APIs unavailable; items use SkyUI category icons":"I4 is not installed; items use SkyUI category icons");
         }
         // A message box is for an installed I4 that failed to load; without I4 the category icons are the intended result.
         if(installed&&!perItem&&!reported) {

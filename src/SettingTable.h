@@ -81,7 +81,6 @@ inline constexpr ChoiceSetting choiceSettings[]{
     {"equipmentTextPosition",&Options::equipmentTextPosition,3,Section::equipment},
 };
 inline constexpr FlagSetting flagSettings[]{
-    {"pngiiIcons",&Options::pngiiIcons,Section::theme},
     {"coloredMagic",&Options::coloredMagic,Section::theme},
     {"keyIcons",&Options::keyIcons,Section::theme},
     {"customEquippedColor",&Options::customEquippedColor,Section::theme},
@@ -123,11 +122,11 @@ inline bool advancedSetting(float Options::*member) {
     return false;
 }
 inline bool advancedSetting(unsigned Options::*member) {
-    for(const auto each:{&Options::selectorVisible,&Options::inactiveGroups,&Options::equipmentTextPosition,&Options::itemArtwork})if(each==member)return true;
+    for(const auto each:{&Options::selectorVisible,&Options::inactiveGroups,&Options::equipmentTextPosition})if(each==member)return true;
     return false;
 }
 inline bool advancedSetting(bool Options::*member) {
-    for(const auto each:{&Options::customTextColor,&Options::customSelectionColor,&Options::pngiiIcons,&Options::coloredMagic,&Options::keyIcons,&Options::customEquippedColor,
+    for(const auto each:{&Options::customTextColor,&Options::customSelectionColor,&Options::coloredMagic,&Options::keyIcons,&Options::customEquippedColor,
         &Options::mirrorCards,&Options::showCardNames,&Options::showPoison,&Options::showAmmo,&Options::hideEmptyGroups,&Options::keepCombatVisible,&Options::keepDrawnVisible,
         &Options::showHints,&Options::animateScroll,&Options::showEquipmentAmmo,&Options::wheelLift,&Options::wheelLabels,&Options::wheelPointer,&Options::selectorFooter})if(each==member)return true;
     return false;

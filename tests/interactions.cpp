@@ -826,9 +826,10 @@ int main()try {
         Options plain;check(plain.itemArtwork==0,"Item artwork defaults to I4's icon for each item");plain.itemArtwork=2;
         check(decodeOptions(encodeOptions(plain)).itemArtwork==2,"The item artwork choice persists");
         auto older=nlohmann::json::parse(encodeOptions(plain));older.erase("itemArtwork");
-        check(decodeOptions(older.dump()).itemArtwork==0,"Existing settings draw I4 icons");
+        check(decodeOptions(older.dump()).itemArtwork==2,"Settings from before the icon choice keep PNGII artwork first");
+        older["pngiiIcons"]=false;check(decodeOptions(older.dump()).itemArtwork==0,"Existing settings without PNGII artwork draw I4 icons");
         older["i4Icons"]=false;check(decodeOptions(older.dump()).itemArtwork==1,"Use I4 icons turned off becomes SkyUI's icon for each type");
-        older["i4Icons"]=true;check(decodeOptions(older.dump()).itemArtwork==0,"Use I4 icons left on keeps I4's icons");
+        older["pngiiIcons"]=true;check(decodeOptions(older.dump()).itemArtwork==2,"Use PNGII icons left on keeps PNGII artwork first");
         importAppearance(plain,skin);check(plain.itemArtwork==2,"Appearance presets leave the item artwork choice in place");
         check(wheelIndex(0,1,8,.3f)==std::size_t(0)&&wheelIndex(1,0,8,.3f)==std::size_t(2)&&wheelIndex(0,-1,8,.3f)==std::size_t(4)&&wheelIndex(-1,0,8,.3f)==std::size_t(6),"Wheel slots run clockwise from the top");
         check(wheelIndex(-.1f,1,8,.3f)==std::size_t(0)&&wheelIndex(.7f,.7f,8,.3f)==std::size_t(1)&&wheelIndex(-.7f,.7f,8,.3f)==std::size_t(7),"Directions select the nearest slot and wrap at the top");

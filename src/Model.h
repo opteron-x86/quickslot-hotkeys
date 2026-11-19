@@ -454,7 +454,7 @@ struct Options {
     // animateHud eases the HUD in, opens and closes the selector, and pulses a tile when its item equips.
     bool animateHud=true,uiSounds=true;
     // Item icons drawn from the interface's icon SWF files. PNGII artwork is separate.
-    unsigned itemArtwork=0; // SWF item icons: 0 I4's icon for each item, 1 SkyUI's icon for the item's type, 2 none (PNGII only)
+    unsigned itemArtwork=0; // item icons: 0 I4, then SkyUI; 1 SkyUI's icon for each type; 2 PNGII, then I4, then SkyUI
     float equippedMarkerScale=1;
     unsigned wheelStyle=0;          // 0 tiles around a hub, 1 a ring of segments
     unsigned equippedHighlight=0;   // 0 marker only, 1 outline, 2 tint, 3 outline and tint
@@ -472,7 +472,6 @@ struct Options {
     // The last line of the selector: the group's name and the item's place in it.
     bool selectorFooter=true;
     unsigned itemIconColor=1;
-    bool pngiiIcons=true;
     bool placementGrid=false,placementSnap=false;
     bool showEquipment=false,equipmentDim=false,hideEmptyGroups=false,showEquipmentAmmo=false;
     float equipmentX=.02f,equipmentY=.8f;

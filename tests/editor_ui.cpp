@@ -111,8 +111,10 @@ int main(int argc,char** argv)try {
     click("+ Add group");check(state.options.groupCount==4,"Add group reveals a fourth group");
     click("F2   Combat\n     3 / 16");
     click("Appearance");click("Widget");click("##layout");click("Diamond");check(state.options.layout==2,"Layout picker applies diamond");
-    click("Theme");click("Use PNGII icons");check(!state.options.pngiiIcons,"Appearance toggles PNGII artwork");
-    click("Use PNGII icons");check(state.options.pngiiIcons,"Appearance restores PNGII artwork");
+    click("Theme");check(probe::find("Use PNGII icons").empty(),"PNGII is one of the item icon choices");
+    click("##item artwork");click("PNGII");check(state.options.itemArtwork==2,"Item icons can use PNGII artwork first");
+    click("##item artwork");click("SkyUI");check(state.options.itemArtwork==1,"Item icons can use SkyUI's icons");
+    click("##item artwork");click("I4");check(state.options.itemArtwork==0,"Item icons return to I4");
     click("Controls");click("Keyboard");click("Shift + \\##editor binding");key(66);check(state.options.editorKey==66,"Editor shortcut accepts F8");click("F8##editor binding");
     key(68);check(state.options.editorKey==68&&state.options.editorModifiers==0,"Unmodified editor shortcut can be assigned");
     click("F10##editor binding");

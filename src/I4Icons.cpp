@@ -128,7 +128,6 @@ struct I4Icons::Impl {
     // available: icons can be drawn. perItem: I4 can name each item's own artwork, which PNGII matching uses too.
     // ownArtwork: items draw that artwork; otherwise each uses SkyUI's category icon for its type.
     bool available=false,perItem=false,ownArtwork=false,reported=false,captureReported=false;
-    bool drawing()const{return artwork.value_or(0)!=2;}
     Spec drawn(const Entry& entry,const Spec& resolved)const{return ownArtwork?resolved:category(entry);}
     const bool installed=SKSE::GetPluginInfo("InventoryInjector")!=nullptr;
     Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c),outputs(d,c){}
@@ -245,17 +244,15 @@ struct I4Icons::Impl {
         if(generation!=iconGeneration.load()) {generation=iconGeneration.load();forms.clear();textures.clear();movies.clear();pending.clear();}
         if(artwork!=mode) {
             if(artwork)textures.clear();
-            if(mode==2)movies.clear();
             artwork=mode;
-            SKSE::log::info("Item icons: {}",mode==0?"I4":mode==1?"SkyUI":"PNGII only");
+            SKSE::log::info("Item icons: {}",mode==0?"I4, then SkyUI":mode==1?"SkyUI":"PNGII, then I4, then SkyUI");
         }
-        const bool draw=drawing();
         available=false;
         auto* ui=RE::UI::GetSingleton();if(!ui)return;
         const auto hud=ui->GetMenu<RE::HUDMenu>();if(!hud||!hud->uiMovie)return;
         auto& movie=*hud->uiMovie;
         const bool processAvailable=movie.IsAvailable(processEntry),extendAvailable=movie.IsAvailable("skse.ExtendForm");
-        perItem=processAvailable&&extendAvailable;ownArtwork=perItem&&mode==0;available=true;
+        perItem=processAvailable&&extendAvailable;ownArtwork=perItem&&mode!=1;available=true;
         const unsigned api=unsigned(processAvailable)|(unsigned(extendAvailable)<<1);
         if(reportedAPI!=api) {
             reportedAPI=api;
@@ -273,7 +270,7 @@ struct I4Icons::Impl {
             reported=true;
         }
         // Bound SWF capture to one requested icon per frame.
-        if(draw&&!textures.contains(key(placeholder()))){capture(placeholder());return;}
+        if(!textures.contains(key(placeholder()))){capture(placeholder());return;}
         for(unsigned work=0;work<8&&!pending.empty();++work) {
             auto entry=std::move(pending.front());pending.pop_front();const auto request=i4RequestKey(entry);
             auto found=forms.find(request);
@@ -282,7 +279,7 @@ struct I4Icons::Impl {
                 trim(forms,maxForms);found=forms.emplace(request,Form{spec,frame}).first;
             }
             const auto spec=drawn(entry,*found->second.spec);
-            if(!draw||textures.contains(key(spec)))continue;
+            if(textures.contains(key(spec)))continue;
             capture(spec);break;
         }
     }
@@ -290,7 +287,6 @@ struct I4Icons::Impl {
         if(!available)return {};
         const auto request=i4RequestKey(entry);
         // The label still resolves so PNGII can match its artwork.
-        if(!drawing()){if(!forms.contains(request))queue(entry);return {};}
         if(auto form=forms.find(request);form!=forms.end()) {
             form->second.used=frame;const auto spec=drawn(entry,*form->second.spec);
             if(auto icon=cached(spec))return icon;

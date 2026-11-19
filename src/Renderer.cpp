@@ -124,7 +124,7 @@ std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& optio
         if(!r.graphics){r.graphics=std::make_unique<Graphics>();r.graphics->initialize(device,context,swap);}
         auto& g=*r.graphics;ImGui::SetCurrentContext(g.imgui);
         g.i4->beginFrame(editor?editor->options.itemArtwork:options.itemArtwork);
-        g.pngii->beginFrame(editor?editor->options.pngiiIcons:options.pngiiIcons,itemIconGeneration());
+        g.pngii->beginFrame((editor?editor->options.itemArtwork:options.itemArtwork)==2,itemIconGeneration());
         localization().select(options.language);
         const bool vr=REL::Module::IsVR();
         preview::DXIsolation::Frame isolated(*g.isolation,!vr);

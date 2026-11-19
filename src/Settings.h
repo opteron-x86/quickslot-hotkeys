@@ -104,7 +104,7 @@ inline std::string encodeOptions(Options o) {
     Json selectorBindings=Json::array();for(const auto b:o.selectorBindings)selectorBindings.push_back(Json::array({b.key,b.modifiers}));
     Json controllerActions=Json::array();for(const auto b:o.controllerActions)controllerActions.push_back(binding(b));
     Json j{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"holdDelay",o.holdDelay},{"cycleDelay",o.cycleDelay},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"fontId",o.fontId},{"themeAdjustments",tweaks},
-        {"pngiiIcons",o.pngiiIcons},{"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
+        {"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
         {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},{"tilePlaces",[&]{Json places=Json::array();for(const auto& t:o.tilePlaces)places.push_back(Json::array({t.anchor,t.x,t.y,t.scale}));return places;}()},{"gameplayEditing",o.gameplayEditing},{"introSeen",o.introSeen},{"advancedAppearance",o.advancedAppearance},
         {"groupCaptureRightHotkey",o.groupCaptureRightHotkey},{"groupCaptureLeftHotkey",o.groupCaptureLeftHotkey},{"groupMoveHotkey",o.groupMoveHotkey},
         {"selectorReorderHotkey",o.selectorReorderHotkey},{"selectorUnequipHotkey",o.selectorUnequipHotkey},{"selectorRemoveHotkey",o.selectorRemoveHotkey},
@@ -194,7 +194,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.vrEditor=binding(j.at("vrEditor"));
     o.vrStick=j.at("vrStick").get<decltype(o.vrStick)>();
     o.itemIconColor=j.at("itemIconColor").get<decltype(o.itemIconColor)>();
-    o.pngiiIcons=j.value("pngiiIcons",true);
+    
     o.layout=j.at("layout").get<unsigned>();o.shape=j.at("shape").get<unsigned>();o.selector=j.at("selector").get<unsigned>();
     o.scale=j.at("scale").get<float>();o.opacity=j.at("opacity").get<float>();o.spacing=j.at("spacing").get<float>();
     o.textScale=j.value("textScale",1.f);o.placementSpacing=j.value("placementSpacing",1u);o.placementFrame=j.value("placementFrame",0u);o.placementGridSize=j.value("placementGridSize",16.f);
@@ -220,8 +220,12 @@ inline Options decodeOptions(const std::string& bytes) {
     o.textColor=j.value("textColor",o.textColor);o.selectionColor=j.value("selectionColor",o.selectionColor);
     o.groupColored=j.value("groupColored",o.groupColored);o.groupColors=j.value("groupColors",o.groupColors);
     decodeTable(j,o);
-    // "Use I4 icons" turned off now shows SkyUI's icon for each item's type; None keeps the old meaning.
-    if(!j.contains("itemArtwork")&&j.contains("i4Icons")&&j.at("i4Icons").is_boolean()&&!j.at("i4Icons").get<bool>())o.itemArtwork=1;
+    // Earlier switches become the icon choice: PNGII artwork stays first where it was on, and SkyUI's icons replace
+    // I4 drawing that was turned off.
+    if(!j.contains("itemArtwork")) {
+        const auto on=[&](const char* key){const auto it=j.find(key);return it==j.end()||!it->is_boolean()||it->get<bool>();};
+        o.itemArtwork=on("pngiiIcons")?2:on("i4Icons")?0:1;
+    }
     // Settings from before the equipment display had an anchor keep its proportional position.
     if(!j.contains("equipmentAnchor")){o.equipmentAnchor=9;o.equipmentOffsetX=o.equipmentOffsetY=0;}
     if(!j.contains("anchor")){o.anchor=9;o.offsetX=o.offsetY=0;}

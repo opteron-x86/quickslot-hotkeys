@@ -1436,8 +1436,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(heading("Icons")) {
                     number("Icon size",&Options::iconScale);
                     choice("Icon color","##item icon color",&Options::itemIconColor,"Original\0Theme\0White\0");
-                    if(flag("Use PNGII icons",&Options::pngiiIcons)&&ImGui::IsItemHovered())UI::SetTooltip("Use matching artwork from PNG Icon Injector. I4 supplies the remaining icons.");
-                    if(choice("Item icons","##item artwork",&Options::itemArtwork,"I4\0SkyUI\0PNGII\0")&&ImGui::IsItemHovered())UI::SetTooltip("I4 draws each item's own icon from your I4 packs, SkyUI draws its icon for the item's type, and PNGII draws only PNGII artwork. With I4 or SkyUI, PNGII artwork still comes first when Use PNGII icons is on.");
+                    if(choice("Item icons","##item artwork",&Options::itemArtwork,"I4\0SkyUI\0PNGII\0")&&ImGui::IsItemHovered())UI::SetTooltip("PNGII uses PNG Icon Injector artwork first, then I4, then SkyUI. I4 uses each item's icon from your I4 packs, then SkyUI's. SkyUI uses SkyUI's icon for each item's type.");
                     if(options.itemIconColor==1)flag("Tint magic icons",&Options::coloredMagic);
                     flag("Key icons",&Options::keyIcons);
                     if(choice("Enchantment charge","##charge icons",&Options::chargeIcons,"Off\0Fill the icon\0Soul gem\0")&&ImGui::IsItemHovered())UI::SetTooltip("Shows an enchanted weapon's remaining charge on its icon: the icon keeps its color up to the charge and fades above it, or a small soul gem fills with it.");

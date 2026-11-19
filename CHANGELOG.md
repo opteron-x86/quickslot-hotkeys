@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.16.0
 
 Updating: group keys held with Ctrl, Shift or Alt now select the group during gameplay. Turn on **Controls → Keyboard → Use editing shortcuts during gameplay** to keep adding, unequipping and removing with those chords outside menus.
 

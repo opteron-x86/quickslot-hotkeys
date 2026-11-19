@@ -57,20 +57,24 @@ inline bool setFavoriteCategories(Group& group,unsigned categories,Hand hand) {
 }
 inline bool refreshFavorites(Group& group,const std::vector<Entry>& favorites) {
     if(!group.automatic())return false;
-    if(group.selected<group.entries.size())group.rememberedFavorite=group.entries[group.selected];
+    // A stand-in keeps the remembered favorite, so restocking it brings the selection back.
+    if(group.selected<group.entries.size()&&!(group.rememberedMissing&&group.selected==0))group.rememberedFavorite=group.entries[group.selected];
     std::vector<Entry> entries;
     std::set<std::tuple<std::uint32_t,std::uint32_t,std::uint16_t,std::uint64_t,Kind>> seen;
     for(auto entry:favorites) {
         if(!favoriteMatches(group,entry)||std::any_of(group.excludedFavorites.begin(),group.excludedFavorites.end(),[&](const auto& e){return sameFavorite(e,entry);}))continue;
         entry.hand=normalizedHand(entry,group.favoriteHand);entry.shortcut=0;
+        // A favorite stays in the hand it was last put in while it remains in the list.
+        for(const auto& listed:group.entries)if(sameFavorite(listed,entry)){entry.hand=normalizedHand(entry,listed.hand);break;}
         if(seen.emplace(entry.form,entry.owner,entry.unique,entry.recipe,entry.kind).second)entries.push_back(std::move(entry));
     }
     std::sort(entries.begin(),entries.end(),[](const auto& a,const auto& b){
         const auto an=foldedText(a.name),bn=foldedText(b.name);
         return an!=bn?an<bn:std::tie(a.form,a.owner,a.unique,a.recipe,a.kind)<std::tie(b.form,b.owner,b.unique,b.recipe,b.kind);
     });
-    std::size_t selected=0;
-    if(group.rememberedFavorite)for(std::size_t i=0;i<entries.size();++i)if(sameFavorite(entries[i],*group.rememberedFavorite)){selected=i;break;}
+    std::size_t selected=0;bool found=false;
+    if(group.rememberedFavorite)for(std::size_t i=0;i<entries.size();++i)if(sameFavorite(entries[i],*group.rememberedFavorite)){selected=i;found=true;break;}
+    group.rememberedMissing=group.rememberedFavorite.has_value()&&!found;
     const bool changed=entries.size()!=group.entries.size()||!std::equal(entries.begin(),entries.end(),group.entries.begin(),group.entries.end(),[](const auto& a,const auto& b){return a.same(b);});
     group.entries=std::move(entries);group.selected=selected;
     if(changed)++group.revision;

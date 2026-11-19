@@ -1,4 +1,6 @@
 #include "Settings.h"
+#include "GroupSetup.h"
+#include "Recovery.h"
 #include "Storage.h"
 #include "ItemIdentity.h"
 #include "EquipmentAction.h"
@@ -153,6 +155,55 @@ int main()try {
         check(restored.autoSort==keys.autoSort&&restored.keys==keys.keys,"Per-group sorting and unbound keys persist together");
         auto oldSettings=Json::parse(encodeOptions(keys));oldSettings.erase("autoSort");
         check(decodeOptions(oldSettings.dump()).autoSort==Options{}.autoSort,"Existing settings default to manual ordering");
+    }
+    {
+        // A group's setup travels with the character.
+        Options mine;mine.names[0]="Blades";mine.names[3]="Shouts";mine.keys[0]=59;mine.groupCount=5;mine.groupOrder={3,0,1,2,4,5,6,7};
+        mine.groupModes[0]=GroupMode::cycle;mine.autoSort[1]=true;mine.groupColored[0]=true;mine.groupColors[0]={.1f,.2f,.3f};
+        mine.controllerGroups[0]={PadButton::y,PadButton::lb};mine.scale=2;mine.themeId="edge";
+        const auto record=encodeGroupSetup(mine);
+        Options shared;shared.scale=1.5f;shared.skipEmpty=true;
+        const auto loaded=withGroupSetup(shared,record);
+        check(loaded&&loaded->names==mine.names&&loaded->keys==mine.keys&&loaded->groupCount==5&&loaded->groupOrder==mine.groupOrder&&loaded->groupModes==mine.groupModes&&
+              loaded->autoSort==mine.autoSort&&loaded->groupColored==mine.groupColored&&loaded->groupColors==mine.groupColors&&loaded->controllerGroups==mine.controllerGroups,
+              "A saved group setup restores names, bindings, order, behavior and colors");
+        check(loaded->scale==1.5f&&loaded->skipEmpty&&loaded->themeId==shared.themeId,"A group setup leaves the look and the other controls alone");
+        check(Json::parse(record).size()==groupSetupKeys.size()+1&&!Json::parse(record).contains("scale"),"The record holds the group setup alone");
+        auto damaged=Json::parse(record);damaged["names"]=7;damaged["groupCount"]=4;damaged.erase("keys");
+        const auto repaired=withGroupSetup(shared,damaged.dump());
+        check(repaired&&repaired->names==shared.names&&repaired->groupCount==4&&repaired->keys==shared.keys&&repaired->groupOrder==mine.groupOrder,"An unreadable or missing field keeps its current value and the rest load");
+        auto newer=Json::parse(record);newer["schema"]=2;
+        check(!withGroupSetup(shared,"not json")&&!withGroupSetup(shared,newer.dump())&&!withGroupSetup(shared,std::string(70000,' ')),"An unreadable record leaves the shared setup in place");
+
+        // A character new to Quickslot follows its Skyrim Favorites.
+        Options first;first.names[0]="Old";first.keys[0]=59;first.groupCount=2;Arsenal fresh;
+        starterGroups(first,fresh);
+        check(first.groupCount==4&&first.keys==Options{}.keys&&first.controllerGroups==Options{}.controllerGroups&&first.names[0]=="Weapons"&&first.names[3]=="Powers & shouts","A new character starts with four named groups on the default bindings");
+        check(std::all_of(fresh.groups.begin(),fresh.groups.begin()+4,[](const Group& g){return g.automatic();})&&!fresh.groups[4].automatic(),"The starter groups follow Favorites");
+        const auto favorite=[](unsigned form,Kind kind,const char* name){Entry e;e.form=form;e.kind=kind;e.spell=kind==Kind::spell||kind==Kind::shout;e.name=name;return e;};
+        const std::vector<Entry> favorites{favorite(1,Kind::sword,"Sword"),favorite(2,Kind::shield,"Shield"),favorite(3,Kind::spell,"Flames"),favorite(4,Kind::scroll,"Scroll"),
+            favorite(5,Kind::potion,"Potion"),favorite(6,Kind::food,"Bread"),favorite(7,Kind::poison,"Poison"),favorite(8,Kind::shout,"Unrelenting Force"),favorite(9,Kind::ammo,"Arrow")};
+        for(auto& group:fresh.groups)refreshFavorites(group,favorites);
+        check(fresh.groups[0].entries.size()==2&&fresh.groups[1].entries.size()==2&&fresh.groups[2].entries.size()==3&&fresh.groups[3].entries.size()==1,"Weapons and shields, spells and scrolls, consumables, and powers each have a group");
+        check(!blankArsenal(fresh)&&withGroupSetup(Options{},encodeGroupSetup(first))->names==first.names,"A starter setup is saved like any other");
+
+        // Reset Quickslot returns to what a new installation shows a new character.
+        Options played;played.scale=2;played.gameplayEditing=played.introSeen=true;played.names[0]="Mine";played.language="ru";
+        Arsenal used;used.presetIdentity="character";used.groups[0].add(item(1));used.groups[5].add(item(2));
+        resetToUnplayed(played,used);
+        check(encodeOptions(played)==[]{Options o;Arsenal a;starterGroups(o,a);return encodeOptions(o);}()&&!played.introSeen&&used.presetIdentity=="character"&&used.groups[5].entries.empty()&&used.groups[0].automatic(),
+              "Reset restores every default, keeps the character's preset identity and starts the groups from Favorites");
+
+        // A favorite that runs out is remembered until it returns.
+        Group potions;setFavoriteSource(potions,FavoriteSource::potions,Hand::right);
+        const std::vector<Entry> stock{favorite(20,Kind::potion,"A"),favorite(21,Kind::potion,"B"),favorite(22,Kind::potion,"C")};
+        refreshFavorites(potions,stock);potions.selected=2;refreshFavorites(potions,stock);
+        refreshFavorites(potions,{stock[0],stock[1]});
+        check(potions.selected==0&&potions.rememberedMissing&&potions.rememberedFavorite&&potions.rememberedFavorite->form==22,"A depleted favorite leaves the first entry standing in for it");
+        refreshFavorites(potions,{stock[0],stock[1]});refreshFavorites(potions,stock);
+        check(potions.selected==2&&!potions.rememberedMissing,"Restocking a remembered favorite selects it again");
+        refreshFavorites(potions,{stock[0],stock[1]});potions.selected=1;refreshFavorites(potions,{stock[0],stock[1]});refreshFavorites(potions,stock);
+        check(potions.selected==1&&potions.rememberedFavorite->form==21,"Choosing another favorite replaces the remembered one");
     }
     std::cout<<"PASS: "<<checks<<" checks (groups, storage, quick editing, unequip, hand-move cancellation).\n";
     return 0;

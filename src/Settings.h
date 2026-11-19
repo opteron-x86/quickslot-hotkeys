@@ -5,6 +5,7 @@
 
 namespace quickslot {
 inline void sanitizeOptions(Options& o) {
+    for(auto& t:o.tilePlaces){if(t.anchor>9)t.anchor=9;for(float* v:{&t.x,&t.y})*v=std::isfinite(*v)?std::clamp(*v,-8000.f,8000.f):0.f;t.scale=std::isfinite(t.scale)?std::clamp(t.scale,.25f,3.f):1.f;}
     if(!languageID(o.language))o.language="auto";
     o.groupCount=std::clamp(o.groupCount,std::size_t(1),Arsenal::count);
     std::array<bool,Arsenal::count> seen{};
@@ -102,9 +103,9 @@ inline std::string encodeOptions(Options o) {
     Json modes=Json::array();for(const auto mode:o.groupModes)modes.push_back(unsigned(mode));
     Json selectorBindings=Json::array();for(const auto b:o.selectorBindings)selectorBindings.push_back(Json::array({b.key,b.modifiers}));
     Json controllerActions=Json::array();for(const auto b:o.controllerActions)controllerActions.push_back(binding(b));
-    Json j{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"holdDelay",o.holdDelay},{"cycleDelay",o.cycleDelay},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"fontId",o.fontId},{"themeAdjustments",tweaks},
-        {"pngiiIcons",o.pngiiIcons},{"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
-        {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},
+    Json j{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"tapRecall",o.tapRecall},{"holdDelay",o.holdDelay},{"cycleDelay",o.cycleDelay},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"fontId",o.fontId},{"themeAdjustments",tweaks},
+        {"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
+        {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},{"tilePlaces",[&]{Json places=Json::array();for(const auto& t:o.tilePlaces)places.push_back(Json::array({t.anchor,t.x,t.y,t.scale}));return places;}()},{"gameplayEditing",o.gameplayEditing},{"introSeen",o.introSeen},{"advancedAppearance",o.advancedAppearance},
         {"groupCaptureRightHotkey",o.groupCaptureRightHotkey},{"groupCaptureLeftHotkey",o.groupCaptureLeftHotkey},{"groupMoveHotkey",o.groupMoveHotkey},
         {"selectorReorderHotkey",o.selectorReorderHotkey},{"selectorUnequipHotkey",o.selectorUnequipHotkey},{"selectorRemoveHotkey",o.selectorRemoveHotkey},
         {"mouseActions",o.mouseActions},{"groupModifiers",o.groupModifiers},{"selectorBindings",selectorBindings},{"allowUnusedModifiers",o.allowUnusedModifiers},{"controllerActions",controllerActions},
@@ -134,7 +135,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.editorKey=j.at("editorKey").get<unsigned>();o.groupCount=j.at("groupCount").get<std::size_t>();
     o.editorModifiers=j.at("editorModifiers").get<decltype(o.editorModifiers)>();
     o.groupOrder=j.at("groupOrder").get<decltype(o.groupOrder)>();
-    o.cycleKeepOtherHand=j.value("cycleKeepOtherHand",true);
+    o.cycleKeepOtherHand=j.value("cycleKeepOtherHand",true);o.tapRecall=j.value("tapRecall",true);
     // Files without a hold delay use the INI value.
     o.holdDelay=j.value("holdDelay",0.f);o.cycleDelay=j.value("cycleDelay",0.f);
     o.skipEmpty=j.at("skipEmpty").get<decltype(o.skipEmpty)>();o.menuCapture=j.at("menuCapture").get<decltype(o.menuCapture)>();o.selectionSpeed=j.at("selectionSpeed").get<decltype(o.selectionSpeed)>();
@@ -144,10 +145,14 @@ inline Options decodeOptions(const std::string& bytes) {
     o.autoSort=j.value("autoSort",o.autoSort);
     o.groupUnequipHotkey=j.value("groupUnequipHotkey",true);o.groupRemoveHotkey=j.value("groupRemoveHotkey",true);
     o.quickLootKeyboard=j.value("quickLootKeyboard",false);o.quickLootController=j.value("quickLootController",false);
+    // Settings saved before the first-run hint existed belong to a player who has already found the editor.
+    o.gameplayEditing=j.value("gameplayEditing",false);o.introSeen=j.value("introSeen",true);
+    // Settings saved before Appearance had a simple view keep every setting in sight.
+    o.advancedAppearance=j.value("advancedAppearance",true);
     o.groupCaptureRightHotkey=j.value("groupCaptureRightHotkey",true);o.groupCaptureLeftHotkey=j.value("groupCaptureLeftHotkey",true);o.groupMoveHotkey=j.value("groupMoveHotkey",true);
     o.selectorReorderHotkey=j.value("selectorReorderHotkey",true);o.selectorUnequipHotkey=j.value("selectorUnequipHotkey",true);o.selectorRemoveHotkey=j.value("selectorRemoveHotkey",true);
     o.groupModifiers=j.value("groupModifiers",o.groupModifiers);o.allowUnusedModifiers=j.value("allowUnusedModifiers",false);
-    o.mouseActions=j.value("mouseActions",o.mouseActions);
+    o.mouseActions=j.value("mouseActions",legacyMouseActions);
     if(j.contains("selectorBindings")) {
         const auto& bindings=j.at("selectorBindings");
         if(!bindings.is_array()||(bindings.size()!=5&&bindings.size()!=o.selectorBindings.size()))throw std::runtime_error("Invalid keyboard actions");
@@ -175,6 +180,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.inactiveGroups=j.value("inactiveGroups",0u);o.inactiveGroupOpacity=j.value("inactiveGroupOpacity",.3f);
     o.controllerStyle=j.at("controllerStyle").get<decltype(o.controllerStyle)>();o.controllerStick=j.at("controllerStick").get<decltype(o.controllerStick)>();o.controllerDeadzone=j.at("controllerDeadzone").get<decltype(o.controllerDeadzone)>();
     const auto binding=[](const Json& value){const auto b=value.get<std::array<unsigned,2>>();return PadBinding{PadButton(b[0]),PadButton(b[1])};};
+    o.controllerActions=legacyControllerActions;
     if(j.contains("controllerActions")) {
         const auto& actions=j.at("controllerActions");
         if(!actions.is_array()||(actions.size()!=4&&actions.size()!=o.controllerActions.size()))throw std::runtime_error("Invalid controller actions");
@@ -188,7 +194,7 @@ inline Options decodeOptions(const std::string& bytes) {
     o.vrEditor=binding(j.at("vrEditor"));
     o.vrStick=j.at("vrStick").get<decltype(o.vrStick)>();
     o.itemIconColor=j.at("itemIconColor").get<decltype(o.itemIconColor)>();
-    o.pngiiIcons=j.value("pngiiIcons",true);
+    
     o.layout=j.at("layout").get<unsigned>();o.shape=j.at("shape").get<unsigned>();o.selector=j.at("selector").get<unsigned>();
     o.scale=j.at("scale").get<float>();o.opacity=j.at("opacity").get<float>();o.spacing=j.at("spacing").get<float>();
     o.textScale=j.value("textScale",1.f);o.placementSpacing=j.value("placementSpacing",1u);o.placementFrame=j.value("placementFrame",0u);o.placementGridSize=j.value("placementGridSize",16.f);
@@ -214,11 +220,34 @@ inline Options decodeOptions(const std::string& bytes) {
     o.textColor=j.value("textColor",o.textColor);o.selectionColor=j.value("selectionColor",o.selectionColor);
     o.groupColored=j.value("groupColored",o.groupColored);o.groupColors=j.value("groupColors",o.groupColors);
     decodeTable(j,o);
+    // Earlier switches become the icon choice: PNGII artwork stays first where it was on, and SkyUI's icons replace
+    // I4 drawing that was turned off.
+    if(!j.contains("itemArtwork")) {
+        const auto on=[&](const char* key){const auto it=j.find(key);return it==j.end()||!it->is_boolean()||it->get<bool>();};
+        o.itemArtwork=on("pngiiIcons")?2:on("i4Icons")?0:1;
+    }
+    // Settings from before the equipment display had an anchor keep its proportional position.
+    if(!j.contains("equipmentAnchor")){o.equipmentAnchor=9;o.equipmentOffsetX=o.equipmentOffsetY=0;}
+    if(!j.contains("anchor")){o.anchor=9;o.offsetX=o.offsetY=0;}
+    // A selector that followed the widget's scale starts at that scale; each element now has its own.
+    if(const auto linked=j.find("selectorScaleLinked");linked!=j.end()?linked->is_boolean()&&linked->get<bool>():j.value("layoutVersion",1)<3)o.selectorScale=o.scale;
+    // The wheel's radius measured the middle of a ring 56 pixels deep; its size is now the outer radius with a
+    // proportional thickness, set to draw the ring as it was.
+    if(const auto radius=j.find("wheelRadius");radius!=j.end()&&radius->is_number()&&!j.contains("wheelSize")) {
+        const float middle=std::isfinite(radius->get<float>())?std::max(radius->get<float>(),100.f):100.f;
+        o.wheelSize=middle+28;o.wheelThickness=56/o.wheelSize;o.wheelGap=std::clamp(o.selectorSpacing*.25f,1.5f,12.f);
+    }
+    if(const auto places=j.find("tilePlaces");places!=j.end()&&places->is_array())
+        for(std::size_t i=0;i<std::min(places->size(),o.tilePlaces.size());++i) {
+            const auto& t=(*places)[i];
+            if(t.is_array()&&t.size()>=3&&t.size()<=4&&t[0].is_number_unsigned()&&t[1].is_number()&&t[2].is_number()&&(t.size()==3||t[3].is_number()))
+                o.tilePlaces[i]={t[0].get<unsigned>(),t[1].get<float>(),t[2].get<float>(),t.size()==4?t[3].get<float>():1.f};
+        }
     if(j.value("layoutVersion",1)<3) {
         // Earlier files shared one text size and one opacity across the HUD, and widget text kept its size below 100% scale.
         const float scale=std::isfinite(o.scale)&&o.scale>0?o.scale:1,size=std::isfinite(o.textScale)?o.textScale:1,text=size*std::max(1.f,scale)/scale;
         o.equipmentTextScale*=size;o.textScale=o.selectorTextScale=text;
-        o.selectorOpacity=o.equipmentOpacity=o.opacity;o.selectorScaleLinked=true;
+        o.selectorOpacity=o.equipmentOpacity=o.opacity;
         // Icon size was kept per theme; the active theme's value becomes the one icon size.
         if(const auto it=o.themeAdjustments.find(o.themeId);it!=o.themeAdjustments.end())o.iconScale=it->second.iconScale;
         for(auto& [id,adjustment]:o.themeAdjustments)adjustment.iconScale=1;
@@ -226,7 +255,7 @@ inline Options decodeOptions(const std::string& bytes) {
     sanitizeOptions(o);return o;
 }
 inline void revealSavedGroups(Options& o,const Arsenal& a) {
-    sanitizeOptions(o);normalizeGroupModes(o,a);
+    sanitizeOptions(o);
     for(std::size_t id=0;id<Arsenal::count;++id)if((!a.groups[id].entries.empty()||a.groups[id].automatic()||id==a.active)&&!groupVisible(o,id)) {
         const auto it=std::find(o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),o.groupOrder.end(),id);
         std::rotate(o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),it,it+1);++o.groupCount;

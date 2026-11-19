@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.16.0
+
+Updating: group keys held with Ctrl, Shift or Alt now select the group during gameplay. Turn on **Controls → Keyboard → Use editing shortcuts during gameplay** to keep adding, unequipping and removing with those chords outside menus.
+
+- **Use editing shortcuts during gameplay**, under **Controls → Keyboard**, controls the Ctrl, Shift and Alt group-key chords outside menus. It starts off. Adding from Inventory and Magic with Ctrl and Ctrl + Shift stays available.
+- Until the editor has been opened, the widget shows the shortcut that opens it. An empty group's selector shows how to add items.
+- The **Groups** tab labels the **Contents** and **Behavior** choices and explains them, **Items** and **New** on hover.
+- Typing or selecting an existing preset's name sets the save scope to that preset's own. Choosing **Appearance only** for a complete preset shows that its groups will be removed. **Export preset** is now **Save preset**.
+- A full group reports "This group is full (16 items)" from gameplay and from Inventory and Magic.
+- New installations, the **Default** preset and the reset buttons show diamond tiles with an arc selector. Existing settings keep their look.
+- A character new to Quickslot starts with four groups that follow its Skyrim Favorites: Weapons, Spells, Potions and Powers & shouts.
+- Each group's name, bindings, order, behavior and color are stored in the character's saves with its contents. Saves from earlier versions keep the setup from the settings file.
+- **Tap** and **Hold to browse** replace the three group behaviors in the **Groups** tab. Existing groups keep their behavior.
+- A group keeps its behavior when a potion, food or poison is added. In a group that steps to the next item, taps select consumables and **Use selected consumable** uses them; the editor and the HUD show a reminder while that action has no binding.
+- A favorite that runs out stays the group's remembered item and is selected again when it is restocked.
+- While the selector is open, a hand button puts the highlighted item in that hand, and pressing the button of the hand it is already in takes it out. New installations use the left and right mouse buttons and RT and LT; Escape cancels. **Use mouse buttons for hands** and **Use triggers for hands** assign them on earlier settings.
+- An item returns to the hand it was last put in. A shield or torch goes to the left hand from either hand button, and a potion, power or combination is selected.
+- **Controls → Keyboard** and **Controls → Controller** list every action with its binding on one page.
+- On new installations a held trigger no longer keeps group buttons from Quickslot, so groups work while blocking or attacking. **Modifier buttons** changes this.
+- A **Settings** tab holds language, interface sounds, input device presets, QuickLoot input and **Keep settings with this character**.
+- **Settings → Reset Quickslot** returns every setting to its default and starts the character's groups from Skyrim Favorites. Presets stay and Undo restores everything while the editor is open.
+- Appearance pages start with their main settings. **Show advanced settings** adds spacing, text sizes, exact placement, idle fading and the less common display options; earlier settings start with it on.
+- A group's tile pulses when its key is pressed for an item that is already equipped.
+- **Free** under **Appearance → Widget → Arrangement** gives each group's tile its own position and size. Drag and resize tiles one at a time in **Position**, or set them under **Placement**. The selector, item name and notices gather around the tile in use.
+- Positions saved by earlier versions as a share of the screen become an anchor and offset the first time the HUD draws, without moving.
+- I4 is optional. Without it, each item shows SkyUI's category icon for its type.
+- **Appearance → Theme → Icons → Item icons** chooses **I4** (then SkyUI), **SkyUI** or **PNGII** (then I4, then SkyUI). It replaces **Use PNGII icons**; settings with PNGII icons on start on PNGII, and settings with **Use I4 icons** off start on SkyUI.
+- Every built-in look shows the equipment display as a vertical list at the middle of the left edge.
+- The README opens with a quick start.
+- The English translation file lists every string the menus and HUD show, and no others.
+- Built-in presets add **Cards**, with card tiles, a strip selector and an equipment list, and **Wheel**, with diamond tiles and a segmented wheel selector.
+- The HUD shows the weapon enchantment charge meter while the Quickslot widget is on screen.
+- **Match widget scale** is removed. The widget, selector, equipment display and each Free tile have their own **Scale**; a selector that matched the widget keeps that size.
+- **Position** chooses what to place from one **Element** list, and its **Scale** slider and resize handle change only that element. An **Appearance** section in the panel holds the element's main look settings.
+- Position no longer shows "-0 px", and its panel scrolls when it is taller than the screen.
+- **Wheel size** replaces **Wheel radius**: the ring, its icons and the center grow together. Existing wheels keep their look.
+- A segmented wheel adds **Ring thickness**, **Gap**, **Item name** (center, below or hidden), **Highlight** (fill and outline, fill, outline or rim), **Raise the pointed segment**, **Ring opacity** and **Item names on segments**.
+- Every wheel adds **Show center circle**, **Show pointer** and **Rotation**.
+- A segmented wheel grows when its entries need room for their icons.
+- **Selector → Show enchantment charge** shows an enchanted weapon's charge as five diamonds on their own line under its hand.
+- **Appearance → Theme → Enchantment charge** shows a weapon's charge on its icon in tiles, the selector and the equipment display: **Fill the icon** (the default) or a **Soul gem**.
+- **Selector → Show group and position** turns off the selector's last line.
+- The selector shows what the highlighted potion, food, poison or scroll does under its name. **Selector → Show item descriptions** turns this off.
+- **Controls → General → First tap on another group equips its item** can be turned off so every tap steps to the next item.
+- The selector's dock choice under **Placement** is named **Attach**.
+
 ## 0.15.1
 
 - With the Automatic theme and ImGui Icons installed, the widget and selector use a readable text font. The installed UI font skips the Daedric, Dragon and other script faces and the icon font in `Interface/ImGuiIcons/Fonts`.

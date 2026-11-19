@@ -8,7 +8,7 @@ namespace quickslot {
 // Sanitizing, the editor's rows and resets all read these tables. Rows marked stored are also
 // read and written by key in the settings file, so a new look setting needs its Options member
 // and one row here.
-enum class Unit {plain,percent,pixels,seconds,count};
+enum class Unit {plain,percent,pixels,seconds,count,degrees};
 enum class Section {theme,widget,selector,equipment,general};
 struct FloatSetting {const char* key;float Options::*value;float low,high,step;Unit unit;Section section;bool stored=false;};
 struct ChoiceSetting {const char* key;unsigned Options::*value;unsigned limit;Section section;bool stored=false;};
@@ -34,7 +34,11 @@ inline constexpr FloatSetting floatSettings[]{
     {"inactiveGroupOpacity",&Options::inactiveGroupOpacity,.05f,.9f,.05f,Unit::percent,Section::widget},
     {"selectorSpacing",&Options::selectorSpacing,0,128,1,Unit::pixels,Section::selector},
     {"selectorGap",&Options::selectorGap,0,100,1,Unit::pixels,Section::selector},
-    {"wheelRadius",&Options::wheelRadius,40,240,1,Unit::pixels,Section::selector,true},
+    {"wheelSize",&Options::wheelSize,40,800,2,Unit::pixels,Section::selector,true},
+    {"wheelThickness",&Options::wheelThickness,.1f,1,.01f,Unit::percent,Section::selector,true},
+    {"wheelGap",&Options::wheelGap,0,32,.5f,Unit::pixels,Section::selector,true},
+    {"wheelRotation",&Options::wheelRotation,-180,180,1,Unit::degrees,Section::selector,true},
+    {"wheelOpacity",&Options::wheelOpacity,0,1,.05f,Unit::percent,Section::selector,true},
     {"selectorScale",&Options::selectorScale,.25f,3,.05f,Unit::percent,Section::selector,true},
     {"selectorTextScale",&Options::selectorTextScale,.5f,3,.05f,Unit::percent,Section::selector,true},
     {"selectorOpacity",&Options::selectorOpacity,.1f,1,.05f,Unit::percent,Section::selector,true},
@@ -57,7 +61,7 @@ inline constexpr ChoiceSetting choiceSettings[]{
     {"itemIconColor",&Options::itemIconColor,2,Section::theme},
     {"equippedHighlight",&Options::equippedHighlight,3,Section::theme,true},
     {"anchor",&Options::anchor,9,Section::widget,true},
-    {"layout",&Options::layout,6,Section::widget},
+    {"layout",&Options::layout,freeLayout,Section::widget},
     {"shape",&Options::shape,3,Section::widget},
     {"inactiveGroups",&Options::inactiveGroups,2,Section::widget},
     {"selectorAnchor",&Options::selectorAnchor,9,Section::selector,true},
@@ -65,6 +69,10 @@ inline constexpr ChoiceSetting choiceSettings[]{
     {"selectorShape",&Options::selectorShape,3,Section::selector},
     {"selectorVisible",&Options::selectorVisible,3,Section::selector,true},
     {"wheelStyle",&Options::wheelStyle,1,Section::selector,true},
+    {"wheelName",&Options::wheelName,2,Section::selector,true},
+    {"wheelHighlight",&Options::wheelHighlight,3,Section::selector,true},
+    {"chargeIcons",&Options::chargeIcons,2,Section::theme,true},
+    {"itemArtwork",&Options::itemArtwork,2,Section::theme,true},
     {"selectorDock",&Options::selectorDock,4,Section::selector},
     {"equipmentAnchor",&Options::equipmentAnchor,9,Section::equipment,true},
     {"equipmentStyle",&Options::equipmentStyle,4,Section::equipment},
@@ -73,7 +81,6 @@ inline constexpr ChoiceSetting choiceSettings[]{
     {"equipmentTextPosition",&Options::equipmentTextPosition,3,Section::equipment},
 };
 inline constexpr FlagSetting flagSettings[]{
-    {"pngiiIcons",&Options::pngiiIcons,Section::theme},
     {"coloredMagic",&Options::coloredMagic,Section::theme},
     {"keyIcons",&Options::keyIcons,Section::theme},
     {"customEquippedColor",&Options::customEquippedColor,Section::theme},
@@ -90,7 +97,13 @@ inline constexpr FlagSetting flagSettings[]{
     {"fadeIdle",&Options::fadeIdle,Section::widget},
     {"keepCombatVisible",&Options::keepCombatVisible,Section::widget},
     {"keepDrawnVisible",&Options::keepDrawnVisible,Section::widget},
-    {"selectorScaleLinked",&Options::selectorScaleLinked,Section::selector,true},
+    {"wheelHubCircle",&Options::wheelHubCircle,Section::selector,true},
+    {"wheelLift",&Options::wheelLift,Section::selector,true},
+    {"wheelLabels",&Options::wheelLabels,Section::selector,true},
+    {"wheelPointer",&Options::wheelPointer,Section::selector,true},
+    {"showCharge",&Options::showCharge,Section::selector,true},
+    {"showDescriptions",&Options::showDescriptions,Section::selector,true},
+    {"selectorFooter",&Options::selectorFooter,Section::selector,true},
     {"showHints",&Options::showHints,Section::selector},
     {"animateScroll",&Options::animateScroll,Section::selector},
     {"showEquipment",&Options::showEquipment,Section::equipment},
@@ -98,10 +111,27 @@ inline constexpr FlagSetting flagSettings[]{
     {"showEquipmentAmmo",&Options::showEquipmentAmmo,Section::equipment},
     {"equipmentShowText",&Options::equipmentShowText,Section::equipment},
     {"animateHud",&Options::animateHud,Section::general},
-    {"uiSounds",&Options::uiSounds,Section::general},
 };
 
 inline const Options& defaultOptions(){static const Options options;return options;}
+// Settings Appearance shows only with Show advanced settings on.
+inline bool advancedSetting(float Options::*member) {
+    for(const auto each:{&Options::backgroundOpacity,&Options::equippedMarkerScale,&Options::spacing,&Options::cardWidth,&Options::tileSize,&Options::textScale,
+        &Options::inactiveGroupOpacity,&Options::fadeDelay,&Options::idleOpacity,&Options::selectorSpacing,&Options::wheelGap,&Options::wheelRotation,&Options::wheelOpacity,&Options::selectorTextScale,
+        &Options::selectorOpacity,&Options::selectorGap,&Options::equipmentFadeDelay,&Options::equipmentIdleOpacity,&Options::equipmentSpacing,
+        &Options::equipmentTextScale,&Options::equipmentOpacity})if(each==member)return true;
+    return false;
+}
+inline bool advancedSetting(unsigned Options::*member) {
+    for(const auto each:{&Options::selectorVisible,&Options::inactiveGroups,&Options::equipmentTextPosition})if(each==member)return true;
+    return false;
+}
+inline bool advancedSetting(bool Options::*member) {
+    for(const auto each:{&Options::customTextColor,&Options::customSelectionColor,&Options::coloredMagic,&Options::keyIcons,&Options::customEquippedColor,
+        &Options::mirrorCards,&Options::showCardNames,&Options::showPoison,&Options::showAmmo,&Options::hideEmptyGroups,&Options::keepCombatVisible,&Options::keepDrawnVisible,
+        &Options::showHints,&Options::animateScroll,&Options::showEquipmentAmmo,&Options::wheelLift,&Options::wheelLabels,&Options::wheelPointer,&Options::selectorFooter})if(each==member)return true;
+    return false;
+}
 inline const FloatSetting& setting(float Options::*member) {
     for(const auto& s:floatSettings)if(s.value==member)return s;
     throw std::logic_error("Setting has no table row");

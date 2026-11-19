@@ -108,6 +108,8 @@ struct Group {
     std::vector<Entry> manualEntries,excludedFavorites;
     std::size_t manualSelected=0;
     std::optional<Entry> rememberedFavorite;
+    // True while the remembered favorite is out of the list, so the first entry stands in for it.
+    bool rememberedMissing=false;
     bool automatic()const{return source!=FavoriteSource::manual;}
     auto& savedEntries(){return automatic()?manualEntries:entries;}
     const auto& savedEntries()const{return automatic()?manualEntries:entries;}
@@ -272,11 +274,12 @@ struct ChoiceHistory {
 // Two taps of one group inside this window count as a double tap.
 inline constexpr double doubleTapSeconds=.35;
 inline constexpr unsigned wheelSelector=5;
-// The wheel slot a direction points at. Slot 0 is at the top and slots run clockwise; y grows upward.
-inline std::optional<std::size_t> wheelIndex(float x,float y,std::size_t count,float deadzone) {
+// The wheel slot a direction points at. Slot 0 is at the top, turned clockwise by rotation (radians), and slots run
+// clockwise; y grows upward.
+inline std::optional<std::size_t> wheelIndex(float x,float y,std::size_t count,float deadzone,float rotation=0) {
     if(!count||!std::isfinite(x)||!std::isfinite(y)||std::hypot(x,y)<deadzone)return {};
     constexpr float turn=6.283185307f;
-    float angle=std::atan2(x,y);if(angle<0)angle+=turn;
+    float angle=std::fmod(std::atan2(x,y)-(std::isfinite(rotation)?rotation:0.f),turn);if(angle<0)angle+=turn;
     return std::size_t(std::floor(angle/turn*float(count)+.5f))%count;
 }
 // Gathers mouse movement into a direction for the wheel selector.
@@ -291,12 +294,20 @@ public:
         if(const float length=std::hypot(x_,y_);length>reach){x_*=reach/length;y_*=reach/length;}
     }
     // Screen y grows downward.
-    std::optional<std::size_t> index(std::size_t count)const{return wheelIndex(x_,-y_,count,threshold);}
+    std::optional<std::size_t> index(std::size_t count,float rotation=0)const{return wheelIndex(x_,-y_,count,threshold,rotation);}
     float x()const{return x_/reach;}
     float y()const{return y_/reach;}
 };
-struct WeaponStatus {bool poisoned=false;int ammunition=-1;};
-struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry;bool cycleBlocked=false; };
+// charge: remaining enchantment charge from 0 to 1, or below 0 for a weapon without a chargeable enchantment.
+struct WeaponStatus {bool poisoned=false;int ammunition=-1;float charge=-1;};
+// Charge as a share of capacity. A current value below 0 means the item has no stored charge and is full.
+inline float chargeFraction(float current,float capacity) {
+    if(!(capacity>0))return -1;
+    if(!std::isfinite(current)||current<0)return 1;
+    return std::clamp(current/capacity,0.f,1.f);
+}
+// description: what a potion, food, poison or scroll does, from its effects.
+struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry;bool cycleBlocked=false;std::string description; };
 inline const Entry& rowIconEntry(const Row& row){return row.iconEntry?*row.iconEntry:row.entry;}
 struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=false,equipped=false;int quantity=0;float cooldown=0;bool voice=false,consumable=false;WeaponStatus weapon;std::optional<Entry> iconEntry;};
 struct EquippedDisplay {
@@ -316,6 +327,10 @@ struct Snapshot {
     double noticeUntil=0;
     EquippedDisplay equipment;
     bool holding=false,placementPreview=false,equipmentOnly=false;
+    // The binding that opens the editor on the device in use, and a line shown by the widget until the editor has been opened.
+    std::string editorShortcut,tip;
+    // Counts presses a group accepted that changed nothing, so its tile can acknowledge them.
+    std::array<std::uint32_t,Arsenal::count> nudges{};
     float previewZoom=0;
     double revealUntil=0;
 };
@@ -340,6 +355,10 @@ template<class IsDown> inline unsigned keyboardModifiers(IsDown down) {
 }
 enum class GroupMode : unsigned {browse,cycle,cycleBrowse};
 inline bool cyclesOnTap(GroupMode mode){return mode==GroupMode::cycle||mode==GroupMode::cycleBrowse;}
+// Where one group's tile sits in the Free arrangement: an anchor from 0 to 8 and an offset in 1080p pixels.
+// Anchor 9 means not placed yet; the tile then sits beside the previous one.
+struct TilePlace {unsigned anchor=9;float x=0,y=0,scale=1;bool operator==(const TilePlace&)const=default;};
+inline constexpr unsigned freeLayout=7;
 struct Options {
     std::array<unsigned,Arsenal::count> keys{2,3,4,5,6,7,8,9};
     std::array<std::string,Arsenal::count> names{"Arsenal","Group 2","Group 3","Group 4","Group 5","Group 6","Group 7","Group 8"};
@@ -354,6 +373,15 @@ struct Options {
     bool doubleTapSwap=false;
     PadBinding controllerUse,vrUse;
     bool skipEmpty=false,menuCapture=true,cycleKeepOtherHand=true;
+    // tapRecall: the first tap on a group other than the last one used equips its current item; later taps step.
+    bool tapRecall=true;
+    // The add, unequip and remove chords on a group key apply during gameplay only while this is on. With it off a
+    // chord that names one of those actions selects the group. Inventory and Magic capture has its own switch.
+    bool gameplayEditing=false;
+    // Set once the editor has been opened. Until then the HUD shows how to open it.
+    bool introSeen=false;
+    // Appearance shows its less common settings while this is on.
+    bool advancedAppearance=false;
     // Seconds. holdDelay separates a tap from a hold; cycleDelay keeps a tapped choice open before it equips (0 equips at once).
     float holdDelay=.18f,cycleDelay=0;
     bool groupCaptureRightHotkey=true,groupCaptureLeftHotkey=true,groupMoveHotkey=true;
@@ -367,7 +395,8 @@ struct Options {
     bool quickLootKeyboard=false,quickLootController=false;
     float shoutCharge=1.2f;
     bool controllerEnabled=true,controllerBumpers=true;
-    unsigned controllerModifiers=allPadButtons;
+    // Held buttons that leave an unmodified group button to other mods. The triggers stay out, so groups work while blocking or attacking.
+    unsigned controllerModifiers=allPadButtons&~(padButtonMask(PadButton::lt)|padButtonMask(PadButton::rt));
     unsigned controllerStyle=0,controllerStick=1;
     float controllerDeadzone=.45f;
     std::array<PadBinding,Arsenal::count> controllerGroups{{{PadButton::up},{PadButton::right},{PadButton::down},{PadButton::left},{},{},{},{}}};
@@ -381,18 +410,28 @@ struct Options {
     // Placement of the widget, the independent selector and the equipment display. An anchored element rests a point of
     // itself on the matching point of the screen area, moved by an offset in 1080p pixels. Anchor values run 0-8 across
     // then down (top-left to bottom-right); unanchored elements use their proportional position fields instead.
-    unsigned anchor=9,selectorAnchor=9,equipmentAnchor=9;
-    float offsetX=0,offsetY=0,selectorOffsetX=0,selectorOffsetY=0,equipmentOffsetX=0,equipmentOffsetY=0;
+    // The equipment display starts as a vertical list at the middle of the left edge.
+    unsigned anchor=8,selectorAnchor=9,equipmentAnchor=3;
+    // Per group, by group id: tile positions for the Free arrangement.
+    std::array<TilePlace,Arsenal::count> tilePlaces{};
+    // The widget starts 8 pixels in from the bottom-right corner.
+    float offsetX=-8,offsetY=-8,selectorOffsetX=0,selectorOffsetY=0,equipmentOffsetX=16,equipmentOffsetY=0;
     // The screen area anchors refer to: the full screen or a centered 16:9, 2:1 or 21:9 frame.
     unsigned anchorFrame=0;
-    unsigned layout=0,shape=0,selector=0,selectorShape=0;
+    // A new installation shows diamond tiles in a diamond with an arc selector, the look of the Diamond preset.
+    unsigned layout=2,shape=3,selector=1,selectorShape=3;
     // cardWidth is the name area of a card tile in pixels; tileSize scales circle, square and diamond tiles around their
     // labels; gridColumns applies to the Grid arrangement. mirrorCards puts a card's icon on the right.
     float cardWidth=97,tileSize=1,gridColumns=4;
     bool mirrorCards=false;
     // Items shown on each side of the selected one in strips, arcs and lists, less one; and the wheel's smallest radius.
     unsigned selectorVisible=1;
-    float wheelRadius=62;
+    // The segmented wheel: outer radius in pixels, ring thickness as a share of that radius, the gap between segments,
+    // and a turn in degrees for where the first item sits.
+    float wheelSize=130,wheelThickness=.45f,wheelGap=3,wheelRotation=0,wheelOpacity=1;
+    // wheelName: 0 in the center, 1 below the wheel, 2 hidden. wheelHighlight: 0 fill and outline, 1 fill, 2 outline, 3 rim.
+    unsigned wheelName=0,wheelHighlight=0;
+    bool wheelHubCircle=true,wheelLift=true,wheelLabels=false,wheelPointer=true;
     // iconScale sizes every item icon; backgroundOpacity fades the inside of frames and leaves their borders.
     float iconScale=1,backgroundOpacity=1;
     bool customTextColor=false,customSelectionColor=false;
@@ -400,8 +439,8 @@ struct Options {
     // A group with its own color uses it for its highlights, its name and the selector while it is open.
     std::array<bool,Arsenal::count> groupColored{};
     std::array<std::array<float,3>,Arsenal::count> groupColors=[]{std::array<std::array<float,3>,Arsenal::count> colors;colors.fill({.62f,.25f,.21f});return colors;}();
-    float spacing=14,positionX=1,positionY=1;
-    float selectorSpacing=16;
+    float spacing=4,positionX=1,positionY=1;
+    float selectorSpacing=8;
     // "auto" follows the installed interface when a pack recognizes it.
     std::string themeId="auto";
     // The preset last applied or saved: a file name or a built-in id. The editor shows whether the look still matches it.
@@ -417,6 +456,8 @@ struct Options {
     bool animateScroll=true,fadeIdle=false,keepCombatVisible=true,keepDrawnVisible=false;
     // animateHud eases the HUD in, opens and closes the selector, and pulses a tile when its item equips.
     bool animateHud=true,uiSounds=true;
+    // Item icons drawn from the interface's icon SWF files. PNGII artwork is separate.
+    unsigned itemArtwork=0; // item icons: 0 I4, then SkyUI; 1 SkyUI's icon for each type; 2 PNGII, then I4, then SkyUI
     float equippedMarkerScale=1;
     unsigned wheelStyle=0;          // 0 tiles around a hub, 1 a ring of segments
     unsigned equippedHighlight=0;   // 0 marker only, 1 outline, 2 tint, 3 outline and tint
@@ -425,12 +466,15 @@ struct Options {
     float fadeDelay=4,idleOpacity=.35f;
     // Each part of the HUD has its own scale, text size and opacity. The selector follows the widget's scale while linked.
     float scale=1,textScale=1,opacity=.92f;
-    bool selectorScaleLinked=true;
     float selectorScale=1,selectorTextScale=1,selectorOpacity=.92f,equipmentOpacity=.92f;
-    bool showIdle=true,showHints=false,showLabels=true,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
+    bool showIdle=true,showHints=false,showLabels=false,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
     bool showPoison=true,showAmmo=true;
+    // Enchantment charge: pips beside the item's hand under its name while selecting, and a soul gem on weapon icons.
+    bool showCharge=true,showDescriptions=true;
+    unsigned chargeIcons=1; // enchantment charge on item icons: 0 off, 1 fill the icon, 2 soul gem
+    // The last line of the selector: the group's name and the item's place in it.
+    bool selectorFooter=true;
     unsigned itemIconColor=1;
-    bool pngiiIcons=true;
     bool placementGrid=false,placementSnap=false;
     bool showEquipment=false,equipmentDim=false,hideEmptyGroups=false,showEquipmentAmmo=false;
     float equipmentX=.02f,equipmentY=.8f;
@@ -443,6 +487,8 @@ struct Options {
     unsigned placementSpacing=1,placementFrame=0;
     float placementGridSize=16;
 };
+// The wheel's turn in radians; its first slot sits this far clockwise from the top.
+inline float wheelTurn(const Options& o){return std::isfinite(o.wheelRotation)?o.wheelRotation*3.141592654f/180:0.f;}
 // Decides when to apply the preset chosen for an input device: once, after the device has been in use for a moment.
 class DevicePresetSwitch {
     bool controller_=false,pending_=false;double since_=0;
@@ -520,6 +566,12 @@ inline GroupKeyAction groupKeyAction(const Options& o,unsigned modifiers,bool mo
     }
     return result;
 }
+// What a group key does during gameplay. Moving a shortcut needs an open selector, so it stays available.
+inline GroupKeyAction gameplayKeyAction(const Options& o,unsigned modifiers,bool moving=false) {
+    const auto action=groupKeyAction(o,modifiers,moving);
+    if(o.gameplayEditing||action==GroupKeyAction::move||action==GroupKeyAction::pass)return action;
+    return GroupKeyAction::select;
+}
 inline std::optional<Hand> menuCaptureHand(const Options& o,unsigned modifiers) {
     if(!o.menuCapture)return {};
     const auto action=groupKeyAction(o,modifiers);
@@ -587,20 +639,23 @@ inline bool assignMouseAction(Options& o,MouseAction action,int button) {
     if(button>=0)for(unsigned i=0;i<o.mouseActions.size();++i)if(i!=index&&o.mouseActions[i]==button)o.mouseActions[i]=o.mouseActions[index];
     o.mouseActions[index]=button;return true;
 }
-inline bool useBumpersForHands(Options& o) {
-    const auto conflict=[](PadBinding b){return b.button==PadButton::lb||b.button==PadButton::rb||b.modifier==PadButton::lb||b.modifier==PadButton::rb;};
+// Assigns the triggers to the hand buttons, unless another binding already uses a trigger.
+inline bool useTriggersForHands(Options& o) {
+    const auto conflict=[](PadBinding b){return b.button==PadButton::lt||b.button==PadButton::rt||b.modifier==PadButton::lt||b.modifier==PadButton::rt;};
     if(conflict(o.controllerEditor)||conflict(o.controllerUse))return false;
     for(std::size_t i=0;i<o.groupCount;++i)if(conflict(o.controllerGroups[o.groupOrder[i]]))return false;
-    for(const auto b:o.controllerActions)if(b.modifier==PadButton::lb||b.modifier==PadButton::rb)return false;
-    for(auto& b:o.controllerActions)if(b==PadBinding{PadButton::lb}||b==PadBinding{PadButton::rb})b={};
-    o.controllerActions[unsigned(ControllerAction::rightHand)]={PadButton::rb};
-    o.controllerActions[unsigned(ControllerAction::leftHand)]={PadButton::lb};return true;
+    for(unsigned i=0;i<o.controllerActions.size();++i)if(i!=unsigned(ControllerAction::rightHand)&&i!=unsigned(ControllerAction::leftHand)&&conflict(o.controllerActions[i]))return false;
+    o.controllerActions[unsigned(ControllerAction::rightHand)]={PadButton::rt};
+    o.controllerActions[unsigned(ControllerAction::leftHand)]={PadButton::lt};return true;
 }
-inline GroupMode groupMode(const Options& o,const Arsenal& a,std::size_t group) {
-    return group<Arsenal::count&&(!hasConsumables(a.groups[group])||o.separateConsumableUse[group])?o.groupModes[group]:GroupMode::browse;
-}
-inline void normalizeGroupModes(Options& o,const Arsenal& a) {
-    for(std::size_t g=0;g<Arsenal::count;++g)if(hasConsumables(a.groups[g])&&!o.separateConsumableUse[g])o.groupModes[g]=GroupMode::browse;
+// A group keeps the behavior chosen for it whatever it holds. In a group whose taps step through its items, taps
+// select consumables and the Use selected consumable binding uses them.
+inline GroupMode groupMode(const Options& o,const Arsenal&,std::size_t group){return group<Arsenal::count?o.groupModes[group]:GroupMode::browse;}
+// A behavior from what a tap does and whether holding opens the selector. A tap that equips the last item always has the selector.
+inline GroupMode groupModeFor(bool tapSteps,bool holdBrowses){return !tapSteps?GroupMode::browse:holdBrowses?GroupMode::cycleBrowse:GroupMode::cycle;}
+// True when the group key selects this group's consumables and a separate binding uses them.
+inline bool consumablesNeedUseKey(const Options& o,const Arsenal& a,std::size_t group) {
+    return group<Arsenal::count&&(o.separateConsumableUse[group]||cyclesOnTap(groupMode(o,a,group)));
 }
 inline std::size_t nextEntry(const Group& group,const std::vector<bool>& available,bool skipEmpty) {
     if(group.entries.empty())return 0;
@@ -742,11 +797,31 @@ inline std::optional<Entry> entryForHand(const Entry& entry,Hand hand) {
     if(hand==Hand::right&&(entry.kind==Kind::shield||entry.kind==Kind::torch||smartShield(entry)))return {};
     auto action=entry;action.hand=normalizedHand(entry,hand);return action;
 }
+// The hand a hand button gives an entry: the pressed hand, or the entry's only hand for a shield or torch. Empty for
+// entries that go in no hand, such as consumables, powers and combinations.
+inline std::optional<Hand> handButtonTarget(const Entry& entry,Hand hand) {
+    if(entryForHand(entry,hand))return hand;
+    const auto other=hand==Hand::left?Hand::right:Hand::left;
+    return entryForHand(entry,other)?std::optional{other}:std::nullopt;
+}
+// A hand button commits the highlighted entry to that hand. An entry with no hand is selected as a release would.
 inline std::optional<Selection::Commit> releaseToHand(Selection& selection,const Group& group,std::size_t groupID,Hand hand,bool controller) {
     if(!selection.held())return {};
-    if(selection.index()>=group.entries.size()||!entryForHand(group.entries[selection.index()],hand)){selection.cancel();return {};}
+    if(selection.index()>=group.entries.size()){selection.cancel();return {};}
+    const auto target=handButtonTarget(group.entries[selection.index()],hand);
     auto commit=selection.release(group,groupID);
-    if(commit){commit->hand=hand;commit->browsed=true;commit->controller=controller;}
+    if(commit){if(target)commit->hand=*target;commit->browsed=true;commit->controller=controller;}
     return commit;
+}
+// Keeps the hand an item was last put in, so a tap returns it there. Shared shortcuts keep their definition, and a
+// group that already lists the item for that hand keeps both entries as they are.
+inline bool rememberHand(Group& group,std::size_t index,Hand hand) {
+    if(index>=group.entries.size())return false;
+    auto& entry=group.entries[index];
+    if(entry.shortcut||entry.kind==Kind::combo||isSmartEquipment(entry)||isHandAction(entry))return false;
+    const auto chosen=entryForHand(entry,hand);
+    if(!chosen||chosen->hand==entry.hand)return false;
+    for(const auto& other:group.entries)if(&other!=&entry&&other.same(*chosen))return false;
+    entry.hand=chosen->hand;return true;
 }
 }

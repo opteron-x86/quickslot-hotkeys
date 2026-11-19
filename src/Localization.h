@@ -88,6 +88,10 @@ public:
 };
 inline Localization& localization(){static Localization value;return value;}
 inline const char* tr(const char* english){return localization().text(english);}
+// A translated sentence with its one %s replaced by a name, such as a key binding.
+inline std::string trNamed(const char* english,std::string_view name) {
+    std::string text=tr(english);if(const auto at=text.find("%s");at!=std::string::npos)text.replace(at,2,name);return text;
+}
 inline std::string translatedLabel(const char* english) {
     const std::string original=english;const auto end=original.find("##");const auto visible=original.substr(0,end);
     if(visible.empty())return original;

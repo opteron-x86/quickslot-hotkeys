@@ -4,6 +4,8 @@ Copy en.json to a new UTF-8 JSON file. Set language to the locale code (for exam
 
 Keep printf placeholders such as %s, %d and %.0f in their listed order and type. Preserve spaces at the beginning or end of a fragment. Check Quickslot.log for invalid placeholders. Translate the visible label before an ImGui ## identifier.
 
-Install in Data/Quickslot/translations, then restart the game. Select the language in Appearance > Style > Language. Automatic follows Skyrim's sLanguage setting. Additional fonts can be installed in Data/Quickslot/fonts/fallback as .ttf or .otf files; restart after installing fonts. Theme fonts retain priority; fallbacks supply additional glyphs.
+en.json lists every string the menus and HUD show. Developers keep it current with tools/check-translations.py --fix.
+
+Install in Data/Quickslot/translations, then restart the game. Select the language in Settings > Language. Automatic follows Skyrim's sLanguage setting. Additional fonts can be installed in Data/Quickslot/fonts/fallback as .ttf or .otf files; restart after installing fonts. Theme fonts retain priority; fallbacks supply additional glyphs.
 
 The bundled CJK fallback covers Chinese, Japanese and Korean characters. Text renders left to right using individual glyphs. The controller's on-screen keyboard uses Latin keys; hardware keyboard text uses Skyrim's character events.

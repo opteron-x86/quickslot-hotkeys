@@ -122,7 +122,7 @@ int main(int argc,char** argv) {
     if(scene.starts_with("pack-")){options.groupCount=4;layoutPreset(options,0);options.themeId=scene.substr(5);}
     if(scene=="free-selector"){options.groupCount=4;layoutPreset(options,1);options.selectorDock=4;options.selectorX=.45f;options.selectorY=.35f;}
     if(scene.find("fallback")!=std::string::npos){hud.setKeys(0,{});hud.setTheme(options.themeId,0);options.keys[1]=68;}
-    if(scene=="editor-layout"||scene=="editor-groups"||scene=="editor-selector"||scene=="editor-position-grid"||scene=="editor-presets"){editing.options.groupCount=4;layoutPreset(editing.options,0);}
+    if(scene=="editor-layout"||scene=="editor-groups"||scene=="editor-selector"||scene=="editor-position-grid"||scene=="editor-position-appearance"||scene=="editor-position-elements"||scene=="editor-presets"){editing.options.groupCount=4;layoutPreset(editing.options,0);}
     if(scene=="editor-empty"){editing.draft.groups[0]={};fixture::rows(editing);}
     if(scene.starts_with("v04-")) {
         options.groupCount=4;layoutPreset(options,0);options.scale=1.15f;
@@ -174,7 +174,7 @@ int main(int argc,char** argv) {
     if(scene=="editor-behavior-pause")editing.options.selectionSpeed=0;
     if(scene.starts_with("edge-")) {
         options.groupCount=4;layoutPreset(options,0);options.scale=1.25f;
-        options.positionX=scene.find("left")!=std::string::npos?0.f:1.f;
+        options.anchor=unanchored;options.positionX=scene.find("left")!=std::string::npos?0.f:1.f;
         options.positionY=scene.find("top")!=std::string::npos?0.f:1.f;
         snapshot.activeGroup=0;snapshot.rows.clear();
         for(const auto i:{0,1,2})snapshot.rows.push_back({editing.catalog[i].entry,true,i==1,{}});
@@ -192,7 +192,7 @@ int main(int argc,char** argv) {
             snapshot.groups[1]={snapshot.rows[0].entry,3,true,true,32};
         }
     }
-    if(scene=="editor-position-grid"){editing.options.placementGrid=editing.options.placementSnap=true;editing.options.positionX=.75f;editing.options.positionY=.8f;}
+    if(scene=="editor-position-grid"){editing.options.placementGrid=editing.options.placementSnap=true;editing.options.anchor=unanchored;editing.options.positionX=.75f;editing.options.positionY=.8f;}
     if(scene=="editor-presets") {
         editing.presets={"Combat - Oathvein","Nordic circles"};std::map<std::string,PresetInfo> info;
         Options oathvein=editing.options;oathvein.themeId="oathvein";layoutPreset(oathvein,1);info["Combat - Oathvein"]={true,oathvein};
@@ -214,7 +214,7 @@ int main(int argc,char** argv) {
     }
     if(scene.starts_with("v081-")) {
         layoutPreset(options,2);options.themeId="oathvein";options.groupCount=4;
-        options.positionX=.85f;options.positionY=.85f;options.selectorDock=2;
+        options.anchor=unanchored;options.positionX=.85f;options.positionY=.85f;options.selectorDock=2;
         options.names={"Arsenal","Offhand","Supplies","Voice","Group 5","Group 6","Group 7","Group 8"};
         snapshot.activeGroup=0;snapshot.rows.clear();
         for(const auto i:{0,1,2,3,4,5,6})snapshot.rows.push_back({editing.catalog[i].entry,true,i==0,{}});
@@ -249,12 +249,12 @@ int main(int argc,char** argv) {
     }
     if(scene=="editor-position-bounds"||scene=="editor-position-custom") {
         editing.options.themeId="oathvein";editing.options.placementGrid=true;editing.options.placementSnap=true;
-        editing.options.placementFrame=3;editing.options.placementSpacing=2;editing.options.positionX=.8f;editing.options.positionY=.7f;
+        editing.options.placementFrame=3;editing.options.placementSpacing=2;editing.options.anchor=unanchored;editing.options.positionX=.8f;editing.options.positionY=.7f;
         editing.options.groupCount=4;layoutPreset(editing.options,1);
         if(scene=="editor-position-custom"){editing.options.placementSpacing=3;editing.options.placementGridSize=48;}
     }
     if(scene.starts_with("text-")) {
-        options.themeId="oathvein";options.scale=.55f;options.showHints=true;options.showLabels=true;options.positionX=.6f;options.positionY=.8f;
+        options.themeId="oathvein";options.scale=.55f;options.showHints=true;options.showLabels=true;options.anchor=unanchored;options.positionX=.6f;options.positionY=.8f;
         options.groupCount=4;options.shape=1;options.layout=2;
         if(scene.find("large")!=std::string::npos)options.textScale=1.5f;
         if(scene.find("ring")!=std::string::npos)options.selector=2;
@@ -270,7 +270,7 @@ int main(int argc,char** argv) {
         if(scene.find("text")!=std::string::npos)options.equipmentStyle=4;
         if(scene.find("ring")!=std::string::npos){options.selector=2;options.shape=1;}
         if(scene.find("small")!=std::string::npos){options.scale=.55f;options.textScale=1.5f;}
-        if(scene.find("diamonds")!=std::string::npos){options.themeId="oathvein";options.shape=3;options.selectorShape=3;options.selector=1;options.layout=2;options.groupCount=4;options.spacing=4;options.selectorSpacing=8;options.scale=1.5f;options.equipmentStyle=1;options.positionX=.5f;options.positionY=1;options.showLabels=false;}
+        if(scene.find("diamonds")!=std::string::npos){options.themeId="oathvein";options.shape=3;options.selectorShape=3;options.selector=1;options.layout=2;options.groupCount=4;options.spacing=4;options.selectorSpacing=8;options.scale=1.5f;options.equipmentStyle=1;options.anchor=unanchored;options.positionX=.5f;options.positionY=1;options.showLabels=false;}
     }
     if(scene.find("equipment-ammo")!=std::string::npos) {
         options.showEquipment=options.showEquipmentAmmo=true;Entry ammo;ammo.kind=Kind::ammo;ammo.name="Dwarven Bolts";snapshot.equipment.ammo=Row{ammo,true,true,{},147};
@@ -284,7 +284,7 @@ int main(int argc,char** argv) {
     std::vector<std::string> previewClicks;
     if(scene.starts_with("equipped-")) {
         options.themeId="oathvein";layoutPreset(options,2);options.groupCount=4;options.showEquipment=true;options.inactiveGroups=1;
-        options.positionX=.9f;options.positionY=.8f;options.showCardNames=true;
+        options.anchor=unanchored;options.positionX=.9f;options.positionY=.8f;options.showCardNames=true;
         snapshot.browsing=false;snapshot.equipment=editing.equippedDisplay;snapshot.selected=snapshot.preview=0;
         snapshot.activeGroup=0;snapshot.rows={{editing.catalog[0].entry,true,true}};
         snapshot.groups[0]={editing.catalog[0].entry,4,true,true};
@@ -318,20 +318,23 @@ int main(int argc,char** argv) {
     if(scene=="editor-equipped"){editing.options.showEquipment=true;editing.options.themeId="oathvein";previewClicks={"Appearance","Equipment"};}
     if(scene=="editor-equipped-spacing"){editing.options.showEquipment=true;editing.options.themeId="oathvein";editing.options.equipmentStyle=1;editing.options.equipmentSpacing=128;previewClicks={"Appearance","Equipment"};}
     if(scene=="editor-equipped-layout"){editing.options.showEquipment=true;editing.options.themeId="oathvein";previewClicks={"Appearance","Equipment","##equipment style","Circles","##equipment layout","Horizontal","##equipment text","Bottom"};}
-    if(scene=="editor-cycle")previewClicks={"##group mode"};
+    if(scene=="editor-cycle")previewClicks={"##group tap"};
     if(scene=="editor-library")previewClicks={"##filter","Shortcuts"};
     if(scene=="editor-library-edit")previewClicks={"##filter","Shortcuts","##candidate","Edit shortcut"};
     if(scene=="editor-favorites")previewClicks={"##group source","Favorite weapons"};
     if(scene=="editor-controller")previewClicks={"Controls","Controller"};
-    if(scene=="editor-controller-actions")previewClicks={"Controls","Controller","Browsing actions","Reset controller actions"};
-    if(scene=="editor-keyboard-actions")previewClicks={"Controls","Keyboard","Remap actions…"};
-    if(scene=="editor-mouse-hands")previewClicks={"Controls","Keyboard","Remap actions…","Use mouse buttons for hands"};
-    if(scene=="editor-controller-hands")previewClicks={"Controls","Controller","Browsing actions","Use bumpers for hands"};
+    if(scene=="editor-controller-actions")previewClicks={"Controls","Controller","Reset controller actions"};
+    if(scene=="editor-keyboard-actions")previewClicks={"Controls","Keyboard"};
+    if(scene=="editor-mouse-hands")previewClicks={"Controls","Keyboard"};
+    if(scene=="editor-controller-hands")previewClicks={"Controls","Controller"};
     if(scene=="editor-keyboard"||scene=="editor-keyboard-eight")previewClicks={"Controls","Keyboard"};
     if(scene=="editor-keyboard-eight")editing.options.groupCount=Arsenal::count;
     if(scene=="editor-controller-keyboard")previewClicks={"Groups##main","Items"};
     if(scene=="editor-controller-position"){editing.options.placementGrid=true;previewClicks={"Appearance","Widget","Position"};}
     if(scene=="editor-layout")previewClicks={"Appearance"};
+    if(scene=="editor-settings")previewClicks={"Settings##main"};
+    if(scene=="editor-free"||scene=="editor-free-position"){editing.options.groupCount=4;editing.options.layout=freeLayout;for(int slot=0;slot<4;++slot)editing.options.tilePlaces[editing.options.groupOrder[std::size_t(slot)]]={std::array<unsigned,4>{3,5,1,7}[std::size_t(slot)],0,0,slot==2?1.6f:1.f};previewClicks=scene=="editor-free"?std::vector<std::string>{"Appearance","Widget"}:std::vector<std::string>{"Appearance","Widget","Position"};}
+    if(scene=="editor-simple")previewClicks={"Appearance","Widget","Show advanced settings"};
     if(scene=="editor-pngii")previewClicks={"Appearance","Theme","Use PNGII icons","Use PNGII icons"};
     if(scene=="editor-groups")previewClicks={"Appearance","Widget"};
     if(scene.starts_with("editor-spacing-")) {
@@ -361,6 +364,8 @@ int main(int argc,char** argv) {
     if(scene=="editor-selector")previewClicks={"Appearance","Selector"};
     if(scene=="editor-position-grid"||scene=="editor-position-bounds"||scene=="editor-position-custom")previewClicks={"Appearance","Widget","Position"};
     if(scene=="editor-presets")previewClicks={"Presets","Combat - Oathvein"};
+    if(scene=="editor-position-appearance")previewClicks={"Appearance","Selector","Position","Appearance##position"};
+    if(scene=="editor-position-elements")previewClicks={"Appearance","Widget","Position","##placement element"};
     if(scene=="editor-hand-actions")previewClicks={"New","Hand action"};
     if(scene.starts_with("editor-behavior"))previewClicks={"Controls"};
     if(scene=="editor-smart-weapon")previewClicks={"New","Smart weapon"};
@@ -374,16 +379,27 @@ int main(int argc,char** argv) {
     if(scene=="editor-smart")previewClicks={"New","Smart potion"};
     if(scene=="editor-combinations")previewClicks={"New","Combination","##right component","Healing","Both hands"};
     if(scene=="editor-hand-picker")previewClicks={"New","Combination","##right component"};
-    if(scene=="editor-group-behavior")previewClicks={"##group mode"};
+    if(scene=="editor-group-behavior")previewClicks={"##group tap"};
     EditHistory history;history.begin(editing.draft,editing.options);
     // QUICKSLOT_PREVIEW_THEME shows any scene, including the editor, under another theme.
     if(const char* theme=std::getenv("QUICKSLOT_PREVIEW_THEME");theme&&*theme)options.themeId=editing.options.themeId=theme;
-    // QUICKSLOT_PREVIEW_OPTIONS is a JSON object of settings laid over the scene's own, such as {"selectorScale":2,"selectorScaleLinked":false}.
+    // QUICKSLOT_PREVIEW_OPTIONS is a JSON object of settings laid over the scene's own, such as {"selectorScale":2,"wheelHubCircle":false}.
     if(const char* extra=std::getenv("QUICKSLOT_PREVIEW_OPTIONS");extra&&*extra) {
         const auto overlay=Json::parse(extra);
         for(auto* target:{&options,&editing.options}){auto merged=Json::parse(encodeOptions(*target));merged.update(overlay);*target=decodeOptions(merged.dump());}
     }
+    // QUICKSLOT_PREVIEW_CHARGE=<0..1> gives weapons that much enchantment charge; other weapon rows step down from it to empty.
+    if(const char* charge=std::getenv("QUICKSLOT_PREVIEW_CHARGE");charge&&*charge) {
+        const float full=std::clamp(std::strtof(charge,nullptr),0.f,1.f);const std::array<float,4> steps{full,full*.5f,.12f,0};
+        std::size_t weapon=0;for(auto& row:snapshot.rows)if(!row.entry.spell)row.weapon.charge=steps[weapon++%steps.size()];
+        for(auto& group:snapshot.groups)if(group.entry&&!group.entry->spell)group.weapon.charge=full;
+        for(auto& hand:snapshot.equipment.hands)if(hand&&!hand->entry.spell)hand->weapon.charge=full;
+    }
+    // QUICKSLOT_PREVIEW_DESCRIPTION=<text> describes every row, as the game does for potions.
+    if(const char* text=std::getenv("QUICKSLOT_PREVIEW_DESCRIPTION");text&&*text)for(auto& row:snapshot.rows)row.description=text;
     // QUICKSLOT_PREVIEW_CAPTION closes the selector and shows the just-selected item's name beside that group's tile.
+    // QUICKSLOT_PREVIEW_TIP=<binding> shows the first-run tip and names that binding in an empty group's selector.
+    if(const char* binding=std::getenv("QUICKSLOT_PREVIEW_TIP");binding&&*binding){snapshot.editorShortcut=binding;snapshot.tip=trNamed("Press %s to set up Quickslot",binding);}
     if(const char* group=std::getenv("QUICKSLOT_PREVIEW_CAPTION");group&&*group){snapshot.browsing=false;snapshot.activeGroup=std::min<std::size_t>(std::strtoul(group,nullptr,10),Arsenal::count-1);snapshot.revealUntil=1e12;}
     const auto started=SDL_GetTicks64();   // HUD stills wait for the opening motion to settle
     bool running=true;int frames=0,previewStep=0,scrollAttempts=0,settled=0,keyboardStep=0;ImVec2 tabPoint{};

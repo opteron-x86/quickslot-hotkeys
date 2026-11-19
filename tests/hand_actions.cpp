@@ -1,4 +1,5 @@
 #include "EquipmentAction.h"
+#include "Favorites.h"
 #include "EditorModel.h"
 #include "ItemIdentity.h"
 #include "Presets.h"
@@ -168,7 +169,37 @@ int main()try {
         for(const auto kind:{Kind::potion,Kind::poison,Kind::food,Kind::smartPotion,Kind::shout,Kind::power,Kind::lesserPower,Kind::combo,Kind::ammo,Kind::smartAmmo,Kind::unarmed,Kind::emptyHand}) {
             Entry unsupported;unsupported.kind=kind;Group items;items.add(unsupported);Selection browse;browse.press(0,items);
             check(!entryForHand(unsupported,Hand::left)&&!entryForHand(unsupported,Hand::right),"Hand actions reject consumables, voice, combinations, ammo and empty-hand commands");
-            check(!releaseToHand(browse,items,0,Hand::left,false)&&!browse.release(items),"Unsupported hand action cannot become an accidental use on group release");
+            check(!handButtonTarget(unsupported,Hand::left)&&!handButtonTarget(unsupported,Hand::right),"An entry that goes in no hand has no hand button target");
+            const auto chosen=releaseToHand(browse,items,0,Hand::left,false);
+            check(chosen&&!chosen->hand&&chosen->browsed&&!browse.release(items),"A hand button on an entry with no hand selects it as a release would, never as a tap");
+        }
+        {
+            // A hand button is forgiving: a left-only item goes left whichever button is pressed.
+            check(handButtonTarget(sword,Hand::left)==std::optional{Hand::left}&&handButtonTarget(sword,Hand::right)==std::optional{Hand::right},"A one-handed weapon follows the pressed hand button");
+            check(handButtonTarget(shield,Hand::right)==std::optional{Hand::left}&&handButtonTarget(torch,Hand::right)==std::optional{Hand::left},"A shield or torch goes to the left hand from either hand button");
+            Group offhand;offhand.add(shield);Selection pick;pick.press(0,offhand);
+            const auto guarded=releaseToHand(pick,offhand,0,Hand::right,true);
+            check(guarded&&guarded->hand==std::optional{Hand::left}&&guarded->controller,"The right hand button equips a shield where it belongs");
+
+            // The hand an item was last put in is remembered.
+            Group blades;blades.add(sword);const auto revision=blades.revision;
+            check(rememberHand(blades,0,Hand::left)&&blades.entries[0].hand==Hand::left&&blades.revision==revision,"A hand button moves the saved hand without disturbing the group");
+            check(!rememberHand(blades,0,Hand::left)&&rememberHand(blades,0,Hand::right)&&blades.entries[0].hand==Hand::right,"The saved hand follows the latest choice");
+            auto twin=sword;twin.hand=Hand::left;blades.add(twin);
+            check(blades.entries.size()==2&&!rememberHand(blades,0,Hand::left)&&blades.entries[0].hand==Hand::right,"A group that lists an item for both hands keeps both entries");
+            Group fixed;fixed.add(shield);fixed.add(twoHanded);
+            check(!rememberHand(fixed,0,Hand::right)&&!rememberHand(fixed,1,Hand::left)&&!rememberHand(fixed,5,Hand::left),"Left-only and two-handed items have nothing to remember");
+            auto shared=sword;shared.shortcut=7;Group library;library.entries.push_back(shared);library.entries.push_back(smartEquipmentEntry(false,unsigned(WeaponFamily::sword)));
+            check(!rememberHand(library,0,Hand::left)&&!rememberHand(library,1,Hand::left),"Shared shortcuts and smart choices keep their definitions");
+
+            // A favorite keeps its hand while it stays in the list.
+            Group favorites;setFavoriteSource(favorites,FavoriteSource::weapons,Hand::right);
+            auto dagger=sword;dagger.form=0x77;dagger.unique=9;dagger.name="Dagger";
+            refreshFavorites(favorites,{sword,dagger});
+            const auto at=std::size_t(std::find_if(favorites.entries.begin(),favorites.entries.end(),[&](const Entry& e){return sameFavorite(e,dagger);})-favorites.entries.begin());
+            check(rememberHand(favorites,at,Hand::left)&&!refreshFavorites(favorites,{dagger,sword})&&favorites.entries[at].hand==Hand::left,"A favorite stays in the hand it was last put in across refreshes");
+            refreshFavorites(favorites,{sword});refreshFavorites(favorites,{sword,dagger});
+            check(std::all_of(favorites.entries.begin(),favorites.entries.end(),[](const Entry& e){return e.hand==Hand::right;}),"A favorite that left the list returns in the group's default hand");
         }
         for(bool controller:{false,true}) {
             Group items;items.add(sword);Selection browse;browse.press(0,items);

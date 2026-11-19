@@ -83,6 +83,8 @@ int main(int argc,char** argv)try {
         frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();
     };
     const auto key=[&](unsigned scan){frame({{EditorInputType::key,scan,true}});frame({{EditorInputType::key,scan,false}});};
+    // Position mode chooses what to place from one list.
+    const auto element=[&](const std::string& name){click("##placement element");click(name);};
     frame();frame();
     check(probe::one("Close").rect.Max.y<900,"Apply is visible at normal resolution");
     click("##filter");click("Spells");click("##search");for(const auto ch:std::string("healing"))frame({{EditorInputType::character,unsigned(ch)}});frame();
@@ -109,8 +111,10 @@ int main(int argc,char** argv)try {
     click("+ Add group");check(state.options.groupCount==4,"Add group reveals a fourth group");
     click("F2   Combat\n     3 / 16");
     click("Appearance");click("Widget");click("##layout");click("Diamond");check(state.options.layout==2,"Layout picker applies diamond");
-    click("Theme");click("Use PNGII icons");check(!state.options.pngiiIcons,"Appearance toggles PNGII artwork");
-    click("Use PNGII icons");check(state.options.pngiiIcons,"Appearance restores PNGII artwork");
+    click("Theme");check(probe::find("Use PNGII icons").empty(),"PNGII is one of the item icon choices");
+    click("##item artwork");click("PNGII");check(state.options.itemArtwork==2,"Item icons can use PNGII artwork first");
+    click("##item artwork");click("SkyUI");check(state.options.itemArtwork==1,"Item icons can use SkyUI's icons");
+    click("##item artwork");click("I4");check(state.options.itemArtwork==0,"Item icons return to I4");
     click("Controls");click("Keyboard");click("Shift + \\##editor binding");key(66);check(state.options.editorKey==66,"Editor shortcut accepts F8");click("F8##editor binding");
     key(68);check(state.options.editorKey==68&&state.options.editorModifiers==0,"Unmodified editor shortcut can be assigned");
     click("F10##editor binding");
@@ -141,11 +145,13 @@ int main(int argc,char** argv)try {
     check(probe::find("Rename").size()==1&&probe::one("Rename").disabled&&probe::find("Delete preset").empty(),"Built-in presets cannot be renamed or deleted");
     click("Appearance");click("Theme");click("##theme");click("Skyrim silver");check(state.options.themeId=="silver"&&state.options.shape==1,"Theme remains independent of geometry");
     click("Selector");click("##selector shape");click("Squares");check(state.options.selectorShape==2,"Selector shapes can be chosen independently");
-    check(probe::find("##Scale").empty()&&state.options.selectorScaleLinked,"A linked selector has no scale of its own");
-    click("Match widget scale");check(!state.options.selectorScaleLinked&&state.options.selectorScale==state.options.scale&&!probe::find("##Scale").empty(),"Unlinking starts the selector at the widget's scale");
-    {const float widget=state.options.scale;click("+##Scale");check(state.options.selectorScale>widget&&state.options.scale==widget,"The selector's scale changes on its own");}
-    click("+##Opacity");click("-##Opacity");click("-##Opacity");check(state.options.selectorOpacity<state.options.opacity,"The selector has its own opacity");
-    click("Undo");click("Undo");click("Undo");click("Undo");click("Undo");check(state.options.selectorScaleLinked,"Selector sizing supports Undo");
+    check(!probe::find("##Scale").empty()&&probe::find("Match widget scale").empty(),"The selector always has a scale of its own");
+    {
+        const float widget=state.options.scale,own=state.options.selectorScale,opacity=state.options.selectorOpacity;click("+##Scale");
+        check(state.options.selectorScale>own&&state.options.scale==widget,"The selector's scale changes on its own");
+        click("+##Opacity");click("-##Opacity");click("-##Opacity");check(state.options.selectorOpacity<state.options.opacity,"The selector has its own opacity");
+        click("Undo");click("Undo");click("Undo");click("Undo");check(state.options.selectorScale==own&&state.options.selectorOpacity==opacity,"Selector sizing supports Undo");
+    }
     click("Widget");click("Show group names");check(state.options.showLabels,"Names can be restored without changing theme");
     click("Theme");click("Key icons");check(!state.options.keyIcons,"Key artwork can switch to plain hotkey labels");
     click("Key icons");check(state.options.keyIcons,"Key artwork can be restored");
@@ -194,13 +200,14 @@ int main(int argc,char** argv)try {
     const auto cornerOf=[&](int target){return elementCorner(currentGeometry(state.options),target);};
     const auto near=[](Point a,Point b,float slack=.05f){return std::abs(a.x-b.x)<slack&&std::abs(a.y-b.y)<slack;};
     click("Position");check(!probe::find("Drag widget").empty(),"Full-screen placement opens");
-    check(state.options.anchor==unanchored,"Opening Position mode leaves an untouched widget as it was");
+    check(state.options.anchor==Options{}.anchor,"Opening Position mode leaves an untouched widget as it was");
     const auto untouched=cornerOf(0);
     const auto dragArea=probe::one("Drag widget").rect;mouse(dragArea.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,-60,-40}});frame({{EditorInputType::button,0,false}});frame();
     check(near(cornerOf(0),{untouched.x-60,untouched.y-40},1)&&state.options.anchor==8&&state.options.offsetX<0&&state.options.offsetY<0,"Dragging moves the widget by the dragged distance and anchors it to the nearest corner");
     const auto widgetPosition=cornerOf(0);
-    click("Selector");check(!probe::find("Drag selector").empty(),"Selector has its own full-screen drag target");
+    check(probe::find("Match widget scale").empty()&&!probe::find("##placement element").empty(),"Position mode picks its element from one list");
+    element("Selector");check(!probe::find("Drag selector").empty(),"Selector has its own full-screen drag target");
     const auto selectorPosition=cornerOf(1);mouse(probe::one("Drag selector").rect.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,-70,-35}});frame({{EditorInputType::button,0,false}});frame();
     check(cornerOf(1).x<selectorPosition.x&&cornerOf(1).y<selectorPosition.y&&near(cornerOf(0),widgetPosition)&&state.options.selectorAnchor<unanchored,"Dragging the selector anchors it and leaves the widget in place");
@@ -225,7 +232,7 @@ int main(int argc,char** argv)try {
     check(near(cornerOf(1),{freeCorner.x+13,freeCorner.y+9}),"Shift moves freely without grid quantization");
     {
         // Anchors, offsets, nudging and the scale handle.
-        click("Grid");click("Snap to grid");click("Widget");
+        click("Grid");click("Snap to grid");element("Widget");
         const auto pixel=resolutionScale(io.DisplaySize.y);const auto before=cornerOf(0);const auto size=elementExtent(currentGeometry(state.options),0);
         click("##anchor",0);check(state.options.anchor==0&&near(cornerOf(0),before),"Choosing an anchor keeps the widget where it is");
         check(std::abs(state.options.offsetX*pixel-before.x)<.05f&&std::abs(state.options.offsetY*pixel-before.y)<.05f,"Offsets are measured from the chosen anchor");
@@ -261,11 +268,24 @@ int main(int argc,char** argv)try {
             check(std::abs(width-(small.origin.x+small.width*small.scale)-40*unit)<.05f&&std::abs(height-(small.origin.y+small.height*small.scale)-30*unit)<.05f,"An anchored corner keeps its offset at every resolution");
             check(std::abs(large.origin.x+large.width*large.scale-small.origin.x-small.width*small.scale)<.05f&&large.origin.x<small.origin.x,"A larger widget grows away from its anchored corner");
         }
-        click("Grid");click("Snap to grid");click("Selector");
+        click("Grid");click("Snap to grid");element("Selector");
+        {
+            // The Scale slider and the element's own appearance change only the chosen element.
+            const float widget=state.options.scale,own=state.options.selectorScale;
+            const auto r=probe::one("Scale").rect;mouse({r.Min.x+r.GetWidth()*.85f,r.GetCenter().y});frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();
+            check(state.options.selectorScale!=own&&state.options.scale==widget,"Position Scale resizes only the selector");
+            click("Undo");check(state.options.selectorScale==own,"The selector's Position scale supports Undo");
+            click("Appearance##position");click("Arrangement##position");click("Wheel");
+            check(state.options.selector==wheelSelector&&!probe::find("Wheel size##position").empty()&&!probe::find("Show center circle##position").empty(),"Position mode shows the selector's own look settings");
+            click("Wheel style##position");click("Segments");check(state.options.wheelStyle==1&&!probe::find("Ring thickness##position").empty()&&!probe::find("Highlight##position").empty(),"A segmented wheel's settings appear with it");
+            click("Show center circle##position");check(!state.options.wheelHubCircle&&state.options.scale==widget,"Look settings in Position apply live");
+            click("Undo");click("Undo");click("Undo");check(state.options.selector!=wheelSelector&&state.options.wheelHubCircle,"Look changes in Position support Undo");
+            click("Appearance##position");
+        }
         (void)size;
     }
     click("Back");click("##selector dock");click("Above widget");click("Position");
-    const auto docked=currentGeometry(state.options);click("Selector");
+    const auto docked=currentGeometry(state.options);element("Selector");
     const auto detached=currentGeometry(state.options);
     check(state.options.selectorDock==4&&std::abs(docked.origin.x+docked.selectorOrigin.x*docked.scale-detached.origin.x-detached.selectorOrigin.x*detached.scale)<.001f&&std::abs(docked.origin.y+docked.selectorOrigin.y*docked.scale-detached.origin.y-detached.selectorOrigin.y*detached.scale)<.001f,"Detaching the selector preserves its visible location");
     click("Back");click("Widget");const auto textSize=state.options.textScale;
@@ -285,9 +305,9 @@ int main(int argc,char** argv)try {
         click("+##Tile size");check(state.options.tileSize>1,"Tile size applies live");
         check(probe::find("##Columns").empty(),"Columns belong to the grid arrangement");
         click("##layout");click("Grid");click("-##Columns");check(state.options.layout==6&&state.options.gridColumns==3,"The grid arrangement has a column count");
-        click("Selector");click("##selector");click("Horizontal strip");click("##selector visible");click("7");check(state.options.selectorVisible==2&&probe::find("##Wheel radius").empty(),"Strips choose how many items they show");
-        click("##selector");click("Wheel");check(probe::find("##selector visible").empty()&&!probe::find("##Wheel radius").empty(),"The wheel has a radius in place of a visible count");
-        click("+##Wheel radius");check(state.options.wheelRadius==Options{}.wheelRadius+1,"Wheel radius applies live");
+        click("Selector");click("##selector");click("Horizontal strip");click("##selector visible");click("7");check(state.options.selectorVisible==2&&probe::find("##Wheel size").empty(),"Strips choose how many items they show");
+        click("##selector");click("Wheel");check(probe::find("##selector visible").empty()&&!probe::find("##Wheel size").empty(),"The wheel has a size in place of a visible count");
+        click("+##Wheel size");check(state.options.wheelSize==Options{}.wheelSize+2,"Wheel size applies live");
         check(!probe::find("##selector shape").empty(),"A wheel of tiles chooses its item shape");
         click("##wheel style");click("Segments");check(state.options.wheelStyle==1&&probe::find("##selector shape").empty(),"A segmented wheel replaces the item shape");
         click("##reset Wheel style");check(state.options.wheelStyle==0,"The wheel style resets to tiles");
@@ -430,8 +450,10 @@ int main(int argc,char** argv)try {
     click("Close");check(!state.open,"Largest 4K editor remains interactive");
     state=fixture::editor();state.session=session++;state.draft.presetIdentity="ui-character";io.DisplaySize={1920,1080};frame();frame();
     click("Presets");click("##preset name");for(const auto ch:std::string("Combat backup"))frame({{EditorInputType::character,unsigned(ch)}});
-    click("##export scope");click("Complete setup");click("Export preset");check(state.presets.size()==1&&state.options.activePreset=="Combat backup","Export command saves named preset and makes it the current one");
+    click("##export scope");click("Complete setup");click("Save preset");check(state.presets.size()==1&&state.options.activePreset=="Combat backup","Export command saves named preset and makes it the current one");
     click("Update preset");check(state.presets.size()==1,"Updating a preset retains one list entry");
+    // Choosing the preset again returns the save scope to the preset's own, so the update below keeps its groups.
+    click("##export scope");click("Appearance only");click("Combat backup");click("Update preset");
     click("Groups##main");click("Clear group");check(state.draft.groups[0].entries.empty(),"Fixture changed before preset restore");
     click("Presets");click("Combat backup");click("Groups##part");click("Apply preset");
     check(state.draft.groups[0].entries.size()==3,"Complete preset restores exact saved group");
@@ -461,12 +483,13 @@ int main(int argc,char** argv)try {
         click("Undo");check(lookMatches(state.options,state.presetInfo->at("Field kit").options),"Undo returns to the preset's look");
         click("Field kit 2");click("Delete preset");click("Delete");check(state.presets==std::vector<std::string>{"Field kit"},"A duplicate deletes independently");
     }
-    click("Presets");click("Keep settings with this character");check(state.characterSettings,"Settings can be kept with the character");
+    click("Settings##main");click("Keep settings with this character");check(state.characterSettings,"Settings can be kept with the character");
     click("Keep settings with this character");check(!state.characterSettings,"Settings can return to the shared file");
+    click("Presets");check(probe::find("Keep settings with this character").empty(),"The character option lives in Settings alone");
     click("Field kit");click("Delete preset");check(state.presets.size()==1,"Deleting a preset asks first");
     click("Cancel");check(state.presets.size()==1,"Cancelling keeps the preset");
     click("Delete preset");click("Delete");check(state.presets.empty()&&probe::find("Field kit").empty(),"Confirming removes the preset from the list");
-    click("Appearance");click("General");click("##controller preset");click("Circle");click("##keyboard preset");click("Default");
+    click("Settings##main");click("##controller preset");click("Circle");click("##keyboard preset");click("Default");
     check(state.options.controllerPreset=="builtin:circle"&&state.options.keyboardPreset=="builtin:default","Each input device can be given a preset");
     click("##controller preset");click("None");check(state.options.controllerPreset.empty(),"A device preset can be cleared");
     click("Presets");
@@ -499,7 +522,7 @@ int main(int argc,char** argv)try {
     for(const auto screen:std::array<ImVec2,3>{{{1280,720},{1920,1080},{3840,2160}}}) {
         state=fixture::editor();state.session=session++;state.draft.groups[0]={};fixture::rows(state);io.DisplaySize=screen;frame();frame();
         check(probe::find("Shortcuts").empty(),"Group editing has no separate shortcuts tab");
-        click("##group mode");key(1);check(state.open&&ImGui::GetCurrentContext()->OpenPopupStack.empty(),"Escape dismisses a group popup without closing the editor");
+        click("##group tap");key(1);check(state.open&&ImGui::GetCurrentContext()->OpenPopupStack.empty(),"Escape dismisses a group popup without closing the editor");
         click("New");click("Combination");click("##right component");frame();check(io.WantTextInput,"Opening a hand picker focuses search");
         for(const auto ch:std::string("healing"))frame({{EditorInputType::character,unsigned(ch)}});
         check(probe::find("Flames").empty()&&!probe::find("Healing").empty(),"Hand picker searches known spells directly");
@@ -511,11 +534,12 @@ int main(int argc,char** argv)try {
         click("Undo");check(state.draft.current().entries[0].parts[1].name=="Healing","Combination edit is one undoable action");
         click("New");click("Combination");click("Use equipped");click("Add combination");
         check(state.draft.current().entries.back().parts[0].name=="Imperial Sword (Superior)"&&state.draft.current().entries.back().parts[1].kind==Kind::emptyHand,"Current equipment creates a combination directly");
-        click("##group mode");click("Tap to cycle");
-        check(state.options.groupModes[0]==GroupMode::cycle,"Group mode applies live at every resolution");
-        click("##group mode");click("Tap to cycle / hold to browse");
-        check(state.options.groupModes[0]==GroupMode::cycleBrowse,"Combined mode is selectable at every editor resolution");
-        click("Undo");check(state.options.groupModes[0]==GroupMode::cycle,"Undo restores the previous cycle mode");
+        check(probe::one("Hold to browse").disabled,"A group that equips its last item always has the selector");
+        click("##group tap");click("Step to the next item");
+        check(state.options.groupModes[0]==GroupMode::cycleBrowse,"Stepping through a group keeps hold to browse at every resolution");
+        click("Hold to browse");
+        check(state.options.groupModes[0]==GroupMode::cycle,"Hold to browse can be turned off for a stepping group");
+        click("Undo");check(state.options.groupModes[0]==GroupMode::cycleBrowse,"Undo restores hold to browse");
         check(probe::find("Controller tap").empty()&&probe::find("Hold action").empty(),"Independent overrides are absent");
         click("2   Offhand\n     1 / 16");check(state.options.groupModes[1]==GroupMode::browse,"Mode does not leak to other groups");
         click("Undo");check(state.options.groupModes[0]==GroupMode::browse,"Mode change supports Undo");
@@ -526,12 +550,13 @@ int main(int argc,char** argv)try {
     click("Groups##main");
     padKey(PadButton::rb);check(!probe::find("Theme").empty(),"The right shoulder button opens the next tab");
     click("Theme");padKey(PadButton::rt);check(!probe::find("##layout").empty(),"The right trigger opens the next page of a tab");
-    padKey(PadButton::lt);padKey(PadButton::lt);check(!probe::find("##language").empty(),"Pages wrap in both directions");
+    padKey(PadButton::lt);padKey(PadButton::lt);check(!probe::find("##screen area").empty()&&probe::find("##language").empty(),"Pages wrap in both directions");
     padKey(PadButton::rb);check(!probe::find("General").empty(),"Shoulder buttons step through every tab");
-    click("General");padKey(PadButton::rt);check(!probe::find("Remap actions…").empty(),"Triggers page through Controls");
+    click("General");padKey(PadButton::rt);check(!probe::find("Reset keyboard actions").empty(),"Triggers page through Controls");
     padKey(PadButton::rb);check(!probe::find("##preset name").empty(),"The Presets tab follows Controls");
+    padKey(PadButton::rb);check(!probe::find("Reset Quickslot").empty(),"The Settings tab follows Presets");
     padKey(PadButton::rb);check(!probe::find("Group up").empty(),"Tabs wrap back to Groups");
-    padKey(PadButton::lb);check(!probe::find("##preset name").empty(),"The left shoulder button steps back");
+    padKey(PadButton::lb);padKey(PadButton::lb);check(!probe::find("##preset name").empty(),"The left shoulder button steps back");
     click("Groups##main");padKey(PadButton::right);
     check(ImGui::GetCurrentContext()->NavId==probe::one("Appearance").id,"D-pad moves between actual top-level tabs");
     padKey(PadButton::a);check(!probe::find("Theme").empty(),"A activates focused tab without mouse input");
@@ -545,8 +570,8 @@ int main(int argc,char** argv)try {
     click("Controller");click("Button icons");click("PlayStation");check(state.options.controllerStyle==1,"Controller glyph family changes live");
     click("Browse with");click("Left stick");check(state.options.controllerStick==0,"Browse stick is configurable");
     click("Enable previous / next buttons");check(!state.options.controllerBumpers,"Combat browsing-button capture can be disabled");
-    click("Modifier buttons");click("L2");check(!(state.options.controllerModifiers&padButtonMask(PadButton::lt)),"Held trigger can be exempted from controller modifier matching");
-    click("Undo");check(state.options.controllerModifiers&padButtonMask(PadButton::lt),"Modifier protection supports Undo");
+    click("Modifier buttons");click("L1");check(!(state.options.controllerModifiers&padButtonMask(PadButton::lb)),"A held button can be exempted from controller modifier matching");
+    click("Undo");check(state.options.controllerModifiers&padButtonMask(PadButton::lb),"Modifier protection supports Undo");
     click("Enable controller");check(!state.options.controllerEnabled,"Controller gameplay bindings can be disabled");click("Undo");
 
     click("##pad button0");click("Triangle");check(state.options.controllerGroups[0].button==PadButton::y,"Controller group button changes independently of keyboard key");
@@ -572,7 +597,7 @@ int main(int argc,char** argv)try {
     click("Presets");padKey(PadButton::down);
     check(ImGui::GetCurrentContext()->NavId==probe::one("Apply preset").id,"D-pad enters the preset controls directly");
     mouse(probe::one("##preset name").rect.GetCenter());frame({{EditorInputType::stick,1,false,.21f,0}});frame({{EditorInputType::stick,1,false,0,0}});padKey(PadButton::a);
-    click("Clear text");click("p");click("a");click("d");click("Done");click("Export preset");
+    click("Clear text");click("p");click("a");click("d");click("Done");click("Save preset");
     check(std::find(state.presets.begin(),state.presets.end(),"pad")!=state.presets.end(),"Controller text entry can name an exported preset");
     padKey(PadButton::start);check(!state.open,"Start closes the editor with live edits retained");
 
@@ -596,7 +621,7 @@ int main(int argc,char** argv)try {
     padKey(PadButton::a);click("Clear text");padKey(PadButton::b);
     check(!probe::find("Healing").empty()&&probe::find("Flames").empty(),"Cancelling nested text edit preserves the parent filter and picker");
     padKey(PadButton::b);click("Appearance");click("Widget");click("Position");
-    click("Widget");const auto beforeDrag=elementCorner(hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y),0);
+    element("Widget");const auto beforeDrag=elementCorner(hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y),0);
     pointAt(probe::one("Drag widget").rect.GetCenter());
     frame({{EditorInputType::pad,unsigned(PadButton::a),true},{EditorInputType::stick,1,false,-.8f,.5f}});
     for(unsigned i=0;i<15;++i)frame();
@@ -614,9 +639,7 @@ int main(int argc,char** argv)try {
     const std::array<const char*,3> equipmentPresets{"Cross","Diamond","Circle"};
     for(unsigned preset=0;preset<3;++preset) {
         click("Presets");click(equipmentPresets[preset]);click("Apply preset");click("Appearance");
-        check(state.options.equipmentLayout==(preset==0?5u:preset==1?2u:4u)&&!state.options.equipmentShowText,"Layout presets arrange the equipment display to match");
-        click("Show equipment names");check(state.options.equipmentShowText,"Equipment names can be enabled on preset tiles");
-        click("Undo");check(!state.options.equipmentShowText,"Equipment name visibility supports Undo");
+        check(state.options.equipmentLayout==1&&state.options.equipmentStyle==0&&state.options.equipmentAnchor==3&&state.options.equipmentShowText,"Layout presets put the equipment display in a vertical list at the left edge");
         click("Undo");check(encodeOptions(state.options)==equipmentBefore,"Layout presets support Undo as one change");
     }
     const std::array<const char*,6> equipmentLayouts{"Horizontal","Vertical","Diamond","Cross","Circle","Staggered cross"};
@@ -663,10 +686,10 @@ int main(int argc,char** argv)try {
     click("##entry");click("Hand");click("Left");check(state.draft.groups[0].entries[0].hand==Hand::left,"Smart weapon hand changes live");
     click("New");click("Smart ammo");click("Type");click("Bolts");click("Add smart ammo");
     check(state.draft.groups[0].entries.back().kind==Kind::smartAmmo&&state.draft.groups[0].entries.back().equipmentType==1,"Smart bolts add from the unified editor");
-    click("##group mode");click("Tap to cycle");check(state.options.groupModes[0]==GroupMode::cycle,"Smart weapon group can cycle");
+    click("##group tap");click("Step to the next item");click("Hold to browse");check(state.options.groupModes[0]==GroupMode::cycle,"Smart weapon group can cycle");
     click("New");click("Smart potion");click("Add smart potion");
-    check(state.options.groupModes[0]==GroupMode::browse&&probe::one("##group mode").disabled,"Adding a consumable restores browse/use and disables incompatible mode");
-    click("Undo");check(state.options.groupModes[0]==GroupMode::cycle&&state.draft.groups[0].entries.size()==2,"Undo restores contents and cycle mode together");
+    check(state.options.groupModes[0]==GroupMode::cycle&&!probe::one("##group tap").disabled&&probe::find("Consumables").empty(),"Adding a consumable leaves the group's behavior as chosen");
+    click("Undo");check(state.options.groupModes[0]==GroupMode::cycle&&state.draft.groups[0].entries.size()==2,"Undo restores the contents and keeps the behavior");
 
     click("Items");click("##filter");click("Shortcuts");
     check(probe::find("##candidate").size()==2,"Shortcut filter shows both created smart definitions");
@@ -699,7 +722,7 @@ int main(int argc,char** argv)try {
     frame({{EditorInputType::move,0,false,120,-60}});frame({{EditorInputType::button,0,false}});frame();
     {const auto widgetNow=elementCorner(hudGeometry(state.options,io.DisplaySize.x,io.DisplaySize.y),0);
         check(state.options.equipmentAnchor<unanchored&&widgetNow.x==oldWidget.x&&widgetNow.y==oldWidget.y,"Dragging equipment leaves widget position unchanged");}
-    click("Grid");click("Snap to grid");click("Equipment");
+    click("Grid");click("Snap to grid");element("Equipment");
     const auto snapStart=probe::one("Drag equipment").rect;mouse(snapStart.GetCenter());frame({{EditorInputType::button,0,true}});
     frame({{EditorInputType::move,0,false,47,29}});frame({{EditorInputType::button,0,false}});frame();
     const auto eqSnapped=probe::one("Drag equipment").rect;const float eqStep=placementGridStep(state.options,io.DisplaySize.y);
@@ -717,7 +740,7 @@ int main(int argc,char** argv)try {
     localization().load(translations,"russian");localization().select("auto");frame();frame();
     check(probe::one("Close").id==closeID&&probe::one("Close").label=="Закрыть###Close","Translated controls preserve IDs and show localized labels");
     click("Appearance");check(!probe::find("Hide empty groups").empty(),"Appearance retains Visibility after group editing");
-    click("General");check(!probe::find("##language").empty(),"Language selector is available in Appearance");
+    click("Settings##main");check(!probe::find("##language").empty(),"Language selector is available in Settings");
     click("##language");click("English");check(state.options.language=="en","Language selection applies immediately to settings");
     localization().select(state.options.language);frame();check(probe::one("Close").label=="Close","Returning to English restores editor labels");
     click("Close");check(!state.open,"Translated controls remain clickable");
@@ -730,6 +753,14 @@ int main(int argc,char** argv)try {
     ++hidden.interaction;check(vertices(104)>0,"A repeated hotkey wakes the rendered widget");
     hidden.browsing=true;check(vertices(105)>0,"Selector is visible while using hidden-idle mode");
     hidden.visible=false;check(vertices(106)==0,"A blocking game menu hides the complete HUD including its selector");
+    {
+        Snapshot first;first.visible=true;first.interaction=1;Options plain;
+        const auto drawn=[&]{ImGui::NewFrame();auto* draw=ImGui::GetBackgroundDrawList();const auto before=draw->VtxBuffer.Size;hud.draw(first,plain,200,{}, {},draw);const auto count=draw->VtxBuffer.Size-before;ImGui::Render();return count;};
+        const auto bare=drawn();first.tip="Press Shift + \\ to set up Quickslot";const auto tipped=drawn();
+        check(tipped>bare,"The first-run tip is drawn beside the widget");
+        first.notice="Ready";first.noticeUntil=1e9;const auto noticed=drawn();first.tip.clear();check(noticed==drawn(),"A notice takes the tip's place");
+        first.notice.clear();first.browsing=true;const auto empty=drawn();first.editorShortcut="Shift + \\";check(drawn()>0&&empty>0,"An empty group's selector names the editor shortcut");
+    }
     hidden.visible=true;hidden.browsing=false;setWidgetVisibility(visibility,WidgetVisibility::selecting);check(vertices(107)==0,"Selection-only mode leaves no idle notification behind");
     hidden.editorPreview=true;check(vertices(108)>0,"Editor and positioning preview remain visible in selection-only mode");
     hidden=Snapshot{};hidden.visible=true;hidden.equipment=fixture::editor().equippedDisplay;
@@ -760,19 +791,19 @@ int main(int argc,char** argv)try {
         const auto display=io.DisplaySize;io.DisplaySize={1920,1080};
         Snapshot sample;sample.visible=true;sample.editorPreview=true;   // empty groups, so each tile's bounds are its frame, key and names
         const auto drawn=[&](const Options& look){ImGui::NewFrame();HudBounds b;hud.draw(sample,look,300,{}, {},nullptr,&b);ImGui::Render();return b;};
-        Options cards;cards.showLabels=true;const auto plain=drawn(cards);cards.selectorTextScale=3;cards.selectorOpacity=.2f;const auto other=drawn(cards);
+        Options cards;cardsPreset(cards);cards.showLabels=true;const auto plain=drawn(cards);cards.selectorTextScale=3;cards.selectorOpacity=.2f;const auto other=drawn(cards);
         check(!plain.tiles.empty()&&std::abs(plain.tiles[0].height()-other.tiles[0].height())<.5f&&std::abs(plain.tiles[0].width()-other.tiles[0].width())<.5f,"The selector's text size leaves the widget's cards as they are");
         cards.textScale=2;const auto larger=drawn(cards);check(larger.tiles[0].height()>plain.tiles[0].height()+4&&larger.tiles[0].width()>plain.tiles[0].width()+20,"The widget's text size resizes its cards");
         Options tiles;tiles.shape=2;tiles.showLabels=false;const auto small=drawn(tiles);tiles.tileSize=2;const auto large=drawn(tiles);
         check(!small.tiles.empty()&&large.tiles.size()==small.tiles.size()&&std::abs(large.tiles[0].width()-small.tiles[0].width()*2)<4,"Rendered tiles follow the tile size");
-        Options mirrored;mirrored.mirrorCards=true;const auto flipped=drawn(mirrored),straight=drawn(Options{});
+        Options mirrored;cardsPreset(mirrored);const auto straight=drawn(mirrored);mirrored.mirrorCards=true;const auto flipped=drawn(mirrored);
         check(!flipped.tiles.empty()&&std::abs(flipped.tiles[0].width()-straight.tiles[0].width())<2&&std::abs(flipped.tiles[0].height()-straight.tiles[0].height())<2,"Mirrored cards keep their size");
         {
             // Four spaced diamonds; group 3's item was just selected.
             Snapshot fresh;fresh.visible=true;fresh.revealUntil=1e12;fresh.activeGroup=3;fresh.selected=0;
             Entry axe=unarmedEntry();axe.name="Axe";fresh.rows.push_back({axe,true,true,{}});
             for(std::size_t i=0;i<4;++i)fresh.groups[i]={axe,1,true,i==3};
-            Options row;row.groupCount=4;row.layout=0;row.shape=3;row.showLabels=false;row.spacing=60;row.positionX=row.positionY=.5f;row.animateHud=false;
+            Options row;row.groupCount=4;row.layout=0;row.shape=3;row.showLabels=false;row.spacing=60;row.anchor=unanchored;row.positionX=row.positionY=.5f;row.animateHud=false;
             const auto below=[&](const Options& look,HudBounds& b) {
                 ImGui::NewFrame();hud.draw(fresh,look,300,{}, {},nullptr,&b);ImGui::Render();
                 float floor=0;for(const auto& tile:b.tiles)floor=std::max(floor,tile.max.y);
@@ -782,7 +813,7 @@ int main(int argc,char** argv)try {
             check(b.tiles.size()==4&&caption.valid&&caption.min.x>b.tiles[2].max.x-8&&caption.max.x<b.tiles[3].max.x+8,"A newly selected item's name appears under its own group's tile");
             fresh.activeGroup=0;fresh.groups[0].equipped=true;const auto first=below(row,b);
             check(first.valid&&first.max.x<b.tiles[1].min.x+8,"The name follows the selected group");
-            Options named;named.groupCount=4;named.shape=0;named.showCardNames=true;named.positionX=named.positionY=.5f;named.animateHud=false;
+            Options named;cardsPreset(named);named.groupCount=4;named.shape=0;named.showCardNames=true;named.anchor=unanchored;named.positionX=named.positionY=.5f;named.animateHud=false;
             check(!below(named,b).valid,"Cards that show item names carry the name themselves");
             // A browsed group's tile is outlined in its accent.
             Options tinted=row;tinted.groupColored[0]=true;tinted.groupColors[0]={1,0,1};
@@ -883,14 +914,14 @@ int main(int argc,char** argv)try {
     check(state.options.keys[0]==0,"The Controls page can also clear a group hotkey");
     click("Undo");check(state.options.keys[0]==2,"Clearing a key in Controls is undoable");
     check(probe::find("Enable all##editing shortcuts").empty()&&probe::find("Disable all##editing shortcuts").empty(),"Keyboard actions have one configuration surface without duplicate enable/disable controls");
-    click("Remap actions…");click("##action modifier",unsigned(GroupModifier::unequip));click("None");
+    click("##action modifier",unsigned(GroupModifier::unequip));click("None");
     check(!state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey,"None disables a group action through its binding");
     click("##action modifier",unsigned(GroupModifier::remove));click("None");
     check(!state.options.groupUnequipHotkey&&!state.options.groupRemoveHotkey,"Remove can be disabled in the same binding list");
-    key(1);click("Undo");check(!state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey,"Undo restores the last cleared group binding");
+    click("Undo");check(!state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey,"Undo restores the last cleared group binding");
     click("Undo");check(state.options.groupUnequipHotkey&&state.options.groupRemoveHotkey,"Cleared group bindings participate in editor history");
     io.DisplaySize={1280,720};state.options.groupCount=Arsenal::count;frame();frame();
-    click("Remap actions…");click("Clear##action key",unsigned(KeyboardAction::unequip));
+    click("Clear##action key",unsigned(KeyboardAction::unequip));
     check(!state.options.selectorUnequipHotkey&&!state.options.selectorBindings[unsigned(KeyboardAction::unequip)].key,"Clear disables a selected-item action without a separate switch");
     click("None##action key");key(14);
     check(state.options.selectorUnequipHotkey&&state.options.selectorBindings[unsigned(KeyboardAction::unequip)].key==14,"Assigning a new key also enables the previously disabled action");
@@ -904,26 +935,27 @@ int main(int argc,char** argv)try {
     click("Q##action key");key(2);
     check(state.options.selectorBindings[unsigned(KeyboardAction::previous)].key==16,"Action capture rejects an occupied group key");
     key(1);check(state.open&&!state.options.selectorBindings[unsigned(KeyboardAction::previous)].key,"Escape clears action capture without closing the editor");
-    check(ImGui::GetCurrentContext()->OpenPopupStack.empty(),"Escape also dismisses the action popup");click("Remap actions…");
     click("Reset keyboard actions");
     check(state.options.selectorBindings==defaultSelectorBindings&&!state.options.allowUnusedModifiers,"Keyboard action defaults can be restored without changing groups");
-    key(1);check(state.open,"Escape dismisses the action popup without closing the editor");
     io.DisplaySize={1600,900};state.options.groupCount=3;frame();frame();
     click("Controller");click("##pad modifier0");click(padLabel(PadButton::x,state.options.controllerStyle).c_str());
     check(state.options.controllerGroups[0].modifier==PadButton::x,"X can be selected as a group modifier");
-    click("Browsing actions");click("##pad button101");click(padLabel(PadButton::y,state.options.controllerStyle).c_str());
+    click("##pad button101");click(padLabel(PadButton::y,state.options.controllerStyle).c_str());
     check(state.options.controllerActions[unsigned(ControllerAction::unequip)].button==PadButton::y,"Controller unequip can be remapped in the editor");
-    click("Use bumpers for hands");
-    check(state.options.controllerActions[unsigned(ControllerAction::leftHand)].button==PadButton::lb&&state.options.controllerActions[unsigned(ControllerAction::rightHand)].button==PadButton::rb,"Controller hand preset is available through the editor");
-    click("Keyboard");click("Remap actions…");click("Use mouse buttons for hands");
+    check(probe::find("Use triggers for hands").empty(),"The trigger preset stays out of the way while both hand buttons are assigned");
+    state.options.controllerActions=legacyControllerActions;frame();frame();click("Use triggers for hands");
+    check(state.options.controllerActions[unsigned(ControllerAction::leftHand)].button==PadButton::lt&&state.options.controllerActions[unsigned(ControllerAction::rightHand)].button==PadButton::rt,"Earlier controller settings adopt the trigger hand buttons in one click");
+    click("Keyboard");check(probe::find("Use mouse buttons for hands").empty(),"The mouse preset stays out of the way while both hand buttons are assigned");
+    state.options.mouseActions=legacyMouseActions;frame();frame();click("Use mouse buttons for hands");
     check(state.options.mouseActions==std::array<int,3>{-1,0,1},"Mouse hand preset resolves right-click cancellation in the editor");
-    click("Reset keyboard actions");check(state.options.mouseActions==defaultMouseActions,"Reset restores legacy mouse cancellation");key(1);
+    state.options.mouseActions=legacyMouseActions;frame();frame();click("Reset keyboard actions");check(state.options.mouseActions==defaultMouseActions,"Reset assigns the mouse hand buttons");
 
     click("General");io.DisplaySize={1280,720};frame();frame();
     check(state.options.cycleKeepOtherHand,"Cycling protection starts checked in the editor");
     click("Keep the other hand equipped while cycling");
     check(!state.options.cycleKeepOtherHand&&!decodeOptions(encodeOptions(state.options)).cycleKeepOtherHand,"Cycling protection can be disabled and saved through the editor");
     click("Undo");check(state.options.cycleKeepOtherHand,"Undo restores cycling protection");
+    check(probe::find("Allow keyboard / mouse while QuickLoot is open").empty(),"QuickLoot options live in Settings alone");click("Settings##main");
     click("Allow keyboard / mouse while QuickLoot is open");
     check(state.options.quickLootKeyboard&&!state.options.quickLootController,"QuickLoot keyboard allowance leaves controller navigation alone");
     click("Allow controller while QuickLoot is open");
@@ -1033,12 +1065,55 @@ int main(int argc,char** argv)try {
     click("Controls");click("Keyboard");click("None##consumable binding");key(35);
     check(state.options.consumableKey==KeyBinding{35,0}&&decodeOptions(encodeOptions(state.options)).consumableKey.key==35,"Keyboard use binding applies and persists through the editor");
     click("Clear##consumable binding");check(!state.options.consumableKey.key,"The use key can be cleared");click("Undo");check(state.options.consumableKey.key==35,"Undo restores the use key");
-    click("Groups##main");check(probe::one("##group mode").disabled,"Tap-to-use consumables keep the existing group behavior");
+    click("Groups##main");check(!probe::one("##group tap").disabled,"A group with consumables keeps its behavior choices");
     click("Consumables");click("Use selected consumable action");
-    check(state.options.separateConsumableUse[0]&&!probe::one("##group mode").disabled,"Separate use unlocks group cycling modes");
-    click("##group mode");click("Tap to cycle / hold to browse");
-    check(state.options.groupModes[0]==GroupMode::cycleBrowse,"Consumables can combine tap-to-cycle with hold-to-browse");
-    click("Consumables");click("Tap to use");check(!state.options.separateConsumableUse[0]&&state.options.groupModes[0]==GroupMode::browse,"Tap-to-use restores the legacy consumable gesture");
-    click("Undo");check(state.options.separateConsumableUse[0]&&state.options.groupModes[0]==GroupMode::cycleBrowse,"Undo restores consumable behavior and its group mode together");
+    check(state.options.separateConsumableUse[0]&&state.options.groupModes[0]==GroupMode::browse,"A group that equips its last item can leave consumables to the use binding");
+    click("##group tap");click("Step to the next item");
+    check(state.options.groupModes[0]==GroupMode::cycleBrowse&&probe::find("Consumables").empty(),"A stepping group selects consumables and needs no separate choice");
+    click("Undo");check(state.options.groupModes[0]==GroupMode::browse&&state.options.separateConsumableUse[0]&&!probe::find("Consumables").empty(),"Undo restores the group's behavior and its consumable choice");
+    {
+        // The Free arrangement places and sizes each group's tile.
+        state=fixture::editor();state.session=session++;io.DisplaySize={1600,900};state.options.groupCount=4;frame();frame();
+        click("Appearance");click("Widget");click("##layout");click("Free");
+        check(state.options.layout==freeLayout&&state.options.tilePlaces[state.options.groupOrder[0]].anchor<unanchored&&state.options.tilePlaces[state.options.groupOrder[3]].anchor<unanchored,"Choosing Free places every visible tile");
+        click("Undo");check(state.options.layout!=freeLayout,"Choosing Free is one undoable change");
+        click("##layout");click("Free");
+        check(!probe::find("##free tile").empty()&&!probe::find("##free tile size").empty()&&!probe::find("Reset tile positions").empty(),"Free shows a tile picker, a tile size and a reset");
+        click("##free tile");click("Magic");
+        const auto magic=state.options.groupOrder[2];const auto beforeSize=state.options.tilePlaces[magic].scale;
+        // Tiles spread to the four edges, so each one can be grabbed on its own.
+        for(int slot=0;slot<4;++slot)state.options.tilePlaces[state.options.groupOrder[std::size_t(slot)]]={std::array<unsigned,4>{3,5,1,7}[std::size_t(slot)],0,0,1};frame();
+        click("Position");
+        check(!probe::find("Drag tile 1").empty()&&!probe::find("Drag tile 4").empty()&&probe::find("Drag widget").empty(),"Position mode drags each tile in place of the whole widget");
+        check(!probe::find("Tile size").empty(),"Position mode sizes the chosen tile");
+        // The tile on the right edge is clear of the Position panel.
+        const auto start=state.options.tilePlaces[state.options.groupOrder[1]];const auto others=state.options.tilePlaces[state.options.groupOrder[0]];
+        mouse(probe::one("Drag tile 2").rect.GetCenter());frame({{EditorInputType::button,0,true}});
+        frame({{EditorInputType::move,0,false,-200,40}});frame({{EditorInputType::button,0,false}});frame();
+        check(!(state.options.tilePlaces[state.options.groupOrder[1]]==start)&&state.options.tilePlaces[state.options.groupOrder[0]]==others,"Dragging one tile leaves the others where they are");
+        check(state.options.tilePlaces[magic].scale==beforeSize,"Dragging leaves tile sizes alone");
+        click("Back");click("Reset tile positions");
+        check(state.options.layout==freeLayout&&state.options.tilePlaces[state.options.groupOrder[0]].scale==1,"Reset tile positions lines the tiles up again");
+    }
+    {
+        // Settings holds the preferences and the reset; Appearance has a simple and an advanced view.
+        state=fixture::editor();state.session=session++;io.DisplaySize={1600,900};frame();frame();
+        click("Appearance");click("Widget");
+        check(!probe::find("Hide empty groups").empty()&&!probe::find("##Spacing").empty(),"The advanced view shows every Widget setting");
+        click("Show advanced settings");
+        check(!state.options.advancedAppearance&&probe::find("Hide empty groups").empty()&&probe::find("##Spacing").empty()&&!probe::find("##layout").empty()&&!probe::find("##Scale").empty()&&!probe::find("Position").empty(),
+              "The simple view keeps arrangement, shape, scale and Position and leaves the rest out");
+        click("Theme");check(probe::find("Custom text color").empty()&&!probe::find("##theme").empty()&&!probe::find("Custom accent").empty(),"The simple Theme page keeps the theme, font and accent");
+        click("Undo");check(state.options.advancedAppearance,"The view choice supports Undo");
+        click("Settings##main");
+        check(!probe::find("##language").empty()&&!probe::find("Interface sounds").empty()&&!probe::find("Reset Quickslot").empty(),"Settings gathers language, sounds, device presets, QuickLoot, the character option and the reset");
+        state.options.scale=2;state.options.names[0]="Blades";state.options.gameplayEditing=true;frame();frame();const auto before=encodeOptions(state.options);const auto groupsBefore=state.draft.groups[0].entries.size();
+        click("Reset Quickslot");click("Cancel##reset quickslot");check(encodeOptions(state.options)==before,"Cancelling the reset changes nothing");
+        click("Reset Quickslot");click("Reset##quickslot");
+        check(state.options.scale==1&&!state.options.gameplayEditing&&!state.options.introSeen&&state.options.names[0]=="Weapons"&&state.options.groupCount==4&&state.draft.groups[0].automatic()&&state.draft.groups[3].automatic(),
+              "Reset Quickslot restores every default and starts the groups from Favorites");
+        click("Undo");check(encodeOptions(state.options)==before&&state.draft.groups[0].entries.size()==groupsBefore&&!state.draft.groups[0].automatic(),"Undo restores the settings and groups from before the reset");
+        click("Groups##main");padKey(PadButton::lb);check(!probe::find("Reset Quickslot").empty(),"Shoulder buttons reach the Settings tab");
+    }
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

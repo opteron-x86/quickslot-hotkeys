@@ -1,6 +1,7 @@
 #pragma once
 #include "LiveEditor.h"
 #include "Presets.h"
+#include "GroupSetup.h"
 namespace quickslot::fixture {
 inline void rows(EditorState& s) {
     std::vector<Entry> favorites;for(const auto& item:s.catalog)if(item.count>0)favorites.push_back(item.entry);
@@ -11,7 +12,8 @@ inline void rows(EditorState& s) {
     }}
 }
 inline EditorState editor() {
-    EditorState s;s.open=true;s.session=1;s.revision=1;s.catalogVersion=1;s.options.names[0]="Arsenal";s.options.names[1]="Offhand";s.options.names[2]="Magic";
+    // The editor checks were written against card tiles, a strip selector and an equipment list.
+    EditorState s;s.open=true;s.session=1;s.revision=1;s.catalogVersion=1;cardsPreset(s.options);s.options.advancedAppearance=true;s.options.names[0]="Arsenal";s.options.names[1]="Offhand";s.options.names[2]="Magic";
     const std::pair<const char*,Kind> examples[]={{"Imperial Sword (Superior)",Kind::sword},{"Iron Mace",Kind::mace},{"Steel Dagger",Kind::dagger},{"Long Bow (Fine)",Kind::bow},{"Flames",Kind::spell},{"Healing",Kind::spell},{"Iron Shield",Kind::shield},{"Torch",Kind::torch},{"Chain Lightning",Kind::spell},{"Enchanted Dragonbone Greatsword of the Inferno",Kind::greatsword}};
     unsigned id=1;
     for(const auto& [name,kind]:examples){Entry e;e.form=0x123400+id;e.name=name;e.kind=kind;e.spell=kind==Kind::spell;if(tracksInstance(e)){e.owner=0x14;e.unique=std::uint16_t(id);}e.twoHanded=kind==Kind::greatsword||kind==Kind::bow;e.hand=normalizedHand(e,Hand::right);s.catalog.push_back({e,id,1,id==1,true,{}});++id;}
@@ -57,6 +59,7 @@ inline bool apply(EditorState& s,const EditCommand& c,EditHistory& history) {
         if(c.action==EditAction::renamePreset){presets.erase(c.presetName);for(auto* name:{&s.options.activePreset,&s.options.controllerPreset,&s.options.keyboardPreset})if(*name==c.presetName)*name=c.presetTarget;}
         describe();++s.revision;return true;
     }
+    if(c.action==EditAction::resetAll){history.prepare(s.draft,s.options);resetToUnplayed(s.options,s.draft);history.finish(true,false,0);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;++s.restoreSerial;rows(s);return true;}
     if(c.action==EditAction::builtinPreset){if(!builtinPreset(c.presetName))return false;history.prepare(s.draft,s.options);s.options=applyBuiltin(s.options,c.presetName);s.options.activePreset=c.presetName;history.finish(true,false,0);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;++s.restoreSerial;rows(s);return true;}
     if(c.action==EditAction::importPreset){auto result=importPreset(presets.at(c.presetName),s.draft,s.options,c.presetParts,[](const auto&,std::uint32_t id){return id;});history.prepare(s.draft,s.options);s.draft=result.arsenal;s.options=result.options;if(c.presetParts&presetPart::look)s.options.activePreset=c.presetName;history.finish(true,false,0);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;++s.restoreSerial;rows(s);return true;}
     if(c.action==EditAction::undo||c.action==EditAction::revert) {
@@ -80,6 +83,6 @@ inline bool apply(EditorState& s,const EditCommand& c,EditHistory& history) {
         if(c.action==EditAction::addGroup||c.action==EditAction::removeGroup||c.action==EditAction::favoriteSource)++s.restoreSerial;
         history.finish(c.action!=EditAction::select&&c.action!=EditAction::refresh,c.continuous,double(s.revision));
     }
-    normalizeGroupModes(s.options,s.draft);s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;rows(s);return true;
+    s.canUndo=history.canUndo();s.canRevert=history.canRevert();++s.revision;rows(s);return true;
 }
 }

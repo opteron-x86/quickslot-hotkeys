@@ -1,3 +1,4 @@
+#include <atomic>
 #include "Game.h"
 #include "Hud.h"
 #include "Editor.h"
@@ -104,6 +105,8 @@ bool renderHasFocus() {
     if(foreground)GetWindowThreadProcessId(foreground,&pid);
     return pid==GetCurrentProcessId();
 }
+namespace {std::atomic<float> lastWidth{0},lastHeight{0};}
+std::pair<float,float> renderSize(){return {lastWidth.load(),lastHeight.load()};}
 std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& options,const EditorState* editor,const std::vector<EditorInput>& input) {
     std::vector<EditCommand> commands;
     if(!renderHasFocus()){if(editor)Game::get().rendererFailed();return {};}
@@ -120,8 +123,8 @@ std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& optio
         if(r.graphics&&r.graphics->device!=device)r.graphics.reset();
         if(!r.graphics){r.graphics=std::make_unique<Graphics>();r.graphics->initialize(device,context,swap);}
         auto& g=*r.graphics;ImGui::SetCurrentContext(g.imgui);
-        g.i4->beginFrame();
-        g.pngii->beginFrame(editor?editor->options.pngiiIcons:options.pngiiIcons,itemIconGeneration());
+        g.i4->beginFrame(editor?editor->options.itemArtwork:options.itemArtwork);
+        g.pngii->beginFrame((editor?editor->options.itemArtwork:options.itemArtwork)==2,itemIconGeneration());
         localization().select(options.language);
         const bool vr=REL::Module::IsVR();
         preview::DXIsolation::Frame isolated(*g.isolation,!vr);
@@ -141,6 +144,7 @@ std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& optio
             }
         }
         const auto size=vr?ImVec2{1920,1080}:isolated.targetSize();if(size.x<=0||size.y<=0)return {};
+        lastWidth=size.x;lastHeight=size.y;
         auto& io=ImGui::GetIO();io.DisplaySize=size;io.DisplayFramebufferScale={1,1};
         io.DeltaTime=float(std::clamp(now-g.previous,.001,.1));g.previous=now;
         if(editor){g.editor.beginSession(*editor);g.editor.input(input);}

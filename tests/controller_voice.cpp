@@ -110,8 +110,12 @@ int main()try {
         Arsenal a;reorderGroup(controls,0,1);check(controls.groupModes[0]==GroupMode::cycle,"Mode follows stable group ID");
         removeGroup(a,controls,0);check(controls.groupModes[0]==GroupMode::browse,"Removed group resets mode");
     }
+    for(const auto held:{PadButton::lt,PadButton::rt}) {
+        Options controls;ControllerInput input;input.button(held,true,true,controls,true,false);
+        check(!(controls.controllerModifiers&padButtonMask(held))&&input.button(PadButton::up,true,true,controls,true,false).action==PadAction::press,"A group button works while a trigger is held for blocking or attacking");
+    }
     for(const auto codes:{PadCodeSet::xinput,PadCodeSet::orbis})for(unsigned modifier=5;modifier<unsigned(PadButton::count);++modifier) {
-        Options controls;ControllerInput input;const auto mod=PadButton(modifier);
+        Options controls;controls.controllerModifiers=allPadButtons;ControllerInput input;const auto mod=PadButton(modifier);
         input.button(mod,true,true,controls,true,false);
         const auto trigger=padButton(padCodes(codes)[unsigned(PadButton::up)],codes);
         check(!input.button(trigger,true,true,controls,true,false).consumed&&!input.active(),"A foreign controller chord does not start a bare D-pad group");
@@ -333,23 +337,21 @@ int main()try {
     check(pad.stick(0,0,.5,.45f)==0&&pad.stick(0,.8f,.6,.45f)==-1,"Center resets and upward direction browses backward");
     pad.reset();o.controllerEnabled=false;check(!pad.button(PadButton::up,true,true,o,true,false).consumed,"Controller gameplay interception can be disabled");o.controllerEnabled=true;
     {
-        Options hands;ControllerInput input;check(useBumpersForHands(hands),"Bumper hand preset accepts default controls");
-        check(hands.controllerActions[unsigned(ControllerAction::previous)].button==PadButton::none&&hands.controllerActions[unsigned(ControllerAction::next)].button==PadButton::none,"Bumper hand preset removes conflicting navigation bindings");
+        Options hands;ControllerInput input;
+        check(hands.controllerActions[unsigned(ControllerAction::previous)].button==PadButton::lb&&hands.controllerActions[unsigned(ControllerAction::next)].button==PadButton::rb,"The triggers choose hands and leave the bumpers to browsing");
         Group items;Entry sword;sword.form=1;items.add(sword);Selection browse;
-        for(const auto button:{PadButton::lb,PadButton::rb}) {
+        for(const auto button:{PadButton::lt,PadButton::rt}) {
             input.reset();input.button(PadButton::up,true,true,hands,true,false);browse.press(0,items);
             const auto result=input.button(button,true,true,hands,true,true);
-            const auto hand=button==PadButton::lb?Hand::left:Hand::right;
-            check(result.consumed&&result.action==(hand==Hand::left?PadAction::leftHand:PadAction::rightHand),"Bumpers request their assigned hand rather than browsing");
+            const auto hand=button==PadButton::lt?Hand::left:Hand::right;
+            check(result.consumed&&result.action==(hand==Hand::left?PadAction::leftHand:PadAction::rightHand),"A trigger requests its hand while the selector is open");
             const auto commit=releaseToHand(browse,items,0,hand,true);input.cancel();
             check(commit&&input.button(PadButton::up,false,false,hands,true,false).action==PadAction::none&&!browse.release(items),"Completing a hand choice suppresses the held group release");
             check(input.button(button,false,false,hands,true,false).consumed,"Hand-button releases remain balanced after selection closes");
         }
-        Options occupied;occupied.controllerGroups[0]={PadButton::up,PadButton::lb};const auto before=encodeOptions(occupied);
-        check(!useBumpersForHands(occupied)&&encodeOptions(occupied)==before,"Preset refuses to overwrite group or modifier conflicts");
-        input.reset();check(input.button(PadButton::rb,true,true,hands,true,false).action==PadAction::none,"Hand buttons remain normal gameplay input outside selection");
+        input.reset();check(input.button(PadButton::rt,true,true,hands,true,false).action==PadAction::none,"Hand buttons remain normal gameplay input outside selection");
         input.reset();input.button(PadButton::up,true,true,hands,true,false);
-        check(input.button(PadButton::rb,true,true,hands,false,true).action==PadAction::none,"Menus prevent new hand actions");
+        check(input.button(PadButton::rt,true,true,hands,false,true).action==PadAction::none,"Menus prevent new hand actions");
         input.reset();check(input.button(PadButton::rb,true,true,hands,true,true,true).action==PadAction::none,"Desktop hand bindings do not change VR controls");
     }
     const auto encoded=encodeOptions(o);const auto restored=decodeOptions(encoded);
@@ -379,10 +381,29 @@ int main()try {
         check(importPreset(file,arsenal,mine,presetPart::look|presetPart::controls,none).options.keys==theirs.keys,"An appearance preset can still supply its controls");
         check(lookMatches(look,theirs)&&!lookMatches(mine,theirs),"A look matches its preset until a setting changes");
         const auto cross=applyBuiltin(mine,"builtin:cross");
-        check(cross.layout==5&&cross.shape==2&&cross.equipmentLayout==5&&cross.themeId=="edge"&&cross.names==mine.names,"A built-in layout rearranges the HUD and keeps the theme and groups");
+        check(cross.layout==5&&cross.shape==2&&cross.equipmentLayout==1&&cross.equipmentStyle==0&&cross.equipmentAnchor==3&&cross.themeId=="edge"&&cross.names==mine.names,"A built-in layout rearranges the HUD and keeps the theme and groups");
         const auto restoredLook=applyBuiltin(cross,"builtin:default");
         check(restoredLook.layout==Options{}.layout&&restoredLook.themeId==Options{}.themeId&&restoredLook.names==mine.names&&restoredLook.skipEmpty&&restoredLook.language=="ru","The Default preset restores the look alone");
         check(encodeOptions(applyBuiltin(mine,"builtin:unknown"))==encodeOptions(mine)&&builtinPreset("builtin:circle")&&!builtinPreset("Circle"),"Built-in ids are distinct from file names");
+        {
+            const Options fresh;
+            check(fresh.layout==2&&fresh.shape==3&&fresh.selector==1&&fresh.selectorShape==3&&!fresh.showLabels,"A new installation shows diamond tiles with an arc selector");
+            check(encodeOptions(applyBuiltin(fresh,"builtin:diamond"))==encodeOptions(fresh),"The default look is the Diamond preset's look");
+            const auto cards=applyBuiltin(fresh,"builtin:cards");
+            check(cards.layout==0&&cards.shape==0&&cards.selector==0&&cards.showLabels&&cards.equipmentStyle==0&&cards.equipmentShowText,"The Cards preset shows card tiles, a strip selector and an equipment list");
+            check(decodeOptions(encodeOptions(cards)).shape==0&&decodeOptions(encodeOptions(cards)).layout==0,"Saved card settings stay cards");
+            const auto wheel=applyBuiltin(cards,"builtin:wheel");
+            check(wheel.selector==wheelSelector&&wheel.wheelStyle==1&&wheel.shape==3&&wheel.layout==2&&!wheel.showLabels,"The Wheel preset shows diamond tiles with a segmented wheel selector");
+            check(encodeOptions(applyBuiltin(wheel,"builtin:default"))==encodeOptions(fresh),"The Default preset returns from any built-in look");
+            check(builtinPreset("builtin:cards")&&builtinPreset("builtin:wheel")&&builtinPreset("builtin:diamond"),"Earlier built-in ids stay valid beside the new ones");
+            for(const auto* id:{"builtin:default","builtin:cards","builtin:cross","builtin:diamond","builtin:circle","builtin:wheel"}) {
+                Options moved;moved.equipmentStyle=2;moved.equipmentLayout=4;moved.equipmentAnchor=8;moved.equipmentOffsetX=-40;moved.equipmentShowText=false;
+                const auto look=applyBuiltin(moved,id);
+                check(look.equipmentStyle==0&&look.equipmentLayout==1&&look.equipmentShowText&&look.equipmentAnchor==3&&look.equipmentOffsetX==16&&look.equipmentOffsetY==0,"Every built-in look shows equipment as a vertical list at the middle of the left edge");
+            }
+            auto unanchored=Json::parse(encodeOptions(Options{}));unanchored.erase("equipmentAnchor");unanchored.erase("equipmentOffsetX");unanchored.erase("equipmentOffsetY");
+            check(decodeOptions(unanchored.dump()).equipmentAnchor==9,"Settings from before equipment anchors keep their equipment where it was");
+        }
         mine.activePreset=std::string(200,'x');sanitizeOptions(mine);check(mine.activePreset.empty(),"An oversized preset name is discarded");
         // Device presets: applied once, a moment after a device comes into use.
         DevicePresetSwitch devices;devices.reset(false);

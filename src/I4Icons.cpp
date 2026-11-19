@@ -2,7 +2,7 @@
 #include <RE/G/GFxLoader.h>
 #include "I4Icons.h"
 #include "I4Policy.h"
-#include "DXContextState.h"
+#include "DXIsolation.h"
 #include <deque>
 #include <cstring>
 
@@ -115,7 +115,7 @@ std::uint64_t itemIconGeneration(){return iconGeneration.load();}
 struct I4Icons::Impl {
     ComPtr<ID3D11Device> device;
     ComPtr<ID3D11DeviceContext> context;
-    DXContextState isolation;
+    preview::DXIsolation outputs;
     struct Texture {ComPtr<ID3D11ShaderResourceView> original,mask;std::uint64_t used=0;};
     struct Form {std::optional<Spec> spec;std::uint64_t used=0;};
     std::map<std::string,Texture> textures;
@@ -124,10 +124,13 @@ struct I4Icons::Impl {
     std::deque<Entry> pending;
     std::uint64_t generation=0,frame=0;
     std::optional<unsigned> reportedAPI;
-    bool available=false,reported=false,captureReported=false;
-    Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c),isolation(d,c){
-        if(!isolation.available())throw std::runtime_error("I4 icons require D3D11 context-state support");
-    }
+    std::optional<unsigned> artwork;
+    // available: icons can be drawn. perItem: I4 can name each item's own artwork, which PNGII matching uses too.
+    // ownArtwork: items draw that artwork; otherwise each uses SkyUI's category icon for its type.
+    bool available=false,perItem=false,ownArtwork=false,reported=false,captureReported=false;
+    Spec drawn(const Entry& entry,const Spec& resolved)const{return ownArtwork?resolved:category(entry);}
+    const bool installed=SKSE::GetPluginInfo("InventoryInjector")!=nullptr;
+    Impl(ID3D11Device* d,ID3D11DeviceContext* c):device(d),context(c),outputs(d,c){}
 
     static std::string key(const Spec& spec){return spec.source+'\n'+spec.label;}
     template<class Map> void trim(Map& values,std::size_t limit) {
@@ -190,7 +193,9 @@ struct I4Icons::Impl {
         if(FAILED(status))return failDX("create_readback_texture",status);
         bool targetPreserved=false;
         {
-            DXContextState::Frame saved(isolation);
+            // The movie draws in the live context, as a menu does, so the bindings it leaves stay in step with the game's record of them.
+            // Only the output targets and viewport are redirected and put back.
+            preview::DXIsolation::Frame saved(outputs,false);
             ID3D11RenderTargetView* targets[]{view.Get()};context->OMSetRenderTargets(1,targets,nullptr);
             const D3D11_VIEWPORT viewport{0,0,float(iconSize),float(iconSize),0,1};context->RSSetViewports(1,&viewport);
             const float clear[]{0,0,0,0};context->ClearRenderTargetView(view.Get(),clear);
@@ -234,22 +239,28 @@ struct I4Icons::Impl {
         trim(textures,maxTextures);auto texture=render(spec);
         textures.emplace(key(spec),std::move(texture));
     }
-    void beginFrame() {
+    void beginFrame(unsigned mode) {
         ++frame;
         if(generation!=iconGeneration.load()) {generation=iconGeneration.load();forms.clear();textures.clear();movies.clear();pending.clear();}
-        available=false;if(!isolation.available())return;
+        if(artwork!=mode) {
+            if(artwork)textures.clear();
+            artwork=mode;
+            SKSE::log::info("Item icons: {}",mode==0?"I4, then SkyUI":mode==1?"SkyUI":"PNGII, then I4, then SkyUI");
+        }
+        available=false;
         auto* ui=RE::UI::GetSingleton();if(!ui)return;
         const auto hud=ui->GetMenu<RE::HUDMenu>();if(!hud||!hud->uiMovie)return;
         auto& movie=*hud->uiMovie;
         const bool processAvailable=movie.IsAvailable(processEntry),extendAvailable=movie.IsAvailable("skse.ExtendForm");
-        available=processAvailable&&extendAvailable;
+        perItem=processAvailable&&extendAvailable;ownArtwork=perItem&&mode!=1;available=true;
         const unsigned api=unsigned(processAvailable)|(unsigned(extendAvailable)<<1);
         if(reportedAPI!=api) {
             reportedAPI=api;
             SKSE::log::info("I4 icon APIs: ProcessEntry={}, SKSE ExtendForm={}",processAvailable,extendAvailable);
-            if(available)SKSE::log::info("I4 icon provider ready");
+            SKSE::log::info("{}",perItem?"I4 icon provider ready":installed?"I4 icon APIs unavailable; items use SkyUI category icons":"I4 is not installed; items use SkyUI category icons");
         }
-        if(!available&&!reported) {
+        // A message box is for an installed I4 that failed to load; without I4 the category icons are the intended result.
+        if(installed&&!perItem&&!reported) {
             const char* message=!processAvailable&&!extendAvailable?
                 "Quickslot could not access the SKSE and I4 icon APIs. Check that SKSE and I4 1.1.0 or newer loaded successfully. See Quickslot.log for details.":
                 !processAvailable?"Quickslot could not access I4's ProcessEntry icon API. Install I4 1.1.0 or newer for your Skyrim version and check InventoryInjector.log.":
@@ -258,17 +269,16 @@ struct I4Icons::Impl {
             SKSE::GetTaskInterface()->AddTask([message]{RE::DebugMessageBox(message);});
             reported=true;
         }
-        if(!available){pending.clear();return;}
         // Bound SWF capture to one requested icon per frame.
         if(!textures.contains(key(placeholder()))){capture(placeholder());return;}
         for(unsigned work=0;work<8&&!pending.empty();++work) {
             auto entry=std::move(pending.front());pending.pop_front();const auto request=i4RequestKey(entry);
             auto found=forms.find(request);
             if(found==forms.end()) {
-                const auto spec=i4HasForm(entry)?resolve(movie,entry).value_or(category(entry)):category(entry);
+                const auto spec=perItem&&i4HasForm(entry)?resolve(movie,entry).value_or(category(entry)):category(entry);
                 trim(forms,maxForms);found=forms.emplace(request,Form{spec,frame}).first;
             }
-            const auto& spec=*found->second.spec;
+            const auto spec=drawn(entry,*found->second.spec);
             if(textures.contains(key(spec)))continue;
             capture(spec);break;
         }
@@ -276,10 +286,11 @@ struct I4Icons::Impl {
     std::optional<ItemIcon> find(const Entry& entry) {
         if(!available)return {};
         const auto request=i4RequestKey(entry);
+        // The label still resolves so PNGII can match its artwork.
         if(auto form=forms.find(request);form!=forms.end()) {
-            form->second.used=frame;
-            if(auto icon=cached(*form->second.spec))return icon;
-            if(!textures.contains(key(*form->second.spec)))queue(entry);
+            form->second.used=frame;const auto spec=drawn(entry,*form->second.spec);
+            if(auto icon=cached(spec))return icon;
+            if(!textures.contains(key(spec)))queue(entry);
             else {
                 auto fallback=entry;fallback.form=0;
                 if(auto icon=cached(category(fallback)))return icon;
@@ -291,11 +302,11 @@ struct I4Icons::Impl {
 };
 I4Icons::I4Icons(ID3D11Device* d,ID3D11DeviceContext* c):impl_(std::make_unique<Impl>(d,c)){}
 I4Icons::~I4Icons()=default;
-void I4Icons::beginFrame(){impl_->beginFrame();}
+void I4Icons::beginFrame(unsigned artwork){impl_->beginFrame(artwork);}
 std::optional<ItemIcon> I4Icons::find(const Entry& entry){return impl_->find(entry);}
 std::optional<std::string_view> I4Icons::label(const Entry& entry)const {
     if(!impl_->available)return {};
-    if(!i4HasForm(entry))return i4DefaultLabel(entry);
+    if(!impl_->perItem||!i4HasForm(entry))return i4DefaultLabel(entry);
     const auto found=impl_->forms.find(i4RequestKey(entry));
     if(found!=impl_->forms.end()&&found->second.spec)return found->second.spec->label;
     return {};

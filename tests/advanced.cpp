@@ -192,7 +192,7 @@ int main(int argc,char** argv)try {
             check(editor.width<=display.x-23&&editor.height<=display.y-23&&editor.scale>0,"Editor remains inside every supported viewport at each text-size limit");
         }
         for(unsigned dock=0;dock<5;++dock)for(unsigned shape=0;shape<4;++shape)for(float x:{0.f,1.f})for(float y:{0.f,1.f}) {
-            Options corner;corner.groupCount=4;corner.layout=2;corner.shape=shape;corner.selectorDock=dock;corner.positionX=x;corner.positionY=y;
+            Options corner;corner.groupCount=4;corner.layout=2;corner.shape=shape;corner.selectorDock=dock;corner.anchor=unanchored;corner.positionX=x;corner.positionY=y;
             const auto g=hudGeometry(corner,display.x,display.y);
             check(x==0?std::abs(g.origin.x-8)<.01f:std::abs(g.origin.x+g.width*g.scale-display.x+8)<.1f,"Horizontal extrema are independent of selector docking");
             check(y==0?std::abs(g.origin.y-8)<.01f:std::abs(g.origin.y+g.height*g.scale-display.y+8)<.1f,"Vertical extrema are independent of selector reserved space");

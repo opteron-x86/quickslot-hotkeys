@@ -7,15 +7,18 @@ Equipment and consumable shortcut groups with a configurable HUD. Tap a group ke
 [*]Up to eight groups for weapons, armor, shields, spells, scrolls, potions, poisons, food, powers, shouts and ammo.
 [*]Searchable hand combinations, including smart weapons and shields.
 [*]Groups populated automatically from one or more Skyrim Favorites categories.
-[*]Hand selection while browsing, with keyboard, mouse and controller bindings.
+[*]Hand buttons while the selector is open: mouse buttons or triggers put an item in either hand or take it out, and the hand is remembered.
 [*]Smart weapons by physical damage, shields by armor, ammo by damage and potions by strength or best fit.
-[*]Hold-to-browse, tap-to-cycle and combined tap-to-cycle/hold-to-browse group modes.
+[*]A Tap choice for each group, equip the last item or step to the next, with optional hold-to-browse.
+[*]New characters start with groups that follow their Skyrim Favorites.
 [*]A dedicated consumable binding for using the last selected potion, food or poison.
 [*]Keyboard, XInput, PS4 and experimental VR controls with configurable modifiers.
 [*]Independent equipment display with quantity badges, poison indicators, bow ammunition counts, shout timers and power dimming.
 [*]Separate keyboard/mouse and controller options for using Quickslot while QuickLoot is open.
 [*]Rows, columns, grids, crosses, diamonds, circles, lists and a wheel selector with tile or segmented-ring styles.
 [*]Separate scale, text size, opacity and anchored placement for the widget, selector and equipment display.
+[*]A wheel you can shape: size, ring thickness, gaps, highlight styles, rotation, and an optional center circle.
+[*]Enchantment charge as diamonds under the weapon's name, and on its icon as a color fill or a small soul gem.
 [*]Themes, icon sets, custom colors, per-group colors and an equipped-item highlight.
 [*]A preset manager with built-in layouts, automatic presets for controller and keyboard, Undo, automatic saving and menu translations.
 [/list]
@@ -24,27 +27,26 @@ Equipment and consumable shortcut groups with a configurable HUD. Tap a group ke
 [list]
 [*][url=https://skse.silverlock.org/]SKSE[/url] and [url=https://www.nexusmods.com/skyrimspecialedition/mods/32444]Address Library[/url] matching your game executable.
 [*][url=https://www.nexusmods.com/skyrimspecialedition/mods/12604]SkyUI[/url] and Microsoft Visual C++ Redistributable, x64.
-[*][url=https://www.nexusmods.com/skyrimspecialedition/mods/85702]Inventory Interface Information Injector (I4) 1.1.0+[/url] for your Skyrim version.
 [*]VR: SKSEVR, [url=https://github.com/alandtse/skyrim_vr_address_library]VR Address Library[/url], [url=https://github.com/Odie/skyui-vr]SkyUI VR[/url] and [url=https://www.nexusmods.com/skyrimspecialedition/mods/183466]ImGui VR Helper 1.9.4+[/url].
 [/list]
 
-Optional integrations: [url=https://github.com/rijosan87/PNGII]PNG Icon Injector[/url] with icon API v1, [url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url], ImGui Icons and Skyrim Souls RE.
+Optional integrations: [url=https://www.nexusmods.com/skyrimspecialedition/mods/85702]Inventory Interface Information Injector (I4) 1.1.0+[/url] for item artwork (without it, items show SkyUI category icons), [url=https://github.com/rijosan87/PNGII]PNG Icon Injector[/url] with icon API v1, [url=https://www.nexusmods.com/skyrimspecialedition/mods/120352]SKSE Menu Framework[/url], ImGui Icons and Skyrim Souls RE.
 
 [b]Controls[/b]
 
 Open the editor with [b]Shift + \[/b]. Add items in Groups; New creates combinations and smart shortcuts. Changes save automatically.
 
-Hold a group key and use the wheel or Left/Right to browse. Release to select. Ctrl + Left/Right reorders; both actions wrap. Ctrl + a group key adds the right hand; Ctrl + Shift adds the left. Shift + a group key unequips; Alt + a group key removes its shortcut. While browsing, Backspace unequips and Delete removes the highlighted shortcut.
+Hold a group key and use the wheel or Left/Right to browse. Release to select. Ctrl + Left/Right reorders; both actions wrap. In Inventory and Magic, Ctrl + a group key adds the highlighted item for the right hand and Ctrl + Shift adds it for the left. During gameplay a group key held with Ctrl, Shift or Alt selects the group; enable Controls → Keyboard → Use editing shortcuts during gameplay to add the equipped right or left hand with Ctrl or Ctrl + Shift, unequip with Shift and remove a shortcut with Alt. While browsing, Backspace unequips and Delete removes the highlighted shortcut.
 
 On controller, groups use D-pad directions by default. Hold a group button and browse with the right stick or LB/RB. Release to select, B/Circle to cancel, X/Square to unequip. Hold D-pad Up and press Start/Options to open the editor. The editor supports D-pad focus, right-stick pointer, click/drag and on-screen text entry.
 
 Configure bindings under Controls. Keyboard actions use None or Clear to disable a binding. For Alt-to-walk setups, assign Remove group shortcut to another modifier or None and enable Allow group selection with unused modifiers.
 
-While browsing, choose Equip in right/left hand to equip the highlighted weapon or spell for the current use. Mouse-button and bumper presets are available in the binding settings.
+While the selector is open, the left mouse button or RT puts the highlighted item in the right hand and the right mouse button or LT in the left. Pressing the button of the hand an item is already in takes it out. Settings from earlier versions adopt these bindings with Use mouse buttons for hands and Use triggers for hands.
 
-Tap-to-cycle recalls the selected item when returning to a group and advances on further taps. [b]Tap to cycle / hold to browse[/b] cycles on a short release and opens the selector when held. [b]Keep the other hand equipped while cycling[/b], under Controls → General, starts enabled and skips weapon copies held in the opposite hand.
+With [b]Tap → Step to the next item[/b], the first tap when returning to a group recalls the selected item and further taps advance. [b]Hold to browse[/b] opens the selector when the key is held. [b]Keep the other hand equipped while cycling[/b], under Controls → General, starts enabled and skips weapon copies held in the opposite hand.
 
-Consumable groups start with tap-to-use and hold-to-choose. Set [b]Consumables → Use selected consumable action[/b] to cycle or browse consumables, then use a separate binding to consume one dose. Bind [b]Use selected consumable[/b] under Controls → Keyboard or Controller. The action starts unbound and uses the last explicitly selected consumable across groups; the equipment display shows that selection.
+Groups that equip their last item use a consumable on a tap. Set [b]Consumables → Use selected consumable action[/b], or choose Step to the next item, to select consumables with the group key and consume one dose with a separate binding. Bind [b]Use selected consumable[/b] under Controls → Keyboard or Controller. The action starts unbound and uses the last explicitly selected consumable across groups; the equipment display shows that selection.
 
 In Groups, open the Manual dropdown and check the Favorites categories to include. For example, combine Favorite weapons with Favorite shields / torches. The group displays matching favorites once each, in alphabetical order.
 
@@ -52,19 +54,21 @@ In Groups, open the Manual dropdown and check the Favorites categories to includ
 
 Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Appearance has a page each for Theme, Widget, Selector, Equipment and General. Every slider has step buttons and a reset; Reset page and Reset all appearance restore the defaults.
 
-Each display holds on to one of nine screen anchors with a pixel offset. In Position mode, drag or resize a display, nudge it with the arrow keys or LB + D-pad, or center it. Screen area keeps the HUD inside a 16:9, 2:1 or 21:9 area on ultrawide screens.
+Each display holds on to one of nine screen anchors with a pixel offset. The Free arrangement places and sizes each group's tile on its own, so groups can sit on both sides of the screen. In Position mode, drag or resize a display, nudge it with the arrow keys or LB + D-pad, or center it. Screen area keeps the HUD inside a 16:9, 2:1 or 21:9 area on ultrawide screens.
 
-Presets lists built-in Default, Cross, Diamond and Circle layouts above your own. Rename, duplicate, update and delete presets, preview them, and apply their look, controls or groups. Input device presets switch the look when you change between controller and keyboard.
+Presets lists built-in Default, Cards, Cross, Diamond, Circle and Wheel layouts above your own. New installations show diamond tiles with an arc selector. Rename, duplicate, update and delete presets, preview them, and apply their look, controls or groups. Input device presets switch the look when you change between controller and keyboard.
 
-[b]Equipped highlight[/b] under Appearance → Theme outlines or tints the tile of an equipped item. [b]Wheel style → Segments[/b] under Appearance → Selector turns the wheel into a ring of wedges with the pointed item's name in the center.
+[b]Equipped highlight[/b] under Appearance → Theme outlines or tints the tile of an equipped item. [b]Wheel style → Segments[/b] under Appearance → Selector turns the wheel into a ring of wedges with the pointed item's name in the center; the Wheel section sets its ring thickness, gaps, highlight, rotation and center circle.
 
-Item icons use your installed I4 packs. Original displays their colors; Theme and White apply the selected tint. Smart shortcuts show the item currently selected, combinations show both items, and hand actions use a gauntlet.
+Item icons use your installed I4 packs, or SkyUI category icons without I4. Original displays their colors; Theme and White apply the selected tint. Smart shortcuts show the item currently selected, combinations show both items, and hand actions use a gauntlet.
 
 Enable [b]Use PNGII icons[/b] under Appearance → Theme to display matching artwork from PNG Icon Injector. I4 supplies the remaining icons.
 
 Enable Show equipped ammunition under Appearance → Equipment to display equipped arrows or bolts and their current count.
 
 The equipment display shows the right hand first, then left hand, consumable and power/shout. Quantities and shout timers appear on icons. Groups and equipment have independent visibility settings.
+
+Settings holds language, interface sounds, input device presets, QuickLoot input, the character option and Reset Quickslot, which returns to a new installation's settings and Favorites groups. Appearance pages start with their main settings; Show advanced settings adds the rest.
 
 [b]Downloads and support[/b]
 

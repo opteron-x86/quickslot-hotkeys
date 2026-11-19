@@ -82,11 +82,11 @@ inline void checks() {
     pngiiCheck(svg&&svg.pixels[center]==0&&svg.pixels[center+1]==255&&svg.pixels[center+2]==0&&svg.pixels[center+3]>=127&&svg.pixels[center+3]<=128,"SVG CSS fill and alpha decode to straight RGBA");
     pngiiCheck(svg.pixels[(73*256+128)*4+3]==0&&svg.pixels[(182*256+128)*4+3]==0,"SVG fit preserves aspect and padding");
     pngiiCheck(!decodePNGIIImage("bad.png",{})&&!decodePNGIIImage("bad.svg",pngiiPNG)&&!decodePNGIIImage("bad.jpg",pngiiPNG)&&!decodeImageAsset(pngiiPNG,1),"Malformed, unsupported and oversized image fallback");
-    Options options;pngiiCheck(options.pngiiIcons,"PNGII preference defaults on");options.pngiiIcons=false;
-    pngiiCheck(!decodeOptions(encodeOptions(options)).pngiiIcons,"PNGII option persists");
-    auto json=Json::parse(encodeOptions(options));json.erase("pngiiIcons");pngiiCheck(decodeOptions(json.dump()).pngiiIcons,"Existing settings adopt PNGII preference");
+    Options options;pngiiCheck(options.itemArtwork==0,"New installations use I4 icons");options.itemArtwork=2;
+    pngiiCheck(decodeOptions(encodeOptions(options)).itemArtwork==2,"The PNGII icon choice persists");
+    auto json=Json::parse(encodeOptions(options));json.erase("itemArtwork");pngiiCheck(decodeOptions(json.dump()).itemArtwork==2,"Existing settings keep PNGII artwork first");
     const auto preset=exportPreset(Arsenal{},options,true,[](auto){return Json{};});
-    pngiiCheck(!importPreset(preset,Arsenal{},Options{},true,[](const auto&,auto){return 0u;}).options.pngiiIcons,"Presets preserve PNGII option");
+    pngiiCheck(importPreset(preset,Arsenal{},Options{},true,[](const auto&,auto){return 0u;}).options.itemArtwork==0,"Presets leave the icon choice with the player");
     ItemIcon icon{123,456,{}};
     pngiiCheck(itemIconTexture(icon,0,false)==123&&itemIconTexture(icon,1,false)==456&&itemIconTexture(icon,2,false)==456,"Original and tint modes select expected artwork");
     pngiiCheck(itemIconTint(icon,0x80aabbcc,0,false)==0x80ffffff,"Original PNGII artwork keeps its colors and opacity");

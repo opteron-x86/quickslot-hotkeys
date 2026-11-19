@@ -11,6 +11,7 @@
 #include "Settings.h"
 #include "Recovery.h"
 #include "Presets.h"
+#include "GroupSetup.h"
 #include "MenuFramework.h"
 #include "MenuAPI.h"
 #include "EquippedState.h"
@@ -35,13 +36,17 @@ constexpr char slowMenuName[]="QuickslotSelection";
 constexpr char pauseMenuName[]="QuickslotSelectionPause";
 constexpr std::uint32_t recordType=0x47525031;
 constexpr std::uint32_t settingsRecordType=0x51534f31;
+constexpr std::uint32_t groupSetupRecordType=0x47535531;
 using Dispatch=void(RE::BSTEventSource<RE::InputEvent*>*,RE::InputEvent**);
 REL::Relocation<Dispatch> originalDispatch;
 void inputHook(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent** events) { Game::get().dispatch(source,events); }
 class Menu final : public RuntimeMenu {
 public:
     Menu():RuntimeMenu(menuName) {
-        depthPriority=3;
+        // Share the HUD's depth. Skyrim updates the enchantment charge meter only while the topmost menu below depth 6
+        // has depth 2, so a depth-3 HUD menu suppresses it. The stack keeps equal depths in opening order, so this menu still
+        // draws above the HUD and below fades, dialogue and other depth-3 menus.
+        depthPriority=2;
         menuFlags.set(RE::UI_MENU_FLAGS::kAlwaysOpen,RE::UI_MENU_FLAGS::kRequiresUpdate,
                       RE::UI_MENU_FLAGS::kCustomRendering,RE::UI_MENU_FLAGS::kAllowSaving);
     }
@@ -165,6 +170,25 @@ bool voiceButton(RE::INPUT_DEVICE device,unsigned code,float value,float held) {
     controls->shoutHandler->ProcessButton(event,&controls->data);return true;
 }
 std::string gameName(const char* text){return cleanName(gameTextUTF8(text?text:"",localization().codepage()));}
+// What a potion, food, poison or scroll does: each shown effect's description with its magnitude and duration filled in.
+std::string magicDescription(std::uint32_t formID) {
+    auto* form=RE::TESForm::LookupByID(formID);auto* magic=form?form->As<RE::MagicItem>():nullptr;if(!magic||form->Is(RE::FormType::Spell))return {};
+    std::string text;
+    for(auto* effect:magic->effects) {
+        if(!effect||!effect->baseEffect||effect->baseEffect->data.flags.any(RE::EffectSetting::EffectSettingData::Flag::kHideInUI))continue;
+        const char* raw=effect->baseEffect->magicItemDescription.c_str();if(!raw||!*raw)continue;
+        auto line=gameTextUTF8(raw,localization().codepage());
+        const auto number=[](float value){return std::isfinite(value)?std::to_string(int(std::lround(value))):std::string{};};
+        for(const auto& [tag,value]:{std::pair{std::string("<mag>"),number(effect->GetMagnitude())},std::pair{std::string("<dur>"),std::to_string(effect->GetDuration())}})
+            for(auto at=line.find(tag);at!=std::string::npos;at=line.find(tag,at+value.size()))line.replace(at,tag.size(),value);
+        // Other tags, such as a global's name, are left out.
+        for(auto open=line.find('<');open!=std::string::npos;open=line.find('<',open)){const auto close=line.find('>',open);if(close==std::string::npos)break;line.erase(open,close-open+1);}
+        if(!text.empty())text+=' ';
+        text+=line;
+        if(text.size()>400)break;
+    }
+    return text;
+}
 bool worn(RE::ExtraDataList* extra,const Entry& entry) {
     if(!extra)return false;
     return wornForEntry(entry,extra->HasType<RE::ExtraWorn>(),extra->HasType<RE::ExtraWornLeft>());
@@ -446,6 +470,20 @@ WeaponStatus readWeaponStatus(RE::TESBoundObject* object,RE::ExtraDataList* extr
     WeaponStatus status;
     auto* weapon=object?object->As<RE::TESObjectWEAP>():nullptr;if(!weapon)return status;
     if(extra)if(const auto* poison=extra->GetByType<RE::ExtraPoison>())status.poisoned=poison->poison&&poison->count>0;
+    // Enchantment charge: the copy's own enchantment and capacity, or the base weapon's. A weapon in hand keeps its
+    // charge in that hand's actor value; one in the inventory keeps it on the copy, and without a record it is full.
+    {
+        RE::EnchantmentItem* enchantment=nullptr;float capacity=0;
+        if(extra)if(const auto* own=extra->GetByType<RE::ExtraEnchantment>();own&&own->enchantment){enchantment=own->enchantment;capacity=own->charge;}
+        if(!enchantment&&weapon->formEnchanting){enchantment=weapon->formEnchanting;capacity=weapon->amountofEnchantment;}
+        if(enchantment&&capacity>0) {
+            float current=-1;
+            const bool right=extra&&extra->HasType<RE::ExtraWorn>(),left=extra&&extra->HasType<RE::ExtraWornLeft>();
+            if((right||left)&&player)current=player->AsActorValueOwner()->GetActorValue(left&&!right?RE::ActorValue::kLeftItemCharge:RE::ActorValue::kRightItemCharge);
+            else if(extra)if(const auto* charge=extra->GetByType<RE::ExtraCharge>())current=charge->charge;
+            status.charge=chargeFraction(current,capacity);
+        }
+    }
     if(weapon->IsBow()||weapon->IsCrossbow()) {
         auto* ammo=equippedAmmo(player);int count=0;
         if(ammo)if(const auto it=inventory.find(ammo);it!=inventory.end())count=it->second.first;
@@ -681,12 +719,9 @@ Game& Game::get(){static auto* game=new Game;return *game;}
 bool Game::initialize() {
     std::scoped_lock lock(mutex_);if(initialized_)return true;
     const auto* i4=SKSE::GetPluginInfo("InventoryInjector");
-    if(!i4) {
-        constexpr auto message="Quickslot could not find a loaded Inventory Interface Information Injector (I4) plugin. Install I4 1.1.0 or newer for your Skyrim version and check your SKSE log.";
-        SKSE::log::error("{}",message);
-        SKSE::GetTaskInterface()->AddTask([message]{RE::DebugMessageBox(message);});return false;
-    }
-    log::info("I4 provider detected; raw SKSE plugin version 0x{:08X}. Icon APIs will be checked when the HUD is available.",i4->version);
+    // I4 is optional: without it every item shows SkyUI's category icon for its type.
+    if(i4)log::info("I4 provider detected; raw SKSE plugin version 0x{:08X}. Icon APIs will be checked when the HUD is available.",i4->version);
+    else log::info("I4 is not installed; items use SkyUI category icons");
     if(!initializeVROverlay())return false;
     auto* ui=RE::UI::GetSingleton();if(!ui||!RE::BSInputDeviceManager::GetSingleton())return false;
     std::string gameLanguage="english";
@@ -733,7 +768,7 @@ bool Game::initialize() {
         }
     }catch(const std::exception& e){log::warn("Editor settings ignored; using INI defaults: {}",e.what());loadNotice_="Quickslot settings could not be read and use their defaults";}
     if(options_.holdDelay<=0)options_.holdDelay=iniHold;
-    selection_.holdSeconds=options_.holdDelay;sharedOptions_=options_;
+    selection_.holdSeconds=options_.holdDelay;sharedOptions_=legacyGroups_=options_;
     localization().select(options_.language);
 
     const REL::Relocation<std::uintptr_t> poll{RELOCATION_ID(67315,68617)};
@@ -810,6 +845,14 @@ void Game::publish(){
     if(snapshot_.visible)if(auto* player=RE::PlayerCharacter::GetSingleton()) {
         snapshot_.inCombat=player->IsInCombat();snapshot_.weaponsDrawn=player->AsActorState()->IsWeaponDrawn();
     }
+    snapshot_.editorShortcut.clear();
+    if(snapshot_.vr||snapshot_.controller) {
+        const auto binding=snapshot_.vr?options_.vrEditor:options_.controllerEditor;
+        if(binding.button!=PadButton::none)snapshot_.editorShortcut=padLabel(binding,snapshot_.vr?2u:options_.controllerStyle);
+    }
+    if(snapshot_.editorShortcut.empty()&&options_.editorKey)snapshot_.editorShortcut=shortcutLabel(options_.editorKey,options_.editorModifiers);
+    snapshot_.tip=options_.introSeen||snapshot_.editorShortcut.empty()?std::string{}:
+        trNamed(hasFavoriteGroups(arsenal_)?"Quickslot shows your Skyrim Favorites. Press %s to customize.":"Press %s to set up Quickslot",snapshot_.editorShortcut);
     syncHudMenu();
 }
 void Game::syncHudMenu() {
@@ -828,13 +871,20 @@ bool Game::allowHudMenuTransition() {
 void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
     if(arsenal_.presetIdentity.empty()){GUID id{};if(SUCCEEDED(CoCreateGuid(&id))){char key[40];std::snprintf(key,sizeof(key),"%08lx%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",id.Data1,id.Data2,id.Data3,id.Data4[0],id.Data4[1],id.Data4[2],id.Data4[3],id.Data4[4],id.Data4[5],id.Data4[6],id.Data4[7]);arsenal_.presetIdentity=key;}}
     if(auto* devices=RE::BSInputDeviceManager::GetSingleton())controllerLast_=controllerConnected_=REL::Module::IsVR()||devices->IsGamepadEnabled();
+    if(!saveHasGroups_&&!saveHasSetup_&&blankArsenal(arsenal_)) {
+        starterGroups(options_,arsenal_);optionsReplaced();log::info("New character: groups follow Skyrim Favorites");
+    }
     revealSavedGroups(options_,arsenal_);ready_=true;menuAPI().publish(true,false);menuAPI().publishGroups(unsigned(options_.groupCount));dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;log::info("Game ready; {} saved entries across {} groups",arsenal_.size(),Arsenal::count);
     // Load notices hold English keys; they are translated here, once the language is known.
     if(!loadNotice_.empty()){const std::string text=tr(loadNotice_.c_str());notice(text);snapshot_.noticeUntil=clockNow()+10;RE::SendHUDMessage::ShowHUDMessage(text.c_str());loadNotice_.clear();}}
 void Game::reset(bool clear) {
     invalidateI4Icons();
     std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;
-    if(clear){arsenal_=Arsenal{};preservedRecord_.reset();if(characterSettings_){characterSettings_=false;options_=sharedOptions_;optionsReplaced();}}
+    if(clear) {
+        arsenal_=Arsenal{};preservedRecord_.reset();saveHasGroups_=saveHasSetup_=false;
+        if(characterSettings_){characterSettings_=false;options_=sharedOptions_;}
+        copyCharacterGroups(options_,legacyGroups_);optionsReplaced();
+    }
     choices_.clear();lastTapAt_=0;
     snapshot_=Snapshot{};groupRecall_.reset();keyboardOwned_.fill(false);mouseOwned_.fill(false);controller_.reset();stickOwned_.fill(false);nativeVoiceDown_=false;
 }
@@ -874,7 +924,6 @@ void Game::queueUnequip(std::optional<std::size_t> index,bool controller) {
 void Game::queueHand(Hand hand,bool controller) {
     if(!selection_.held()||selection_.index()>=arsenal_.current().entries.size())return;
     const auto index=selection_.index();
-    if(!entryForHand(arsenal_.current().entries[index],hand)){cancel();notice(tr("This item cannot use that hand"));return;}
     selectionTime(false);controller_.cancel();pending_.reset();released_.reset();consumableRequest_.reset();cycleConfirm_.cancel();
     if(auto commit=releaseToHand(selection_,arsenal_.current(),arsenal_.active,hand,controller)) {
         selectionController_=controller;released_=Released{*commit};snapshot_.revealUntil=clockNow()+2;
@@ -909,7 +958,7 @@ void Game::beginSelection(std::size_t group,bool controller) {
     selectionController_=controller;wheelPointer_.reset();wheelX_=wheelY_=0;
     const auto mode=groupMode(options_,arsenal_,group);
     if(mode==GroupMode::cycle) {
-        const bool recall=groupRecall_.activate(group);
+        const bool recall=groupRecall_.activate(group)&&options_.tapRecall;
         if(dirty_||options_.cycleKeepOtherHand)refresh();
         std::vector<bool> available,blocked;for(const auto& row:snapshot_.rows){available.push_back(row.available);blocked.push_back(row.cycleBlocked);}
         const auto index=cycleEntry(arsenal_.current(),available,options_.skipEmpty,recall,blocked);
@@ -939,7 +988,7 @@ void Game::finishSelection() {
             lastTapGroup_=arsenal_.active;lastTapAt_=second?0:now;
             if(second&&choices_.target(arsenal_)){selectionTime(false);swapPrevious(selectionController_);return;}
         }
-        const bool recall=groupRecall_.activate(arsenal_.active);
+        const bool recall=groupRecall_.activate(arsenal_.active)&&options_.tapRecall;
         if(commit->cycling) {
             std::vector<bool> available,blocked;for(const auto& row:snapshot_.rows){available.push_back(row.available);blocked.push_back(row.cycleBlocked);}
             const auto index=cycleEntry(arsenal_.current(),available,options_.skipEmpty,recall,blocked);
@@ -1022,7 +1071,7 @@ bool Game::consumeController(RE::InputEvent* event) {
         const bool captured=captureGameplayStick(stickOwned_[index],neutral,browsing,inputTaken);
         if(browsing) {
 
-            if(!vr&&wheelOpen())pointSelection(axis.x,-axis.y,wheelIndex(axis.x,axis.y,arsenal_.current().entries.size(),options_.controllerDeadzone));
+            if(!vr&&wheelOpen())pointSelection(axis.x,-axis.y,wheelIndex(axis.x,axis.y,arsenal_.current().entries.size(),options_.controllerDeadzone,wheelTurn(options_)));
             else if(!vr)if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
 
             if(auto* controls=RE::PlayerControls::GetSingleton()) {
@@ -1097,7 +1146,7 @@ bool Game::consume(RE::InputEvent* event) {
     // An open wheel takes mouse movement as its pointer; the camera stays still.
     if(auto* move=event->AsMouseMoveEvent();move&&!selectionController_&&selection_.browsing()&&wheelOpen()&&allowed(MenuPurpose::input,false)) {
         wheelPointer_.move(float(move->mouseInputX),float(move->mouseInputY));
-        pointSelection(wheelPointer_.x(),wheelPointer_.y(),wheelPointer_.index(arsenal_.current().entries.size()));return true;
+        pointSelection(wheelPointer_.x(),wheelPointer_.y(),wheelPointer_.index(arsenal_.current().entries.size(),wheelTurn(options_)));return true;
     }
     auto* button=event?event->AsButtonEvent():nullptr;if(!button)return false;
     const auto code=button->GetIDCode();const bool keyboard=event->device==RE::INPUT_DEVICE::kKeyboard,mouse=event->device==RE::INPUT_DEVICE::kMouse;
@@ -1145,7 +1194,7 @@ bool Game::consume(RE::InputEvent* event) {
         auto* device=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
         const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
         const auto groupID=std::size_t(key-options_.keys.begin());
-        const auto action=groupKeyAction(options_,modifiers,selection_.held()&&groupID!=arsenal_.active);
+        const auto action=gameplayKeyAction(options_,modifiers,selection_.held()&&groupID!=arsenal_.active);
         if(action==GroupKeyAction::pass)return false;
         *owned=true;
         if(voice_.active()){notice(tr("Voice action in progress"));return true;}
@@ -1235,7 +1284,7 @@ void Game::dispatch(RE::BSTEventSource<RE::InputEvent*>* source,RE::InputEvent**
                 if(!controllerConnected_){if(selectionController_)cancel();controller_.reset();stickOwned_.fill(false);}
                 else if(options_.controllerEnabled&&selection_.canBrowse()&&options_.vrStick<2&&allowed(MenuPurpose::input,true)) {
                     const auto axis=readVRAxis(devices,options_.vrStick==1);
-                    if(wheelOpen())pointSelection(axis.x,-axis.y,wheelIndex(axis.x,axis.y,arsenal_.current().entries.size(),options_.controllerDeadzone));
+                    if(wheelOpen())pointSelection(axis.x,-axis.y,wheelIndex(axis.x,axis.y,arsenal_.current().entries.size(),options_.controllerDeadzone,wheelTurn(options_)));
                     else if(const auto delta=controller_.stick(axis.x,axis.y,clockNow(),options_.controllerDeadzone))cycleSelection(delta);
                 }
             } else if(!pad||!devices->IsGamepadEnabled()) {
@@ -1361,7 +1410,7 @@ void Game::menuCapture(std::size_t groupID,Hand hand) {
             Entry e;e.form=formID;e.hand=hand;
             if(!identify(selectedForm,e)){report(tr("This item cannot be added to Quickslot"));return;}
             e.name=gameName(selectedForm->GetName());
-            if(arsenal_.groups[groupID].entries.size()>=Group::limit){report(tr("This group is full (16 shortcuts)"));return;}
+            if(arsenal_.groups[groupID].entries.size()>=Group::limit){report(tr("This group is full (16 items)"));return;}
             if(tracksInstance(e)) {
                 auto* object=selectedForm->As<RE::TESBoundObject>();const auto sample=sampleInventory(player,object);
                 std::vector<std::uintptr_t> row;
@@ -1470,7 +1519,7 @@ void Game::capture(Hand hand) {
     entry.name=cleanName(entry.name);
     auto& group=arsenal_.current();
     const bool duplicate=std::any_of(group.entries.begin(),group.entries.end(),[&](const Entry& e){return e.same(entry);});
-    if(!duplicate&&group.entries.size()>=Group::limit){notice(tr("This group is full (16 items); Alt + group key removes one"));return;}
+    if(!duplicate&&group.entries.size()>=Group::limit){notice(tr("This group is full (16 items)"));return;}
     const auto label=entryLabel(entry);group.add(std::move(entry),options_.autoSort[arsenal_.active]);dirty_=true;
     notice((duplicate?tr("Already in "):tr("Added to "))+options_.names[arsenal_.active]+" — "+label);
 }
@@ -1480,8 +1529,6 @@ void Game::refresh() {
     const auto revision=arsenal_.current().revision;
     syncFavoriteGroups(arsenal_,player,inventory);
     if(revision!=arsenal_.current().revision)cancel();
-    const auto modes=options_.groupModes;normalizeGroupModes(options_,arsenal_);
-    if(modes!=options_.groupModes&&!characterSettings_)autosave_.change(clockNow());
     const auto potions=potionCandidates(inventory);const auto deficits=actorDeficits(player);snapshot_.rows.clear();snapshot_.equipment=readEquipment(player,inventory);
     const auto consumableGroup=selectedConsumableGroup(arsenal_);
     const bool smart=std::any_of(arsenal_.groups.begin(),arsenal_.groups.end(),[](const auto& g){return std::any_of(g.entries.begin(),g.entries.end(),hasSmartEquipment);});
@@ -1495,6 +1542,7 @@ void Game::refresh() {
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             if(i==arsenal_.active) {
                 snapshot_.rows.push_back(resolved.row);
+                if(options_.showDescriptions&&(isConsumable(entry)||entry.kind==Kind::scroll))snapshot_.rows.back().description=magicDescription(rowIconEntry(resolved.row).form);
                 if(group.automatic()&&tracksInstance(entry)&&!entry.owner)snapshot_.rows.back().detail=tr("Equip one copy first");
             }
             if(j==group.selected){
@@ -1594,7 +1642,12 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         const auto action=selectionAction(saved,commit,options_);
         if(!unequip&&action==SelectionAction::none)return;
         if(!unequip&&action==SelectionAction::select) {
-            arsenal_.current().selected=commit.index;rememberConsumable(arsenal_,commit.group,commit.index);pending_.reset();notice(tr("Selected — ")+saved.name,false);dirty_=true;refresh();publish();return;
+            arsenal_.current().selected=commit.index;rememberConsumable(arsenal_,commit.group,commit.index);pending_.reset();
+            // A selected consumable needs the use binding; say so while the device in use has none.
+            const bool bound=REL::Module::IsVR()?options_.vrUse.button!=PadButton::none:commit.controller?options_.controllerUse.button!=PadButton::none:options_.consumableKey.key!=0;
+            if(isConsumable(saved)&&!bound&&consumablesNeedUseKey(options_,arsenal_,commit.group))notice(trNamed("%s selected. Bind Use selected consumable under Controls to use it.",saved.name));
+            else notice(tr("Selected — ")+saved.name,false);
+            dirty_=true;refresh();publish();return;
         }
         if(!unequip&&isConsumable(saved)) {
             if(useConsumable(saved,commit.controller)){arsenal_.current().selected=commit.index;rememberConsumable(arsenal_,commit.group,commit.index);dirty_=true;refresh();publish();}
@@ -1623,8 +1676,10 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         if(unequip&&isConsumable(entry)){notice(tr("Consumable selected"),false);return;}
         if(!resolved.row.available){notice(resolved.row.detail.empty()?(isStack(entry)?tr("Out of stock — "):tr("Unavailable — "))+entryLabel(entry):resolved.row.detail);dirty_=true;return;}
         if(castVoice&&(item.cooldown>0||item.powerUsed)){notice(item.cooldown>0?tr("Shout recharging"):tr("Power recharging"));dirty_=true;return;}
+        // A hand button on an item already in that hand takes it out.
+        if(commit.hand&&!unequip&&item.equipped&&!castVoice&&!isHandAction(entry))unequip=true;
         if(unequip&&!item.equipped){notice(tr("Already unequipped — ")+entryLabel(entry),false);return;}
-        if(!unequip&&item.equipped){arsenal_.current().selected=commit.index;rememberChoice(commit.group,saved);if(castVoice)startVoice(entry);else notice(isHandAction(entry)?handName(entry)+tr(" already empty"):tr("Ready — ")+entryLabel(entry),false);dirty_=true;refresh();publish();return;}
+        if(!unequip&&item.equipped){arsenal_.current().selected=commit.index;rememberChoice(commit.group,saved);++snapshot_.nudges[commit.group];if(castVoice)startVoice(entry);else notice(isHandAction(entry)?handName(entry)+tr(" already empty"):tr("Ready — ")+entryLabel(entry),false);dirty_=true;refresh();publish();return;}
         if(keepOtherHand&&movesOtherHandWeapon(entry,item.equipped,item.otherEquipped)){notice(tr("Weapons in the other hand skipped"));dirty_=true;return;}
         const bool move=!unequip&&item.otherEquipped;
 
@@ -1694,7 +1749,11 @@ void Game::progressEquipment() {
     case EquipmentProgress::complete:
         if(isHandAction(entry))log::info("Clear hand confirmed: {}",unsigned(entry.hand));
         if(pending.pairStep>=0){pending_.reset();equipPairStep(commit,pending.pairStep+1,pending.remove,pending.action);break;}
-        if(pending.phase!=EquipmentPhase::unequipping){arsenal_.current().selected=commit.index;rememberChoice(commit.group,saved);}
+        if(pending.phase!=EquipmentPhase::unequipping) {
+            arsenal_.current().selected=commit.index;
+            if(commit.hand&&pending.pairStep<0)rememberHand(arsenal_.current(),commit.index,*commit.hand);
+            rememberChoice(commit.group,arsenal_.current().entries[commit.index]);
+        }
         notice(isHandAction(entry)?handName(entry)+tr(" empty"):(pending.phase==EquipmentPhase::unequipping?tr("Unequipped — "):isVoice(entry)?tr("Selected — "):tr("Equipped — "))+entryLabel(entry),false);
         pending_.reset();if(pending.castVoice)startVoice(entry);dirty_=true;refresh();break;
     case EquipmentProgress::equipAfterMove:
@@ -1745,6 +1804,13 @@ void Game::draw(bool editing) {
     if(snapshot.visible||editing||REL::Module::IsVR()) {
         auto commands=renderHud(snapshot,options,editing?&editor:nullptr,input);
         for(auto& command:commands)SKSE::GetTaskInterface()->AddTask([this,c=std::move(command)]{edit(c);});
+        // Settings from before anchors keep their place once, as an anchor and offset, now that the screen size is known.
+        if(!editing&&hasUnplacedElements(options))SKSE::GetTaskInterface()->AddTask([this]{
+            std::scoped_lock lock(mutex_);const auto [width,height]=renderSize();
+            if(editor_.open||!anchorUnplacedElements(options_,width,height))return;
+            if(!characterSettings_){sharedOptions_=options_;autosave_.change(clockNow());}
+            dirty_=true;log::info("Placement converted to anchors");
+        });
     }
 }
 void Game::drawVR() {
@@ -1786,6 +1852,7 @@ void Game::openEditor() {
     try {
         log::info("Editor opening: building equipment catalog");
         cancel();groupRecall_.reset();const auto session=editor_.session+1;editor_=EditorState{};editor_.session=session;editor_.open=true;
+        if(!options_.introSeen){options_.introSeen=sharedOptions_.introSeen=true;if(!characterSettings_)autosave_.change(clockNow());}
         editor_.characterSettings=characterSettings_;editor_.vr=REL::Module::IsVR();editor_.controller=controllerLast_&&!editor_.vr;editor_.draft=arsenal_;editor_.options=options_;editor_.soulsSlowdown=GetModuleHandleW(L"SkyrimSoulsRE.dll")!=nullptr;revealSavedGroups(editor_.options,editor_.draft);
         collectShortcuts(editor_.draft);
         editHistory_.begin(editor_.draft,editor_.options);
@@ -1826,7 +1893,9 @@ void Game::updateEditorTextInput() {
 void Game::saveSettings(const Options& options) {
     const auto path=dataDirectory()/"SKSE/Plugins/Quickslot.settings.json";
     const auto temporary=path.wstring()+L".tmp";
-    {std::ofstream file(temporary,std::ios::binary|std::ios::trunc);const auto bytes=encodeOptions(options);file<<bytes<<'\n';file.flush();if(!file)throw std::runtime_error("Cannot write Quickslot.settings.json");}
+    // Group setups live in each character's saves. The file keeps the setup it started with for saves that have none.
+    auto stored=options;copyCharacterGroups(stored,legacyGroups_);
+    {std::ofstream file(temporary,std::ios::binary|std::ios::trunc);const auto bytes=encodeOptions(stored);file<<bytes<<'\n';file.flush();if(!file)throw std::runtime_error("Cannot write Quickslot.settings.json");}
     if(!MoveFileExW(temporary.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))
         throw std::runtime_error("Cannot replace Quickslot.settings.json (Windows error "+std::to_string(GetLastError())+")");
 }
@@ -2040,6 +2109,12 @@ bool Game::presetCommand(const EditCommand& c) {
             }
             editor_.message=tr(rename?"Renamed: ":"Copied: ")+c.presetTarget;log::info("Preset {}: {} -> {}",rename?"renamed":"copied",c.presetName,c.presetTarget);return false;
         }
+        if(c.action==EditAction::resetAll) {
+            editHistory_.prepare(editor_.draft,editor_.options);
+            resetToUnplayed(editor_.options,editor_.draft);++editor_.revision;++editor_.restoreSerial;
+            editHistory_.finish(true,false,clockNow());applyEditor();
+            editor_.message=tr("Quickslot reset");log::info("Quickslot reset to a new installation's settings and Favorites groups");return true;
+        }
         if(c.action==EditAction::builtinPreset) {
             const auto* preset=builtinPreset(c.presetName);if(!preset)throw std::runtime_error("Unknown built-in preset");
             editHistory_.prepare(editor_.draft,editor_.options);
@@ -2091,7 +2166,7 @@ void Game::edit(const EditCommand& c) {
     if(const auto reason=editorBlockReason();!reason.empty()){closeEditor(reason);return;}
     if(!matchingEdit(editor_,c)){editor_.message=tr("List updated; try again");return;}
     try {
-        if(c.action==EditAction::exportPreset||c.action==EditAction::importPreset||c.action==EditAction::refreshPresets||c.action==EditAction::deletePreset||c.action==EditAction::renamePreset||c.action==EditAction::copyPreset||c.action==EditAction::builtinPreset){presetCommand(c);return;}
+        if(c.action==EditAction::exportPreset||c.action==EditAction::importPreset||c.action==EditAction::refreshPresets||c.action==EditAction::deletePreset||c.action==EditAction::renamePreset||c.action==EditAction::copyPreset||c.action==EditAction::builtinPreset||c.action==EditAction::resetAll){presetCommand(c);return;}
         if(c.action==EditAction::characterSettings) {
             characterSettings_=c.replace;editor_.characterSettings=characterSettings_;
             // Returning to shared settings makes the current ones the shared ones.
@@ -2168,6 +2243,8 @@ void Game::save(SKSE::SerializationInterface* serial) {
             const auto settings=encodeOptions(options_);
             if(!serial->WriteRecord(settingsRecordType,1,settings.data(),std::uint32_t(settings.size())))log::error("Could not write this character's Quickslot settings");
         }
+        const auto setup=encodeGroupSetup(options_);
+        if(!serial->WriteRecord(groupSetupRecordType,1,setup.data(),std::uint32_t(setup.size())))log::error("Could not write this character's group setup");
         // A record this build could not read stays in the save until the player builds new groups.
         if(preservedRecord_&&blankArsenal(arsenal_)) {
             const auto& [version,bytes]=*preservedRecord_;
@@ -2183,8 +2260,13 @@ void Game::save(SKSE::SerializationInterface* serial) {
 void Game::load(SKSE::SerializationInterface* serial) {
     std::scoped_lock lock(mutex_);closeEditor("loading saved groups");cancel();use_.reset();stopAnimationWatch();arsenal_=Arsenal{};preservedRecord_.reset();dirty_=true;
     if(characterSettings_){characterSettings_=false;options_=sharedOptions_;optionsReplaced();}
-    std::uint32_t type,version,length;bool found=false;
+    std::uint32_t type,version,length;bool found=false;std::string setup;
     while(serial->GetNextRecordInfo(type,version,length)) {
+        if(type==groupSetupRecordType) {
+            std::string bytes(length<=65536?length:0,'\0');
+            if(version!=1||bytes.empty()||serial->ReadRecordData(bytes.data(),length)!=length){log::error("Load failed: this character's group setup (version {}, {} bytes) is unreadable",version,length);continue;}
+            setup=std::move(bytes);continue;
+        }
         if(type==settingsRecordType&&version==1&&length<=65536&&!characterSettings_) {
             std::string bytes(length,'\0');
             if(serial->ReadRecordData(bytes.data(),length)!=length){log::error("Load failed: truncated character settings");continue;}
@@ -2194,7 +2276,7 @@ void Game::load(SKSE::SerializationInterface* serial) {
             log::info("Loaded this character's own settings ({} defaults restored)",recovered->reset.size());continue;
         }
         if(type!=recordType||found)continue;
-        found=true;
+        found=saveHasGroups_=true;
         if(length>8388608){log::error("Load failed: group record exceeds limit ({} bytes)",length);loadNotice_="Quickslot could not read this save's groups";continue;}
         std::string bytes(length,'\0');
         if(serial->ReadRecordData(bytes.data(),length)!=length){log::error("Load failed: truncated group record");loadNotice_="Quickslot could not read this save's groups";continue;}
@@ -2210,6 +2292,11 @@ void Game::load(SKSE::SerializationInterface* serial) {
             log::warn("Load repaired: {} unreadable shortcuts removed; {} entries kept",recovered->dropped,arsenal_.size());
             loadNotice_="Quickslot restored your groups; some shortcuts could not be read";
         }
+    }
+    // The setup is applied last so it also lies over a character's own settings record.
+    if(!setup.empty()) {
+        if(const auto merged=withGroupSetup(options_,setup)){options_=*merged;saveHasSetup_=true;optionsReplaced();log::info("Loaded this character's group setup");}
+        else log::error("Load failed: this character's group setup is unreadable; using the shared group setup");
     }
 }
 RE::BSEventNotifyControl Game::ProcessEvent(const RE::MenuOpenCloseEvent* e,RE::BSTEventSource<RE::MenuOpenCloseEvent>*) {

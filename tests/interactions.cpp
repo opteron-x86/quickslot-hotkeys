@@ -20,6 +20,20 @@ void check(bool value,const char* why,std::source_location at=std::source_locati
 }
 int main()try {
     {
+        Options play;
+        check(!play.gameplayEditing,"Editing chords start disabled during gameplay");
+        for(const unsigned chord:{keyModifier::alt,keyModifier::shift,keyModifier::ctrl,keyModifier::ctrl|keyModifier::shift,keyModifier::shift|keyModifier::alt})
+            check(gameplayKeyAction(play,chord)==GroupKeyAction::select,"A group key held with a movement modifier selects the group during gameplay");
+        check(gameplayKeyAction(play,0)==GroupKeyAction::select,"A bare group key selects");
+        check(gameplayKeyAction(play,keyModifier::ctrl,true)==GroupKeyAction::move,"Moving a shortcut from an open selector stays available");
+        check(menuCaptureHand(play,keyModifier::ctrl)==std::optional{Hand::right}&&menuCaptureHand(play,keyModifier::ctrl|keyModifier::shift)==std::optional{Hand::left},"Inventory and Magic capture does not depend on the gameplay switch");
+        play.gameplayEditing=true;
+        check(gameplayKeyAction(play,keyModifier::alt)==GroupKeyAction::remove&&gameplayKeyAction(play,keyModifier::shift)==GroupKeyAction::unequip&&
+              gameplayKeyAction(play,keyModifier::ctrl)==GroupKeyAction::captureRight&&gameplayKeyAction(play,keyModifier::ctrl|keyModifier::shift)==GroupKeyAction::captureLeft,"Turning the switch on restores the editing chords");
+        Options passing;passing.groupRemoveHotkey=false;
+        check(gameplayKeyAction(passing,keyModifier::alt)==GroupKeyAction::pass,"A chord whose action is disabled still reaches the game");
+    }
+    {
         Options keys;keys.groupRemoveHotkey=false;
         check(groupKeyAction(keys,keyModifier::alt)==GroupKeyAction::pass,"Existing disabled Alt editing still passes through by default");
         keys.allowUnusedModifiers=true;
@@ -43,7 +57,7 @@ int main()try {
         check(keys.selectorBindings==saved.selectorBindings&&keys.groupModifiers==saved.groupModifiers&&keys.controllerActions==saved.controllerActions&&keys.allowUnusedModifiers,"Appearance presets preserve remapped actions");
         auto legacy=Json::parse(encodeOptions(Options{}));for(const auto key:{"groupModifiers","selectorBindings","controllerActions","allowUnusedModifiers"})legacy.erase(key);
         const auto migrated=decodeOptions(legacy.dump());
-        check(migrated.groupModifiers==defaultGroupModifiers&&migrated.selectorBindings==defaultSelectorBindings&&migrated.controllerActions==defaultControllerActions&&!migrated.allowUnusedModifiers,"Old settings retain all original controls and pass-through behavior");
+        check(migrated.groupModifiers==defaultGroupModifiers&&migrated.selectorBindings==defaultSelectorBindings&&migrated.controllerActions==legacyControllerActions&&!migrated.allowUnusedModifiers,"Old settings retain all original controls and pass-through behavior");
         legacy["groupRemoveHotkey"]=false;legacy["selectorUnequipHotkey"]=false;
         auto disabled=decodeOptions(legacy.dump());
         check(!groupActionEnabled(disabled,GroupModifier::remove)&&selectorBinding(disabled,KeyboardAction::unequip)==KeyBinding{},"Older disabled shortcuts appear as None after migration");
@@ -258,9 +272,9 @@ int main()try {
     check(commit->browsed,"Early wheel movement is browsing");
     ++group.revision;check(!selection.accepts(*commit,group),"Edits invalidate released actions");
     o.groupModes[0]=GroupMode::cycle;
-    check(groupMode(o,a,0)==GroupMode::browse,"Mixed group with a potion retains quick-use controls");
-    for(auto kind:{Kind::food,Kind::poison,Kind::smartPotion}){group.entries[2].kind=kind;check(groupMode(o,a,0)==GroupMode::browse,"Every consumable type protects quick-use");}
-    normalizeGroupModes(o,a);check(o.groupModes[0]==GroupMode::browse,"Adding consumables clears incompatible cycle preference");
+    check(groupMode(o,a,0)==GroupMode::cycle&&consumablesNeedUseKey(o,a,0),"A group with a potion keeps its chosen behavior and leaves the potion to the use binding");
+    for(auto kind:{Kind::food,Kind::poison,Kind::smartPotion}){group.entries[2].kind=kind;check(groupMode(o,a,0)==GroupMode::cycle,"No consumable type changes a group's behavior");}
+    check(groupModeFor(false,true)==GroupMode::browse&&groupModeFor(false,false)==GroupMode::browse&&groupModeFor(true,true)==GroupMode::cycleBrowse&&groupModeFor(true,false)==GroupMode::cycle,"Tap and hold choices map onto the three behaviors");
     group.entries[2]=potion;
     a.groups[1].add(spell);o.groupModes[1]=GroupMode::cycle;check(groupMode(o,a,1)==GroupMode::cycle,"Equipment group permits cycle");
     const auto round=decodeOptions(encodeOptions(o));check(round.groupModes==o.groupModes,"Modes round trip");
@@ -308,10 +322,9 @@ int main()try {
     {
         Arsenal setup;Options controls;setup.presetIdentity="same";auto& mixed=setup.groups[0];
         Entry drink=potion;drink.form=901;drink.name="Health";mixed.add(drink);mixed.add(sword);
-        controls.groupModes[0]=GroupMode::cycleBrowse;normalizeGroupModes(controls,setup);
-        check(groupMode(controls,setup,0)==GroupMode::browse,"Existing consumable groups keep tap-to-use behavior");
-        controls.separateConsumableUse[0]=true;controls.groupModes[0]=GroupMode::cycleBrowse;normalizeGroupModes(controls,setup);
-        check(groupMode(controls,setup,0)==GroupMode::cycleBrowse,"Separate use enables combined cycling and browsing for mixed groups");
+        check(groupMode(controls,setup,0)==GroupMode::browse&&!consumablesNeedUseKey(controls,setup,0),"A group that equips its last item uses consumables on a tap");
+        controls.separateConsumableUse[0]=true;controls.groupModes[0]=GroupMode::cycleBrowse;
+        check(groupMode(controls,setup,0)==GroupMode::cycleBrowse&&consumablesNeedUseKey(controls,setup,0),"Mixed groups combine stepping and browsing with the use binding");
         Selection selection;const auto tap=selection.request(mixed,0,0);
         for(const auto kind:{Kind::potion,Kind::food,Kind::poison,Kind::smartPotion}) {auto item=drink;item.kind=kind;check(selectionAction(item,*tap,controls)==SelectionAction::select,"Group activation selects each consumable type in separate-use mode");}
         check(selectionAction(sword,*tap,controls)==SelectionAction::equip,"Mixed-group equipment keeps its normal equip action");
@@ -398,7 +411,7 @@ int main()try {
     }
     for(unsigned style=0;style<5;++style)for(unsigned text=0;text<4;++text)for(unsigned layout=0;layout<6;++layout)
         for(float t:{.75f,1.5f})for(float edge:{0.f,1.f})for(unsigned count:{3u,4u})for(float spacing:{0.f,1.f,4.f}) {
-            Options look;look.equipmentStyle=style;look.equipmentTextPosition=text;look.equipmentLayout=layout;look.textScale=t;look.equipmentX=look.equipmentY=edge;
+            Options look;look.equipmentStyle=style;look.equipmentTextPosition=text;look.equipmentLayout=layout;look.equipmentShowText=true;look.textScale=t;look.equipmentX=look.equipmentY=edge;
             look.equipmentScale=2;look.equipmentTextScale=1.5f;look.equipmentSpacing=spacing;
             const auto g=equipmentGeometry(look,1280,720,count);
             check(g.origin.x>=8&&g.origin.y>=8&&g.origin.x+g.width*g.scale<=1272.1f&&g.origin.y+g.height*g.scale<=712.1f,"Every equipment layout fits screen extremes");
@@ -566,7 +579,11 @@ int main()try {
     check(equipmentDimmed(used)&&equipmentTextName(used,false)=="Battle Cry · 18s"&&equipmentTextName(used,true)=="Battle Cry","Recharge timer sits on the icon or beside text-only names");
     used.cooldown=0;check(!equipmentDimmed(used),"Finished recharge restores normal brightness");
     {
-        Options hands;check(hands.mouseActions==defaultMouseActions&&!hands.selectorBindings[unsigned(KeyboardAction::rightHand)].key,"Existing configurations keep right-click cancel and no hand actions");
+        const Options fresh;
+        check(fresh.mouseActions==std::array<int,3>{-1,0,1}&&fresh.controllerActions[unsigned(ControllerAction::rightHand)]==PadBinding{PadButton::rt}&&fresh.controllerActions[unsigned(ControllerAction::leftHand)]==PadBinding{PadButton::lt},
+              "A new installation chooses hands with the mouse buttons and the triggers");
+        check(selectorBinding(fresh,KeyboardAction::cancel).key==1&&!fresh.selectorBindings[unsigned(KeyboardAction::rightHand)].key,"Escape cancels and the keyboard hand actions start unbound");
+        Options hands;hands.mouseActions=legacyMouseActions;
         assignMouseAction(hands,MouseAction::leftHand,1);
         check(hands.mouseActions[0]==-1&&hands.mouseActions[2]==1,"Assigning right-click to a hand removes its cancellation conflict");
         assignMouseAction(hands,MouseAction::rightHand,0);
@@ -575,7 +592,13 @@ int main()try {
         const auto saved=decodeOptions(encodeOptions(hands));
         check(saved.mouseActions==hands.mouseActions&&saved.selectorBindings==hands.selectorBindings,"Hand bindings persist");
         auto old=Json::parse(encodeOptions(hands));old.erase("mouseActions");old["selectorBindings"].erase(old["selectorBindings"].begin()+5,old["selectorBindings"].end());old["controllerActions"].erase(old["controllerActions"].begin()+4,old["controllerActions"].end());
-        const auto migrated=decodeOptions(old.dump());check(migrated.mouseActions==defaultMouseActions&&!migrated.selectorBindings[5].key&&migrated.controllerActions[4].button==PadButton::none,"Earlier action arrays migrate without enabling hand actions");
+        const auto migrated=decodeOptions(old.dump());check(migrated.mouseActions==legacyMouseActions&&!migrated.selectorBindings[5].key&&migrated.controllerActions[4].button==PadButton::none&&migrated.controllerActions[5].button==PadButton::none,"Earlier action arrays migrate without enabling hand actions");
+        auto older=Json::parse(encodeOptions(Options{}));older.erase("controllerActions");older.erase("controllerModifiers");const auto kept=decodeOptions(older.dump());
+        check(kept.controllerActions==legacyControllerActions&&kept.controllerModifiers==allPadButtons,"Settings from before the hand defaults keep their controller actions and modifier buttons");
+        Options pad;pad.controllerActions=legacyControllerActions;
+        check(useTriggersForHands(pad)&&pad.controllerActions==defaultControllerActions,"The trigger preset assigns both hand buttons");
+        Options taken;taken.controllerActions=legacyControllerActions;taken.controllerGroups[0]={PadButton::up,PadButton::lt};const auto before=encodeOptions(taken);
+        check(!useTriggersForHands(taken)&&encodeOptions(taken)==before,"The trigger preset leaves a trigger another binding uses");
         Options local;importAppearance(local,hands);check(local.mouseActions==defaultMouseActions,"Appearance imports preserve mouse controls");
     }
     {
@@ -789,6 +812,9 @@ int main()try {
         TilePulse doses;doses.update(true,false,0x30,0,5,true,1);
         check(doses.update(true,false,0x30,0,4,true,2)==0&&doses.update(true,false,0x30,0,6,true,3)<0,"Using a dose pulses; restocking does not");
         TilePulse appeared;check(appeared.update(true,true,0x10,1,1,false,1)<0,"Items already equipped when the HUD appears do not pulse");
+        TilePulse tapped;tapped.update(true,true,0x10,1,1,false,1);
+        check(tapped.update(true,true,0x10,1,1,false,2,0)<0&&tapped.update(true,true,0x10,1,1,false,3,1)>=0&&tapped.update(true,true,0x10,1,1,false,3.1,1)>=0&&tapped.update(true,true,0x10,1,1,false,4,1)<0,
+              "A press on the item already in hand pulses its tile once");
         CooldownScale cooldown;
         check(cooldown.fraction(0x40,30)==1&&cooldown.fraction(0x40,15)==.5f&&cooldown.fraction(0x40,0)==0,"A cooldown shade shrinks from full to empty");
         check(cooldown.fraction(0x40,10)==1,"Each cooldown starts from its own length");
@@ -797,6 +823,14 @@ int main()try {
         check(!felt.animateHud&&!felt.uiSounds&&felt.equippedMarkerScale==2.5f&&felt.customEquippedColor&&felt.equippedColor[2]==1.f,"Motion, sound and equipped-marker settings persist inside their ranges");
         Options quiet;quiet.uiSounds=false;Options skin;skin.equippedMarkerScale=2;importAppearance(quiet,skin);
         check(!quiet.uiSounds&&quiet.equippedMarkerScale==2,"Appearance presets carry the marker size and leave sounds in place");
+        Options plain;check(plain.itemArtwork==0,"Item artwork defaults to I4's icon for each item");plain.itemArtwork=2;
+        check(decodeOptions(encodeOptions(plain)).itemArtwork==2,"The item artwork choice persists");
+        auto older=nlohmann::json::parse(encodeOptions(plain));older.erase("itemArtwork");
+        check(decodeOptions(older.dump()).itemArtwork==2,"Settings from before the icon choice keep PNGII artwork first");
+        older["pngiiIcons"]=false;check(decodeOptions(older.dump()).itemArtwork==0,"Existing settings without PNGII artwork draw I4 icons");
+        older["i4Icons"]=false;check(decodeOptions(older.dump()).itemArtwork==1,"Use I4 icons turned off becomes SkyUI's icon for each type");
+        older["pngiiIcons"]=true;check(decodeOptions(older.dump()).itemArtwork==2,"Use PNGII icons left on keeps PNGII artwork first");
+        importAppearance(plain,skin);check(plain.itemArtwork==2,"Appearance presets leave the item artwork choice in place");
         check(wheelIndex(0,1,8,.3f)==std::size_t(0)&&wheelIndex(1,0,8,.3f)==std::size_t(2)&&wheelIndex(0,-1,8,.3f)==std::size_t(4)&&wheelIndex(-1,0,8,.3f)==std::size_t(6),"Wheel slots run clockwise from the top");
         check(wheelIndex(-.1f,1,8,.3f)==std::size_t(0)&&wheelIndex(.7f,.7f,8,.3f)==std::size_t(1)&&wheelIndex(-.7f,.7f,8,.3f)==std::size_t(7),"Directions select the nearest slot and wrap at the top");
         check(!wheelIndex(.1f,.1f,8,.3f)&&!wheelIndex(1,0,0,.3f)&&wheelIndex(1,0,1,.3f)==std::size_t(0)&&wheelIndex(0,-1,3,.3f)==std::size_t(2),"A resting stick selects nothing; any count maps cleanly");

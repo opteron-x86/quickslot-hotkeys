@@ -36,6 +36,8 @@ class Editor {
     std::map<unsigned,PadDraft> padDrafts_;
     bool placement_=false,previewOpen_=true;
     int placementPanelTarget_=-1;
+    // The group tile, by display position, that Free placement controls work on.
+    std::size_t placementTile_=0;
     bool placementPanelRight_=false;
     std::string hint_;
     ImVec2 mouse_{},dragStart_{},nudge_{};
@@ -51,6 +53,8 @@ class Editor {
     std::array<char,65> presetName_{};
     // A preset file name or a built-in preset id.
     std::string presetSelected_;
+    // The preset name the save scope was last matched to.
+    std::string presetScopeName_;
     Entry shortcut_=smartEntry(0,0,0);
     std::optional<std::size_t> shortcutIndex_;
     std::uint32_t librarySelection_=0,editingLibrary_=0;

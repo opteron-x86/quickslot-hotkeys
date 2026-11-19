@@ -10,6 +10,8 @@ namespace quickslot {
 
 struct CatalogItem {Entry entry;std::uint64_t id=0;int count=1;bool equipped=false,addable=true;std::string detail;};
 // A preset file as the editor lists it: whether it holds groups as well, and its settings for previews.
+// A key binding as the editor names it, such as "Shift + \". Defined with the editor.
+std::string shortcutLabel(unsigned scan,unsigned modifiers);
 struct PresetInfo {bool complete=false;Options options;};
 struct EditorState {
     bool open=false,soulsSlowdown=false,controller=false,vr=false;
@@ -33,7 +35,7 @@ struct EditorState {
     // Shared so that publishing the editor state each frame does not copy every preset's settings.
     std::shared_ptr<const std::map<std::string,PresetInfo>> presetInfo;
 };
-enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup,favoriteSource,resetFavoriteExclusions,deletePreset,characterSettings,renamePreset,copyPreset,builtinPreset};
+enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup,favoriteSource,resetFavoriteExclusions,deletePreset,characterSettings,renamePreset,copyPreset,builtinPreset,resetAll};
 struct EditCommand {
     EditAction action=EditAction::select;
     std::uint64_t session=0,revision=0,catalogVersion=0,candidate=0;

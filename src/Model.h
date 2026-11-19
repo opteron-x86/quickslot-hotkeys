@@ -467,7 +467,8 @@ struct Options {
     bool showIdle=true,showHints=false,showLabels=false,keyIcons=true,coloredMagic=true,showKeys=true,showCardNames=true;
     bool showPoison=true,showAmmo=true;
     // Enchantment charge: pips beside the item's hand under its name while selecting, and a soul gem on weapon icons.
-    bool showCharge=true,soulGems=true;
+    bool showCharge=true;
+    unsigned chargeIcons=1; // enchantment charge on item icons: 0 off, 1 fill the icon, 2 soul gem
     // The last line of the selector: the group's name and the item's place in it.
     bool selectorFooter=true;
     unsigned itemIconColor=1;

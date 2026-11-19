@@ -173,12 +173,13 @@ inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,fl
     // Under the selector: the name and its status line (unless the wheel holds them in its hub or hides them), the
     // footer with the group and position, then the hints.
     const bool name=!s.segments||s.nameBelow;
-    s.nameY=s.ruleY+9;s.statusY=s.nameY+28*text;
-    const float afterName=name?s.statusY+14*text+9:s.ruleY-8;
+    // With charge shown, a row under the status holds the enchantment charge.
+    s.nameY=s.ruleY+9;s.statusY=s.nameY+28*text;const float charge=o.showCharge?14*text*1.1f:0;
+    const float afterName=name?s.statusY+14*text+charge+9:s.ruleY-8;
     s.pagerY=afterName;
     const float afterFooter=o.selectorFooter?s.pagerY+13*text+10:afterName;
     s.hintY=afterFooter;
-    s.height=o.showHints?s.hintY+13*text+4:o.selectorFooter?s.pagerY+13*text+6:name?s.statusY+14*text+6:s.ruleY-2;return s;
+    s.height=o.showHints?s.hintY+13*text+4:o.selectorFooter?s.pagerY+13*text+6:name?s.statusY+14*text+charge+6:s.ruleY-2;return s;
 }
 // Placement. An anchored element rests a point of itself on the matching point of the screen area, moved by an
 // offset in 1080p pixels, so it grows and shrinks away from that point. An unanchored element's position is a

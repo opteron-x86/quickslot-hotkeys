@@ -207,6 +207,9 @@ int main()try {
             Options lifted=ring;const auto raised=selectorGeometry(lifted,8);lifted.wheelLift=false;check(raised.lift>0&&selectorGeometry(lifted,8).lift==0,"The pointed segment can stay in line");
             Options odd=ring;odd.wheelSize=NAN;odd.wheelThickness=7;odd.wheelGap=-4;odd.wheelRotation=INFINITY;odd.wheelOpacity=-1;odd.wheelName=9;odd.wheelHighlight=11;sanitizeOptions(odd);
             check(std::isfinite(odd.wheelSize)&&odd.wheelThickness==1&&odd.wheelGap==0&&std::isfinite(odd.wheelRotation)&&odd.wheelOpacity==0&&odd.wheelName==2&&odd.wheelHighlight==3,"Invalid wheel settings are bounded");
+            Options marked;marked.chargeIcons=9;sanitizeOptions(marked);check(marked.chargeIcons==2&&Options{}.chargeIcons==1&&decodeOptions(encodeOptions(marked)).chargeIcons==2,"The charge on icons is a choice that persists inside its range");
+            Options plain;plain.selector=1;const auto pips=selectorGeometry(plain);plain.showCharge=false;const auto bare=selectorGeometry(plain);
+            check(pips.pagerY>bare.pagerY&&pips.height>bare.height,"Shown charge gets its own line under the status");
         }
         {
             // Settings from before the wheel had a size draw the same ring.

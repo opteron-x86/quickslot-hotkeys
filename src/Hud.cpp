@@ -179,14 +179,24 @@ struct Paint {
         else if(shape==3)lozenge(x,y,r,selected);
         else medallion(x,y,r,selected);
     }
-    void icon(float x,float y,float size,const Entry& e,ImU32 c) {
+    // charge, from 0 to 1, fills an enchanted weapon's icon from the bottom when the charge shows on icons.
+    void icon(float x,float y,float size,const Entry& e,ImU32 c,float charge=-1) {
         if(e.kind==Kind::combo&&e.parts.size()==2){icon(x-size*.21f,y,size*.62f,e.parts[0],c==muted?c:itemColor(e.parts[0]));icon(x+size*.21f,y,size*.62f,e.parts[1],c==muted?c:itemColor(e.parts[1]));return;}
         size*=tweaks.iconScale;
         if(itemIcons)if(const auto supplied=itemIcons(e)) {
             const bool unavailable=c==muted;
             const auto tint=itemIconTint(*supplied,color(c),options.itemIconColor,unavailable);
             d->AddImage(supplied->mask,p(x-size*.5f+1,y-size*.5f+2),p(x+size*.5f+1,y+size*.5f+2),{0,0},{1,1},color(IM_COL32(0,0,0,150)));
-            d->AddImage(itemIconTexture(*supplied,options.itemIconColor,unavailable),p(x-size*.5f,y-size*.5f),p(x+size*.5f,y+size*.5f),{0,0},{1,1},tint);
+            const auto a=p(x-size*.5f,y-size*.5f),b=p(x+size*.5f,y+size*.5f);
+            if(options.chargeIcons==1&&charge>=0&&!unavailable) {
+                // The charged part keeps the icon's color; the spent part above it turns a dim violet grey. The line
+                // moves through the middle of the square, where the artwork is.
+                const float f=std::clamp(charge,0.f,1.f),cut=a.y+(b.y-a.y)*(.1f+.8f*(1-f));
+                if(f<1){d->PushClipRect({a.x-2,a.y-2},{b.x+2,cut},true);d->AddImage(supplied->mask,a,b,{0,0},{1,1},color(IM_COL32(92,86,108,255),.85f));d->PopClipRect();}
+                if(f>0){d->PushClipRect({a.x-2,cut},{b.x+2,b.y+2},true);d->AddImage(itemIconTexture(*supplied,options.itemIconColor,false),a,b,{0,0},{1,1},tint);d->PopClipRect();}
+                return;
+            }
+            d->AddImage(itemIconTexture(*supplied,options.itemIconColor,unavailable),a,b,{0,0},{1,1},tint);
             return;
         }
     }
@@ -229,7 +239,7 @@ struct Paint {
     // A small soul gem at an icon's upper left marks an enchanted weapon; it fills with the remaining charge and turns
     // red at a fifth or less. An empty gem keeps a red outline.
     void soulGem(float x,float y,float r,float fraction) {
-        if(!options.soulGems||!(fraction>=0))return;
+        if(options.chargeIcons!=2||!(fraction>=0))return;
         const float f=std::clamp(fraction,0.f,1.f),gx=x-r*.8f,gy=y-r*.56f,s=std::max(3.5f,r*.24f),line=std::max(1.f,scale);
         const ImVec2 points[]{p(gx,gy-s*1.25f),p(gx+s*.8f,gy-s*.35f),p(gx+s*.55f,gy+s),p(gx-s*.55f,gy+s),p(gx-s*.8f,gy-s*.35f)};
         d->AddConvexPolyFilled(points,5,color(IM_COL32(10,8,16,210)));
@@ -251,15 +261,15 @@ struct Paint {
             else diamond(gx,y,r,f>0?muted:blood,false,.7f);
         }
     }
-    // A row's status line, centered on x: its enchantment charge, then its hand and state.
+    // A row's status line centered on x, with its enchantment charge on a line of its own beneath.
+    bool showsCharge(const Row& row)const{return options.showCharge&&row.weapon.charge>=0;}
+    static float chargeRow(float size,float text){return size*text*1.1f;}
     void statusLine(float x,float y,const Row& row,float size,ImU32 c,float maxWidth) {
         const auto status=rowStatus(row);
-        if(!options.showCharge||!(row.weapon.charge>=0)){label(x,y,status,size,c,false,maxWidth,true);return;}
-        const float pip=size*textFactor*.42f,width=pipsWidth(pip),gap=status.empty()?0:pip*1.8f;
-        const float words=status.empty()?0:std::min(sans->CalcTextSizeA(size*textFactor*scale,FLT_MAX,0,status.c_str()).x/scale,std::max(0.f,maxWidth-width-gap));
-        const float left=x-(width+gap+words)*.5f;
-        chargePips(left,y+size*textFactor*.56f,row.weapon.charge,pip);
-        if(!status.empty())label(left+width+gap,y,status,size,c,false,std::max(1.f,maxWidth-width-gap));
+        label(x,y,status,size,c,false,maxWidth,true);
+        if(!showsCharge(row))return;
+        const float pip=size*textFactor*.54f,line=status.empty()?0:size*textFactor;
+        chargePips(x-pipsWidth(pip)*.5f,y+line+chargeRow(size,textFactor)*.5f,row.weapon.charge,pip);
     }
     void sweep(float x,float y,float r,float fraction) {
         if(!(fraction>0))return;
@@ -473,7 +483,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         const auto node=[&](const Row& row,float x,float y,float r,bool selected,unsigned shape,float opacity) {
             auto nodePaint=p;nodePaint.alpha*=opacity;
             nodePaint.tile(x,y,r,selected,shape);
-            nodePaint.icon(x,y,r*1.48f,rowIconEntry(row),row.available?nodePaint.itemColor(rowIconEntry(row)):muted);
+            nodePaint.icon(x,y,r*1.48f,rowIconEntry(row),row.available?nodePaint.itemColor(rowIconEntry(row)):muted,row.weapon.charge);
             nodePaint.sweep(x,y,r*.74f*nodePaint.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));nodePaint.soulGem(x,y,r*.74f*nodePaint.tweaks.iconScale,row.weapon.charge);
             // A diamond keeps its marker in its lower point and its count inside its lower right edge.
             const bool lozenge=shape==3;
@@ -554,7 +564,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     const Point slot{hub.x+std::cos(middle)*reach,hub.y+std::sin(middle)*reach-(labelled?7*text:0.f)};
                     auto item=p;if(!pointed)item.alpha*=.88f;
                     const float r=size*.5f*item.tweaks.iconScale;
-                    item.icon(slot.x,slot.y,size,rowIconEntry(row),row.available?item.itemColor(rowIconEntry(row)):muted);
+                    item.icon(slot.x,slot.y,size,rowIconEntry(row),row.available?item.itemColor(rowIconEntry(row)):muted,row.weapon.charge);
                     item.sweep(slot.x,slot.y,r,cooldowns_.fraction(row.entry.form,row.cooldown));
                     item.soulGem(slot.x,slot.y,r,row.weapon.charge);
                     if(labelled)item.label(slot.x,slot.y+size*.5f+1,displayName(row.entry),11,row.available?ivory:muted,false,std::max(20.f,chord*.88f),true);
@@ -581,7 +591,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                             if(!first.empty()&&!second.empty()&&widest<best){best=widest;lines={first,second};}
                         }
                     }
-                    const float block=float(lines.size())*(nameSize+2)*text+3+statusSize*text;float y=hub.y-block*.5f;
+                    const float block=float(lines.size())*(nameSize+2)*text+3+statusSize*text+(p.showsCharge(*active)?Paint::chargeRow(statusSize,text):0.f);float y=hub.y-block*.5f;
                     for(const auto& line:lines){p.label(hub.x,y,line,nameSize,active->available?ivory:muted,true,room,true);y+=(nameSize+2)*text;}
                     p.statusLine(hub.x,y+3,*active,statusSize,active->available?silver:depletedMark,room);
                 }
@@ -622,7 +632,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                         const float y=layout.centerY+position*layout.listPitch;
                         auto q=p;q.alpha*=opacity;
                         q.frame(12,y-layout.listHeight*.5f,layout.width-24,layout.listHeight,offset==0);
-                        q.icon(37,y,32,rowIconEntry(row),row.available?q.itemColor(rowIconEntry(row)):muted);
+                        q.icon(37,y,32,rowIconEntry(row),row.available?q.itemColor(rowIconEntry(row)):muted,row.weapon.charge);
                         q.sweep(37,y,16*q.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));q.soulGem(37,y,16*q.tweaks.iconScale,row.weapon.charge);
                         q.label(66,y-8*text,displayName(row.entry),16,row.available?ivory:muted,true,layout.width-92);
                         if(row.equipped)q.diamond(53,y+15,2.5f*q.mark(),equippedMark);
@@ -716,7 +726,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             const float iconX=x+(!wide?(width-keyColumn)*.5f:mirror?width-25.f:25.f);
             const float h=geometry.groups.tileHeight-7,cy=y+3+h*.5f,textX=mirror?x+width-51:x+51,textWidth=width-59-keyColumn;
             q.frame(x,y+3,width,h,emphasized);if(equipped)q.equippedHighlight(x,y+3,width,h,0);if(previewing)q.highlight(x,y+3,width,h,0,q.accent(),true,false,3);q.pulse(x,y+3,width,h,0,pulse);
-            if(entry){q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted);q.sweep(iconX,cy,18*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));q.soulGem(iconX,cy,18*q.tweaks.iconScale,weapon.charge);}
+            if(entry){q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted,weapon.charge);q.sweep(iconX,cy,18*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));q.soulGem(iconX,cy,18*q.tweaks.iconScale,weapon.charge);}
             else q.text(iconX,cy-15,"+",24,muted,false,0,true);
             const float block=(o.showLabels&&o.showCardNames?26*text+4:14*text),top=cy-block*.5f;
             if(o.showLabels)q.label(textX,top,o.names[id],o.showCardNames?12.f:14.f,q.groupAccent?nameColor:ImU32(silver),true,textWidth,false,mirror);
@@ -743,7 +753,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             if(entry) {
                 // A diamond's icon sits a little low under its key and takes the middle of the tile without one.
                 const float iconY=cy+(round||slot?0.f:keyWidth>0?4.f:0.f),iconSize=slot?54.f:round?40.f:keyWidth>0?42.f:46.f;
-                q.icon(cx,iconY,iconSize,*artwork,available?q.itemColor(*artwork):muted);
+                q.icon(cx,iconY,iconSize,*artwork,available?q.itemColor(*artwork):muted,weapon.charge);
                 q.sweep(cx,iconY,iconSize*.5f*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));q.soulGem(cx,iconY,iconSize*.5f*q.tweaks.iconScale,weapon.charge);
             }
             else {q.line(cx-5,cy,cx+5,cy,muted);q.line(cx,cy-5,cx,cy+5,muted);}
@@ -827,7 +837,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             auto item=panel;if(row&&equipmentDimmed(*row))item.alpha*=.4f;
             if(box.iconSize>0) {
                 if(row) {
-                    item.icon(x,y,box.iconSize,rowIconEntry(*row),item.itemColor(rowIconEntry(*row)));
+                    item.icon(x,y,box.iconSize,rowIconEntry(*row),item.itemColor(rowIconEntry(*row)),row->weapon.charge);
                     item.sweep(x,y,box.iconSize*.5f*item.tweaks.iconScale,cooldowns_.fraction(row->entry.form,row->cooldown));item.soulGem(x,y,box.iconSize*.5f*item.tweaks.iconScale,row->weapon.charge);
                     const float size=11*std::clamp(t,.8f,1.25f),radius=o.equipmentStyle==0?box.iconSize*.5f:28.f;
                     panel.badge(x+radius*(o.equipmentStyle==2?.7f:1.f),y+(o.equipmentStyle==0?radius-size:radius*.5f),row->entry,row->quantity,row->cooldown,size,true,row->weapon);

@@ -39,8 +39,8 @@ Updating: group keys held with Ctrl, Shift or Alt now select the group during ga
 - A segmented wheel adds **Ring thickness**, **Gap**, **Item name** (center, below or hidden), **Highlight** (fill and outline, fill, outline or rim), **Raise the pointed segment**, **Ring opacity** and **Item names on segments**.
 - Every wheel adds **Show center circle**, **Show pointer** and **Rotation**.
 - A segmented wheel grows when its entries need room for their icons.
-- **Selector → Show enchantment charge** shows an enchanted weapon's charge as five diamonds under its name.
-- **Appearance → Theme → Soul gem on enchanted weapons** marks enchanted weapons on tiles, the selector and the equipment display with a soul gem that fills with their charge.
+- **Selector → Show enchantment charge** shows an enchanted weapon's charge as five diamonds on their own line under its hand.
+- **Appearance → Theme → Enchantment charge** shows a weapon's charge on its icon in tiles, the selector and the equipment display: **Fill the icon** (the default) or a **Soul gem**.
 - **Selector → Show group and position** turns off the selector's last line.
 - The selector's dock choice under **Placement** is named **Attach**.
 

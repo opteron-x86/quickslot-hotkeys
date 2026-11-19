@@ -1440,7 +1440,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(flag("Use I4 icons",&Options::i4Icons)&&ImGui::IsItemHovered())UI::SetTooltip("Draws item icons from the interface's icon files. When off, tiles show PNGII artwork only. Restart the game after changing this to compare rendering.");
                     if(options.itemIconColor==1)flag("Tint magic icons",&Options::coloredMagic);
                     flag("Key icons",&Options::keyIcons);
-                    if(flag("Soul gem on enchanted weapons",&Options::soulGems)&&ImGui::IsItemHovered())UI::SetTooltip("Marks enchanted weapons with a small soul gem that fills with their remaining charge.");
+                    if(choice("Enchantment charge","##charge icons",&Options::chargeIcons,"Off\0Fill the icon\0Soul gem\0")&&ImGui::IsItemHovered())UI::SetTooltip("Shows an enchanted weapon's remaining charge on its icon: the icon keeps its color up to the charge and fades above it, or a small soul gem fills with it.");
                 }
                 if(heading("Equipped marker")) {
                     if(choice("Equipped highlight","##equipped highlight",&Options::equippedHighlight,"Marker only\0Outline\0Tint\0Outline and tint\0")&&ImGui::IsItemHovered())UI::SetTooltip("Marks the tile of an equipped item with an outline or a tint in the equipped color.");

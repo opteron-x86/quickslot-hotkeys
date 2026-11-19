@@ -39,6 +39,7 @@ inline void sanitizeOptions(Options& o) {
     }
     if(!assignConsumableBinding(o,o.consumableKey))o.consumableKey={};
     if(!assignSwapBinding(o,o.swapKey))o.swapKey={};
+    if(!assignCastBinding(o,o.castKey))o.castKey={};
     std::vector<int> mouseAssigned;
     for(auto& button:o.mouseActions) {
         if(button< -1||button>4||std::find(mouseAssigned.begin(),mouseAssigned.end(),button)!=mouseAssigned.end())button=-1;
@@ -50,6 +51,7 @@ inline void sanitizeOptions(Options& o) {
     o.controllerStyle=std::min(o.controllerStyle,1u);o.controllerStick=std::min(o.controllerStick,2u);
     o.controllerModifiers&=allPadButtons;
     for(auto& mode:o.groupModes)if(unsigned(mode)>unsigned(GroupMode::cycleBrowse))mode=GroupMode::browse;
+    for(auto& style:o.castStyles)if(unsigned(style)>unsigned(CastStyle::oblivion))style=CastStyle::equip;
     if(!validPadBinding(o.controllerEditor))o.controllerEditor={};
     std::vector<PadBinding> padAssigned;if(o.controllerEditor.button!=PadButton::none)padAssigned.push_back(o.controllerEditor);
     for(const auto id:o.groupOrder) {
@@ -63,6 +65,9 @@ inline void sanitizeOptions(Options& o) {
         if(binding.button!=PadButton::none)actionAssigned.push_back(binding);
     }
     if(!validPadBinding(o.controllerUse)||o.controllerUse==o.controllerEditor||std::any_of(o.groupOrder.begin(),o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),[&](auto id){return o.controllerGroups[id]==o.controllerUse;})||std::find(actionAssigned.begin(),actionAssigned.end(),o.controllerUse)!=actionAssigned.end())o.controllerUse={};
+    if(!validPadBinding(o.controllerCast)||(o.controllerCast.button!=PadButton::none&&(o.controllerCast==o.controllerEditor||o.controllerCast==o.controllerUse||
+        std::any_of(o.groupOrder.begin(),o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),[&](auto id){return o.controllerGroups[id]==o.controllerCast;})||
+        std::find(actionAssigned.begin(),actionAssigned.end(),o.controllerCast)!=actionAssigned.end())))o.controllerCast={};
     o.vrStick=std::min(o.vrStick,2u);
     const auto validVR=[](PadBinding b){return validPadBinding(b)&&validVRButton(b.button)&&validVRButton(b.modifier);};
     if(!validVR(o.vrEditor))o.vrEditor={};
@@ -73,6 +78,8 @@ inline void sanitizeOptions(Options& o) {
         if(b.button!=PadButton::none)vrAssigned.push_back(b);
     }
     if(!validVR(o.vrUse)||o.vrUse==o.vrEditor||std::any_of(o.groupOrder.begin(),o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),[&](auto id){return o.vrGroups[id]==o.vrUse;}))o.vrUse={};
+    if(!validVR(o.vrCast)||(o.vrCast.button!=PadButton::none&&(o.vrCast==o.vrEditor||o.vrCast==o.vrUse||
+        std::any_of(o.groupOrder.begin(),o.groupOrder.begin()+std::ptrdiff_t(o.groupCount),[&](auto id){return o.vrGroups[id]==o.vrCast;}))))o.vrCast={};
     sanitizeTable(o);
     const auto finite=[](float v,float fallback,float min,float max){return std::isfinite(v)?std::clamp(v,min,max):fallback;};
     o.controllerDeadzone=finite(o.controllerDeadzone,.45f,.2f,.9f);o.shoutCharge=finite(o.shoutCharge,1.2f,.05f,2.5f);
@@ -101,6 +108,7 @@ inline std::string encodeOptions(Options o) {
     Json padGroups=Json::array();for(const auto b:o.controllerGroups)padGroups.push_back(binding(b));
     Json vrGroups=Json::array();for(const auto b:o.vrGroups)vrGroups.push_back(binding(b));
     Json modes=Json::array();for(const auto mode:o.groupModes)modes.push_back(unsigned(mode));
+    Json castStyles=Json::array();for(const auto style:o.castStyles)castStyles.push_back(unsigned(style));
     Json selectorBindings=Json::array();for(const auto b:o.selectorBindings)selectorBindings.push_back(Json::array({b.key,b.modifiers}));
     Json controllerActions=Json::array();for(const auto b:o.controllerActions)controllerActions.push_back(binding(b));
     Json j{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"tapRecall",o.tapRecall},{"holdDelay",o.holdDelay},{"cycleDelay",o.cycleDelay},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"fontId",o.fontId},{"themeAdjustments",tweaks},
@@ -111,7 +119,8 @@ inline std::string encodeOptions(Options o) {
         {"mouseActions",o.mouseActions},{"groupModifiers",o.groupModifiers},{"selectorBindings",selectorBindings},{"allowUnusedModifiers",o.allowUnusedModifiers},{"controllerActions",controllerActions},
         {"controllerEnabled",o.controllerEnabled},{"controllerBumpers",o.controllerBumpers},{"controllerStyle",o.controllerStyle},{"controllerStick",o.controllerStick},{"controllerDeadzone",o.controllerDeadzone},{"controllerGroups",padGroups},{"controllerEditor",binding(o.controllerEditor)},
         {"separateConsumableUse",o.separateConsumableUse},{"consumableKey",Json::array({o.consumableKey.key,o.consumableKey.modifiers})},{"swapKey",Json::array({o.swapKey.key,o.swapKey.modifiers})},{"doubleTapSwap",o.doubleTapSwap},{"controllerUse",binding(o.controllerUse)},{"vrUse",binding(o.vrUse)},
-        {"groupModes",modes},{"autoSort",o.autoSort},{"controllerModifiers",o.controllerModifiers},{"vrGroups",vrGroups},{"vrEditor",binding(o.vrEditor)},{"vrStick",o.vrStick},
+        {"castKey",Json::array({o.castKey.key,o.castKey.modifiers})},{"controllerCast",binding(o.controllerCast)},{"vrCast",binding(o.vrCast)},
+        {"groupModes",modes},{"castStyles",castStyles},{"autoSort",o.autoSort},{"controllerModifiers",o.controllerModifiers},{"vrGroups",vrGroups},{"vrEditor",binding(o.vrEditor)},{"vrStick",o.vrStick},
         {"showEquipment",o.showEquipment},{"showEquipmentAmmo",o.showEquipmentAmmo},{"equipmentX",o.equipmentX},{"equipmentY",o.equipmentY},{"hideEmptyGroups",o.hideEmptyGroups},{"inactiveGroups",o.inactiveGroups},{"inactiveGroupOpacity",o.inactiveGroupOpacity},
         {"equipmentDim",o.equipmentDim},{"equipmentFadeDelay",o.equipmentFadeDelay},{"equipmentIdleOpacity",o.equipmentIdleOpacity},
         {"equipmentScale",o.equipmentScale},{"equipmentTextScale",o.equipmentTextScale},{"equipmentSpacing",o.equipmentSpacing},
@@ -166,6 +175,11 @@ inline Options decodeOptions(const std::string& bytes) {
         const auto modes=j.at("groupModes").get<std::array<unsigned,Arsenal::count>>();
         for(std::size_t i=0;i<Arsenal::count;++i)o.groupModes[i]=GroupMode(modes[i]);
     }
+    if(j.contains("castStyles")) {
+        const auto styles=j.at("castStyles").get<std::array<unsigned,Arsenal::count>>();
+        for(std::size_t i=0;i<Arsenal::count;++i)o.castStyles[i]=CastStyle(styles[i]);
+    }
+    if(j.contains("castKey")){const auto b=j.at("castKey").get<std::array<unsigned,2>>();o.castKey={b[0],b[1]};}
     o.showEquipment=j.value("showEquipment",false);o.showEquipmentAmmo=j.value("showEquipmentAmmo",false);o.hideEmptyGroups=j.value("hideEmptyGroups",false);
     o.equipmentX=j.value("equipmentX",.02f);o.equipmentY=j.value("equipmentY",.8f);
     o.equipmentScale=j.value("equipmentScale",1.f);o.equipmentTextScale=j.value("equipmentTextScale",1.f);
@@ -190,6 +204,8 @@ inline Options decodeOptions(const std::string& bytes) {
     o.controllerEditor=binding(j.at("controllerEditor"));
     if(j.contains("controllerUse"))o.controllerUse=binding(j.at("controllerUse"));
     if(j.contains("vrUse"))o.vrUse=binding(j.at("vrUse"));
+    if(j.contains("controllerCast"))o.controllerCast=binding(j.at("controllerCast"));
+    if(j.contains("vrCast"))o.vrCast=binding(j.at("vrCast"));
     {const auto& groups=j.at("vrGroups");if(!groups.is_array()||groups.size()!=Arsenal::count)throw std::runtime_error("Invalid VR bindings");for(std::size_t i=0;i<Arsenal::count;++i)o.vrGroups[i]=binding(groups[i]);}
     o.vrEditor=binding(j.at("vrEditor"));
     o.vrStick=j.at("vrStick").get<decltype(o.vrStick)>();

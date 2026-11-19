@@ -43,6 +43,17 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 
 The native preview exercises HUD layout with transparent fixture artwork. PNGII tests cover API discovery, image decoding, GPU uploads and save transitions. In-game checks cover I4 assignments, SWF rendering and PNGII artwork from installed packs. The source archive includes LunaSVG 3.5.0 and its bundled PlutoVG renderer for SVG icons.
 
+## Casting animations
+
+Quickslot Casting Animations holds Skyrim's own casting clips, set up for Open Animation Replacer, so it is built on a machine with the game installed:
+
+```sh
+python3 tools/build-cast-animations.py "<Skyrim>/Data/Skyrim - Animations.bsa" build/cast-animations \
+  --zip dist/Quickslot-Casting-Animations.zip
+```
+
+The archive holds `meshes/actors/character/OpenAnimationReplacer/Quickslot` and installs as its own mod. Its conditions require the plugin version in `src/Version.h`, so build it from the release commit.
+
 ## Linux cross-compilation
 
 Install clang-cl, lld-link, LLVM resource/manifest tools and an xwin Windows SDK/CRT. Set `XWIN_SYSROOT` to the SDK and `QUICKSLOT_WINDOWS_PREFIX` to the Windows dependency prefix. Those libraries use the Microsoft x64 ABI, static linkage and dynamic CRT.

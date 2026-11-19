@@ -56,6 +56,7 @@ inline std::optional<ArsenalRecovery> recoverArsenal(const std::string& bytes,co
     j["groups"]=std::move(groups);
     if(!j.contains("active")||!j["active"].is_number_unsigned()||j["active"].get<std::uint64_t>()>=Arsenal::count)j["active"]=0;
     if(j.contains("consumableGroup")&&!j["consumableGroup"].is_number_unsigned())j.erase("consumableGroup");
+    if(j.contains("readySpellGroup")&&!j["readySpellGroup"].is_number_unsigned())j.erase("readySpellGroup");
     if(!j.contains("presetIdentity")||!j["presetIdentity"].is_string()||j["presetIdentity"].get_ref<const std::string&>().size()>64)j["presetIdentity"]="";
     try {result.arsenal=decodeArsenal(j.dump(),resolve);return result;}catch(const std::exception&){}
     if(j.contains("rememberedConsumable")){j.erase("rememberedConsumable");++result.dropped;}

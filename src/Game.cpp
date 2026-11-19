@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "Casting.h"
 #include "I4Icons.h"
 #include "InputFilter.h"
 #include "PlayerInput.h"
@@ -869,6 +870,7 @@ bool Game::allowHudMenuTransition() {
     return hudMenu_.accept(ui&&ui->IsMenuOpen(RE::Console::MENU_NAME));
 }
 void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEditor("game loaded");cancel();use_.reset();groupRecall_.reset();
+    SpellCasting::get().reset();castRequest_.reset();castHeld_=castFromKey_=false;
     if(arsenal_.presetIdentity.empty()){GUID id{};if(SUCCEEDED(CoCreateGuid(&id))){char key[40];std::snprintf(key,sizeof(key),"%08lx%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x",id.Data1,id.Data2,id.Data3,id.Data4[0],id.Data4[1],id.Data4[2],id.Data4[3],id.Data4[4],id.Data4[5],id.Data4[6],id.Data4[7]);arsenal_.presetIdentity=key;}}
     if(auto* devices=RE::BSInputDeviceManager::GetSingleton())controllerLast_=controllerConnected_=REL::Module::IsVR()||devices->IsGamepadEnabled();
     if(!saveHasGroups_&&!saveHasSetup_&&blankArsenal(arsenal_)) {
@@ -879,7 +881,8 @@ void Game::loaded(){std::scoped_lock lock(mutex_);invalidateI4Icons();closeEdito
     if(!loadNotice_.empty()){const std::string text=tr(loadNotice_.c_str());notice(text);snapshot_.noticeUntil=clockNow()+10;RE::SendHUDMessage::ShowHUDMessage(text.c_str());loadNotice_.clear();}}
 void Game::reset(bool clear) {
     invalidateI4Icons();
-    std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;menuAPI().publish(false,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;
+    std::scoped_lock lock(mutex_);++menuCaptureEpoch_;closeEditor("game reset");cancel();use_.reset();stopAnimationWatch();ready_=false;
+    SpellCasting::get().reset();castRequest_.reset();castHeld_=castFromKey_=false;menuAPI().publish(false,false);dirty_=true;hudMenu_.processed();customMenuProbeAt_=0;
     if(clear) {
         arsenal_=Arsenal{};preservedRecord_.reset();saveHasGroups_=saveHasSetup_=false;
         if(characterSettings_){characterSettings_=false;options_=sharedOptions_;}
@@ -1109,6 +1112,8 @@ bool Game::consumeController(RE::InputEvent* event) {
         }break;
     case PadAction::cancel:cancel();sound("UIMenuCancel");notice(tr("Selection cancelled"),false);break;
     case PadAction::useConsumable:queueConsumable(true);break;
+    case PadAction::cast:castRequest_=true;castHeld_=true;castController_=true;break;
+    case PadAction::castRelease:if(castController_)castHeld_=false;break;
     case PadAction::previous:cycleSelection(-1);break;
     case PadAction::next:cycleSelection(1);break;
     case PadAction::unequip:queueUnequip(selection_.index(),true);break;
@@ -1160,6 +1165,7 @@ bool Game::consume(RE::InputEvent* event) {
     if(*owned) {
         if(up) {
             *owned=false;
+            if(keyboard&&!castController_&&code==options_.castKey.key)castHeld_=false;
             if(keyboard&&!selectionController_&&selection_.held()&&code==options_.keys[selection_.group()]) {
                 if(!allowed())cancel();
                 else {finishSelection();}
@@ -1188,6 +1194,7 @@ bool Game::consume(RE::InputEvent* event) {
         const auto modifiers=keyboardModifiers([&](unsigned scan){return pressed(device,scan);});
         if(consumableShortcutMatches(options_,code,modifiers)){*owned=true;queueConsumable(false);return true;}
         if(swapShortcutMatches(options_,code,modifiers)){*owned=true;swapPrevious(false);return true;}
+        if(castShortcutMatches(options_,code,modifiers)){*owned=true;castRequest_=false;castHeld_=true;castController_=false;return true;}
     }
     const auto key=std::find(options_.keys.begin(),options_.keys.end(),code);
     if(keyboard&&code&&key!=options_.keys.end()&&groupVisible(options_,std::size_t(key-options_.keys.begin()))&&button->IsDown()) {
@@ -1327,6 +1334,22 @@ void Game::tick() {
             cancel();editorLaunch_.request(clockNow());frameworkMessage_.clear();
         }
         if(ready_){watchAnimation();drainAnimation();}
+        if(ready_) {
+            auto& casting=SpellCasting::get();
+            // A release that went to a menu still ends a held cast.
+            if(castHeld_) {
+                auto* keyboard=RE::BSInputDeviceManager::GetSingleton()->GetKeyboard();
+                if(castController_?!controller_.castHeld():!(keyboard&&options_.castKey.key&&pressed(keyboard,options_.castKey.key)))castHeld_=false;
+            }
+            if(castFromKey_&&!castHeld_){castFromKey_=false;casting.letGo();}
+            // A cast waits while the game is paused, as in the Inventory.
+            auto* menus=RE::UI::GetSingleton();
+            if(!menus||!menus->GameIsPaused()) {
+                const bool wasCasting=casting.busy();
+                if(const auto text=casting.update(RE::GetSecondsSinceLastFrame());!text.empty())notice(text);
+                if(wasCasting||casting.busy())dirty_=true;
+            }
+        }
         if(ready_&&use_.active()&&clockNow()>=nextUsePoll_)progressUse();
         if(editorLaunch_.pending()) {
             auto* ui=RE::UI::GetSingleton();auto* player=RE::PlayerCharacter::GetSingleton();auto* main=RE::Main::GetSingleton();
@@ -1359,6 +1382,7 @@ void Game::tick() {
             const bool wasBrowsing=selection_.browsing();selection_.tick(clockNow());if(selection_.browsing()!=wasBrowsing){dirty_=true;if(selection_.browsing())sound("UIMenuFocus");}selectionTime(selection_.browsing()||cycleConfirm_.active());
 
             if(consumableRequest_&&!ui->IsMenuOpen(pauseMenuName)){const auto request=*consumableRequest_;consumableRequest_.reset();useConsumable(request.entry,request.controller);}
+            if(castRequest_&&!ui->IsMenuOpen(pauseMenuName)){castRequest_.reset();castReadySpell();}
             if(const auto confirmed=cycleConfirm_.poll(clockNow())){released_=Released{*confirmed};selectionTime(false);}
             if(released_&&!ui->IsMenuOpen(pauseMenuName)) {const auto action=*released_;released_.reset();equip(action.commit,action.unequip);}
         }
@@ -1554,10 +1578,13 @@ void Game::refresh() {
         }
     }
     if(arsenal_.rememberedConsumable){const auto resolved=resolveShortcut(*arsenal_.rememberedConsumable,player,inventory,potions,deficits);snapshot_.equipment.consumable=resolved.row;if(resolved.item.available())snapshot_.equipment.consumable->entry=resolved.action;}
+    for(std::size_t i=0;i<options_.groupCount;++i)snapshot_.equipment.castsReady|=castStyle(options_,options_.groupOrder[i])==CastStyle::oblivion;
+    if(const auto* ready=readySpell(arsenal_,options_))snapshot_.equipment.readySpell=resolveShortcut(*ready,player,inventory,potions,deficits).row;
     dirty_=false;
 }
 void Game::startVoice(const Entry& entry) {
     if(!allowed()||voice_.active()||nativeVoiceDown_){notice(tr("Voice action unavailable"));return;}
+    if(SpellCasting::get().busy()){notice(tr("Finish your current action, then try again"));return;}
     auto* player=RE::PlayerCharacter::GetSingleton();auto* map=RE::ControlMap::GetSingleton();auto* events=RE::UserEvents::GetSingleton();
     auto* form=RE::TESForm::LookupByID(entry.form);
     if(!player||!form||!map||!events||player->GetActorRuntimeData().selectedPower!=form||!map->IsFightingControlsEnabled())return;
@@ -1595,6 +1622,28 @@ void Game::progressVoice() {
     const bool accepted=voiceButton(voiceDevice_,voiceCode_,released?0.f:1.f,elapsed);
     if(released){log::info("Native voice release: {:08X}, {:.3f}s, handler accepted {}",voiceForm_,elapsed,accepted);if(!accepted)stopVoice();else {voice_.cancel();voiceForm_=0;}dirty_=true;}
     else if(!accepted){stopVoice();notice(tr("Voice action interrupted"));}
+}
+// Casts a spell or scroll from a casting group without changing what the hands hold.
+bool Game::castEntry(const Entry& saved,bool fromKey) {
+    if(voice_.active()){notice(tr("Voice action in progress"));return false;}
+    auto* player=RE::PlayerCharacter::GetSingleton();if(!player)return false;
+    auto inventory=inventoryFor(arsenal_,player);const auto deficits=actorDeficits(player);
+    const auto resolved=resolveShortcut(saved,player,inventory,potionCandidates(inventory),deficits);
+    if(!resolved.row.available){notice(resolved.row.detail.empty()?(isStack(saved)?tr("Out of stock — "):tr("Unavailable — "))+saved.name:resolved.row.detail);dirty_=true;return false;}
+    RE::MagicItem* item=resolved.item.spell;RE::ScrollItem* scroll=nullptr;
+    if(!item&&resolved.item.object){scroll=resolved.item.object->As<RE::ScrollItem>();item=scroll;}
+    if(!item){notice(tr("Unavailable — ")+saved.name);return false;}
+    const auto outcome=SpellCasting::get().cast(item,scroll,saved.hand==Hand::left,fromKey?castHeld_:true);
+    if(outcome.result!=SpellCasting::Result::refused)castFromKey_=fromKey;
+    if(!outcome.notice.empty())notice(outcome.notice);
+    else if(outcome.result!=SpellCasting::Result::refused)notice(tr("Casting — ")+saved.name,false);
+    dirty_=true;return outcome.result!=SpellCasting::Result::refused;
+}
+void Game::castReadySpell() {
+    if(SpellCasting::get().channeling())return;
+    const auto* ready=readySpell(arsenal_,options_);
+    if(!ready){notice(tr("Ready a spell in an Oblivion-style group first"));return;}
+    castEntry(*ready,true);
 }
 void Game::queueConsumable(bool controller) {
     if(voice_.active()){notice(tr("Voice action in progress"));return;}
@@ -1641,6 +1690,19 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         }
         const auto action=selectionAction(saved,commit,options_);
         if(!unequip&&action==SelectionAction::none)return;
+        if(!unequip&&action==SelectionAction::cast) {
+            arsenal_.current().selected=commit.index;pending_.reset();dirty_=true;
+            // A tap while a concentration spell runs ends it.
+            if(auto& casting=SpellCasting::get();casting.channeling()){casting.letGo();castFromKey_=false;publish();return;}
+            castEntry(saved,false);refresh();publish();return;
+        }
+        if(!unequip&&action==SelectionAction::ready) {
+            arsenal_.current().selected=commit.index;arsenal_.readySpellGroup=commit.group;pending_.reset();
+            const bool bound=REL::Module::IsVR()?options_.vrCast.button!=PadButton::none:commit.controller?options_.controllerCast.button!=PadButton::none:options_.castKey.key!=0;
+            if(!bound)notice(trNamed("%s is ready. Bind Cast ready spell under Controls to cast it.",saved.name));
+            else notice(tr("Ready — ")+saved.name,false);
+            dirty_=true;refresh();publish();return;
+        }
         if(!unequip&&action==SelectionAction::select) {
             arsenal_.current().selected=commit.index;rememberConsumable(arsenal_,commit.group,commit.index);pending_.reset();
             // A selected consumable needs the use binding; say so while the device in use has none.
@@ -1987,6 +2049,8 @@ void Game::refreshEditor() {
         }
     }
     if(editor_.draft.rememberedConsumable){const auto resolved=resolveShortcut(*editor_.draft.rememberedConsumable,player,inventory,potions,editor_.deficits);editor_.equippedDisplay.consumable=resolved.row;if(resolved.item.available())editor_.equippedDisplay.consumable->entry=resolved.action;}
+    for(std::size_t i=0;i<editor_.options.groupCount;++i)editor_.equippedDisplay.castsReady|=castStyle(editor_.options,editor_.options.groupOrder[i])==CastStyle::oblivion;
+    if(const auto* ready=readySpell(editor_.draft,editor_.options))editor_.equippedDisplay.readySpell=resolveShortcut(*ready,player,inventory,potions,editor_.deficits).row;
     dirty_=false;
 }
 std::optional<Entry> Game::captureCandidate(std::uint64_t candidate,Hand hand) {

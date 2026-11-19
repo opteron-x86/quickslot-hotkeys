@@ -27,6 +27,8 @@ Requirements:
 
 VR uses SKSEVR, [VR Address Library](https://github.com/alandtse/skyrim_vr_address_library), [SkyUI VR](https://github.com/Odie/skyui-vr), and [ImGui VR Helper 1.9.4+](https://www.nexusmods.com/skyrimspecialedition/mods/183466). VR support is experimental.
 
+To cast spells from a group without equipping them, install [Open Animation Replacer](https://www.nexusmods.com/skyrimspecialedition/mods/92109) 3 or later and **Quickslot Casting Animations**, the second download on the release page. See [Casting spells](#casting-spells).
+
 Optional integrations include [PNG Icon Injector](https://github.com/rijosan87/PNGII) with icon API v1 for item artwork, [SKSE Menu Framework](https://www.nexusmods.com/skyrimspecialedition/mods/120352) for its editor entry, ImGui Icons for keycaps, and Skyrim Souls RE for selection slowdown. Physical controller/headset checks are listed in [Testing](docs/TESTING.md).
 
 ## Groups
@@ -55,6 +57,17 @@ Choose what a tap of each group's key does under **Tap**:
 **Keep the other hand equipped while cycling**, under **Controls → General**, starts enabled. A group that steps to the next item skips one-handed weapon copies held in the opposite hand. Smart weapons choose the strongest eligible copy. This applies to manual and Favorites-linked groups. Browsing hand actions can move a weapon between hands; turn the option off to allow those transfers during cycling too.
 
 **Controls → General → Timing** sets the **Hold delay** that separates a tap from a hold (100–800 ms). **Cycle confirm delay** gives tapped cycling a selection window: each tap shows the next choice in the selector, your **Game speed while selecting** setting applies, and the last choice equips once when the delay ends. The cancel binding closes the window with your equipment unchanged. At zero, every tap equips.
+
+### Casting spells
+
+With [Open Animation Replacer](https://www.nexusmods.com/skyrimspecialedition/mods/92109) and **Quickslot Casting Animations** installed, a group can cast its spells and scrolls instead of equipping them. Choose how under **Tap**:
+
+- **Quick cast the selected spell:** a tap casts the group's selected spell or scroll and leaves your hands as they are. Hold the key to browse and release to pick a spell; the next tap casts it. A tap starts a concentration spell, and the next tap of a quick-cast group ends it.
+- **Ready a spell (Oblivion style):** the group picks your ready spell, which the equipment display lists under **Ready spell**. **Cast ready spell** casts it; hold the binding to keep a concentration spell going. Bind it under **Controls → Keyboard** or **Controls → Controller**.
+
+A cast plays Skyrim's casting animation in the hand the spell was added for, or in both hands for a two-handed spell. It costs magicka as an equipped spell does, and a scroll is used up. Aimed spells and runes go where the crosshair points. A concentration spell ends when magicka runs out. A cast waits for the one before it to finish, cannot start while riding, swimming, in the air or attacking, and stops when you start riding, swimming or attacking.
+
+Weapons, potions, powers and shouts in a casting group work as in any other group, and the hand buttons still equip the highlighted spell. Without Open Animation Replacer or the animation pack, the extra **Tap** choices are hidden and casting groups equip their spells. Casting is unavailable in VR.
 
 ### Consumables
 

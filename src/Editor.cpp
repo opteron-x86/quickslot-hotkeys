@@ -308,10 +308,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
     for(const auto press:downs_) {
         const auto scan=press.scan;
         if(binding_!=-1) {
-            if(binding_==-3||binding_==-4) {
+            if(binding_==-3||binding_==-4||binding_==-5) {
                 if(modifierForScan(scan))continue;
                 const auto chosen=scan==1?KeyBinding{}:KeyBinding{scan,press.modifiers};
-                if(!(binding_==-3?assignConsumableBinding(options,chosen):assignSwapBinding(options,chosen))){hint_=tr("Key already assigned");continue;}
+                if(!(binding_==-3?assignConsumableBinding(options,chosen):binding_==-4?assignSwapBinding(options,chosen):assignCastBinding(options,chosen))){hint_=tr("Key already assigned");continue;}
                 changed=true;binding_=-1;hint_.clear();break;
             }
             if(binding_>=100) {
@@ -354,7 +354,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
     padDowns_.clear();
     downs_.clear();
     const auto bindButton=[&](int index,unsigned key,const char* id) {
-        const auto text=(binding_==index?std::string(tr("Press a key…")):shortcutName(key,index==-2?options.editorModifiers:index==-3?options.consumableKey.modifiers:index==-4?options.swapKey.modifiers:0))+id;
+        const auto text=(binding_==index?std::string(tr("Press a key…")):shortcutName(key,index==-2?options.editorModifiers:index==-3?options.consumableKey.modifiers:index==-4?options.swapKey.modifiers:index==-5?options.castKey.modifiers:0))+id;
         const float width=index< -1?std::max(px(150),ImGui::CalcTextSize(text.c_str(),nullptr,true).x+px(20)):px(95);
         if(UI::Button(text.c_str(),{width,0})){binding_=index;hint_=tr(index==-2?"Press a key · Esc cancels":index==-3?"Press a key · Esc clears":"Press a key · Esc clears · Used group keys swap");}
         if(index>=0) {
@@ -730,16 +730,32 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             ImGui::EndDisabled();
             ImGui::SameLine();UI::TextDisabled("Tap");
             if(ImGui::IsItemHovered())UI::SetTooltip("What a tap of the group key does.");
-            ImGui::SameLine();ImGui::SetNextItemWidth(px(230));
+            ImGui::SameLine();ImGui::SetNextItemWidth(px(270));
             const bool consumables=hasConsumables(group);const auto mode=groupMode(options,state.draft,groupID);
-            int tap=cyclesOnTap(mode)?1:0;bool hold=mode!=GroupMode::cycle;
-            if(UI::Combo("##group tap",&tap,"Equip the last item\0Step to the next item\0")){options.groupModes[groupID]=groupModeFor(tap==1,hold);changed=true;}
-            if(ImGui::IsItemHovered())UI::SetTooltip(tap==0?"A tap equips or uses the item you chose last. Hold the key to browse, then release to select.":"Each tap moves to the group's next item and equips it.");
-            ImGui::SameLine();ImGui::BeginDisabled(tap==0);
+            // Casting groups appear once Open Animation Replacer and the casting animations are installed.
+            const bool casting=castingInstalled();const auto style=castStyle(options,groupID);
+            int tap=style==CastStyle::quick?2:style==CastStyle::oblivion?3:cyclesOnTap(mode)?1:0;bool hold=mode!=GroupMode::cycle;
+            const bool tapped=casting?UI::Combo("##group tap",&tap,"Equip the last item\0Step to the next item\0Quick cast the selected spell\0Ready a spell (Oblivion style)\0"):
+                UI::Combo("##group tap",&tap,"Equip the last item\0Step to the next item\0");
+            if(tapped) {
+                options.castStyles[groupID]=tap==2?CastStyle::quick:tap==3?CastStyle::oblivion:CastStyle::equip;
+                if(tap<2)options.groupModes[groupID]=groupModeFor(tap==1,hold);
+                changed=true;
+            }
+            if(ImGui::IsItemHovered()) {
+                if(tap==0)UI::SetTooltip("A tap equips or uses the item you chose last. Hold the key to browse, then release to select.");
+                else if(tap==1)UI::SetTooltip("Each tap moves to the group's next item and equips it.");
+                else if(tap==2)UI::SetTooltip("A tap casts the selected spell or scroll without changing what you hold. Hold the key to browse, then release to pick a spell. A tap starts a concentration spell and the next tap ends it.");
+                else UI::SetTooltip("The selected spell becomes your ready spell, and Cast ready spell casts it. Hold the key to browse, then release to pick a spell.");
+            }
+            ImGui::SameLine();ImGui::BeginDisabled(tap!=1);
             if(UI::Checkbox("Hold to browse",&hold)){options.groupModes[groupID]=groupModeFor(tap==1,hold);changed=true;}
             ImGui::EndDisabled();
             if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("Holding the group key opens the selector. Browse, then release to select the highlighted item.");
-            if(tap==0&&(consumables||group.automatic()||options.separateConsumableUse[groupID])) {
+            if(!casting&&options.castStyles[groupID]!=CastStyle::equip)UI::TextWrapped("This group casts its spells once Open Animation Replacer and Quickslot Casting Animations are installed. Until then it equips them.");
+            if(tap==3&&(state.vr?options.vrCast.button==PadButton::none:!options.castKey.key&&options.controllerCast.button==PadButton::none))
+                UI::TextWrapped("Bind Cast ready spell under Controls to cast the ready spell.");
+            if(tap!=1&&(consumables||group.automatic()||options.separateConsumableUse[groupID])) {
                 int use=options.separateConsumableUse[groupID]?1:0;ImGui::SetNextItemWidth(px(280));
                 if(UI::Combo("Consumables",&use,"Tap to use\0Use selected consumable action\0")){options.separateConsumableUse[groupID]=use==1;changed=true;}
             } else if(tap==1&&(consumables||group.automatic())) {
@@ -1064,6 +1080,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             bindButton(-4,options.swapKey.key,"##swap binding");ImGui::SameLine();
             if(UI::Button("Clear##swap binding")){assignSwapBinding(options,{});binding_=-1;changed=true;hint_.clear();}
             ImGui::SameLine();ImGui::TextUnformatted(tr("Return to previous selection"));
+            if(castingInstalled()) {
+                bindButton(-5,options.castKey.key,"##cast binding");ImGui::SameLine();
+                if(UI::Button("Clear##cast binding")){assignCastBinding(options,{});binding_=-1;changed=true;hint_.clear();}
+                ImGui::SameLine();ImGui::TextUnformatted(tr("Cast ready spell"));
+                if(ImGui::IsItemHovered())UI::SetTooltip("Casts the spell an Oblivion-style group made ready. Hold it to keep a concentration spell going.");
+            }
             ImGui::Separator();label(tr("WHILE THE SELECTOR IS OPEN"));
             UI::TextWrapped("Hold a group key to open the selector and release it to select the highlighted item. A hand button puts that item in the hand, or takes it out when it is already there.");
             {
@@ -1118,6 +1140,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             auto& groups=state.vr?options.vrGroups:options.controllerGroups;
             auto& editorBinding=state.vr?options.vrEditor:options.controllerEditor;
             auto& useBinding=state.vr?options.vrUse:options.controllerUse;
+            auto& castBinding=state.vr?options.vrCast:options.controllerCast;
             auto& browseStick=state.vr?options.vrStick:options.controllerStick;
             const auto chooseButton=[&](const char* id,PadButton& value) {
                 bool selected=false;
@@ -1140,7 +1163,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 }
                 if(padDrafts_.contains(index)) {
                     if(choice.button==PadButton::none&&choice.modifier!=PadButton::none)return;
-                    bool duplicate=choice.button!=PadButton::none&& ((&value!=&editorBinding&&choice==editorBinding)||(&value!=&useBinding&&choice==useBinding));
+                    bool duplicate=choice.button!=PadButton::none&& ((&value!=&editorBinding&&choice==editorBinding)||(&value!=&useBinding&&choice==useBinding)||(&value!=&castBinding&&choice==castBinding));
                     for(std::size_t i=0;i<options.groupCount;++i){const auto& other=groups[options.groupOrder[i]];if(&other!=&value&&choice.button!=PadButton::none&&other==choice)duplicate=true;}
                     if(!state.vr)for(const auto& other:options.controllerActions)if(&other!=&value&&choice.button!=PadButton::none&&other==choice)duplicate=true;
                     const char* problem=duplicate?tr("Button combination already assigned"):!validPadBinding(choice)?tr("Choose different buttons"):nullptr;
@@ -1155,6 +1178,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             for(std::size_t i=0;i<options.groupCount;++i){const auto id=options.groupOrder[i];padBinding(groups[id],options.names[id].c_str(),unsigned(id));}
             ImGui::Separator();padBinding(editorBinding,tr("Open editor"),8);
             padBinding(useBinding,tr("Use selected consumable"),9);
+            if(castingInstalled())padBinding(castBinding,tr("Cast ready spell"),10);
             int stick=int(browseStick);ImGui::SetNextItemWidth(px(220));if(UI::Combo("Browse with",&stick,state.vr?"Off-hand stick / pad\0Main-hand stick / pad\0Off\0":"Left stick\0Right stick\0Off\0")){browseStick=unsigned(stick);changed=true;}
             if(!state.vr)changed|=UI::Checkbox("Enable previous / next buttons",&options.controllerBumpers);
             ImGui::SetNextItemWidth(px(220));changed|=UI::SliderFloat("Stick deadzone",&options.controllerDeadzone,.2f,.9f,"%.2f");

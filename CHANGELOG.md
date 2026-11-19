@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Tap** adds **Quick cast the selected spell**, which casts a group's selected spell or scroll on a tap without equipping it, and **Ready a spell (Oblivion style)**, which makes it the spell **Cast ready spell** casts. Both need Open Animation Replacer and Quickslot Casting Animations.
+- **Cast ready spell** binding under **Controls → Keyboard** and **Controls → Controller**.
+- The equipment display lists the ready spell while an Oblivion-style group exists.
+- `tools/build-cast-animations.py` builds Quickslot Casting Animations from the game's `Skyrim - Animations.bsa`.
+
 ## 0.16.0
 
 Updating: group keys held with Ctrl, Shift or Alt now select the group during gameplay. Turn on **Controls → Keyboard → Use editing shortcuts during gameplay** to keep adding, unequipping and removing with those chords outside menus.

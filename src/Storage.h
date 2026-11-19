@@ -130,6 +130,7 @@ inline std::string encodeArsenal(const Arsenal& arsenal) {
     Json shortcuts=Json::array();for(const auto& e:arsenal.shortcuts)shortcuts.push_back(encodeEntry(e));
     Json result{{"schema",arsenalSchema},{"presetIdentity",arsenal.presetIdentity},{"active",arsenal.active},{"groups",groups},{"shortcuts",shortcuts}};
     if(arsenal.consumableGroup<Arsenal::count)result["consumableGroup"]=arsenal.consumableGroup;
+    if(arsenal.readySpellGroup<Arsenal::count)result["readySpellGroup"]=arsenal.readySpellGroup;
     if(arsenal.rememberedConsumable)result["rememberedConsumable"]=encodeEntry(*arsenal.rememberedConsumable);
     return result.dump();
 }
@@ -141,7 +142,7 @@ inline Arsenal decodeArsenal(const std::string& bytes,const std::function<bool(s
     for(std::size_t i=0;i<Arsenal::count;++i)arsenal.groups[i]=decode(j.at("groups")[i].dump(),resolve);
     const auto active=j.at("active").get<std::uint64_t>();
     if(active>=Arsenal::count)throw std::runtime_error("Invalid active group");
-    arsenal.active=std::size_t(active);arsenal.consumableGroup=std::min(j.value("consumableGroup",Arsenal::count),Arsenal::count);arsenal.presetIdentity=j.at("presetIdentity").get<std::string>();
+    arsenal.active=std::size_t(active);arsenal.consumableGroup=std::min(j.value("consumableGroup",Arsenal::count),Arsenal::count);arsenal.readySpellGroup=std::min(j.value("readySpellGroup",Arsenal::count),Arsenal::count);arsenal.presetIdentity=j.at("presetIdentity").get<std::string>();
     if(arsenal.presetIdentity.size()>64)throw std::runtime_error("Invalid preset identity");
     if(j.contains("shortcuts")) {
         const auto& definitions=j.at("shortcuts");

@@ -314,11 +314,18 @@ int main(int argc,char** argv) {
         if(scene.find("loose")!=std::string::npos)options.equipmentSpacing=128;
         if(scene.find("faded")!=std::string::npos){options.equipmentDim=true;options.equipmentFadeDelay=0;}
         if(scene.find("used")!=std::string::npos)snapshot.equipment.voice=Row{editing.catalog[14].entry,true,true,{},0,0,true};
+        if(scene.find("ready")!=std::string::npos){snapshot.equipment.castsReady=true;snapshot.equipment.readySpell=Row{editing.catalog[4].entry,true,false};}
     }
     if(scene=="editor-equipped"){editing.options.showEquipment=true;editing.options.themeId="oathvein";previewClicks={"Appearance","Equipment"};}
     if(scene=="editor-equipped-spacing"){editing.options.showEquipment=true;editing.options.themeId="oathvein";editing.options.equipmentStyle=1;editing.options.equipmentSpacing=128;previewClicks={"Appearance","Equipment"};}
     if(scene=="editor-equipped-layout"){editing.options.showEquipment=true;editing.options.themeId="oathvein";previewClicks={"Appearance","Equipment","##equipment style","Circles","##equipment layout","Horizontal","##equipment text","Bottom"};}
     if(scene=="editor-cycle")previewClicks={"##group tap"};
+    // Casting scenes: the casting animations are installed, except in editor-casting-missing.
+    castingInstalled()=scene.starts_with("editor-casting")&&scene!="editor-casting-missing";
+    if(scene=="editor-casting")previewClicks={"##group tap"};
+    if(scene=="editor-casting-ready"||scene=="editor-casting-missing")editing.options.castStyles[editing.draft.active]=scene=="editor-casting-ready"?CastStyle::oblivion:CastStyle::quick;
+    if(scene=="editor-casting-keyboard")previewClicks={"Controls","Keyboard"};
+    if(scene=="editor-casting-controller")previewClicks={"Controls","Controller"};
     if(scene=="editor-library")previewClicks={"##filter","Shortcuts"};
     if(scene=="editor-library-edit")previewClicks={"##filter","Shortcuts","##candidate","Edit shortcut"};
     if(scene=="editor-favorites")previewClicks={"##group source","Favorite weapons"};

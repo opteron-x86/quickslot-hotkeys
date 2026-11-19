@@ -9,8 +9,8 @@
 namespace quickslot {
 // A group's name, bindings, place in the order, behavior and color belong to the character. They are stored in its
 // saves beside the group's contents, under the same keys the settings file uses.
-inline constexpr std::array<const char*,11> groupSetupKeys{"names","keys","controllerGroups","vrGroups","groupCount","groupOrder",
-    "groupModes","separateConsumableUse","autoSort","groupColored","groupColors"};
+inline constexpr std::array<const char*,12> groupSetupKeys{"names","keys","controllerGroups","vrGroups","groupCount","groupOrder",
+    "groupModes","castStyles","separateConsumableUse","autoSort","groupColored","groupColors"};
 inline void copyCharacterGroups(Options& target,const Options& source) {
     copyGroupSetup(target,source);target.keys=source.keys;target.controllerGroups=source.controllerGroups;target.vrGroups=source.vrGroups;
 }

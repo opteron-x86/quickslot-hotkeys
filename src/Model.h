@@ -76,6 +76,8 @@ inline Entry equipmentStep(const Entry& e,std::size_t index){return e.kind==Kind
 inline bool isConsumable(const Entry& e){return e.kind==Kind::potion||e.kind==Kind::food||e.kind==Kind::poison||e.kind==Kind::smartPotion;}
 inline bool isStack(const Entry& e){return isConsumable(e)||e.kind==Kind::torch||e.kind==Kind::scroll||e.kind==Kind::ammo||e.kind==Kind::smartAmmo;}
 inline bool isVoice(const Entry& e){return e.kind==Kind::power||e.kind==Kind::lesserPower||e.kind==Kind::shout;}
+// Spells and scrolls, which a casting group casts instead of equipping.
+inline bool castable(const Entry& e){return e.kind==Kind::spell||e.kind==Kind::scroll;}
 inline bool isInventory(const Entry& e){return !isSmartEquipment(e)&&!e.spell&&!isVoice(e)&&!isHandAction(e)&&e.kind!=Kind::smartPotion&&e.kind!=Kind::combo;}
 inline bool tracksInstance(const Entry& e){return isInventory(e)&&!isStack(e);}
 inline bool movesOtherHandWeapon(const Entry& e,bool equipped,bool otherEquipped) {
@@ -152,6 +154,8 @@ struct Arsenal {
     std::size_t active=0;
     std::size_t consumableGroup=count;
     std::optional<Entry> rememberedConsumable;
+    // The Oblivion-style group whose selected spell the Cast ready spell binding casts.
+    std::size_t readySpellGroup=count;
     Group& current(){return groups[active];}
     const Group& current()const{return groups[active];}
     std::size_t size()const{std::size_t total=0;for(const auto& group:groups)total+=group.entries.size();return total;}
@@ -313,6 +317,9 @@ struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=
 struct EquippedDisplay {
     std::array<std::optional<Row>,2> hands;
     std::optional<Row> consumable,voice,ammo;
+    // readySpell: the spell Cast ready spell casts. castsReady: an Oblivion-style group exists, so the display lists it.
+    std::optional<Row> readySpell;
+    bool castsReady=false;
 };
 struct Snapshot {
     std::vector<Row> rows;
@@ -354,6 +361,12 @@ template<class IsDown> inline unsigned keyboardModifiers(IsDown down) {
            ((down(56)||down(184))?keyModifier::alt:0u);
 }
 enum class GroupMode : unsigned {browse,cycle,cycleBrowse};
+// What a group does with its spells and scrolls: equips them (the default), casts the selected one on a tap without
+// changing what the hands hold (quick cast), or makes it the ready spell that Cast ready spell casts (Oblivion style).
+enum class CastStyle : unsigned {equip,quick,oblivion};
+// Casting needs Open Animation Replacer and Quickslot's casting animations. The game sets this once it finds both;
+// until then every group equips its spells and keeps its saved style for later.
+inline bool& castingInstalled(){static bool installed=false;return installed;}
 inline bool cyclesOnTap(GroupMode mode){return mode==GroupMode::cycle||mode==GroupMode::cycleBrowse;}
 // Where one group's tile sits in the Free arrangement: an anchor from 0 to 8 and an offset in 1080p pixels.
 // Anchor 9 means not placed yet; the tile then sits beside the previous one.
@@ -366,12 +379,16 @@ struct Options {
     std::size_t groupCount=3;
     std::array<std::size_t,Arsenal::count> groupOrder{0,1,2,3,4,5,6,7};
     std::array<GroupMode,Arsenal::count> groupModes{};
+    std::array<CastStyle,Arsenal::count> castStyles{};
     std::array<bool,Arsenal::count> autoSort{},separateConsumableUse{};
     KeyBinding consumableKey;
     // Returns to the selection made before the current one; doubleTapSwap does the same on a second quick tap of a group.
     KeyBinding swapKey;
     bool doubleTapSwap=false;
     PadBinding controllerUse,vrUse;
+    // Casts the ready spell; held, it keeps a concentration spell going.
+    KeyBinding castKey;
+    PadBinding controllerCast,vrCast;
     bool skipEmpty=false,menuCapture=true,cycleKeepOtherHand=true;
     // tapRecall: the first tap on a group other than the last one used equips its current item; later taps step.
     bool tapRecall=true;
@@ -597,10 +614,10 @@ inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,unsigned mod
     return {};
 }
 inline SelectorKey selectorKeyAction(const Options& o,unsigned scan,bool ctrl){return selectorKeyAction(o,scan,ctrl?keyModifier::ctrl:0u);}
-inline bool selectorKeyReserved(const Options& o,unsigned key){if(key&&(key==o.consumableKey.key||key==o.swapKey.key))return true;for(unsigned i=0;key&&i<o.selectorBindings.size();++i)if(selectorBinding(o,KeyboardAction(i)).key==key)return true;return false;}
+inline bool selectorKeyReserved(const Options& o,unsigned key){if(key&&(key==o.consumableKey.key||key==o.swapKey.key||key==o.castKey.key))return true;for(unsigned i=0;key&&i<o.selectorBindings.size();++i)if(selectorBinding(o,KeyboardAction(i)).key==key)return true;return false;}
 inline bool assignSelectorBinding(Options& o,KeyboardAction action,KeyBinding binding) {
     if(action>=KeyboardAction::count||binding.key>255||modifierForScan(binding.key)||(binding.modifiers&~keyModifier::all))return false;
-    if(binding.key&&(binding.key==o.editorKey||binding.key==o.consumableKey.key||binding.key==o.swapKey.key||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
+    if(binding.key&&(binding.key==o.editorKey||binding.key==o.consumableKey.key||binding.key==o.swapKey.key||binding.key==o.castKey.key||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
     if(!binding.key)binding.modifiers=0;
     const auto index=unsigned(action);
     for(unsigned i=0;i<o.selectorBindings.size();++i)if(!selectorActionEnabled(o,KeyboardAction(i)))o.selectorBindings[i]={};
@@ -610,21 +627,33 @@ inline bool assignSelectorBinding(Options& o,KeyboardAction action,KeyBinding bi
     o.selectorBindings[index]=binding;setSelectorActionEnabled(o,action,binding.key!=0);return true;
 }
 // Dedicated action keys share one rule: free of the editor, group, selector and other action keys.
-inline bool actionKeyAvailable(const Options& o,KeyBinding binding,unsigned otherAction) {
+// The dedicated actions: Use selected consumable, Return to previous selection and Cast ready spell.
+enum class ActionKey {consumable,swap,cast};
+inline unsigned actionKey(const Options& o,ActionKey action){return action==ActionKey::consumable?o.consumableKey.key:action==ActionKey::swap?o.swapKey.key:o.castKey.key;}
+inline bool actionKeyAvailable(const Options& o,KeyBinding binding,ActionKey self) {
     if(binding.key>255||modifierForScan(binding.key)||(binding.modifiers&~keyModifier::all))return false;
-    if(binding.key&&(binding.key==o.editorKey||binding.key==otherAction||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
+    for(const auto other:{ActionKey::consumable,ActionKey::swap,ActionKey::cast})if(other!=self&&binding.key&&binding.key==actionKey(o,other))return false;
+    if(binding.key&&(binding.key==o.editorKey||std::find(o.keys.begin(),o.keys.end(),binding.key)!=o.keys.end()))return false;
     for(unsigned i=0;binding.key&&i<o.selectorBindings.size();++i)if(selectorBinding(o,KeyboardAction(i)).key==binding.key)return false;
     return true;
 }
 inline bool assignConsumableBinding(Options& o,KeyBinding binding) {
-    if(!actionKeyAvailable(o,binding,o.swapKey.key))return false;
+    if(!actionKeyAvailable(o,binding,ActionKey::consumable))return false;
     if(!binding.key)binding.modifiers=0;
     o.consumableKey=binding;return true;
 }
 inline bool assignSwapBinding(Options& o,KeyBinding binding) {
-    if(!actionKeyAvailable(o,binding,o.consumableKey.key))return false;
+    if(!actionKeyAvailable(o,binding,ActionKey::swap))return false;
     if(!binding.key)binding.modifiers=0;
     o.swapKey=binding;return true;
+}
+inline bool assignCastBinding(Options& o,KeyBinding binding) {
+    if(!actionKeyAvailable(o,binding,ActionKey::cast))return false;
+    if(!binding.key)binding.modifiers=0;
+    o.castKey=binding;return true;
+}
+inline bool castShortcutMatches(const Options& o,unsigned key,unsigned modifiers) {
+    return o.castKey.key&&o.castKey.key==key&&o.castKey.modifiers==modifiers;
 }
 inline bool swapShortcutMatches(const Options& o,unsigned key,unsigned modifiers) {
     return o.swapKey.key&&o.swapKey.key==key&&o.swapKey.modifiers==modifiers;
@@ -650,7 +679,21 @@ inline bool useTriggersForHands(Options& o) {
 }
 // A group keeps the behavior chosen for it whatever it holds. In a group whose taps step through its items, taps
 // select consumables and the Use selected consumable binding uses them.
-inline GroupMode groupMode(const Options& o,const Arsenal&,std::size_t group){return group<Arsenal::count?o.groupModes[group]:GroupMode::browse;}
+inline CastStyle castStyle(const Options& o,std::size_t group) {
+    if(group>=Arsenal::count||!castingInstalled()||unsigned(o.castStyles[group])>unsigned(CastStyle::oblivion))return CastStyle::equip;
+    return o.castStyles[group];
+}
+// A casting group always acts on its selected item on a tap and browses on a hold.
+inline GroupMode groupMode(const Options& o,const Arsenal&,std::size_t group) {
+    if(group>=Arsenal::count||castStyle(o,group)!=CastStyle::equip)return GroupMode::browse;
+    return o.groupModes[group];
+}
+// The ready spell: the selected spell or scroll of the Oblivion-style group used last.
+inline const Entry* readySpell(const Arsenal& a,const Options& o) {
+    if(a.readySpellGroup>=Arsenal::count||castStyle(o,a.readySpellGroup)!=CastStyle::oblivion)return nullptr;
+    const auto& group=a.groups[a.readySpellGroup];
+    return group.selected<group.entries.size()&&castable(group.entries[group.selected])?&group.entries[group.selected]:nullptr;
+}
 // A behavior from what a tap does and whether holding opens the selector. A tap that equips the last item always has the selector.
 inline GroupMode groupModeFor(bool tapSteps,bool holdBrowses){return !tapSteps?GroupMode::browse:holdBrowses?GroupMode::cycleBrowse:GroupMode::cycle;}
 // True when the group key selects this group's consumables and a separate binding uses them.
@@ -691,11 +734,18 @@ inline std::optional<std::size_t> cycleEntry(const Group& group,const std::vecto
 inline bool keepOtherHandWhenCycling(const Options& options,const Selection::Commit& commit,bool unequip=false) {
     return options.cycleKeepOtherHand&&commit.cycling&&!commit.hand&&!unequip;
 }
-enum class SelectionAction {none,select,equip,use};
+// cast: a quick-cast group casts the spell. ready: an Oblivion-style group makes it the ready spell.
+enum class SelectionAction {none,select,equip,use,cast,ready};
 inline SelectionAction selectionAction(const Entry& e,const Selection::Commit& c,const Options& o) {
     if(c.group>=Arsenal::count)return SelectionAction::none;
     if(isConsumable(e))return o.separateConsumableUse[c.group]||c.browsed||c.cycling?SelectionAction::select:SelectionAction::use;
     if(isVoice(e))return o.voiceHotkey&&!c.browsed&&!c.cycling?SelectionAction::use:SelectionAction::equip;
+    // A hand button still equips the spell into that hand.
+    if(castable(e)&&!c.hand)switch(castStyle(o,c.group)) {
+        case CastStyle::quick:return c.browsed?SelectionAction::select:SelectionAction::cast;
+        case CastStyle::oblivion:return SelectionAction::ready;
+        default:break;
+    }
     return SelectionAction::equip;
 }
 inline bool selectsConsumable(const Entry& e,const Selection::Commit& c,const Options& o){return isConsumable(e)&&selectionAction(e,c,o)==SelectionAction::select;}
@@ -707,8 +757,9 @@ inline void resetGroup(Arsenal& a,Options& o,std::size_t id) {
     auto& g=a.groups[id];const auto revision=g.revision+1;g={};g.revision=revision;
     o.names[id]="Group "+std::to_string(id+1);
     o.keys[id]=0;o.controllerGroups[id]={};o.vrGroups[id]={};
-    o.groupModes[id]=GroupMode::browse;o.autoSort[id]=false;o.separateConsumableUse[id]=false;
+    o.groupModes[id]=GroupMode::browse;o.castStyles[id]=CastStyle::equip;o.autoSort[id]=false;o.separateConsumableUse[id]=false;
     if(a.consumableGroup==id){a.consumableGroup=Arsenal::count;a.rememberedConsumable.reset();}
+    if(a.readySpellGroup==id)a.readySpellGroup=Arsenal::count;
 }
 template<class Binding> Binding nextGroupBinding(const Options& o,std::array<Binding,Arsenal::count>& bindings,
                                                 const std::array<Binding,Arsenal::count>& defaults,Binding editor,Binding use={}) {
@@ -734,7 +785,7 @@ inline bool addGroup(Arsenal& a,Options& o) {
     const auto id=o.groupOrder[o.groupCount];resetGroup(a,o,id);
     const Options defaults;
     o.keys[id]=nextGroupBinding(o,o.keys,defaults.keys,o.editorKey,o.consumableKey.key);
-    if(o.keys[id]&&o.keys[id]==o.swapKey.key)o.keys[id]=0;
+    if(o.keys[id]&&(o.keys[id]==o.swapKey.key||o.keys[id]==o.castKey.key))o.keys[id]=0;
     o.controllerGroups[id]=nextGroupBinding(o,o.controllerGroups,defaults.controllerGroups,o.controllerEditor,o.controllerUse);
     o.vrGroups[id]=nextGroupBinding(o,o.vrGroups,defaults.vrGroups,o.vrEditor,o.vrUse);
     o.names[id]="Group "+std::to_string(o.keys[id]?o.keys[id]-1:o.groupCount+1);

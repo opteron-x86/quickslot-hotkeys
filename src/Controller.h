@@ -2,7 +2,7 @@
 #include "Model.h"
 
 namespace quickslot {
-enum class PadAction {none,press,release,cancel,previous,next,unequip,editor,rightHand,leftHand,useConsumable};
+enum class PadAction {none,press,release,cancel,previous,next,unequip,editor,rightHand,leftHand,useConsumable,cast,castRelease};
 struct PadResult {bool consumed=false;PadAction action=PadAction::none;std::size_t group=0;};
 class ControllerInput {
     std::array<bool,unsigned(PadButton::count)> down_{},owned_{};
@@ -10,6 +10,8 @@ class ControllerInput {
     std::size_t group_=0;
     int direction_=0;
     double repeatAt_=0;
+    // The button that pressed Cast ready spell, until it is let go.
+    PadButton castButton_=PadButton::none;
 public:
     bool down(PadButton b)const{return validPadButton(b)&&down_[unsigned(b)];}
     bool active()const{return active_.has_value();}
@@ -19,7 +21,9 @@ public:
     void observe(const PadState& physical){down_=physical;}
     void cancel(){active_.reset();direction_=0;repeatAt_=0;}
     void begin(PadBinding binding,std::size_t group){active_=binding;group_=group;direction_=0;}
-    void reset(){cancel();down_.fill(false);owned_.fill(false);}
+    void reset(){cancel();down_.fill(false);owned_.fill(false);castButton_=PadButton::none;}
+    // Cast ready spell's button is still held.
+    bool castHeld()const{return castButton_!=PadButton::none&&down(castButton_);}
     bool synchronize(const std::array<bool,unsigned(PadButton::count)>& physical) {
         const bool lost=active_&&(!physical[unsigned(active_->button)]||(active_->modifier!=PadButton::none&&!physical[unsigned(active_->modifier)]));
         if(lost)cancel();
@@ -42,13 +46,14 @@ public:
             if(!isDown) {
                 owned_[n]=false;
                 if(active_&&b==active_->button){const auto g=group_;cancel();return {true,PadAction::release,g};}
+                if(b==castButton_){castButton_=PadButton::none;return {true,PadAction::castRelease};}
             }
             return {true};
         }
         if(!allowed||!o.controllerEnabled||!fresh)return {};
         unsigned modifiers=o.controllerModifiers;
         if(!vr) {
-            modifiers|=padButtonMask(o.controllerEditor.modifier)|padButtonMask(o.controllerUse.modifier);
+            modifiers|=padButtonMask(o.controllerEditor.modifier)|padButtonMask(o.controllerUse.modifier)|padButtonMask(o.controllerCast.modifier);
             for(std::size_t p=0;p<o.groupCount;++p)modifiers|=padButtonMask(o.controllerGroups[o.groupOrder[p]].modifier);
             for(const auto binding:o.controllerActions)modifiers|=padButtonMask(binding.modifier);
         }
@@ -71,6 +76,7 @@ public:
 
         if(const auto group=groupBinding(true))return *group;
         if(matches(vr?o.vrUse:o.controllerUse)){owned_[n]=true;cancel();return {true,PadAction::useConsumable};}
+        if(matches(vr?o.vrCast:o.controllerCast)){owned_[n]=true;castButton_=b;return {true,PadAction::cast};}
         if(selecting) {
             if(vr) {
                 if(b==PadButton::b){owned_[n]=true;cancel();return {true,PadAction::cancel};}
@@ -80,7 +86,7 @@ public:
                     if(binding.button==PadButton::none||binding.button!=b||(binding.modifier!=PadButton::none&&!down(binding.modifier)))return false;
                     if(active_&&(b==active_->button||b==active_->modifier))return false;
                     if(binding.modifier==PadButton::none) {
-                        if(o.controllerEditor.modifier==b||o.controllerUse.modifier==b)return false;
+                        if(o.controllerEditor.modifier==b||o.controllerUse.modifier==b||o.controllerCast.modifier==b)return false;
                         for(std::size_t p=0;p<o.groupCount;++p)if(o.controllerGroups[o.groupOrder[p]].modifier==b)return false;
                         for(const auto other:o.controllerActions)if(other.modifier==b)return false;
                     }

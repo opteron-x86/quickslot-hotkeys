@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "Casting.h"
 #include "Version.h"
 #include "RuntimePolicy.h"
 #include "VROverlay.h"
@@ -27,8 +28,16 @@ extern "C" __declspec(dllexport) bool SKSEPlugin_Load(const SKSE::LoadInterface*
         try {
             auto& game=quickslot::Game::get();
             switch(message->type) {
+            // Casting stays off in VR, where the shout behavior differs.
+            case SKSE::MessagingInterface::kPostLoad:if(!REL::Module::IsVR())quickslot::SpellCasting::get().registerCondition();break;
             case SKSE::MessagingInterface::kPostPostLoad:quickslot::initializeVROverlay();break;
-            case SKSE::MessagingInterface::kDataLoaded:if(!game.initialize())SKSE::log::error("Quickslot initialization failed");break;
+            case SKSE::MessagingInterface::kDataLoaded: {
+                auto& casting=quickslot::SpellCasting::get();
+                if(!REL::Module::IsVR())casting.findAnimations();
+                quickslot::castingInstalled()=casting.installed();
+                if(!game.initialize())SKSE::log::error("Quickslot initialization failed");
+                break;
+            }
             case SKSE::MessagingInterface::kPreLoadGame:game.reset(false);break;
             case SKSE::MessagingInterface::kPostLoadGame:if(message->data)game.loaded();break;
             case SKSE::MessagingInterface::kNewGame:game.loaded();break;

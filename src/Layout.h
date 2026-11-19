@@ -215,14 +215,14 @@ inline Anchored anchorFor(Point corner,Point size,const Options& o,float screenX
     const auto at=anchorPoint(*anchor);
     return {*anchor,(corner.x-area.min.x-at.x*(area.width()-size.x))/pixel,(corner.y-area.min.y-at.y*(area.height()-size.y))/pixel};
 }
-struct EquipmentMetrics {std::array<float,5> textWidths{};bool measured=false;};
+struct EquipmentMetrics {std::array<float,6> textWidths{};bool measured=false;};
 struct EquipmentCell {Point origin,icon,text;float width=0,height=0,textWidth=0;bool centered=false;};
 struct EquipmentGeometry {
-    Point origin;std::array<EquipmentCell,5> cells{};
+    Point origin;std::array<EquipmentCell,6> cells{};
     float width=0,height=0,scale=1,iconSize=30;
 };
 inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={}) {
-    EquipmentGeometry g;rows=std::clamp(rows,1u,5u);
+    EquipmentGeometry g;rows=std::clamp(rows,1u,6u);
     const float t=o.equipmentTextScale,textHeight=36*t;
     const bool labels=o.equipmentShowText||o.equipmentStyle==0||o.equipmentStyle==4;
     g.iconSize=o.equipmentStyle==0?30.f:o.equipmentStyle==4?0.f:o.equipmentStyle==2?32.f:38.f;

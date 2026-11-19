@@ -106,6 +106,12 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     std::optional<ConsumableRequest> consumableRequest_;
     void queueConsumable(bool controller);
     bool useConsumable(const Entry&,bool controller);
+    // Cast ready spell waits for the next update. castHeld_: its key or button is down, which keeps a concentration
+    // spell going; castFromKey_: the running cast came from it rather than from a quick-cast tap.
+    std::optional<bool> castRequest_;
+    bool castHeld_=false,castFromKey_=false,castController_=false;
+    void castReadySpell();
+    bool castEntry(const Entry& entry,bool fromKey);
     ConsumableUse use_;
     Entry usedEntry_;
     double nextStatus_=0,nextUsePoll_=0,nextFavorites_=0;

@@ -34,13 +34,14 @@ inline void copyControls(Options& target,const Options& source) {
     target.quickLootKeyboard=source.quickLootKeyboard;target.quickLootController=source.quickLootController;
     target.controllerModifiers=source.controllerModifiers;
     target.consumableKey=source.consumableKey;target.swapKey=source.swapKey;target.doubleTapSwap=source.doubleTapSwap;target.controllerUse=source.controllerUse;target.vrUse=source.vrUse;
+    target.castKey=source.castKey;target.controllerCast=source.controllerCast;target.vrCast=source.vrCast;
     target.controllerGroups=source.controllerGroups;target.controllerEditor=source.controllerEditor;
     target.controllerStick=source.controllerStick;target.controllerDeadzone=source.controllerDeadzone;target.controllerStyle=source.controllerStyle;
     target.vrGroups=source.vrGroups;target.vrEditor=source.vrEditor;target.vrStick=source.vrStick;
 }
 inline void copyGroupSetup(Options& target,const Options& source) {
     target.names=source.names;target.groupCount=source.groupCount;target.groupOrder=source.groupOrder;
-    target.groupModes=source.groupModes;target.separateConsumableUse=source.separateConsumableUse;target.autoSort=source.autoSort;
+    target.groupModes=source.groupModes;target.castStyles=source.castStyles;target.separateConsumableUse=source.separateConsumableUse;target.autoSort=source.autoSort;
     target.groupColored=source.groupColored;target.groupColors=source.groupColors;
 }
 inline void copyPreferences(Options& target,const Options& source) {

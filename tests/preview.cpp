@@ -326,6 +326,14 @@ int main(int argc,char** argv) {
     if(scene=="editor-casting-ready"||scene=="editor-casting-missing")editing.options.castStyles[editing.draft.active]=scene=="editor-casting-ready"?CastStyle::oblivion:CastStyle::quick;
     if(scene=="editor-casting-keyboard")previewClicks={"Controls","Keyboard"};
     if(scene=="editor-casting-controller")previewClicks={"Controls","Controller"};
+    // Outfit scenes: the item list holds armor and jewelry, and the steel set is worn.
+    if(scene.starts_with("editor-outfit")||scene=="editor-armor")fixture::wardrobe(editing);
+    if(scene=="editor-armor")previewClicks={"##filter","Armor & jewelry"};
+    if(scene=="editor-outfit-new")previewClicks={"New"};
+    if(scene=="editor-outfit")previewClicks={"New","Outfit","Use worn"};
+    if(scene=="editor-outfit-hands")previewClicks={"New","Outfit","Use worn","Include hands"};
+    if(scene=="editor-outfit-saved")previewClicks={"New","Outfit","Use worn","Add outfit"};
+    if(scene=="editor-outfit-pick")previewClicks={"New","Outfit","##add piece"};
     if(scene=="editor-library")previewClicks={"##filter","Shortcuts"};
     if(scene=="editor-library-edit")previewClicks={"##filter","Shortcuts","##candidate","Edit shortcut"};
     if(scene=="editor-favorites")previewClicks={"##group source","Favorite weapons"};

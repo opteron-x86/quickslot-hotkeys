@@ -1,6 +1,7 @@
 #pragma once
 #include "Model.h"
 #include "EquipmentAction.h"
+#include "Outfit.h"
 #include "ConsumableUse.h"
 #include "SelectionTime.h"
 #include "LiveEditor.h"
@@ -87,6 +88,15 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     std::atomic_bool tickQueued_{false};
     struct Pending {Selection::Commit commit;double deadline=0;EquipmentPhase phase=EquipmentPhase::equipping;int pairStep=-1;bool remove=false,castVoice=false;std::optional<Entry> action;};
     std::optional<Pending> pending_;
+    // An outfit change in progress: the worn pieces that come off and go on, then the hands.
+    struct GearJob {
+        enum class Mode {wear,restore,remove} mode=Mode::wear;
+        Selection::Commit commit;Entry outfit;GearChange change;std::vector<Entry> hands;double deadline=0;bool handsStarted=false;
+    };
+    std::optional<GearJob> gear_;
+    void changeOutfit(const Selection::Commit&,bool unequip);
+    void progressOutfit();
+    void finishOutfit();
     struct Released {Selection::Commit commit;bool unequip=false;};
     std::optional<Released> released_;
     CycleConfirm cycleConfirm_;
@@ -161,6 +171,7 @@ class Game final : public RE::BSTEventSink<RE::MenuOpenCloseEvent>,
     bool addCandidate(const EditCommand&);
     std::optional<Entry> captureCandidate(std::uint64_t,Hand);
     bool saveCombination(const EditCommand&);
+    bool saveOutfit(const EditCommand&);
     void applyEditor();
     void flushSettings(bool force=false);
     void saveSettings(const Options&);

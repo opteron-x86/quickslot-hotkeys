@@ -300,7 +300,13 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
     };
     if(catalogVersion_!=state.catalogVersion){
         catalogVersion_=state.catalogVersion;candidate_=0;
-        if(!shortcutIndex_&&!editingLibrary_&&shortcut_.parts.size()==2)for(unsigned hand=0;hand<2;++hand)if(comboCandidates_[hand])shortcut_.parts[hand]={};
+        if(shortcut_.kind==Kind::outfit) {
+            // Parts picked from the earlier item list go; parts of the saved outfit stay.
+            outfitCandidates_.resize(shortcut_.parts.size());
+            for(std::size_t i=shortcut_.parts.size();i-->0;)if(outfitCandidates_[i])shortcut_.parts.erase(shortcut_.parts.begin()+std::ptrdiff_t(i));
+            outfitCandidates_.assign(shortcut_.parts.size(),0);
+        }
+        else if(!shortcutIndex_&&!editingLibrary_&&shortcut_.parts.size()==2)for(unsigned hand=0;hand<2;++hand)if(comboCandidates_[hand])shortcut_.parts[hand]={};
         comboCandidates_={};
     }
     const bool wasBinding=binding_!=-1;
@@ -673,9 +679,9 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     auto c=command(EditAction::favoriteSource,groupID);c.source=FavoriteSource(i);c.hand=group.favoriteHand;emit(c);
                 }
                 ImGui::Separator();
-                for(unsigned i=unsigned(FavoriteSource::weapons);i<=unsigned(FavoriteSource::offhand);++i) {
-                    const auto bit=favoriteCategoryBit(FavoriteSource(i));const auto categories=favoriteCategoryMask(group);bool selected=(categories&bit)!=0;
-                    if(UI::Checkbox(favoriteSourceName(FavoriteSource(i)),&selected)) {
+                for(const auto category:favoriteCategoryList) {
+                    const auto bit=favoriteCategoryBit(category);const auto categories=favoriteCategoryMask(group);bool selected=(categories&bit)!=0;
+                    if(UI::Checkbox(favoriteSourceName(category),&selected)) {
                         auto c=command(EditAction::favoriteSource,groupID);c.favoriteCategories=categories^bit;
                         c.source=favoriteSourceForCategories(c.favoriteCategories);c.hand=group.favoriteHand;emit(c);
                     }
@@ -687,15 +693,16 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(UI::Combo("Default hand",&hand,"Right\0Left\0")){auto c=command(EditAction::favoriteSource,groupID);c.source=group.source;c.favoriteCategories=group.favoriteCategories;c.hand=Hand(hand);emit(c);}
             }
             const auto loadDefinition=[&](const Entry& entry) {
-                shortcut_=entry;comboCandidates_={};
-                builder_=shortcut_.kind==Kind::combo?1:shortcut_.kind==Kind::smartPotion?2:isSmartEquipment(shortcut_)?4:3;
-                std::snprintf(comboName_.data(),comboName_.size(),"%s",shortcut_.kind==Kind::combo&&shortcut_.name!=combinationName(shortcut_)?shortcut_.name.c_str():"");
+                shortcut_=entry;comboCandidates_={};outfitCandidates_.assign(shortcut_.parts.size(),0);
+                builder_=shortcut_.kind==Kind::combo?1:shortcut_.kind==Kind::outfit?7:shortcut_.kind==Kind::smartPotion?2:isSmartEquipment(shortcut_)?4:3;
+                const bool named=shortcut_.kind==Kind::combo?shortcut_.name!=combinationName(shortcut_):shortcut_.kind==Kind::outfit&&shortcut_.name!=outfitName(shortcut_);
+                std::snprintf(comboName_.data(),comboName_.size(),"%s",named?shortcut_.name.c_str():"");
             };
             const auto loadShortcut=[&](std::size_t index) {shortcutIndex_=index;editingLibrary_=0;loadDefinition(group.entries[index]);};
             const auto loadLibrary=[&](const Entry& entry) {shortcutIndex_.reset();editingLibrary_=entry.shortcut;loadDefinition(entry);};
             if(shortcutGroup_!=groupID){shortcutGroup_=groupID;builder_=0;shortcutIndex_.reset();editingLibrary_=0;comboCandidates_={};}
             if(shortcutIndex_) {
-                if(*shortcutIndex_>=group.entries.size()||!(group.entries[*shortcutIndex_].kind==Kind::combo||group.entries[*shortcutIndex_].kind==Kind::smartPotion||isSmartEquipment(group.entries[*shortcutIndex_])||isHandAction(group.entries[*shortcutIndex_]))) {shortcutIndex_.reset();editingLibrary_=0;builder_=0;}
+                if(*shortcutIndex_>=group.entries.size()||!isReusable(group.entries[*shortcutIndex_])) {shortcutIndex_.reset();editingLibrary_=0;builder_=0;}
                 else if(shortcutRevision_!=state.revision)loadShortcut(*shortcutIndex_);
             }
             if(editingLibrary_) {
@@ -710,16 +717,19 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(!group.entries.empty())selected_=std::min(selected_,group.entries.size()-1);
             const auto newShortcut=[&](int type) {
                 builder_=type;shortcutIndex_.reset();editingLibrary_=0;comboCandidates_={};comboName_.fill(0);handSearch_={};
+                outfitCandidates_.clear();outfitSelected_=0;pieceSearch_.fill(0);
                 if(type==1){shortcut_=Entry{};shortcut_.kind=Kind::combo;shortcut_.parts.resize(2);}
+                else if(type==7){shortcut_=Entry{};shortcut_.kind=Kind::outfit;}
                 else shortcut_=type==2?smartEntry(0,0,0):type>=4?smartEquipmentEntry(type==5,type==6?unsigned(WeaponFamily::shield):0u):unarmedEntry();
             };
             ImGui::BeginDisabled(group.automatic());
             if(UI::Button("Items")){builder_=0;shortcutIndex_.reset();editingLibrary_=0;}
             if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("Shows your inventory, spells and saved shortcuts to add to this group.");
             ImGui::SameLine();if(UI::Button("New"))ImGui::OpenPopup("new entry");
-            if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("Creates a combination, a smart choice or a hand action for this group.");
+            if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("Creates a combination, an outfit, a smart choice or a hand action for this group.");
             if(ImGui::BeginPopup("new entry")) {
                 if(UI::MenuItem("Combination"))newShortcut(1);
+                if(UI::MenuItem("Outfit"))newShortcut(7);
                 if(UI::MenuItem("Smart potion"))newShortcut(2);
                 if(UI::MenuItem("Smart weapon"))newShortcut(4);
                 if(UI::MenuItem("Smart shield"))newShortcut(6);
@@ -764,9 +774,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     "Taps select potions, food and poisons in this group. Bind Use selected consumable under Controls to use the selected one.");
             }
             const auto builtCommand=[&] {
-                auto c=command(shortcut_.kind==Kind::combo?EditAction::saveCombination:EditAction::saveShortcut,groupID,shortcutIndex_.value_or(0));
+                auto c=command(shortcut_.kind==Kind::combo?EditAction::saveCombination:shortcut_.kind==Kind::outfit?EditAction::saveOutfit:EditAction::saveShortcut,groupID,shortcutIndex_.value_or(0));
                 c.shortcut=shortcut_;c.components=comboCandidates_;c.replace=shortcutIndex_.has_value();c.libraryID=editingLibrary_;
-                if(shortcut_.kind==Kind::combo)c.shortcut.name=comboName_.data();
+                if(shortcut_.kind==Kind::outfit){c.pieceCandidates=outfitCandidates_;c.pieceCandidates.resize(shortcut_.parts.size());}
+                if(shortcut_.kind==Kind::combo||shortcut_.kind==Kind::outfit)c.shortcut.name=comboName_.data();
                 c.continuous=ImGui::IsAnyItemActive();return c;
             };
             const auto saveBuiltShortcut=[&] {
@@ -790,12 +801,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             label(tr("ITEMS & SHORTCUTS"));
             ImGui::SetNextItemWidth(-1);textField("##search","Search…",search_,127);
             if(enterCatalog){auto& nav=*ImGui::GetCurrentContext();ImGui::NavMoveRequestResolveWithLastItem(&nav.NavMoveResultLocal);nav.NavMoveResultOther.Clear();}
-            ImGui::SetNextItemWidth(-1);UI::Combo("##filter",&filter_,"All\0Weapons\0Spells\0Shields & torches\0Potions\0Food\0Poisons\0Scrolls\0Powers & shouts\0Ammo\0Shortcuts\0Combinations\0Smart selections\0Hand actions\0");
+            ImGui::SetNextItemWidth(-1);UI::Combo("##filter",&filter_,"All\0Weapons\0Spells\0Shields & torches\0Potions\0Food\0Poisons\0Scrolls\0Powers & shouts\0Ammo\0Armor & jewelry\0Shortcuts\0Combinations\0Outfits\0Smart selections\0Hand actions\0");
             std::vector<CatalogItem> library;library.reserve(state.draft.shortcuts.size());
             for(const auto& entry:state.draft.shortcuts){auto shown=entry;shown.name=displayName(entry);library.push_back({shown,(1ull<<63)|entry.shortcut,1,false,true,{}});}
             std::vector<const CatalogItem*> matches;
             for(const auto& c:state.catalog)if(catalogMatches(c,search_.data(),filter_))matches.push_back(&c);
-            if(filter_==0||filter_>=10)for(const auto& c:library)if(shortcutMatches(c.entry,search_.data(),filter_))matches.push_back(&c);
+            if(filter_==catalogFilter::all||filter_>=catalogFilter::shortcuts)for(const auto& c:library)if(shortcutMatches(c.entry,search_.data(),filter_))matches.push_back(&c);
             const auto pickedItem=[&]()->const CatalogItem* {for(const auto* c:matches)if(c->id==candidate_)return c;return nullptr;};
             const CatalogItem* picked=pickedItem();bool focusAdd=false;
             beginPanel("catalog list",{0,std::max(px(70),ImGui::GetContentRegionAvail().y-px(80))},ImGuiChildFlags_NavFlattened);
@@ -809,7 +820,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     focusAdd=c.addable&&ImGui::GetCurrentContext()->NavInputSource==ImGuiInputSource_Gamepad&&ImGui::GetCurrentContext()->NavActivateId==ImGui::GetItemID();
                 }
                 const auto end=ImGui::GetItemRectMax();auto* d=ImGui::GetWindowDrawList();d->PushClipRect(pos,end,true);
-                std::string meta=c.equipped?tr("Equipped"):"";
+                std::string meta=c.equipped?tr(c.entry.kind==Kind::armor?"Worn":"Equipped"):"";
                 if(!c.entry.shortcut&&(isStack(c.entry)||c.count>1))meta+=(meta.empty()?"":" · ")+std::string("×")+std::to_string(c.count);
                 const float metaWidth=ImGui::GetFont()->CalcTextSizeA(px(14),FLT_MAX,0,meta.c_str()).x;
                 hud.drawItemIcon(d,{pos.x+px(17),pos.y+px(16)},px(24),c.entry,options,c.addable);
@@ -863,7 +874,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             }
             } else {
             bool shortcutChanged=false;
-            label(builder_==1?tr("COMBINATION"):builder_==2?tr("SMART POTION"):isSmartEquipment(shortcut_)?(shortcut_.kind==Kind::smartAmmo?tr("SMART AMMO"):smartShield(shortcut_)?tr("SMART SHIELD"):tr("SMART WEAPON")):tr("HAND ACTION"));
+            label(builder_==1?tr("COMBINATION"):builder_==7?tr("OUTFIT"):builder_==2?tr("SMART POTION"):isSmartEquipment(shortcut_)?(shortcut_.kind==Kind::smartAmmo?tr("SMART AMMO"):smartShield(shortcut_)?tr("SMART SHIELD"):tr("SMART WEAPON")):tr("HAND ACTION"));
             if(isHandAction(shortcut_)) {
                 int action=shortcut_.kind==Kind::unarmed?0:shortcut_.hand==Hand::right?1:2;
                 ImGui::SetNextItemWidth(-px(70));
@@ -913,6 +924,86 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(UI::Button("Clear exclusions")){shortcut_.exclusions.clear();shortcutChanged=true;}
                 }
 
+            } else if(shortcut_.kind==Kind::outfit) {
+                outfitCandidates_.resize(shortcut_.parts.size());
+                ImGui::SetNextItemWidth(-1);
+                if(textField("##outfit name","Name (optional)",comboName_))shortcutChanged=true;
+                // Each part with the item list entry it was picked from, or 0 for a part of the saved outfit.
+                using Part=std::pair<Entry,std::uint64_t>;
+                std::vector<Part> pieces,held;
+                for(std::size_t i=0;i<shortcut_.parts.size();++i)(outfitPiece(shortcut_.parts[i])?pieces:held).emplace_back(shortcut_.parts[i],outfitCandidates_[i]);
+                const auto setParts=[&](const std::vector<Part>& worn,const std::vector<Part>& hands) {
+                    shortcut_.parts.clear();outfitCandidates_.clear();
+                    for(const auto* list:{&worn,&hands})for(const auto& [entry,id]:*list){shortcut_.parts.push_back(entry);outfitCandidates_.push_back(id);}
+                    shortcutChanged=true;
+                };
+                // What the hands hold now: one two-handed item, or a right and a left entry.
+                const auto heldNow=[&] {
+                    std::vector<Part> hands;
+                    if(const auto* both=catalogItem(state,state.equippedBoth)){auto entry=both->entry;entry.hand=Hand::right;hands.emplace_back(entry,both->id);}
+                    else if(state.equippedPair)for(unsigned hand=0;hand<2;++hand) {
+                        const auto* item=catalogItem(state,state.equippedCandidates[hand]);
+                        auto entry=item?item->entry:emptyHandEntry(Hand(hand));entry.hand=Hand(hand);hands.emplace_back(entry,item?item->id:0);
+                    }
+                    return hands;
+                };
+                bool hands=!held.empty();
+                if(UI::Button("Use worn")) {
+                    std::vector<Part> worn;
+                    for(const auto id:state.wornCandidates)if(const auto* item=catalogItem(state,id);item&&item->addable&&worn.size()<outfitPieceLimit)worn.emplace_back(item->entry,item->id);
+                    shortcut_.exclusive=true;setParts(worn,hands?heldNow():std::vector<Part>{});
+                }
+                if(ImGui::IsItemHovered())UI::SetTooltip("Fills the outfit with the armor, clothing and jewelry you are wearing now.");
+                ImGui::SameLine();
+                if(UI::Checkbox("Include hands",&hands))setParts(pieces,hands?heldNow():std::vector<Part>{});
+                if(ImGui::IsItemHovered())UI::SetTooltip("The outfit also sets both hands to what they hold now: weapons, a shield or spells.");
+                if(UI::Checkbox("Take off everything else",&shortcut_.exclusive))shortcutChanged=true;
+                if(ImGui::IsItemHovered())UI::SetTooltip("Putting the outfit on takes off every other piece of armor, clothing and jewelry. Leave it off for a set worn over your other gear, such as crafting jewelry.");
+                label(tr("PIECES"));
+                // Below the list: the piece buttons, then Add outfit or, for a saved outfit, where it is used.
+                beginPanel("outfit parts",{0,std::max(px(90),ImGui::GetContentRegionAvail().y-px(shortcutIndex_||editingLibrary_?140:95))},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
+                navigationList();
+                if(shortcut_.parts.empty())UI::TextWrapped("Put the outfit on and choose Use worn, or add pieces one at a time.");
+                for(std::size_t i=0;i<shortcut_.parts.size();++i) {
+                    const auto& part=shortcut_.parts[i];ImGui::PushID(int(i));const auto pos=ImGui::GetCursorScreenPos();
+                    if(ImGui::Selectable("##outfit part",outfitSelected_==i,0,{0,px(30)}))outfitSelected_=i;
+                    const auto end=ImGui::GetItemRectMax();auto* d=ImGui::GetWindowDrawList();d->PushClipRect(pos,end,true);
+                    hud.drawItemIcon(d,{pos.x+px(16),pos.y+px(15)},px(22),part,options,true);
+                    const auto text=handName(part)+": "+displayName(part);
+                    d->AddText({pos.x+px(34),pos.y+(px(30)-ImGui::GetFontSize())*.5f},ImGui::GetColorU32(ink),text.c_str());d->PopClipRect();
+                    ImGui::PopID();
+                }
+                endPanel();
+                const bool pieceSelected=outfitSelected_<shortcut_.parts.size()&&outfitPiece(shortcut_.parts[outfitSelected_]);
+                ImGui::BeginDisabled(!pieceSelected);
+                if(UI::Button("Remove piece")&&pieceSelected) {
+                    shortcut_.parts.erase(shortcut_.parts.begin()+std::ptrdiff_t(outfitSelected_));outfitCandidates_.erase(outfitCandidates_.begin()+std::ptrdiff_t(outfitSelected_));
+                    outfitSelected_=std::min(outfitSelected_,shortcut_.parts.empty()?0:shortcut_.parts.size()-1);shortcutChanged=true;
+                }
+                ImGui::EndDisabled();ImGui::SameLine();
+                ImGui::BeginDisabled(pieces.size()>=outfitPieceLimit);
+                ImGui::SetNextItemWidth(-1);ImGui::SetNextWindowSizeConstraints({px(260),0},{px(480),px(340)});
+                if(ImGui::BeginCombo("##add piece",tr("Add a piece…"),ImGuiComboFlags_HeightLarge)) {
+                    if(ImGui::IsWindowAppearing()&&!state.controller)ImGui::SetKeyboardFocusHere();
+                    ImGui::SetNextItemWidth(-1);textField("##piece search","Search…",pieceSearch_,127);
+                    for(const auto& choice:state.catalog) {
+                        if(!choice.addable||choice.entry.kind!=Kind::armor||!textContains(choice.entry.name,pieceSearch_.data()))continue;
+                        if(std::any_of(pieces.begin(),pieces.end(),[&](const Part& piece){return piece.second==choice.id||(choice.entry.owner&&samePiece(piece.first,choice.entry));}))continue;
+                        ImGui::PushID(int(choice.id));
+                        const auto name=handName(choice.entry)+": "+choice.entry.name+(choice.equipped?tr(" · Worn"):"");
+                        if(ImGui::Selectable(name.c_str())){pieces.emplace_back(choice.entry,choice.id);setParts(pieces,held);}
+                        if(!choice.detail.empty()&&ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))UI::SetTooltip("%s",choice.detail.c_str());
+                        ImGui::PopID();
+                    }
+                    ImGui::EndCombo();
+                }
+                ImGui::EndDisabled();
+                const bool valid=validOutfitDraft(state,builtCommand());
+                ImGui::BeginDisabled(!valid||(!shortcutIndex_&&!editingLibrary_&&group.entries.size()>=Group::limit));
+                if(!shortcutIndex_&&!editingLibrary_&&UI::Button("Add outfit",{-1,0}))saveBuiltShortcut();
+                if(!valid&&ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled|ImGuiHoveredFlags_DelayNormal))UI::SetTooltip("Add at least one piece");
+                ImGui::EndDisabled();
+                if(!valid)shortcutChanged=false;
             } else {
                 ImGui::SetNextItemWidth(-1);
                 if(textField("##combination name","Name (optional)",comboName_))shortcutChanged=true;
@@ -1005,7 +1096,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 ImGui::PushID(int(i));const auto& e=group.entries[i];const auto pos=ImGui::GetCursorScreenPos();
                 if(ImGui::Selectable("##entry",selected_==i,0,{0,px(47)})) {
                     selected_=i;
-                    if(e.kind==Kind::combo||e.kind==Kind::smartPotion||isSmartEquipment(e)||isHandAction(e))loadShortcut(i);
+                    if(isReusable(e))loadShortcut(i);
                     else {builder_=0;shortcutIndex_.reset();editingLibrary_=0;}
                 }
                 const auto end=ImGui::GetItemRectMax();auto* d=ImGui::GetWindowDrawList();d->PushClipRect(pos,end,true);

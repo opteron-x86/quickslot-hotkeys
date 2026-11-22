@@ -752,7 +752,7 @@ int main()try {
             auto migrated=decode(bytes,identity);refreshFavorites(migrated,favorites);
             check(migrated.source==FavoriteSource(i)&&migrated.manualEntries[0].same(manual)&&std::all_of(migrated.entries.begin(),migrated.entries.end(),[&](const auto& e){return favoriteMatches(FavoriteSource(i),e);}),"Every legacy source preserves its category and manual contents");
         }
-        for(const auto bad:{Json(-1),Json(1.5),Json("3"),Json(512u),Json(UINT64_MAX),Json(nullptr)}) {
+        for(const auto bad:{Json(-1),Json(1.5),Json("3"),Json(allFavoriteCategories+1),Json(UINT64_MAX),Json(nullptr)}) {
             auto invalid=Json::parse(saved);invalid["groups"][0]["favorites"]["categories"]=bad;bool rejected=false;
             try{decodeArsenal(invalid.dump(),identity);}catch(...){rejected=true;}check(rejected,"Invalid category masks are rejected before narrowing");
         }

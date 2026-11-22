@@ -63,6 +63,10 @@ class Editor {
     int builder_=0;
     std::array<std::array<char,128>,2> handSearch_{};
     std::array<std::uint64_t,2> comboCandidates_{};
+    // The outfit being built: the item list entry behind each part, the selected part and the piece search.
+    std::vector<std::uint64_t> outfitCandidates_;
+    std::size_t outfitSelected_=0;
+    std::array<char,128> pieceSearch_{};
     std::uint64_t shortcutRevision_=0;
 public:
     void beginSession(const EditorState&);

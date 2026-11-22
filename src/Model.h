@@ -17,7 +17,13 @@ namespace quickslot {
 enum class Hand : unsigned { right, left };
 
 enum class Kind : unsigned { sword, greatsword, dagger, axe, mace, bow, staff, shield, torch, spell,
-    potion, food, poison, scroll, power, lesserPower, shout, smartPotion, combo, ammo, emptyHand, unarmed, smartWeapon, smartAmmo };
+    potion, food, poison, scroll, power, lesserPower, shout, smartPotion, combo, ammo, emptyHand, unarmed, smartWeapon, smartAmmo,
+    // armor: one worn piece of armor, clothing or jewelry. outfit: a set of worn pieces, with or without both hands.
+    armor, outfit };
+// Where a worn piece sits and how heavy it is. An armor entry keeps both in equipmentType.
+enum class ArmorPart : unsigned {body,head,hands,forearms,feet,calves,amulet,ring,circlet,other,count};
+enum class ArmorWeight : unsigned {light,heavy,clothing,count};
+inline constexpr unsigned armorType(ArmorPart part,ArmorWeight weight){return unsigned(part)|unsigned(weight)<<4;}
 
 enum class WeaponFamily : unsigned {oneHanded,twoHanded,sword,dagger,axe,mace,greatsword,battleaxe,warhammer,bow,crossbow,shield,count};
 struct PotionExclusion {
@@ -39,6 +45,8 @@ struct Entry {
     std::vector<PotionExclusion> exclusions;
     std::vector<Entry> parts;
     std::uint32_t shortcut=0;
+    // An outfit that takes off every worn piece it does not hold.
+    bool exclusive=false;
     bool same(const Entry& b) const {
         if(kind==Kind::emptyHand||kind==Kind::unarmed||b.kind==Kind::emptyHand||b.kind==Kind::unarmed)
             return kind==b.kind&&hand==b.hand;
@@ -48,6 +56,9 @@ struct Entry {
             return kind==b.kind&&resource==b.resource&&effect==b.effect&&policy==b.policy&&exclusions==b.exclusions;
         if(kind==Kind::combo||b.kind==Kind::combo)
             return kind==b.kind&&parts.size()==2&&b.parts.size()==2&&parts[0].same(b.parts[0])&&parts[1].same(b.parts[1]);
+        if(kind==Kind::outfit||b.kind==Kind::outfit)
+            return kind==b.kind&&exclusive==b.exclusive&&parts.size()==b.parts.size()&&
+                std::equal(parts.begin(),parts.end(),b.parts.begin(),[](const Entry& x,const Entry& y){return x.same(y);});
         return !unresolved&&!b.unresolved&&form==b.form&&owner==b.owner&&unique==b.unique&&hand==b.hand&&spell==b.spell&&kind==b.kind&&recipe==b.recipe;
     }
 };
@@ -62,7 +73,12 @@ inline bool validSmartEquipment(const Entry& e) {
         (!(e.kind==Kind::smartAmmo||e.twoHanded)||e.hand==Hand::right)&&(!smartShield(e)||e.hand==Hand::left);
 }
 inline bool isHandAction(const Entry& e){return e.kind==Kind::emptyHand||e.kind==Kind::unarmed;}
-inline bool isReusable(const Entry& e){return e.kind==Kind::combo||e.kind==Kind::smartPotion||isSmartEquipment(e)||isHandAction(e);}
+inline bool isReusable(const Entry& e){return e.kind==Kind::combo||e.kind==Kind::outfit||e.kind==Kind::smartPotion||isSmartEquipment(e)||isHandAction(e);}
+inline ArmorPart armorPart(const Entry& e){return ArmorPart(e.equipmentType&15);}
+inline ArmorWeight armorWeight(const Entry& e){return ArmorWeight(e.equipmentType>>4);}
+inline bool jewelry(const Entry& e){return e.kind==Kind::armor&&(armorPart(e)==ArmorPart::amulet||armorPart(e)==ArmorPart::ring||armorPart(e)==ArmorPart::circlet);}
+// Entries that go on the body or change several things at once, so no hand applies to them.
+inline bool wornGear(const Entry& e){return e.kind==Kind::armor||e.kind==Kind::outfit;}
 inline std::string handActionName(const Entry& e){return e.kind==Kind::unarmed?"Unarmed":e.hand==Hand::left?"Empty left hand":"Empty right hand";}
 inline Entry emptyHandEntry(Hand hand){Entry e;e.kind=Kind::emptyHand;e.hand=hand;e.name=handActionName(e);return e;}
 inline Entry unarmedEntry(){Entry e;e.kind=Kind::unarmed;e.name=handActionName(e);return e;}
@@ -78,13 +94,13 @@ inline bool isStack(const Entry& e){return isConsumable(e)||e.kind==Kind::torch|
 inline bool isVoice(const Entry& e){return e.kind==Kind::power||e.kind==Kind::lesserPower||e.kind==Kind::shout;}
 // Spells and scrolls, which a casting group casts instead of equipping.
 inline bool castable(const Entry& e){return e.kind==Kind::spell||e.kind==Kind::scroll;}
-inline bool isInventory(const Entry& e){return !isSmartEquipment(e)&&!e.spell&&!isVoice(e)&&!isHandAction(e)&&e.kind!=Kind::smartPotion&&e.kind!=Kind::combo;}
+inline bool isInventory(const Entry& e){return !isSmartEquipment(e)&&!e.spell&&!isVoice(e)&&!isHandAction(e)&&e.kind!=Kind::smartPotion&&e.kind!=Kind::combo&&e.kind!=Kind::outfit;}
 inline bool tracksInstance(const Entry& e){return isInventory(e)&&!isStack(e);}
 inline bool movesOtherHandWeapon(const Entry& e,bool equipped,bool otherEquipped) {
     return e.kind<=Kind::staff&&!e.twoHanded&&!e.spell&&otherEquipped&&!equipped;
 }
-template<class E,class F> void eachLeaf(E& e,const F& f){if(e.kind==Kind::combo){for(auto& part:e.parts)f(part);}else f(e);}
-inline bool pairable(const Entry& e){return e.kind==Kind::smartWeapon?validSmartEquipment(e)&&!e.twoHanded:e.kind==Kind::emptyHand?validHandAction(e):!isHandAction(e)&&!isSmartEquipment(e)&&!e.unresolved&&e.form&&!isConsumable(e)&&!isVoice(e)&&e.kind!=Kind::combo&&e.kind!=Kind::ammo&&!e.twoHanded;}
+template<class E,class F> void eachLeaf(E& e,const F& f){if(e.kind==Kind::combo||e.kind==Kind::outfit){for(auto& part:e.parts)f(part);}else f(e);}
+inline bool pairable(const Entry& e){return e.kind==Kind::smartWeapon?validSmartEquipment(e)&&!e.twoHanded:e.kind==Kind::emptyHand?validHandAction(e):!isHandAction(e)&&!isSmartEquipment(e)&&!e.unresolved&&e.form&&!isConsumable(e)&&!isVoice(e)&&e.kind!=Kind::combo&&e.kind!=Kind::ammo&&!wornGear(e)&&!e.twoHanded;}
 inline bool validPair(const Entry& right,const Entry& left) {
     if(!pairable(right)||!pairable(left)||right.hand!=Hand::right||left.hand!=Hand::left||right.kind==Kind::shield||right.kind==Kind::torch)return false;
     return !(tracksInstance(right)&&tracksInstance(left)&&right.form==left.form&&right.owner==left.owner&&right.unique==left.unique);
@@ -96,7 +112,8 @@ struct SelectorArrow {int delta=0;bool reorder=false;};
 inline SelectorArrow selectorArrow(unsigned scan,bool ctrl) {
     return {scan==203?-1:scan==205?1:0,ctrl};
 }
-enum class FavoriteSource : unsigned {manual,all,weapons,spells,potions,poisons,food,ammo,scrolls,voice,offhand,selected,count};
+// armor and jewelry come after selected so the numbers saved for the earlier sources keep their meaning.
+enum class FavoriteSource : unsigned {manual,all,weapons,spells,potions,poisons,food,ammo,scrolls,voice,offhand,selected,armor,jewelry,count};
 inline bool sameFavorite(const Entry& a,const Entry& b){auto other=b;other.hand=a.hand;return a.same(other);}
 struct Group {
     static constexpr std::size_t limit=16;
@@ -145,6 +162,10 @@ struct Group {
         ++revision;return true;
     }
 };
+// What the player wore before an outfit went on, so a tap on the worn outfit puts it back. pieces: the worn armor,
+// clothing and jewelry. hands: what the hands held, when the outfit sets them; one entry for a two-handed item.
+// applied: the outfit went on completely.
+struct WornBefore {std::uint32_t outfit=0;std::vector<Entry> pieces,hands;bool applied=false;};
 struct Arsenal {
     std::string presetIdentity;
     static constexpr std::size_t count=8;
@@ -156,6 +177,7 @@ struct Arsenal {
     std::optional<Entry> rememberedConsumable;
     // The Oblivion-style group whose selected spell the Cast ready spell binding casts.
     std::size_t readySpellGroup=count;
+    std::optional<WornBefore> wornBefore;
     Group& current(){return groups[active];}
     const Group& current()const{return groups[active];}
     std::size_t size()const{std::size_t total=0;for(const auto& group:groups)total+=group.entries.size();return total;}
@@ -181,6 +203,7 @@ template<class A,class F> void eachSavedEntry(A& arsenal,const F& f) {
     for(auto& group:arsenal.groups)eachGroupEntry(group,f);
     for(auto& entry:arsenal.shortcuts)f(entry);
     if(arsenal.rememberedConsumable)f(*arsenal.rememberedConsumable);
+    if(arsenal.wornBefore){for(auto& entry:arsenal.wornBefore->pieces)f(entry);for(auto& entry:arsenal.wornBefore->hands)f(entry);}
 }
 
 class Selection {
@@ -798,6 +821,11 @@ inline bool reorderGroup(Options& o,std::size_t id,int delta) {
     std::swap(o.groupOrder[std::size_t(from)],o.groupOrder[std::size_t(to)]);return true;
 }
 inline std::string handName(const Entry& e) {
+    if(e.kind==Kind::outfit)return tr("Outfit");
+    if(e.kind==Kind::armor) {
+        constexpr const char* parts[]{"Body","Head","Hands","Forearms","Feet","Calves","Amulet","Ring","Circlet","Worn"};
+        return tr(parts[std::min(unsigned(armorPart(e)),unsigned(ArmorPart::other))]);
+    }
     if(e.kind==Kind::unarmed)return tr("Both hands");
     if(e.kind==Kind::ammo||e.kind==Kind::smartAmmo)return tr("Ammo");
     if(e.kind==Kind::combo)return tr("Equipment combination");
@@ -813,7 +841,7 @@ inline std::string rowStatus(const Row& row) {
     auto text=isConsumable(row.entry)||row.entry.kind==Kind::ammo?std::string{}:handName(row.entry);
     if(isHandAction(row.entry))return text+(row.equipped?tr(" · Empty"):tr(" · Clear"));
     if(isStack(row.entry))text+=(text.empty()?"":" · ")+std::string("×")+std::to_string(row.quantity);
-    if(row.equipped)text+=isVoice(row.entry)?tr(" · Selected"):tr(" · Equipped");
+    if(row.equipped)text+=isVoice(row.entry)?tr(" · Selected"):row.entry.kind==Kind::armor?tr(" · Worn"):tr(" · Equipped");
     if(row.cooldown>0)text+=" · "+std::to_string(int(std::ceil(row.cooldown)))+tr("s cooldown");
     if(row.powerUsed)text+=tr(" · Recharging");
     return text;
@@ -841,10 +869,10 @@ inline bool assignGroupKey(Options& o,std::size_t group,unsigned key) {
         o.keys[id]=groupVisible(o,id)?o.keys[group]:0;
     o.keys[group]=key;return true;
 }
-inline bool flexibleHand(const Entry& e){return !isConsumable(e)&&!isVoice(e)&&e.kind!=Kind::combo&&e.kind!=Kind::ammo&&e.kind!=Kind::smartAmmo&&e.kind!=Kind::unarmed&&!e.twoHanded&&e.kind!=Kind::shield&&e.kind!=Kind::torch&&!smartShield(e);}
-inline Hand normalizedHand(const Entry& e,Hand hand){return isConsumable(e)||isVoice(e)||e.kind==Kind::ammo||e.kind==Kind::smartAmmo||e.kind==Kind::unarmed||e.twoHanded?Hand::right:e.kind==Kind::shield||e.kind==Kind::torch||smartShield(e)?Hand::left:hand;}
+inline bool flexibleHand(const Entry& e){return !isConsumable(e)&&!isVoice(e)&&!wornGear(e)&&e.kind!=Kind::combo&&e.kind!=Kind::ammo&&e.kind!=Kind::smartAmmo&&e.kind!=Kind::unarmed&&!e.twoHanded&&e.kind!=Kind::shield&&e.kind!=Kind::torch&&!smartShield(e);}
+inline Hand normalizedHand(const Entry& e,Hand hand){return isConsumable(e)||isVoice(e)||wornGear(e)||e.kind==Kind::ammo||e.kind==Kind::smartAmmo||e.kind==Kind::unarmed||e.twoHanded?Hand::right:e.kind==Kind::shield||e.kind==Kind::torch||smartShield(e)?Hand::left:hand;}
 inline std::optional<Entry> entryForHand(const Entry& entry,Hand hand) {
-    if(unsigned(hand)>1||isConsumable(entry)||isVoice(entry)||isHandAction(entry)||entry.kind==Kind::combo||entry.kind==Kind::ammo||entry.kind==Kind::smartAmmo)return {};
+    if(unsigned(hand)>1||isConsumable(entry)||isVoice(entry)||isHandAction(entry)||wornGear(entry)||entry.kind==Kind::combo||entry.kind==Kind::ammo||entry.kind==Kind::smartAmmo)return {};
     if(hand==Hand::right&&(entry.kind==Kind::shield||entry.kind==Kind::torch||smartShield(entry)))return {};
     auto action=entry;action.hand=normalizedHand(entry,hand);return action;
 }
@@ -869,7 +897,7 @@ inline std::optional<Selection::Commit> releaseToHand(Selection& selection,const
 inline bool rememberHand(Group& group,std::size_t index,Hand hand) {
     if(index>=group.entries.size())return false;
     auto& entry=group.entries[index];
-    if(entry.shortcut||entry.kind==Kind::combo||isSmartEquipment(entry)||isHandAction(entry))return false;
+    if(entry.shortcut||entry.kind==Kind::combo||wornGear(entry)||isSmartEquipment(entry)||isHandAction(entry))return false;
     const auto chosen=entryForHand(entry,hand);
     if(!chosen||chosen->hand==entry.hand)return false;
     for(const auto& other:group.entries)if(&other!=&entry&&other.same(*chosen))return false;

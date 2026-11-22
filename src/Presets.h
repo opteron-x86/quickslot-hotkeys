@@ -83,9 +83,11 @@ using FindForm=std::function<std::uint32_t(const std::string&,std::uint32_t)>;
 inline std::string exportPreset(const Arsenal& arsenal,const Options& options,bool appearanceOnly,const DescribeForm& describe) {
     Json j={{"format","Quickslot preset"},{"version",1},{"scope",appearanceOnly?"appearance":"complete"},{"options",Json::parse(encodeOptions(options))}};
     if(!appearanceOnly) {
-        j["arsenal"]=Json::parse(encodeArsenal(arsenal));j["references"]=Json::object();
+        // The gear worn before an outfit belongs to the moment, so a preset leaves it out.
+        auto saved=arsenal;saved.wornBefore.reset();
+        j["arsenal"]=Json::parse(encodeArsenal(saved));j["references"]=Json::object();
         const auto reference=[&](std::uint32_t id){if(id)j["references"][std::to_string(id)]=describe(id);};
-        eachSavedEntry(arsenal,[&](const auto& entry){eachLeaf(entry,[&](const Entry& e){reference(e.form);reference(e.owner);for(const auto& x:e.exclusions)reference(x.form);});});
+        eachSavedEntry(saved,[&](const auto& entry){eachLeaf(entry,[&](const Entry& e){reference(e.form);reference(e.owner);for(const auto& x:e.exclusions)reference(x.form);});});
     }
     const auto bytes=j.dump(2);if(bytes.size()>8388608)throw std::runtime_error("Preset is too large");return bytes;
 }
@@ -115,6 +117,7 @@ inline PresetImport importPreset(const std::string& bytes,const Arsenal& current
         mapped=find(file,ref.at("local").get<std::uint32_t>());return mapped!=0;
     });
     result.arsenal.presetIdentity=current.presetIdentity;
+    result.arsenal.wornBefore.reset();
 
     const auto detach=[&](Entry& e){if(!sameCharacter&&tracksInstance(e)){e.unresolved=true;e.form=e.owner=e.unique=0;}};
     for(auto& group:result.arsenal.groups)eachGroupEntry(group,[&](auto& entry){eachLeaf(entry,[&](Entry& e){detach(e);if(e.unresolved)++result.unresolved;});});

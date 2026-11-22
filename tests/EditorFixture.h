@@ -9,7 +9,22 @@ inline void rows(EditorState& s) {
     for(std::size_t i=0;i<Arsenal::count;++i){s.rows[i].clear();for(const auto& e:s.draft.groups[i].entries) {
         int count=0;for(const auto& c:s.catalog)if(c.entry.form==e.form)count=c.count;
         s.rows[i].push_back({e,!e.unresolved&&(!isStack(e)||count>0),false,{},isStack(e)?count:0});
+        if(e.kind==Kind::outfit)s.rows[i].back().detail=handName(e)+" · "+outfitSummary(e);
     }}
+}
+// Adds armor, clothing and jewelry to the item list. The steel set is worn.
+inline void wardrobe(EditorState& s) {
+    struct Piece {const char* name;ArmorPart part;ArmorWeight weight;bool worn;};
+    std::uint64_t id=100;
+    for(const auto& piece:{Piece{"Steel Armor",ArmorPart::body,ArmorWeight::heavy,true},Piece{"Steel Helmet",ArmorPart::head,ArmorWeight::heavy,true},
+        Piece{"Steel Gauntlets",ArmorPart::hands,ArmorWeight::heavy,true},Piece{"Steel Boots",ArmorPart::feet,ArmorWeight::heavy,true},
+        Piece{"Ring of Smithing",ArmorPart::ring,ArmorWeight::clothing,false},Piece{"Amulet of Zenithar",ArmorPart::amulet,ArmorWeight::clothing,false},
+        Piece{"Mage Robes",ArmorPart::body,ArmorWeight::clothing,false},Piece{"Mage Hood",ArmorPart::head,ArmorWeight::clothing,false}}) {
+        Entry e;e.kind=Kind::armor;e.form=0x125000+std::uint32_t(id);e.owner=0x14;e.unique=std::uint16_t(id);e.name=piece.name;e.equipmentType=armorType(piece.part,piece.weight);
+        s.catalog.push_back({e,id,1,piece.worn,true,{}});if(piece.worn)s.wornCandidates.push_back(id);++id;
+    }
+    std::stable_sort(s.catalog.begin(),s.catalog.end(),[](const auto& a,const auto& b){return a.entry.name<b.entry.name;});
+    rows(s);
 }
 inline EditorState editor() {
     // The editor checks were written against card tiles, a strip selector and an equipment list.
@@ -78,6 +93,11 @@ inline bool apply(EditorState& s,const EditCommand& c,EditHistory& history) {
             const auto pair=composeCombination(s,c,[&](std::uint64_t id,Hand hand)->std::optional<Entry>{const auto* item=catalogItem(s,id);if(!item)return {};auto e=item->entry;e.hand=hand;return e;});
             if(!pair){history.finish(false,false,0);return false;}
             auto save=c;save.action=EditAction::saveShortcut;save.shortcut=*pair;
+            if(!editStructure(s.draft,s.options,save)){history.finish(false,false,0);return false;}
+        }else if(c.action==EditAction::saveOutfit) {
+            const auto outfit=composeOutfit(s,c,[&](std::uint64_t id,Hand hand)->std::optional<Entry>{const auto* item=catalogItem(s,id);if(!item)return {};auto e=item->entry;e.hand=normalizedHand(e,hand);return e;});
+            if(!outfit){history.finish(false,false,0);return false;}
+            auto save=c;save.action=EditAction::saveShortcut;save.shortcut=*outfit;
             if(!editStructure(s.draft,s.options,save)){history.finish(false,false,0);return false;}
         }else if(!editStructure(s.draft,s.options,c)&&!editGroup(s.draft,s.options,c)){history.finish(false,false,0);return false;}
         if(c.action==EditAction::addGroup||c.action==EditAction::removeGroup||c.action==EditAction::favoriteSource)++s.restoreSerial;

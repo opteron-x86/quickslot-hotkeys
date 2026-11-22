@@ -25,6 +25,9 @@ struct EditorState {
     std::vector<CatalogItem> catalog;
     std::array<std::uint64_t,2> equippedCandidates{};
     bool equippedPair=true;
+    // The item list's entries for what the player wears, and for a two-handed item in the hands.
+    std::vector<std::uint64_t> wornCandidates;
+    std::uint64_t equippedBoth=0;
     std::vector<PotionCandidate> potions;
     std::vector<EquipmentCandidate> equipment;
     std::array<float,3> deficits{};
@@ -35,7 +38,7 @@ struct EditorState {
     // Shared so that publishing the editor state each frame does not copy every preset's settings.
     std::shared_ptr<const std::map<std::string,PresetInfo>> presetInfo;
 };
-enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup,favoriteSource,resetFavoriteExclusions,deletePreset,characterSettings,renamePreset,copyPreset,builtinPreset,resetAll};
+enum class EditAction {select,add,remove,reorder,move,hand,settings,close,undo,revert,refresh,addGroup,removeGroup,clearGroup,groupUp,groupDown,saveShortcut,exportPreset,importPreset,refreshPresets,saveCombination,addShortcut,deleteShortcut,sortGroup,favoriteSource,resetFavoriteExclusions,deletePreset,characterSettings,renamePreset,copyPreset,builtinPreset,resetAll,saveOutfit};
 struct EditCommand {
     EditAction action=EditAction::select;
     std::uint64_t session=0,revision=0,catalogVersion=0,candidate=0;
@@ -47,6 +50,8 @@ struct EditCommand {
     bool hasSettings=false,continuous=false;
     Entry shortcut;
     std::array<std::uint64_t,2> components{};
+    // For an outfit: the item list entry behind each part, or 0 for a part kept from the saved outfit.
+    std::vector<std::uint64_t> pieceCandidates;
     bool replace=false;
     std::uint32_t libraryID=0;
     // presetTarget is the new name for a rename or copy; presetParts chooses what an import applies.
@@ -99,6 +104,38 @@ template<class Capture> std::optional<Entry> composeCombination(const EditorStat
     entry.name=cleanName(entry.name.empty()?combinationName(entry):entry.name);
     return entry;
 }
+inline std::string outfitName(const Entry& e) {
+    const auto* face=outfitFace(e);
+    return face?face->name+" outfit":"Outfit";
+}
+// An outfit draft holds parts picked from the item list and parts kept from the saved outfit it edits.
+inline bool validOutfitDraft(const EditorState& s,const EditCommand& c) {
+    if(c.group>=Arsenal::count||c.catalogVersion!=s.catalogVersion||c.shortcut.kind!=Kind::outfit||c.pieceCandidates.size()!=c.shortcut.parts.size())return false;
+    const auto* original=c.libraryID?libraryShortcut(s.draft,c.libraryID):c.replace&&c.index<s.draft.groups[c.group].entries.size()?&s.draft.groups[c.group].entries[c.index]:nullptr;
+    if((c.replace||c.libraryID)&&(!original||original->kind!=Kind::outfit))return false;
+    for(std::size_t i=0;i<c.shortcut.parts.size();++i) {
+        const auto& part=c.shortcut.parts[i];
+        if(c.pieceCandidates[i]) {
+            const auto* item=catalogItem(s,c.pieceCandidates[i]);
+            if(!item||!item->addable||outfitPiece(part)!=(item->entry.kind==Kind::armor))return false;
+            if(!outfitPiece(part)&&(part.twoHanded?!item->entry.twoHanded:!handCandidate(*item,part.hand)))return false;
+        }else {
+            if(part.kind==Kind::emptyHand&&validHandAction(part))continue;
+            if(!original||std::none_of(original->parts.begin(),original->parts.end(),[&](const Entry& saved){return sameDefinition(saved,part);}))return false;
+        }
+    }
+    return validOutfit(c.shortcut);
+}
+template<class Capture> std::optional<Entry> composeOutfit(const EditorState& s,const EditCommand& c,Capture capture) {
+    if(!validOutfitDraft(s,c))return {};
+    auto entry=c.shortcut;
+    for(std::size_t i=0;i<entry.parts.size();++i)if(c.pieceCandidates[i]) {
+        auto part=capture(c.pieceCandidates[i],entry.parts[i].hand);if(!part)return {};entry.parts[i]=*part;
+    }
+    if(!validOutfit(entry))return {};
+    entry.name=cleanName(entry.name.empty()?outfitName(entry):entry.name);
+    return entry;
+}
 inline bool editStructure(Arsenal& a,Options& o,const EditCommand& c) {
     if(c.action==EditAction::favoriteSource&&c.group<Arsenal::count)return setFavoriteSource(a.groups[c.group],c.source,c.hand,c.favoriteCategories);
     if(c.action==EditAction::resetFavoriteExclusions&&c.group<Arsenal::count) {
@@ -116,6 +153,7 @@ inline bool editStructure(Arsenal& a,Options& o,const EditCommand& c) {
     if(isSmartEquipment(e)){if(!validSmartEquipment(e))return false;}
     else if(isHandAction(e)){if(!validHandAction(e))return false;}
     else if(e.kind==Kind::smartPotion){if(e.resource>2||e.effect>1||e.policy>2||(e.effect&&e.policy==2)||e.exclusions.size()>128)return false;}
+    else if(e.kind==Kind::outfit){if(!validOutfit(e))return false;}
     else if(e.kind!=Kind::combo||e.parts.size()!=2||!validPair(e.parts[0],e.parts[1]))return false;
     auto& g=a.groups[c.group];
     if(c.libraryID)return updateShortcut(a,c.libraryID,e);
@@ -153,16 +191,18 @@ inline bool editGroup(Arsenal& a,const Options& o,const EditCommand& c) {
     return false;
 }
 inline bool catalogMatches(const CatalogItem& c,const std::string& query,int filter) {
-    if(filter>=10)return false;
-    if(filter==1&&unsigned(c.entry.kind)>unsigned(Kind::staff))return false;
-    if(filter==2&&c.entry.kind!=Kind::spell)return false;
-    if(filter==3&&c.entry.kind!=Kind::shield&&c.entry.kind!=Kind::torch)return false;
-    if(filter==4&&c.entry.kind!=Kind::potion)return false;
-    if(filter==5&&c.entry.kind!=Kind::food)return false;
-    if(filter==6&&c.entry.kind!=Kind::poison)return false;
-    if(filter==7&&c.entry.kind!=Kind::scroll)return false;
-    if(filter==8&&!isVoice(c.entry))return false;
-    if(filter==9&&c.entry.kind!=Kind::ammo)return false;
+    using namespace catalogFilter;
+    if(filter>=shortcuts)return false;
+    if(filter==weapons&&unsigned(c.entry.kind)>unsigned(Kind::staff))return false;
+    if(filter==spells&&c.entry.kind!=Kind::spell)return false;
+    if(filter==offhand&&c.entry.kind!=Kind::shield&&c.entry.kind!=Kind::torch)return false;
+    if(filter==potions&&c.entry.kind!=Kind::potion)return false;
+    if(filter==food&&c.entry.kind!=Kind::food)return false;
+    if(filter==poisons&&c.entry.kind!=Kind::poison)return false;
+    if(filter==scrolls&&c.entry.kind!=Kind::scroll)return false;
+    if(filter==voice&&!isVoice(c.entry))return false;
+    if(filter==ammo&&c.entry.kind!=Kind::ammo)return false;
+    if(filter==armor&&c.entry.kind!=Kind::armor)return false;
     return textContains(c.entry.name,query);
 }
 enum class EditorInputType {key,character,move,button,wheel,pad,stick};

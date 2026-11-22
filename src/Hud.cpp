@@ -3,6 +3,7 @@
 #include "Layout.h"
 #include "IconPolicy.h"
 #include "EquippedState.h"
+#include "Outfit.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -198,6 +199,8 @@ struct Paint {
     // charge, from 0 to 1, fills an enchanted weapon's icon from the bottom when the charge shows on icons.
     void icon(float x,float y,float size,const Entry& e,ImU32 c,float charge=-1) {
         if(e.kind==Kind::combo&&e.parts.size()==2){icon(x-size*.21f,y,size*.62f,e.parts[0],c==muted?c:itemColor(e.parts[0]));icon(x+size*.21f,y,size*.62f,e.parts[1],c==muted?c:itemColor(e.parts[1]));return;}
+        // An outfit shows its body piece.
+        if(e.kind==Kind::outfit)if(const auto* face=outfitFace(e)){icon(x,y,size,*face,c==muted?c:itemColor(*face),charge);return;}
         size*=tweaks.iconScale;
         if(itemIcons)if(const auto supplied=itemIcons(e)) {
             const bool unavailable=c==muted;
@@ -432,6 +435,7 @@ void Hud::drawItemIcon(ImDrawList* list,ImVec2 center,float size,const Entry& en
         drawItemIcon(list,{center.x-size*.21f,center.y},size*.62f,entry.parts[0],o,available);
         drawItemIcon(list,{center.x+size*.21f,center.y},size*.62f,entry.parts[1],o,available);return;
     }
+    if(entry.kind==Kind::outfit)if(const auto* face=outfitFace(entry)){drawItemIcon(list,center,size,*face,o,available);return;}
     if(!list||!itemIcons_)return;
     const auto supplied=itemIcons_(entry);if(!supplied)return;
     const auto& palette=theme(o);const auto role=o.coloredMagic?iconColor(entry):ivory;

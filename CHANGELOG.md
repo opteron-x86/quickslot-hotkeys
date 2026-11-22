@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Armor, clothing and jewelry can be added to groups. A tap puts a piece on, and a tap on a worn piece takes it off.
+- **New → Outfit** saves a set of worn pieces as one entry, with **Use worn**, **Include hands** and **Take off everything else**. A tap on a worn outfit puts back the gear worn before it.
+- The item list has **Armor & jewelry** and **Outfits** filters.
+- Favorites groups have **Favorite armor / clothing** and **Favorite jewelry** categories. **All Favorites** includes them.
 - **Tap** adds **Quick cast the selected spell**, which casts a group's selected spell or scroll on a tap without equipping it, and **Ready a spell (Oblivion style)**, which makes it the spell **Cast ready spell** casts. Both need Open Animation Replacer and Quickslot Casting Animations.
 - **Cast ready spell** binding under **Controls → Keyboard** and **Controls → Controller**.
 - The equipment display lists the ready spell while an Oblivion-style group exists.

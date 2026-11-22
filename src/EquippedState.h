@@ -17,7 +17,7 @@ inline unsigned entryHands(const Entry& e,bool equipped) {
     if(!equipped)return 0;
     if(e.kind==Kind::combo){unsigned mask=0;for(const auto& p:e.parts)mask|=entryHands(p,true);return mask;}
     if(e.kind==Kind::unarmed||e.twoHanded)return 3;
-    if(isVoice(e)||isConsumable(e)||e.kind==Kind::ammo||e.kind==Kind::smartAmmo)return 0;
+    if(isVoice(e)||isConsumable(e)||wornGear(e)||e.kind==Kind::ammo||e.kind==Kind::smartAmmo)return 0;
     return e.hand==Hand::left?2:1;
 }
 inline bool twoHandedDisplay(const EquippedDisplay& state){return state.hands[0]&&state.hands[0]->entry.twoHanded;}

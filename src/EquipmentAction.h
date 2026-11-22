@@ -2,12 +2,12 @@
 #include "Model.h"
 namespace quickslot {
 inline bool wornForEntry(const Entry& entry,bool worn,bool wornLeft) {
-    if(entry.kind==Kind::shield||entry.kind==Kind::torch||entry.twoHanded)return worn||wornLeft;
+    if(entry.kind==Kind::armor||entry.kind==Kind::shield||entry.kind==Kind::torch||entry.twoHanded)return worn||wornLeft;
     return entry.hand==Hand::left?wornLeft:worn;
 }
 
 inline std::optional<Hand> objectEquipHand(const Entry& entry,bool remove,bool otherHand=false) {
-    if(entry.kind==Kind::torch||entry.kind==Kind::ammo)return {};
+    if(entry.kind==Kind::torch||entry.kind==Kind::ammo||entry.kind==Kind::armor)return {};
     if(entry.twoHanded)return remove?std::optional{Hand::right}:std::nullopt;
     return otherHand?(entry.hand==Hand::left?Hand::right:Hand::left):entry.hand;
 }

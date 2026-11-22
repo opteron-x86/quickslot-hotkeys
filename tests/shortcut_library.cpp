@@ -45,9 +45,9 @@ int main()try {
     const auto pair=a.groups[0].entries.back().shortcut;check(addShortcut(a,5,pair),"Reuse combination");
     check(followIdentityChange(a,{0x123,0x14,0x55,42,9})==3,"Identity event reaches library and both uses");
     check(libraryShortcut(a,pair)->parts[0].owner==0x55&&a.groups[5].entries[0].parts[0].unique==9,"Exact identity stays consistent");
-    check(shortcutMatches(*libraryShortcut(a,pair),"flAMes",11),"Search matches combination components");
-    check(!shortcutMatches(*libraryShortcut(a,pair),"",12)&&shortcutMatches(*libraryShortcut(a,potion),"",12),"Filters distinguish combos and smart selections");
-    check(shortcutMatches(*libraryShortcut(a,hand),"",13)&&!shortcutMatches(*libraryShortcut(a,hand),"",11),"Hand-action filter");
+    check(shortcutMatches(*libraryShortcut(a,pair),"flAMes",catalogFilter::combinations),"Search matches combination components");
+    check(!shortcutMatches(*libraryShortcut(a,pair),"",catalogFilter::smart)&&shortcutMatches(*libraryShortcut(a,potion),"",catalogFilter::smart),"Filters distinguish combos and smart selections");
+    check(shortcutMatches(*libraryShortcut(a,hand),"",catalogFilter::handActions)&&!shortcutMatches(*libraryShortcut(a,hand),"",catalogFilter::combinations),"Hand-action filter");
     EditorState state;state.open=true;state.catalogVersion=1;state.draft=a;c={};c.action=EditAction::saveCombination;c.catalogVersion=1;c.libraryID=pair;c.shortcut=*libraryShortcut(a,pair);
     check(validCombinationDraft(state,c),"Existing library combination edits without inventory recapture");
     c.shortcut.parts[0].unique=99;check(!validCombinationDraft(state,c),"Library editor rejects a substituted copy");

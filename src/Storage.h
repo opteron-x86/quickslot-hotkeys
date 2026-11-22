@@ -2,6 +2,7 @@
 #include "Model.h"
 #include "SmartEquipment.h"
 #include "ShortcutLibrary.h"
+#include "Outfit.h"
 #include "Favorites.h"
 #include <nlohmann/json.hpp>
 #include <functional>
@@ -24,9 +25,10 @@ inline Json encodeEntry(const Entry& e) {
     Json j={{"form",e.form},{"owner",e.owner},{"unique",e.unique},{"hand",unsigned(e.hand)},
         {"kind",unsigned(e.kind)},{"twoHanded",e.twoHanded},{"spell",e.spell},{"unresolved",e.unresolved},{"name",e.name},{"recipe",e.recipe}};
     if(e.kind==Kind::smartPotion){j["resource"]=e.resource;j["effect"]=e.effect;j["policy"]=e.policy;j["exclusions"]=Json::array();for(const auto& x:e.exclusions)j["exclusions"].push_back({{"form",x.form},{"recipe",x.recipe}});}
-    if(isSmartEquipment(e))j["equipmentType"]=e.equipmentType;
+    if(isSmartEquipment(e)||e.kind==Kind::armor)j["equipmentType"]=e.equipmentType;
     if(e.shortcut)j["shortcut"]=e.shortcut;
-    if(e.kind==Kind::combo){j["parts"]=Json::array();for(const auto& part:e.parts)j["parts"].push_back(encodeEntry(part));}
+    if(e.kind==Kind::combo||e.kind==Kind::outfit){j["parts"]=Json::array();for(const auto& part:e.parts)j["parts"].push_back(encodeEntry(part));}
+    if(e.kind==Kind::outfit)j["exclusive"]=e.exclusive;
     return j;
 }
 inline std::string encode(const Group& g) {
@@ -49,7 +51,7 @@ inline Entry decodeEntry(const Json& v,const std::function<bool(std::uint32_t,st
         const auto n=v.at(k).get<std::uint64_t>();if(n>max)throw std::runtime_error("Item reference outside range");return std::uint32_t(n);
     };
     e.form=number("form",UINT32_MAX);e.owner=number("owner",UINT32_MAX);e.unique=std::uint16_t(number("unique",UINT16_MAX));
-    e.hand=Hand(number("hand",1));e.kind=Kind(number("kind",unsigned(Kind::smartAmmo)));
+    e.hand=Hand(number("hand",1));e.kind=Kind(number("kind",unsigned(Kind::outfit)));
     if(v.contains("shortcut")){e.shortcut=number("shortcut",UINT32_MAX);if(depth||!e.shortcut||!isReusable(e))throw std::runtime_error("Invalid shortcut link");}
     e.name=v.at("name").get<std::string>();if(e.name.size()>512)throw std::runtime_error("Item name too long");
     e.twoHanded=v.at("twoHanded").get<bool>();e.spell=v.at("spell").get<bool>();e.unresolved=v.at("unresolved").get<bool>();
@@ -62,6 +64,18 @@ inline Entry decodeEntry(const Json& v,const std::function<bool(std::uint32_t,st
     if(isHandAction(e)) {
         if(!validHandAction(e)||(depth&&e.kind==Kind::unarmed)||v.contains("parts")||v.contains("exclusions")||v.contains("resource")||v.contains("effect")||v.contains("policy"))throw std::runtime_error("Invalid hand action");
         e.name=handActionName(e);return e;
+    }
+    if(e.kind==Kind::outfit) {
+        if(depth||v.contains("exclusions")||v.contains("resource")||v.contains("effect")||v.contains("policy"))throw std::runtime_error("Invalid outfit");
+        const auto& parts=v.at("parts");if(!parts.is_array()||parts.size()>outfitPieceLimit+2)throw std::runtime_error("Invalid outfit parts");
+        for(const auto& part:parts)e.parts.push_back(decodeEntry(part,resolve,depth+1));
+        e.exclusive=v.at("exclusive").get<bool>();
+        if(!validOutfit(e))throw std::runtime_error("Invalid outfit");
+        return e;
+    }
+    if(e.kind==Kind::armor) {
+        e.equipmentType=number("equipmentType",armorType(ArmorPart::other,ArmorWeight::clothing));
+        if(!validArmorEntry(e)||v.contains("parts")||v.contains("exclusions"))throw std::runtime_error("Invalid armor reference");
     }
     if(e.kind==Kind::smartPotion||e.kind==Kind::combo) {
         if(depth||e.form||e.owner||e.unique||e.spell||e.twoHanded||e.hand!=Hand::right||e.recipe||e.unresolved)throw std::runtime_error("Invalid compound shortcut");
@@ -88,7 +102,7 @@ inline Entry decodeEntry(const Json& v,const std::function<bool(std::uint32_t,st
 
         e.owner=0;e.unique=0;e.unresolved=!e.form;
     }
-    if(unsigned(e.kind)>unsigned(Kind::spell)) {
+    if(unsigned(e.kind)>unsigned(Kind::spell)&&e.kind!=Kind::armor) {
         const bool spell=e.kind==Kind::power||e.kind==Kind::lesserPower;
         if(e.owner||e.unique||e.spell!=spell||(!flexibleHand(e)&&e.hand!=normalizedHand(e,e.hand))||(e.kind!=Kind::scroll&&e.twoHanded))throw std::runtime_error("Invalid stack or voice reference");
     }
@@ -132,6 +146,12 @@ inline std::string encodeArsenal(const Arsenal& arsenal) {
     if(arsenal.consumableGroup<Arsenal::count)result["consumableGroup"]=arsenal.consumableGroup;
     if(arsenal.readySpellGroup<Arsenal::count)result["readySpellGroup"]=arsenal.readySpellGroup;
     if(arsenal.rememberedConsumable)result["rememberedConsumable"]=encodeEntry(*arsenal.rememberedConsumable);
+    if(arsenal.wornBefore) {
+        Json before{{"outfit",arsenal.wornBefore->outfit},{"applied",arsenal.wornBefore->applied},{"pieces",Json::array()},{"hands",Json::array()}};
+        for(const auto& e:arsenal.wornBefore->pieces)before["pieces"].push_back(encodeEntry(e));
+        for(const auto& e:arsenal.wornBefore->hands)before["hands"].push_back(encodeEntry(e));
+        result["wornBefore"]=std::move(before);
+    }
     return result.dump();
 }
 inline Arsenal decodeArsenal(const std::string& bytes,const std::function<bool(std::uint32_t,std::uint32_t&)>& resolve) {
@@ -163,6 +183,17 @@ inline Arsenal decodeArsenal(const std::string& bytes,const std::function<bool(s
         if(entry.shortcut){const auto* definition=libraryShortcut(arsenal,entry.shortcut);if(!definition||!isConsumable(*definition))throw std::runtime_error("Invalid selected consumable shortcut");entry=*definition;}
         arsenal.rememberedConsumable=std::move(entry);
     }
+    // The earlier gear is a convenience: a record this build cannot read is left out.
+    if(j.contains("wornBefore"))try {
+        const auto& saved=j.at("wornBefore");WornBefore before;
+        before.outfit=saved.at("outfit").get<std::uint32_t>();before.applied=saved.at("applied").get<bool>();
+        const auto* outfit=libraryShortcut(arsenal,before.outfit);
+        if(!outfit||outfit->kind!=Kind::outfit||saved.at("pieces").size()>64||saved.at("hands").size()>2)throw std::runtime_error("Invalid earlier gear");
+        for(const auto& value:saved.at("pieces")){auto e=decodeEntry(value,resolve,1);if(!validArmorEntry(e))throw std::runtime_error("Invalid earlier piece");before.pieces.push_back(std::move(e));}
+        for(const auto& value:saved.at("hands"))before.hands.push_back(decodeEntry(value,resolve,1));
+        if(!validHeldEntries(before.hands))throw std::runtime_error("Invalid earlier hands");
+        arsenal.wornBefore=std::move(before);
+    }catch(const std::exception&){arsenal.wornBefore.reset();}
     collectShortcuts(arsenal);
     return arsenal;
 }

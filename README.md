@@ -39,13 +39,24 @@ A character new to Quickslot starts with four groups that follow its Skyrim Favo
 
 ### Building groups
 
-Add inventory items and spells in **Groups**. **New** creates combinations, smart potions, smart weapons, smart ammo, shields and empty-hand actions. Saved shortcuts appear in the searchable item list and can belong to several groups; editing one updates every linked group.
+Add inventory items and spells in **Groups**, including armor, clothing and jewelry. **New** creates combinations, outfits, smart potions, smart weapons, smart ammo, shields and empty-hand actions. Saved shortcuts appear in the searchable item list and can belong to several groups; editing one updates every linked group.
 
 **Remove group** resets the group's contents, name, bindings, behavior and auto-sort setting; Undo restores it. **Add group** creates a fresh group with the lowest unused key from **1–8**, skipping the editor and consumable shortcuts, and available default controller/VR bindings. If no default binding is free, it stays unbound. Existing groups keep their bindings. **Clear group** removes only its items.
 
 **Sort A–Z** sorts the current group's items by name, ignoring case. **Auto-sort when adding** sorts it now and after future additions, including hotkey captures and moves into the group. Both preserve the remembered item and support Undo in the editor; automatic sorting starts disabled. You can still reorder items manually.
 
 A combination has a searchable picker for each hand. Choose inventory, spells or smart rules such as Best Sword + Best Mace or Best Axe + Best Shield. **Both hands** copies a spell; **Use equipped** captures the current pair.
+
+### Armor, jewelry and outfits
+
+A piece of armor, clothing or jewelry is a group entry like any other. Add it from the item list, where **Armor & jewelry** filters to these pieces, or from Skyrim's Inventory with the capture shortcut. A tap puts the piece on, and a tap on a worn piece takes it off. In a group that steps to the next item, each step puts a piece on.
+
+An outfit puts on a whole set with one tap. Choose **New → Outfit**, wear the set and choose **Use worn**; **Add a piece…** and **Remove piece** adjust the list. An outfit holds up to 24 pieces and follows the exact copies you captured, with their tempering and enchantments.
+
+- **Include hands** adds what both hands hold to the outfit: weapons, a shield, spells or empty hands. The outfit then sets the hands as well.
+- **Take off everything else** makes the outfit your whole look: putting it on takes off every other piece of armor, clothing and jewelry. Leave it off for a set worn over other gear, such as crafting jewelry.
+
+A tap on an outfit you are wearing puts back the gear you wore before it, and your hands when the outfit includes them. A crafting set goes on with one tap and your armor returns with the next. The earlier gear is saved with the character. Outfits are saved shortcuts: one outfit can sit in several groups, and editing it updates each of them. An outfit with a missing piece shows which one and stays off until the piece returns or the outfit is edited.
 
 ### Group behavior
 
@@ -81,11 +92,11 @@ Powers and shouts support activation from the group hotkey, with configurable sh
 
 Smart weapons rank by physical damage, including tempering and player modifiers. Smart shields rank by armor; smart ammo ranks by damage. Smart potions offer strongest, weakest and best fit for missing health, magicka or stamina. Regeneration potions offer strongest or weakest.
 
-Weapons, armor and shields follow the captured copy. Torches and consumables follow inventory stock of their saved type. Unavailable entries remain in the group for retrieval or restocking.
+Weapons, shields, armor, clothing and jewelry follow the captured copy. Torches and consumables follow inventory stock of their saved type. Unavailable entries remain in the group for retrieval or restocking.
 
 ### Favorites groups
 
-In the group editor, open the **Manual** dropdown and check the Favorites categories to include. For example, select **Favorite weapons** and **Favorite shields / torches** to cycle through both with one binding. Categories also include spells, potions, poisons, food, ammo, scrolls and powers/shouts. **All Favorites** selects every category; clear individual checkboxes to narrow the list. Clearing every checkbox leaves an empty Favorites group. Generated groups show all matching entries once each in alphabetical order and use a configurable default hand, subject to normal equipment restrictions. Manual groups retain their 16-item limit.
+In the group editor, open the **Manual** dropdown and check the Favorites categories to include. For example, select **Favorite weapons** and **Favorite shields / torches** to cycle through both with one binding. Categories also include spells, potions, poisons, food, ammo, scrolls, powers/shouts, armor/clothing and jewelry. **All Favorites** selects every category; clear individual checkboxes to narrow the list. Clearing every checkbox leaves an empty Favorites group. Generated groups show all matching entries once each in alphabetical order and use a configurable default hand, subject to normal equipment restrictions. Manual groups retain their 16-item limit.
 
 **Exclude** controls a favorite’s visibility in this group. Each group supports 128 exclusions; **Reset exclusions** shows them again. Switch to **Manual** to return to your manually added shortcuts and remembered selection. Source settings, exclusions and the remembered favorite are saved with the character and complete presets. Depleted or unfavorited entries disappear; restocking a still-favorited item brings it back. The list refreshes on inventory/menu changes and approximately once per second, cancelling a pending selection if membership changes. If several identical weapons share one favorited stack, equip one in Skyrim first so Quickslot can identify that copy.
 

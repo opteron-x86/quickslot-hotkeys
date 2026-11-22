@@ -1115,5 +1115,41 @@ int main(int argc,char** argv)try {
         click("Undo");check(encodeOptions(state.options)==before&&state.draft.groups[0].entries.size()==groupsBefore&&!state.draft.groups[0].automatic(),"Undo restores the settings and groups from before the reset");
         click("Groups##main");padKey(PadButton::lb);check(!probe::find("Reset Quickslot").empty(),"Shoulder buttons reach the Settings tab");
     }
+    {
+        // Armor, jewelry and outfits.
+        state=fixture::editor();state.session=9001;fixture::wardrobe(state);frame();frame();
+        click("Groups##main");click("##filter");click("Armor & jewelry");
+        check(probe::find("##candidate").size()>=5&&probe::find("Imperial Sword (Superior)").empty(),"The armor filter lists armor, clothing and jewelry");
+        click("##search");for(const auto ch:std::string("ring"))frame({{EditorInputType::character,unsigned(ch)}});frame();
+        check(probe::find("##candidate").size()==1,"Search narrows the armor list");
+        click("##candidate");check(probe::find("Add right").empty()&&!probe::one("Add to group").disabled,"A worn piece is added without a hand");
+        click("Add to group");
+        check(state.draft.groups[0].entries.back().kind==Kind::armor&&armorPart(state.draft.groups[0].entries.back())==ArmorPart::ring,"The editor adds a piece of jewelry to a group");
+        click("##entry",3);check(probe::one("Change hand").disabled,"A worn piece has no hand to change");
+        click("New");click("Outfit");
+        check(probe::one("Add outfit").disabled&&probe::one("Remove piece").disabled,"A new outfit starts empty");
+        click("Use worn");
+        check(probe::find("##outfit part").size()==4&&!probe::one("Add outfit").disabled,"Use worn fills the outfit with the worn pieces");
+        click("Include hands");check(probe::find("##outfit part").size()==6,"Include hands adds what both hands hold");
+        click("Include hands");check(probe::find("##outfit part").size()==4,"Turning Include hands off leaves the pieces");
+        click("##outfit part",1);click("Remove piece");check(probe::find("##outfit part").size()==3,"A piece can be taken out of the outfit");
+        click("##add piece");click("Ring: Ring of Smithing");check(probe::find("##outfit part").size()==4,"A piece can be added from the item list");
+        const auto before=state.draft.groups[0].entries.size();click("Add outfit");
+        const auto saved=state.draft.groups[0].entries.back();
+        check(state.draft.groups[0].entries.size()==before+1&&saved.kind==Kind::outfit&&saved.shortcut&&saved.exclusive&&outfitPieces(saved).size()==4&&outfitHands(saved).empty(),"Add outfit saves the pieces as a shared shortcut that takes the rest off");
+        check(saved.name=="Steel Armor outfit"&&state.draft.shortcuts.size()==1,"A new outfit is named after its body piece");
+        click("##entry",before);check(probe::find("##outfit part").size()==4&&probe::find("Add outfit").empty(),"Selecting a saved outfit opens it for editing");
+        click("Take off everything else");check(!state.draft.groups[0].entries.back().exclusive&&!libraryShortcut(state.draft,saved.shortcut)->exclusive,"Editing an outfit's switch updates the saved outfit");
+        click("Include hands");
+        check(outfitHands(state.draft.groups[0].entries.back()).size()==2&&outfitHands(state.draft.groups[0].entries.back())[1].kind==Kind::emptyHand,"A saved outfit can take up the hands");
+        click("Undo");check(outfitHands(state.draft.groups[0].entries.back()).empty(),"Undo restores the outfit without hands");
+        click("Items");click("##filter");click("Outfits");
+        check(probe::find("##candidate").size()==1,"The outfit filter lists saved outfits");
+        click("2   Offhand\n     1 / 16");click("##candidate");click("Add to group");
+        check(state.draft.groups[1].entries.back().shortcut==saved.shortcut&&shortcutUses(state.draft,saved.shortcut)==2,"A saved outfit can be added to another group");
+        click("##group source");check(!probe::find("Favorite armor / clothing").empty()&&!probe::find("Favorite jewelry").empty(),"Favorites groups offer armor and jewelry");
+        click("Favorite jewelry");
+        check(state.draft.groups[1].source==FavoriteSource::jewelry&&state.draft.groups[1].entries.size()==2&&std::all_of(state.draft.groups[1].entries.begin(),state.draft.groups[1].entries.end(),[](const Entry& e){return jewelry(e);}),"A Favorites group can follow jewelry");
+    }
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

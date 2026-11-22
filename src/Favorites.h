@@ -5,19 +5,23 @@
 
 namespace quickslot {
 inline const char* favoriteSourceName(FavoriteSource source) {
-    constexpr const char* names[]{"Manual","All Favorites","Favorite weapons","Favorite spells","Favorite potions","Favorite poisons","Favorite food","Favorite ammo","Favorite scrolls","Favorite powers / shouts","Favorite shields / torches","Favorite categories"};
+    constexpr const char* names[]{"Manual","All Favorites","Favorite weapons","Favorite spells","Favorite potions","Favorite poisons","Favorite food","Favorite ammo","Favorite scrolls","Favorite powers / shouts","Favorite shields / torches","Favorite categories","Favorite armor / clothing","Favorite jewelry"};
     return unsigned(source)<unsigned(FavoriteSource::count)?names[unsigned(source)]:names[0];
 }
-inline constexpr unsigned allFavoriteCategories=(1u<<(unsigned(FavoriteSource::offhand)-unsigned(FavoriteSource::weapons)+1))-1;
+// The categories a Favorites group can combine, in the order the editor lists them. A category's place here is its bit.
+inline constexpr FavoriteSource favoriteCategoryList[]{FavoriteSource::weapons,FavoriteSource::spells,FavoriteSource::potions,FavoriteSource::poisons,
+    FavoriteSource::food,FavoriteSource::ammo,FavoriteSource::scrolls,FavoriteSource::voice,FavoriteSource::offhand,FavoriteSource::armor,FavoriteSource::jewelry};
+inline constexpr unsigned allFavoriteCategories=(1u<<std::size(favoriteCategoryList))-1;
 inline constexpr unsigned favoriteCategoryBit(FavoriteSource source) {
-    return source>=FavoriteSource::weapons&&source<=FavoriteSource::offhand?1u<<(unsigned(source)-unsigned(FavoriteSource::weapons)):0;
+    for(unsigned i=0;i<std::size(favoriteCategoryList);++i)if(favoriteCategoryList[i]==source)return 1u<<i;
+    return 0;
 }
 inline unsigned favoriteCategoryMask(const Group& group) {
     return group.source==FavoriteSource::all?allFavoriteCategories:group.source==FavoriteSource::selected?group.favoriteCategories:favoriteCategoryBit(group.source);
 }
 inline FavoriteSource favoriteSourceForCategories(unsigned categories) {
     if(categories==allFavoriteCategories)return FavoriteSource::all;
-    if(std::has_single_bit(categories)&&categories<=allFavoriteCategories)return FavoriteSource(unsigned(FavoriteSource::weapons)+std::countr_zero(categories));
+    if(std::has_single_bit(categories)&&categories<=allFavoriteCategories)return favoriteCategoryList[std::countr_zero(categories)];
     return FavoriteSource::selected;
 }
 inline bool favoriteMatches(FavoriteSource source,const Entry& e) {
@@ -33,13 +37,15 @@ inline bool favoriteMatches(FavoriteSource source,const Entry& e) {
     case FavoriteSource::scrolls:return e.kind==Kind::scroll;
     case FavoriteSource::voice:return isVoice(e);
     case FavoriteSource::offhand:return e.kind==Kind::shield||e.kind==Kind::torch;
+    case FavoriteSource::armor:return e.kind==Kind::armor&&!jewelry(e);
+    case FavoriteSource::jewelry:return jewelry(e);
     default:return false;
     }
 }
 inline bool favoriteMatches(const Group& group,const Entry& entry) {
     if(group.source!=FavoriteSource::selected)return favoriteMatches(group.source,entry);
-    for(unsigned i=unsigned(FavoriteSource::weapons);i<=unsigned(FavoriteSource::offhand);++i)
-        if((group.favoriteCategories&favoriteCategoryBit(FavoriteSource(i)))&&favoriteMatches(FavoriteSource(i),entry))return true;
+    for(const auto category:favoriteCategoryList)
+        if((group.favoriteCategories&favoriteCategoryBit(category))&&favoriteMatches(category,entry))return true;
     return false;
 }
 inline bool setFavoriteSource(Group& group,FavoriteSource source,Hand hand,unsigned categories=0) {

@@ -259,6 +259,18 @@ std::uint64_t recipeSignature(RE::TESForm* form) {
     }
     return hash?hash:1;
 }
+// Where a worn piece sits, by its most telling body slot, and its weight.
+unsigned armorTypeOf(RE::TESObjectARMO* armor) {
+    using Slot=RE::BGSBipedObjectForm::BipedObjectSlot;
+    const auto part=armor->HasPartOf(Slot::kBody)?ArmorPart::body:
+        armor->HasPartOf(Slot::kHead)||armor->HasPartOf(Slot::kHair)||armor->HasPartOf(Slot::kLongHair)?ArmorPart::head:
+        armor->HasPartOf(Slot::kHands)?ArmorPart::hands:armor->HasPartOf(Slot::kForearms)?ArmorPart::forearms:
+        armor->HasPartOf(Slot::kFeet)?ArmorPart::feet:armor->HasPartOf(Slot::kCalves)?ArmorPart::calves:
+        armor->HasPartOf(Slot::kAmulet)?ArmorPart::amulet:armor->HasPartOf(Slot::kRing)?ArmorPart::ring:
+        armor->HasPartOf(Slot::kCirclet)?ArmorPart::circlet:ArmorPart::other;
+    const auto weight=armor->IsLightArmor()?ArmorWeight::light:armor->IsHeavyArmor()?ArmorWeight::heavy:ArmorWeight::clothing;
+    return armorType(part,weight);
+}
 bool identify(RE::TESForm* form,Entry& entry) {
     if(!form)return false;
     if(auto* ammo=form->As<RE::TESAmmo>()) {
@@ -283,8 +295,12 @@ bool identify(RE::TESForm* form,Entry& entry) {
         entry.kind=weapon->IsBow()||weapon->IsCrossbow()?Kind::bow:weapon->IsStaff()?Kind::staff:
             weapon->IsOneHandedDagger()?Kind::dagger:weapon->IsOneHandedAxe()||weapon->IsTwoHandedAxe()?Kind::axe:
             weapon->IsOneHandedMace()?Kind::mace:entry.twoHanded?Kind::greatsword:Kind::sword;
-    } else if(auto* armor=form->As<RE::TESObjectARMO>();armor&&armor->IsShield()) {
-        entry.kind=Kind::shield;entry.hand=Hand::left;
+    } else if(auto* armor=form->As<RE::TESObjectARMO>()) {
+        if(armor->IsShield()){entry.kind=Kind::shield;entry.hand=Hand::left;}
+        else {
+            if(!armor->GetPlayable())return false;
+            entry.kind=Kind::armor;entry.equipmentType=armorTypeOf(armor);
+        }
     } else if(form->As<RE::TESObjectLIGH>()) {entry.kind=Kind::torch;entry.hand=Hand::left;}
     else return false;
     entry.hand=normalizedHand(entry,entry.hand);entry.icon=visualIcon(form);
@@ -460,6 +476,7 @@ Resolved resolve(const Entry& entry,RE::PlayerCharacter* player,const RE::TESObj
         }
     }
     if(!found)return {};
+    if(entry.kind==Kind::armor)return {object,found,nullptr,worn(found,entry),false};
     Entry other=entry;other.hand=entry.hand==Hand::left?Hand::right:Hand::left;
     const bool inOther=!entry.twoHanded&&entry.kind!=Kind::shield&&entry.kind!=Kind::torch&&
         worn(found,other)&&player->GetEquippedObject(other.hand==Hand::left)==form;
@@ -539,10 +556,20 @@ ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* playe
             result.action.parts[0].name+" + "+result.action.parts[1].name:result.row.equipped?tr("Combination active"):tr("Right + left hand");
         result.row.equipped&=result.row.available;
         if(!entry.parts.empty())result.row.entry.icon=baseIcon(result.row.entry.parts[0]);
+    } else if(entry.kind==Kind::outfit) {
+        result.row.entry=entry;result.row.available=validOutfit(entry);result.row.equipped=result.row.available;
+        for(auto& part:result.row.entry.parts) {
+            const auto item=resolve(part,player,inventory);
+            if(!isHandAction(part))part.icon=visualIcon(part.unresolved?nullptr:RE::TESForm::LookupByID(part.form));
+            result.row.available&=item.available();result.row.equipped&=item.equipped;
+            if(!item.available()&&result.row.detail.empty())result.row.detail=tr("Missing ")+handName(part)+": "+displayName(part);
+        }
+        result.row.equipped&=result.row.available;
+        if(result.row.detail.empty())result.row.detail=result.row.equipped?tr("Outfit on"):handName(entry)+" · "+outfitSummary(entry);
     } else {result.item=resolve(entry,player,inventory);result.row=makeRow(entry,result.item);result.row.entry.icon=visualIcon(entry.unresolved?nullptr:RE::TESForm::LookupByID(entry.form));}
     result.row.cycleBlocked|=keepOtherHand&&movesOtherHandWeapon(result.action,result.item.equipped,result.item.otherEquipped);
     if(entry.kind!=Kind::combo)result.row.weapon=readWeaponStatus(result.item.object,result.item.extra,player,inventory);
-    if(!isSmartEquipment(entry)&&entry.kind!=Kind::smartPotion&&entry.kind!=Kind::combo&&!isHandAction(entry)) {
+    if(!isSmartEquipment(entry)&&entry.kind!=Kind::smartPotion&&entry.kind!=Kind::combo&&entry.kind!=Kind::outfit&&!isHandAction(entry)) {
         if(auto* form=RE::TESForm::LookupByID(entry.form)) {
             const char* name=result.item.extra?result.item.extra->GetDisplayName(result.item.object):form->GetName();
             if(name&&*name)result.row.entry.name=result.action.name=gameName(name);
@@ -559,6 +586,7 @@ RE::TESObjectREFR::InventoryItemMap inventoryFor(const Arsenal& arsenal,RE::Play
         if(isInventory(e)&&!e.unresolved)forms.insert(e.form);
     });
     if(arsenal.rememberedConsumable){const auto& entry=*arsenal.rememberedConsumable;smart|=entry.kind==Kind::smartPotion;if(entry.form)forms.insert(entry.form);}
+    if(arsenal.wornBefore)for(const auto* list:{&arsenal.wornBefore->pieces,&arsenal.wornBefore->hands})for(const auto& e:*list)if(isInventory(e)&&!e.unresolved)forms.insert(e.form);
     for(bool left:{false,true})if(auto* form=player->GetEquippedObject(left))forms.insert(form->GetFormID());
     if(auto* current=equippedAmmo(player))forms.insert(current->GetFormID());
     if(forms.empty()&&!smart&&!weapons&&!ammo&&!favorites)return {};
@@ -642,7 +670,7 @@ void vrActorCall(RE::PlayerCharacter* player,const char* function,Args... args) 
     if(!vm->DispatchMethodCall(handle,"Actor",function,RE::MakeFunctionArguments(std::move(args)...),callback))
         throw std::runtime_error(std::string("Skyrim could not dispatch ")+function);
 }
-void changeEquipment(RE::PlayerCharacter* player,const Entry& entry,const Resolved& item,bool remove,bool otherHand=false) {
+void changeEquipment(RE::PlayerCharacter* player,const Entry& entry,const Resolved& item,bool remove,bool otherHand=false,bool sound=true) {
     if(entry.kind==Kind::emptyHand){clearHeldHand(player,entry.hand);return;}
     auto* manager=RE::ActorEquipManager::GetSingleton();
     const auto hand=otherHand?(entry.hand==Hand::left?Hand::right:Hand::left):entry.hand;
@@ -677,9 +705,56 @@ void changeEquipment(RE::PlayerCharacter* player,const Entry& entry,const Resolv
     } else if(item.object) {
         const auto objectHand=objectEquipHand(entry,remove,otherHand);
         const auto* objectSlot=objectHand?handSlot(*objectHand):nullptr;
-        if(remove)manager->UnequipObject(player,item.object,item.extra,1,objectSlot,false,false,true,false);
-        else manager->EquipObject(player,item.object,item.extra,1,objectSlot,false,false,true,false);
+        if(remove)manager->UnequipObject(player,item.object,item.extra,1,objectSlot,false,false,sound,false);
+        else manager->EquipObject(player,item.object,item.extra,1,objectSlot,false,false,sound,false);
     }
+}
+// Every piece of armor, clothing and jewelry the player wears, each as its exact copy. A shield belongs to the hands.
+RE::TESObjectREFR::InventoryItemMap armorInventory(RE::PlayerCharacter* player) {
+    return player->GetInventory([](RE::TESBoundObject& object){return object.As<RE::TESObjectARMO>()!=nullptr;});
+}
+std::vector<Entry> wornPieces(RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& armor,const Arsenal& arsenal) {
+    std::vector<Entry> pieces;
+    for(const auto& [object,data]:armor) {
+        if(data.first<=0||!data.second||!data.second->extraLists)continue;
+        Entry base;base.form=object->GetFormID();if(!identify(object,base)||base.kind!=Kind::armor)continue;
+        for(auto* extra:*data.second->extraLists)if(extra&&worn(extra,base)) {
+            if(!ensureIdentity(player,extra,arsenal)){log::warn("Outfit: no identity for worn piece {:08X}",base.form);continue;}
+            auto entry=base;const auto* id=extra->GetByType<RE::ExtraUniqueID>();entry.owner=id->baseID;entry.unique=id->uniqueID;
+            const char* name=extra->GetDisplayName(object);entry.name=gameName(name&&*name?name:object->GetName());
+            pieces.push_back(std::move(entry));
+        }
+    }
+    return pieces;
+}
+// What one hand holds, as its exact copy: an empty-hand entry for an empty hand, nothing for an item Quickslot cannot equip.
+std::optional<Entry> heldEntry(RE::PlayerCharacter* player,Hand hand,const Arsenal& arsenal) {
+    auto* form=player->GetEquippedObject(hand==Hand::left);
+    if(!form)return emptyHandEntry(hand);
+    Entry entry;entry.form=form->GetFormID();entry.hand=hand;
+    if(!identify(form,entry)||isConsumable(entry)||isVoice(entry)||entry.kind==Kind::ammo)return {};
+    entry.name=gameName(form->GetName());
+    if(!tracksInstance(entry))return entry;
+    auto* object=form->As<RE::TESBoundObject>();
+    auto inventory=player->GetInventory([&](RE::TESBoundObject& item){return &item==object;});
+    const auto it=inventory.find(object);
+    if(it==inventory.end()||!it->second.second||!it->second.second->extraLists)return {};
+    RE::ExtraDataList* target=nullptr;
+    for(auto* extra:*it->second.second->extraLists)if(worn(extra,entry)){if(target&&target!=extra)return {};target=extra;}
+    if(!target||!ensureIdentity(player,target,arsenal))return {};
+    const auto* id=target->GetByType<RE::ExtraUniqueID>();entry.owner=id->baseID;entry.unique=id->uniqueID;
+    if(const char* name=target->GetDisplayName(object);name&&*name)entry.name=gameName(name);
+    return entry;
+}
+// What both hands hold: one entry for a two-handed item, otherwise a right and a left entry. Empty when a hand
+// holds something Quickslot cannot equip.
+std::vector<Entry> heldEntries(RE::PlayerCharacter* player,const Arsenal& arsenal) {
+    const auto right=heldEntry(player,Hand::right,arsenal);if(!right)return {};
+    if(right->twoHanded)return {*right};
+    const auto left=heldEntry(player,Hand::left,arsenal);if(!left)return {};
+    if(left->twoHanded)return {*left};
+    std::vector<Entry> hands{*right,*left};
+    return validHeldEntries(hands)?hands:std::vector<Entry>{};
 }
 void clearHeldHand(RE::PlayerCharacter* player,Hand hand) {
     const auto target=occupiedHand(player,hand);if(!target)return;
@@ -836,7 +911,7 @@ void Game::selectionTime(bool selecting) {
     static REL::Relocation<float*> current{RELOCATION_ID(511882,388442)},target{RELOCATION_ID(511883,388443)};
     if(const auto change=selectionTime_.update(wants,options_.selectionSpeed,*current,*target)){*current=change->first;*target=change->second;}
 }
-void Game::cancel(){selectionTime(false);cycleConfirm_.cancel();selection_.cancel();controller_.cancel();pending_.reset();released_.reset();consumableRequest_.reset();stopVoice();}
+void Game::cancel(){selectionTime(false);cycleConfirm_.cancel();selection_.cancel();controller_.cancel();pending_.reset();gear_.reset();released_.reset();consumableRequest_.reset();stopVoice();}
 void Game::notice(std::string text,bool visible){log::info("{}",text);snapshot_.notice=visible?std::move(text):"";snapshot_.noticeUntil=visible?clockNow()+3.5:0;}
 void Game::publish(){
     snapshot_.vr=REL::Module::IsVR();snapshot_.controller=controllerLast_&&options_.controllerEnabled;snapshot_.activeGroup=arsenal_.active;
@@ -1016,7 +1091,7 @@ void Game::optionsReplaced() {
     selection_.holdSeconds=options_.holdDelay;localization().select(options_.language);
     menuAPI().publishGroups(ready_?unsigned(options_.groupCount):0);dirty_=true;
 }
-void Game::rememberChoice(std::size_t group,const Entry& entry){if(!isConsumable(entry)&&!isVoice(entry))choices_.remember(group,entry);}
+void Game::rememberChoice(std::size_t group,const Entry& entry){if(!isConsumable(entry)&&!isVoice(entry)&&!wornGear(entry))choices_.remember(group,entry);}
 // Re-selects the choice made before the current one, through the same path as a group tap.
 void Game::swapPrevious(bool controller) {
     if(voice_.active()){notice(tr("Voice action in progress"));return;}
@@ -1393,6 +1468,7 @@ void Game::tick() {
         }
         if(dirty_||pending_)refresh();
         if(inputAllowed&&pending_)progressEquipment();
+        if(inputAllowed&&gear_)progressOutfit();
         publish();
     }catch(const std::exception& e){cancel();log::error("Update failed: {}",e.what());}
 }
@@ -1561,7 +1637,7 @@ void Game::refresh() {
         auto& group=arsenal_.groups[i];auto& tile=snapshot_.groups[i];tile={};tile.count=group.entries.size();
         for(std::size_t j=0;j<group.entries.size();++j) {
             auto& entry=group.entries[j];const auto resolved=resolveShortcut(entry,player,inventory,potions,deficits,&equipment,options_.cycleKeepOtherHand&&cyclesOnTap(groupMode(options_,arsenal_,i))&&!(selection_.browsing()&&selection_.group()==i));const auto& item=resolved.item;
-            entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo)entry.parts=resolved.row.entry.parts;
+            entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo||entry.kind==Kind::outfit)entry.parts=resolved.row.entry.parts;
             const bool available=resolved.row.available;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             if(i==arsenal_.active) {
@@ -1718,6 +1794,8 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         if(player->IsAttacking()||player->IsStaggering()){notice(tr("Finish your current action, then try again"));return;}
         drainAnimation();
         if(use_.animating()){snapshot_.notice=tr("Drinking…");snapshot_.noticeUntil=clockNow()+1;return;}
+        gear_.reset();
+        if(saved.kind==Kind::outfit){changeOutfit(commit,unequip);return;}
         if(equipmentSequence(saved)) {
             equipPairStep(commit,0,unequip);return;
         }
@@ -1740,6 +1818,8 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
         if(castVoice&&(item.cooldown>0||item.powerUsed)){notice(item.cooldown>0?tr("Shout recharging"):tr("Power recharging"));dirty_=true;return;}
         // A hand button on an item already in that hand takes it out.
         if(commit.hand&&!unequip&&item.equipped&&!castVoice&&!isHandAction(entry))unequip=true;
+        // A tap on a worn piece takes it off. Stepping through a group only puts pieces on.
+        if(entry.kind==Kind::armor&&!unequip&&item.equipped&&!commit.cycling)unequip=true;
         if(unequip&&!item.equipped){notice(tr("Already unequipped — ")+entryLabel(entry),false);return;}
         if(!unequip&&item.equipped){arsenal_.current().selected=commit.index;rememberChoice(commit.group,saved);++snapshot_.nudges[commit.group];if(castVoice)startVoice(entry);else notice(isHandAction(entry)?handName(entry)+tr(" already empty"):tr("Ready — ")+entryLabel(entry),false);dirty_=true;refresh();publish();return;}
         if(keepOtherHand&&movesOtherHandWeapon(entry,item.equipped,item.otherEquipped)){notice(tr("Weapons in the other hand skipped"));dirty_=true;return;}
@@ -1753,7 +1833,9 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
 }
 void Game::equipPairStep(const Selection::Commit& commit,int step,bool remove,std::optional<Entry> plan) {
     if(!accepts(commit)||!allowed(MenuPurpose::input,commit.controller))return;
-    const auto combo=arsenal_.current().entries[commit.index];
+    // An outfit hands over its two hand entries as the plan; its own steps report the result.
+    const bool gear=gear_&&plan&&arsenal_.current().entries[commit.index].kind==Kind::outfit;
+    const auto combo=gear?*plan:arsenal_.current().entries[commit.index];
     if(!equipmentSequence(combo)||(combo.kind==Kind::combo&&combo.parts.size()!=2))return;
     if(combo.kind==Kind::unarmed)remove=false;
     auto* player=RE::PlayerCharacter::GetSingleton();
@@ -1784,6 +1866,7 @@ void Game::equipPairStep(const Selection::Commit& commit,int step,bool remove,st
         if(!state.available){pending_.reset();notice(tr("Combination stopped — ")+state.detail);return;}
     }
     if(step>=2) {
+        if(gear){pending_.reset();dirty_=true;return;}
         if(!remove){arsenal_.current().selected=commit.index;rememberChoice(commit.group,combo);}
         pending_.reset();dirty_=true;refresh();
         const auto state=resolveShortcut(*plan,player,inventory,{},{}).row;
@@ -1798,7 +1881,86 @@ void Game::equipPairStep(const Selection::Commit& commit,int step,bool remove,st
     changeEquipment(player,part,item,remove||move,move);
     if(!accepts(commit))return;
     pending_=Pending{commit,clockNow()+1.25,move?EquipmentPhase::movingOut:remove?EquipmentPhase::unequipping:EquipmentPhase::equipping,step,remove,false,plan};
-    dirty_=true;notice(combo.kind==Kind::unarmed?tr("Clearing both hands"):(remove?tr("Unequipping combination — "):tr("Equipping combination — "))+combo.name,false);refresh();publish();
+    dirty_=true;if(!gear)notice(combo.kind==Kind::unarmed?tr("Clearing both hands"):(remove?tr("Unequipping combination — "):tr("Equipping combination — "))+combo.name,false);refresh();publish();
+}
+// Puts an outfit on, takes it off, or goes back to the gear worn before it. The worn pieces change at once; the
+// hands follow when the pieces are in place.
+void Game::changeOutfit(const Selection::Commit& commit,bool unequip) {
+    auto* player=RE::PlayerCharacter::GetSingleton();
+    const auto outfit=arsenal_.current().entries[commit.index];
+    const auto state=resolveShortcut(outfit,player,inventoryFor(arsenal_,player),{},{}).row;
+    const auto armor=armorInventory(player);const auto worn=wornPieces(player,armor,arsenal_);
+    GearJob job;job.commit=commit;job.outfit=outfit;
+    if(unequip) {
+        job.mode=GearJob::Mode::remove;job.change=removeChange(outfit,worn);job.hands=outfitHands(outfit);
+    } else if(state.equipped) {
+        if(commit.cycling||!returnsToEarlierGear(arsenal_.wornBefore,outfit)) {
+            arsenal_.current().selected=commit.index;++snapshot_.nudges[commit.group];
+            notice(tr("Wearing — ")+outfit.name,false);dirty_=true;refresh();publish();return;
+        }
+        job.mode=GearJob::Mode::restore;job.change=restoreChange(outfit,*arsenal_.wornBefore,worn);job.hands=arsenal_.wornBefore->hands;
+    } else {
+        if(!state.available){notice(state.detail.empty()?tr("Unavailable — ")+outfit.name:tr("Outfit incomplete — ")+state.detail);dirty_=true;return;}
+        job.change=wearChange(outfit,worn);job.hands=outfitHands(outfit);
+        rememberWornBefore(arsenal_.wornBefore,outfit,worn,job.hands.empty()?std::vector<Entry>{}:heldEntries(player,arsenal_));
+    }
+    for(const auto& piece:job.change.remove) {
+        const auto item=resolve(piece,player,armor);
+        if(item.available()&&item.equipped)changeEquipment(player,piece,item,true,false,false);
+    }
+    // One piece makes the sound for the whole change.
+    bool sound=true;const auto afterRemoval=job.change.remove.empty()?RE::TESObjectREFR::InventoryItemMap{}:armorInventory(player);
+    for(const auto& piece:job.change.add) {
+        const auto item=resolve(piece,player,job.change.remove.empty()?armor:afterRemoval);
+        if(item.available()&&!item.equipped){changeEquipment(player,piece,item,false,false,sound);sound=false;}
+    }
+    if(!accepts(commit))return;
+    log::info("Outfit {}: {} ({} off, {} on, {} hand entries)",job.mode==GearJob::Mode::wear?"on":job.mode==GearJob::Mode::restore?"back to earlier gear":"off",
+              outfit.name,job.change.remove.size(),job.change.add.size(),job.hands.size());
+    job.deadline=clockNow()+1.5;pending_.reset();gear_=std::move(job);
+    dirty_=true;notice((gear_->mode==GearJob::Mode::wear?tr("Putting on — "):gear_->mode==GearJob::Mode::restore?tr("Putting earlier gear back — "):tr("Taking off — "))+outfit.name,false);refresh();publish();
+}
+void Game::progressOutfit() {
+    auto& job=*gear_;
+    if(!accepts(job.commit)||!allowed(MenuPurpose::input,job.commit.controller)){gear_.reset();return;}
+    auto* player=RE::PlayerCharacter::GetSingleton();
+    if(job.handsStarted){if(!pending_)finishOutfit();return;}
+    const auto armor=armorInventory(player);bool settled=true;
+    for(const auto& piece:job.change.remove){const auto item=resolve(piece,player,armor);settled&=!(item.available()&&item.equipped);}
+    for(const auto& piece:job.change.add){const auto item=resolve(piece,player,armor);settled&=!item.available()||item.equipped;}
+    if(!settled&&clockNow()<job.deadline)return;
+    if(job.hands.empty()){finishOutfit();return;}
+    job.handsStarted=true;const bool remove=job.mode==GearJob::Mode::remove;
+    if(player->IsAttacking()||player->IsStaggering()||use_.animating())return;
+    if(const auto pair=handCombination(job.hands,job.outfit.name)){equipPairStep(job.commit,0,remove,pair);return;}
+    // One two-handed item.
+    const auto& part=job.hands.front();const auto item=resolve(part,player,inventoryFor(arsenal_,player));
+    if(!item.available()||item.equipped!=remove)return;
+    changeEquipment(player,part,item,remove);
+    if(accepts(job.commit))pending_=Pending{job.commit,clockNow()+1.25,remove?EquipmentPhase::unequipping:EquipmentPhase::equipping,-1,remove,false,part};
+}
+void Game::finishOutfit() {
+    const auto job=*gear_;gear_.reset();pending_.reset();
+    auto* player=RE::PlayerCharacter::GetSingleton();
+    const auto armor=armorInventory(player);const auto inventory=inventoryFor(arsenal_,player);
+    const bool remove=job.mode==GearJob::Mode::remove,restore=job.mode==GearJob::Mode::restore;
+    bool complete=true;std::size_t gone=0;
+    for(const auto& piece:job.change.remove){const auto item=resolve(piece,player,armor);complete&=!(item.available()&&item.equipped);}
+    for(const auto& piece:job.change.add){const auto item=resolve(piece,player,armor);if(!item.available())++gone;else complete&=item.equipped;}
+    for(const auto& part:job.hands) {
+        // Taking an outfit off leaves a hand it keeps empty as it is.
+        if(remove&&isHandAction(part))continue;
+        const auto item=resolve(part,player,inventory);if(!item.available())++gone;else complete&=item.equipped!=remove;
+    }
+    // Earlier gear that has left the inventory stays off; everything else counts.
+    if(!restore&&!remove&&gone)complete=false;
+    if(restore)arsenal_.wornBefore.reset();
+    else if(remove){if(arsenal_.wornBefore&&arsenal_.wornBefore->outfit==job.outfit.shortcut)arsenal_.wornBefore.reset();}
+    else if(complete){if(arsenal_.wornBefore&&arsenal_.wornBefore->outfit==job.outfit.shortcut)arsenal_.wornBefore->applied=true;if(accepts(job.commit))arsenal_.current().selected=job.commit.index;}
+    log::info("Outfit change finished: {}, complete {}, {} missing",job.outfit.name,complete,gone);
+    if(!complete)notice(restore?tr("Could not put all earlier gear back"):remove?tr("Could not take the outfit off — try again when ready"):tr("Outfit incomplete — try again when ready"));
+    else notice(restore?(gone?tr("Earlier gear back on, without pieces you no longer carry"):tr("Earlier gear back on")):remove?tr("Outfit off — ")+job.outfit.name:tr("Outfit on — ")+job.outfit.name,restore&&gone>0);
+    dirty_=true;refresh();
 }
 void Game::progressEquipment() {
     const auto pending=*pending_;const auto& commit=pending.commit;
@@ -1811,6 +1973,7 @@ void Game::progressEquipment() {
     case EquipmentProgress::complete:
         if(isHandAction(entry))log::info("Clear hand confirmed: {}",unsigned(entry.hand));
         if(pending.pairStep>=0){pending_.reset();equipPairStep(commit,pending.pairStep+1,pending.remove,pending.action);break;}
+        if(gear_){pending_.reset();dirty_=true;break;}
         if(pending.phase!=EquipmentPhase::unequipping) {
             arsenal_.current().selected=commit.index;
             if(commit.hand&&pending.pairStep<0)rememberHand(arsenal_.current(),commit.index,*commit.hand);
@@ -1962,7 +2125,7 @@ void Game::saveSettings(const Options& options) {
         throw std::runtime_error("Cannot replace Quickslot.settings.json (Windows error "+std::to_string(GetLastError())+")");
 }
 void Game::buildCatalog() {
-    auto* player=RE::PlayerCharacter::GetSingleton();editor_.catalog.clear();candidates_.clear();editor_.equippedCandidates={};editor_.equippedPair=true;++editor_.catalogVersion;
+    auto* player=RE::PlayerCharacter::GetSingleton();editor_.catalog.clear();candidates_.clear();editor_.equippedCandidates={};editor_.equippedPair=true;editor_.wornCandidates.clear();editor_.equippedBoth=0;++editor_.catalogVersion;
     auto inventory=player->GetInventory([](RE::TESBoundObject& object){Entry e;return identify(&object,e);});
     editor_.potions=potionCandidates(inventory);editor_.equipment=equipmentChoices(equipmentCandidates(player,inventory));editor_.deficits=actorDeficits(player);
     for(auto& [object,data]:inventory) {
@@ -1976,7 +2139,7 @@ void Game::buildCatalog() {
                 editor_.catalog.back().equipped=true;editor_.equippedCandidates[1]=candidates_.size();
             }
             if(base.kind==Kind::scroll)for(unsigned hand=0;hand<2;++hand)if(player->GetEquippedObject(hand==1)==object) {
-                editor_.catalog.back().equipped=true;if(pairable(base))editor_.equippedCandidates[hand]=candidates_.size();else editor_.equippedPair=false;
+                editor_.catalog.back().equipped=true;if(pairable(base))editor_.equippedCandidates[hand]=candidates_.size();else{editor_.equippedPair=false;editor_.equippedBoth=candidates_.size();}
             }
             continue;
         }
@@ -1994,8 +2157,9 @@ void Game::buildCatalog() {
             if(!addable)detail=tr("Equip one first");
             candidates_.push_back({object,extra,untagged,entry});
             editor_.catalog.push_back({entry,candidates_.size(),count,equipped,addable,detail});
-            if(equipped&&extra) {
-                if(!pairable(entry))editor_.equippedPair=false;
+            if(equipped&&extra&&entry.kind==Kind::armor)editor_.wornCandidates.push_back(candidates_.size());
+            else if(equipped&&extra) {
+                if(!pairable(entry)){editor_.equippedPair=false;if(entry.twoHanded)editor_.equippedBoth=candidates_.size();}
                 else {if(extra->HasType<RE::ExtraWorn>())editor_.equippedCandidates[entry.kind==Kind::shield||entry.kind==Kind::torch?1:0]=candidates_.size();if(extra->HasType<RE::ExtraWornLeft>())editor_.equippedCandidates[1]=candidates_.size();}
             }
         };
@@ -2012,7 +2176,7 @@ void Game::buildCatalog() {
         candidates_.push_back({nullptr,nullptr,false,e});
         editor_.catalog.push_back({e,candidates_.size(),1,equipped,true,{}});
         if(!isVoice(e)&&equipped) {
-            if(!pairable(e))editor_.equippedPair=false;
+            if(!pairable(e)){editor_.equippedPair=false;editor_.equippedBoth=candidates_.size();}
             else for(unsigned hand=0;hand<2;++hand)if(player->GetEquippedObject(hand==1)==form)editor_.equippedCandidates[hand]=candidates_.size();
         }
     };
@@ -2041,7 +2205,7 @@ void Game::refreshEditor() {
         auto& rows=editor_.rows[i];rows.clear();
         for(auto& entry:editor_.draft.groups[i].entries) {
             const auto resolved=resolveShortcut(entry,player,inventory,potions,editor_.deficits,&equipment,editor_.options.cycleKeepOtherHand&&cyclesOnTap(groupMode(editor_.options,editor_.draft,i)));const auto& item=resolved.item;
-            entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo)entry.parts=resolved.row.entry.parts;
+            entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo||entry.kind==Kind::outfit)entry.parts=resolved.row.entry.parts;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             rows.push_back(resolved.row);
             if(editor_.draft.groups[i].automatic()&&tracksInstance(entry)&&!entry.owner)rows.back().detail=tr("Equip one copy first");
@@ -2110,6 +2274,16 @@ bool Game::saveCombination(const EditCommand& c) {
     const auto pair=composeCombination(editor_,c,[&](std::uint64_t id,Hand hand){return captureCandidate(id,hand);});
     if(!pair){if(editor_.message.empty())editor_.message=tr("Choose compatible equipment");buildCatalog();return false;}
     auto save=c;save.action=EditAction::saveShortcut;save.shortcut=*pair;
+    if(!editStructure(editor_.draft,editor_.options,save))return false;
+    ++editor_.revision;editor_.message.clear();buildCatalog();refreshEditor();return true;
+}
+bool Game::saveOutfit(const EditCommand& c) {
+    if(!c.libraryID&&editor_.draft.groups[c.group].automatic())return false;
+    if(catalogDirty_){buildCatalog();editor_.message=tr("Select the items again");return false;}
+    if(!c.replace&&!c.libraryID&&editor_.draft.groups[c.group].entries.size()>=Group::limit){editor_.message=tr("Group full (16 / 16)");return false;}
+    const auto outfit=composeOutfit(editor_,c,[&](std::uint64_t id,Hand hand){return captureCandidate(id,hand);});
+    if(!outfit){if(editor_.message.empty())editor_.message=tr("Choose the outfit's pieces again");buildCatalog();return false;}
+    auto save=c;save.action=EditAction::saveShortcut;save.shortcut=*outfit;
     if(!editStructure(editor_.draft,editor_.options,save))return false;
     ++editor_.revision;editor_.message.clear();buildCatalog();refreshEditor();return true;
 }
@@ -2254,6 +2428,7 @@ void Game::edit(const EditCommand& c) {
             editor_.message.clear();
         } else if(c.action==EditAction::add)changed=addCandidate(c);
         else if(c.action==EditAction::saveCombination)changed=saveCombination(c);
+        else if(c.action==EditAction::saveOutfit)changed=saveOutfit(c);
         else if(editStructure(editor_.draft,editor_.options,c)||editGroup(editor_.draft,editor_.options,c)){changed=true;++editor_.revision;editor_.message.clear();}
         else editor_.message=tr(c.action==EditAction::sortGroup?"Already sorted":"Could not change item");
         editHistory_.finish(changed&&c.action!=EditAction::select,c.continuous,clockNow());

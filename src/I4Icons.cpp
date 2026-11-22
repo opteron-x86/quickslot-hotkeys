@@ -49,6 +49,13 @@ void skyUIData(RE::GFxValue& data,RE::GFxMovieView& movie,RE::TESForm& form,cons
         if(keywordObject.HasMember("WeapTypeWoodAxe"))type=12;
         data.SetMember("subType",double(type));
     } else if(form.Is(RE::FormType::Ammo))data.SetMember("subType",entry.icon==Icon::bolt?1.0:0.0);
+    else if(form.Is(RE::FormType::Armor)&&entry.kind==Kind::armor) {
+        // SkyUI's part numbers: head 0, body 3, forearms 4, hands 5, calves 7, feet 8, circlet 9, amulet 10, ring 12.
+        constexpr double parts[]{3,0,5,4,8,7,10,12,9,3};
+        data.SetMember("subType",parts[std::min(unsigned(armorPart(entry)),unsigned(ArmorPart::other))]);
+        data.SetMember("iconLabel",armorIconLabel(entry));
+        data.SetMember("iconColor",double(0xEDDA87));
+    }
     else if(form.Is(RE::FormType::Armor)) {
         data.SetMember("subType",6.0); // SkyUI's shield category.
         data.SetMember("iconLabel",number(data,"weightClass")==0?"lightarmor_shield":"armor_shield");

@@ -1,5 +1,6 @@
 #pragma once
 #include "IconPolicy.h"
+#include "Outfit.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -10,8 +11,24 @@
 
 namespace quickslot {
 inline constexpr char i4DefaultSource[]="Interface/skyui/icons_item_psychosteve.swf";
+// SkyUI's icon for a worn piece: its part in the artwork of its weight; jewelry has one look.
+inline const char* armorIconLabel(const Entry& entry) {
+    constexpr const char* labels[3][6]{
+        {"lightarmor_body","lightarmor_head","lightarmor_hands","lightarmor_forearms","lightarmor_feet","lightarmor_calves"},
+        {"armor_body","armor_head","armor_hands","armor_forearms","armor_feet","armor_calves"},
+        {"clothing_body","clothing_head","clothing_hands","clothing_forearms","clothing_feet","clothing_calves"}};
+    const auto part=armorPart(entry);const auto weight=std::min(unsigned(armorWeight(entry)),2u);
+    switch(part) {
+    case ArmorPart::amulet:return "armor_amulet";
+    case ArmorPart::ring:return "armor_ring";
+    case ArmorPart::circlet:return "armor_circlet";
+    default:return unsigned(part)<6?labels[weight][unsigned(part)]:"default_armor";
+    }
+}
 inline const char* i4DefaultLabel(const Entry& entry) {
     if(isHandAction(entry))return "armor_hands";
+    if(entry.kind==Kind::armor)return armorIconLabel(entry);
+    if(entry.kind==Kind::outfit){const auto* face=outfitFace(entry);return face&&face!=&entry?i4DefaultLabel(*face):"armor_body";}
     switch(baseIcon(entry)) {
     case Icon::sword:return "weapon_sword";
     case Icon::greatsword:return "weapon_greatsword";

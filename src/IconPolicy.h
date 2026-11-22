@@ -12,6 +12,8 @@ inline Icon baseIcon(const Entry& e) {
     if(e.kind==Kind::smartPotion)return e.resource==1?Icon::magicka:e.resource==2?Icon::stamina:Icon::health;
     if(e.kind==Kind::ammo)return Icon::arrow;
     if(isHandAction(e))return Icon::unarmed;
+    // Worn pieces and outfits share the armor color; their artwork comes from the piece's part and weight.
+    if(wornGear(e))return Icon::shield;
     return unsigned(e.kind)<std::size(kinds)?kinds[unsigned(e.kind)]:Icon::spell;
 }
 

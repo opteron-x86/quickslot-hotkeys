@@ -10,7 +10,7 @@ template<class A> auto* libraryShortcut(A& a,std::uint32_t id) {
 inline bool sameDefinition(const Entry& a,const Entry& b) {
     if(a.kind!=b.kind||a.name!=b.name||a.form!=b.form||a.owner!=b.owner||a.unique!=b.unique||a.hand!=b.hand||
        a.twoHanded!=b.twoHanded||a.spell!=b.spell||a.unresolved!=b.unresolved||a.recipe!=b.recipe||
-       a.equipmentType!=b.equipmentType||a.resource!=b.resource||a.effect!=b.effect||a.policy!=b.policy||a.exclusions!=b.exclusions||a.parts.size()!=b.parts.size())return false;
+       a.equipmentType!=b.equipmentType||a.exclusive!=b.exclusive||a.resource!=b.resource||a.effect!=b.effect||a.policy!=b.policy||a.exclusions!=b.exclusions||a.parts.size()!=b.parts.size())return false;
     for(std::size_t i=0;i<a.parts.size();++i)if(!sameDefinition(a.parts[i],b.parts[i]))return false;
     return true;
 }
@@ -67,12 +67,20 @@ inline bool deleteShortcut(Arsenal& a,std::uint32_t id) {
         }
     }
     if(a.rememberedConsumable&&a.rememberedConsumable->shortcut==id)a.rememberedConsumable.reset();
+    if(a.wornBefore&&a.wornBefore->outfit==id)a.wornBefore.reset();
     std::erase_if(a.shortcuts,[&](const auto& e){return e.shortcut==id;});return true;
 }
+// The editor's item list filters, in the order the list shows them. The first group filters inventory and magic;
+// from shortcuts on they filter saved shortcuts.
+namespace catalogFilter {
+inline constexpr int all=0,weapons=1,spells=2,offhand=3,potions=4,food=5,poisons=6,scrolls=7,voice=8,ammo=9,armor=10,
+    shortcuts=11,combinations=12,outfits=13,smart=14,handActions=15;
+}
 inline bool shortcutMatches(const Entry& entry,const std::string& search,int filter) {
-    if(filter==11&&entry.kind!=Kind::combo)return false;
-    if(filter==12&&entry.kind!=Kind::smartPotion&&!isSmartEquipment(entry))return false;
-    if(filter==13&&!isHandAction(entry))return false;
+    if(filter==catalogFilter::combinations&&entry.kind!=Kind::combo)return false;
+    if(filter==catalogFilter::outfits&&entry.kind!=Kind::outfit)return false;
+    if(filter==catalogFilter::smart&&entry.kind!=Kind::smartPotion&&!isSmartEquipment(entry))return false;
+    if(filter==catalogFilter::handActions&&!isHandAction(entry))return false;
     if(textContains(displayName(entry),search))return true;
     for(const auto& part:entry.parts)if(textContains(displayName(part),search))return true;
     return false;

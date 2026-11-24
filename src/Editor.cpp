@@ -355,7 +355,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             const int step=pressed==PadButton::rb||pressed==PadButton::rt?1:pressed==PadButton::lb||pressed==PadButton::lt?-1:0;
             if(!step)continue;
             if(pressed==PadButton::lb||pressed==PadButton::rb)tab_=(tab_+5+step)%5;
-            else if(tab_==1){appearancePage_=(appearancePage_+5+step)%5;previewMode_=appearancePage_==2?1:appearancePage_==3?3:0;}
+            else if(tab_==1){appearancePage_=(appearancePage_+5+step)%5;if(!peekHud_)previewMode_=appearancePage_==2?1:appearancePage_==3?3:0;}
             else if(tab_==2)controlsPage_=(controlsPage_+3+step)%3;
         }
     padDowns_.clear();
@@ -1565,11 +1565,11 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         } else {
             const std::array<const char*,5> sections{"Theme","Widget","Selector","Equipment","General"};
             const float sectionBtnW=peeking?px(84):px(110);
-            for(int i=0;i<5;++i){if(i)ImGui::SameLine();const bool active=appearancePage_==i;if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));if(UI::Button(sections[std::size_t(i)],{sectionBtnW,0})){appearancePage_=i;previewMode_=i==2?1:i==3?3:0;}if(active)ImGui::PopStyleColor();}
+            for(int i=0;i<5;++i){if(i)ImGui::SameLine();const bool active=appearancePage_==i;if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));if(UI::Button(sections[std::size_t(i)],{sectionBtnW,0})){appearancePage_=i;if(!peekHud_)previewMode_=i==2?1:i==3?3:0;}if(active)ImGui::PopStyleColor();}
             if(!peeking)ImGui::SameLine(0,px(18));
             changed|=UI::Checkbox("Show advanced settings",&options.advancedAppearance);
             if(ImGui::IsItemHovered())UI::SetTooltip("Adds spacing, text sizes, opacity, exact placement, idle fading and the less common display options to each page.");
-            ImGui::SameLine(0,px(14));UI::Checkbox("Peek HUD",&peekHud_);
+            ImGui::SameLine(0,px(14));if(UI::Checkbox("Peek HUD",&peekHud_)&&peekHud_)previewMode_=2;
             if(ImGui::IsItemHovered())UI::SetTooltip("Docks Appearance to the side of the screen and renders the live HUD over the game world.");
             if(peeking) {
                 ImGui::SameLine(0,px(8));

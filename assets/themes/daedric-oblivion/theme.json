@@ -89,130 +89,96 @@
       "bg": {
         "file": "card_bg.png",
         "slice": 54,
-        "sliceSize": 18.0,
-        "outset": 0.04
+        "sliceSize": 18.0
       },
       "border": {
         "file": "card_border.png",
         "slice": 54,
-        "sliceSize": 18.0,
-        "outset": 0.04
+        "sliceSize": 18.0
       },
       "selected": {
         "file": "card_selected.png",
         "slice": 54,
         "sliceSize": 18.0,
-        "tint": "accent",
-        "outset": 0.04
+        "tint": "accent"
       },
       "equipped": {
         "file": "card_equipped.png",
         "slice": 54,
         "sliceSize": 18.0,
-        "tint": "equipped",
-        "outset": 0.04
+        "tint": "equipped"
       }
     },
     "square": {
       "bg": {
         "file": "square_bg.png",
         "slice": 60,
-        "sliceSize": 20.0,
-        "outset": 0.04
+        "sliceSize": 20.0
       },
       "border": {
         "file": "square_border.png",
         "slice": 60,
-        "sliceSize": 20.0,
-        "outset": 0.04
+        "sliceSize": 20.0
       },
       "selected": {
         "file": "square_selected.png",
         "slice": 60,
         "sliceSize": 20.0,
-        "tint": "accent",
-        "outset": 0.04
+        "tint": "accent"
       },
       "equipped": {
         "file": "square_equipped.png",
         "slice": 60,
         "sliceSize": 20.0,
-        "tint": "equipped",
-        "outset": 0.04
+        "tint": "equipped"
       }
     },
     "panel": {
       "bg": {
         "file": "panel_bg.png",
         "slice": 60,
-        "sliceSize": 20.0,
-        "outset": 0.04
+        "sliceSize": 20.0
       },
       "border": {
         "file": "panel_border.png",
         "slice": 60,
-        "sliceSize": 20.0,
-        "outset": 0.04
+        "sliceSize": 20.0
       }
     },
     "diamond": {
-      "bg": {
-        "file": "diamond_bg.png",
-        "outset": 0.04
-      },
-      "border": {
-        "file": "diamond_border.png",
-        "outset": 0.04
-      },
+      "bg": "diamond_bg.png",
+      "border": "diamond_border.png",
       "selected": {
         "file": "diamond_selected.png",
-        "tint": "accent",
-        "outset": 0.04
+        "tint": "accent"
       },
       "equipped": {
         "file": "diamond_equipped.png",
-        "tint": "equipped",
-        "outset": 0.04
+        "tint": "equipped"
       }
     },
     "circle": {
-      "bg": {
-        "file": "circle_bg.png",
-        "outset": 0.04
-      },
-      "border": {
-        "file": "circle_border.png",
-        "outset": 0.04
-      },
+      "bg": "circle_bg.png",
+      "border": "circle_border.png",
       "selected": {
         "file": "circle_selected.png",
-        "tint": "accent",
-        "outset": 0.04
+        "tint": "accent"
       },
       "equipped": {
         "file": "circle_equipped.png",
-        "tint": "equipped",
-        "outset": 0.04
+        "tint": "equipped"
       }
     },
     "hexagon": {
-      "bg": {
-        "file": "hexagon_bg.png",
-        "outset": 0.04
-      },
-      "border": {
-        "file": "hexagon_border.png",
-        "outset": 0.04
-      },
+      "bg": "hexagon_bg.png",
+      "border": "hexagon_border.png",
       "selected": {
         "file": "hexagon_selected.png",
-        "tint": "accent",
-        "outset": 0.04
+        "tint": "accent"
       },
       "equipped": {
         "file": "hexagon_equipped.png",
-        "tint": "equipped",
-        "outset": 0.04
+        "tint": "equipped"
       }
     },
     "wheel": {

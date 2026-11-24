@@ -118,7 +118,7 @@ MATERIALS: Dict[str, Dict[str, Any]] = {
         "roughness": 0.44,
         "shadowOpacity": 0.72,
         "ornament": "daedric_horn",
-        "outset": 0.04,
+        "outset": 0.0,
     },
     "amethyst_crystal": {
         "label": "Faceted Royal Amethyst & Silver (Amethyst)",

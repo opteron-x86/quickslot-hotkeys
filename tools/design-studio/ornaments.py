@@ -183,33 +183,18 @@ def rect_ornaments(
         _draw_quad_sym(ce, w, h, aether_dot)
 
     elif style == "daedric_horn":
-        # Angular forged obsidian corner talons + glowing inner molten ember veins along chamfer.
-        def talon(ctx: cairo.Context) -> None:
-            ctx.set_source_rgba(1, 1, 1, 1.0)
-            # Subtle angular beak poking cleanly to corner without looking cartoony
-            ctx.move_to(x0 + c + rw * 1.9, y0 - rw * 0.08)
-            ctx.line_to(x0 + c * 0.45, y0 - rw * 0.25)
-            ctx.line_to(x0 - rw * 0.30, y0 - rw * 0.30)
-            ctx.line_to(x0 - rw * 0.25, y0 + c * 0.45)
-            ctx.line_to(x0 - rw * 0.08, y0 + c + rw * 1.9)
-            ctx.line_to(x0 + rw * 0.95, y0 + c + rw * 1.2)
-            ctx.line_to(x0 + rw * 0.95, y0 + c * 0.65)
-            ctx.line_to(x0 + c * 0.65, y0 + rw * 0.95)
-            ctx.line_to(x0 + c + rw * 1.2, y0 + rw * 0.95)
-            ctx.close_path()
-            ctx.fill()
-
+        # Clean charred-obsidian octagonal chamfer with subtle molten ember hairline veins embedded inside the rim (no bulky protruding corner caps).
         def ember_vein(ctx: cairo.Context) -> None:
-            ctx.set_source_rgba(1, 1, 1, 0.92)
-            ctx.set_line_width(max(1.2, rw * 0.18))
-            ctx.move_to(x0 + c + rw * 1.5, y0 + rw * 0.52)
-            ctx.line_to(x0 + c * 0.72 + rw * 0.18, y0 + rw * 0.52)
-            ctx.line_to(x0 + rw * 0.52, y0 + c * 0.72 + rw * 0.18)
-            ctx.line_to(x0 + rw * 0.52, y0 + c + rw * 1.5)
+            ctx.set_source_rgba(1, 1, 1, 0.90)
+            ctx.set_line_width(max(1.2, rw * 0.20))
+            ctx.move_to(x0 + c + rw * 1.4, y0 + rw * 0.50)
+            ctx.line_to(x0 + c + rw * 0.14, y0 + rw * 0.50)
+            ctx.line_to(x0 + rw * 0.50, y0 + c + rw * 0.14)
+            ctx.line_to(x0 + rw * 0.50, y0 + c + rw * 1.4)
             ctx.stroke()
 
-        _draw_quad_sym(ch, w, h, talon)
-        _draw_quad_sym(ca, w, h, talon)
+        _draw_quad_sym(ch, w, h, ember_vein)
+        _draw_quad_sym(ca, w, h, ember_vein)
         _draw_quad_sym(ce, w, h, ember_vein)
 
     elif style == "filigree_scroll":

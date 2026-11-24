@@ -354,62 +354,62 @@
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/card_bg.png",
-      "sha256": "6d9128011d7e5b05928684e644b81f23f94cb38740d906f52bd8b6cc3159e53f"
+      "sha256": "ffbaa23ba6532a68f3843eba2003b7eb80a74ae813a0377a0d8af3a73849cd3c"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/card_border.png",
-      "sha256": "ce00d012bf5ee8cdacc17e5959f76645f7f2eae5144d561289097e1cd8064deb"
+      "sha256": "6ccb6667280f55583b825cb82528d4d6ba8fcdb7a66e29d8d5a960b2a10eae07"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/card_equipped.png",
-      "sha256": "6937a9d3d2e3dd7721ceea427249558b8e99b33b547f0b3cb4ef4ebeccd80355"
+      "sha256": "8448eff777840fd4dd66d3a1ef922099712f2ddb0fa809f3b1b66467e7a0aada"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/card_selected.png",
-      "sha256": "5f60b575778f4054a45fb340a602a07c7f1c8eab785ea93e2cd3b7ade73f87be"
+      "sha256": "9b6c43bf3375e644bac1e77ddc865ea3c6aca3c89d2b9d37bc7b0e0f335b7f6e"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/circle_bg.png",
-      "sha256": "f88552a3be543575f96869e5791624826c3204c55a7254484f1c175eaec85fae"
+      "sha256": "8f295f4f2959ae669db12c91fc7cdefd00d455d2d76708df7bc9ecd3a7a37378"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/circle_border.png",
-      "sha256": "326f78cc358c120e32f70ad221d24630107d76fea78e9f49cf67412cfdeb69b6"
+      "sha256": "33cbeaf980a9b2197c846e7612cd993cd75f38aaa3c1f730a47163b940a50ed3"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/circle_equipped.png",
-      "sha256": "6385281101b79dce1c323f6774285e5dd6080cea0e2dd2c784dc004f2e7e8647"
+      "sha256": "e419104ef0b178094251435b1890c9514d2b0701419663dd1b325c1475613b80"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/circle_selected.png",
-      "sha256": "1308cdccce09897b041d19eaef4bef1cccad22b5f103ad608045bf5ce317a1da"
+      "sha256": "4d9bb249fad79541436a4b94de42441990ec439cd2452780012dbb523e4d4804"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/diamond_bg.png",
-      "sha256": "375101635454c73b2dc3241d7f4eab21a1d846de8a565d53897224518bd26986"
+      "sha256": "9589803e3942f1932baae8f86bf4198c20c577267223811b6b62a4e1cc2f13b8"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/diamond_border.png",
-      "sha256": "d7d61614192a70cedc6dd74ad3da9412003841e2a701b5752d7227107003ed52"
+      "sha256": "d227638ddb73b7ca52d670bda434ed73ba9977026ed173a89247ef126836b288"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/diamond_equipped.png",
-      "sha256": "2f6a15839ac918a4174cc9ad38d40e04effdc694c3409e8cca95a890afa1a853"
+      "sha256": "76d1e7a69f71027d7cf6dd7ffaec7af0bf5f3e60665c989417d6687a725c1d17"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/diamond_selected.png",
-      "sha256": "3a2d1c1dfa23b51699f23e0be93c44f42ba99054e2f97de182974ed73ad67286"
+      "sha256": "607529c0b5aeb710757bd7fbcf2b8b88b494ee0f7b1664566c5bfa864d3052f7"
     },
     {
       "theme": "daedric-oblivion",
@@ -424,22 +424,22 @@
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/hexagon_bg.png",
-      "sha256": "12608d0878a6621270e956461aadad217b1c54543ddb516d0b75b6f8167db407"
+      "sha256": "ffbd27c823b57d29cd4b0294b0d35b3c3bcfed5caa6b64d3850f89efe0efbafb"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/hexagon_border.png",
-      "sha256": "414aaa32e977e2a0d9c6e499048b10f37e26fa973ff4bed7a1ab6b68b0df1db5"
+      "sha256": "f4f79976d7de33d1f31b7abf72d0370642ae27d6b074b3ad3cc942d710413829"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/hexagon_equipped.png",
-      "sha256": "0e6b728c109bc51f39f62d30f7fc3d29257974acc4b8c91c949f50f01d41fd1a"
+      "sha256": "f3e48279b377325e5877ee6d8d3c2d34adad59280f09d6cbd9ebdd6ae6d46408"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/hexagon_selected.png",
-      "sha256": "422e4c9305c55de230a13a6ceb227587f18b06da8dae97cea40c2d72d0879263"
+      "sha256": "fdc5de95b8ade3bf7c6e0922a35eb9a51571f373a2ee501712991b7fbf4f5a2c"
     },
     {
       "theme": "daedric-oblivion",
@@ -454,12 +454,12 @@
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/panel_bg.png",
-      "sha256": "9d480625e36885e35c0e4a74ed0f9ee4a966713756ffb654f5282221dabbfd17"
+      "sha256": "e86d4d026b53199d86873ef520de01126f25fcccc45ffb6c8a46cd1c12107490"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/panel_border.png",
-      "sha256": "ae48c4033332129e8e37b6ab7f99955426436310089c6d1ac6cabbf6a5567a6c"
+      "sha256": "8a2d40dfe0b4ddeb9c8f5f430d3a4d86daa05b89f6799c9a68199d83304be6e0"
     },
     {
       "theme": "daedric-oblivion",
@@ -469,32 +469,32 @@
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/square_bg.png",
-      "sha256": "37c89ba43996f72884b38921d3eba9b6b2077ea4eb5549541970e8693e131c87"
+      "sha256": "b6de7ed1169711668390a161f9a86233d6f33f3adc2ddcec445d1ebaedba77ea"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/square_border.png",
-      "sha256": "f7a3fb68162ac00df9ac75ae4282b4303d3aa95e1ebf25fef9dfc034b9baecd4"
+      "sha256": "90af774f54ce621a110ccea2bf35e7095882d5e585f269e369a377ebfc4797f1"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/square_equipped.png",
-      "sha256": "e8fc792c21eb55adbfa63feceb983167b230ab605f60ac07b4fb960f3211bff0"
+      "sha256": "de934b6d7810538f91294d85add6dab2778fa705b6f96e455afe3a888e7bc926"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/square_selected.png",
-      "sha256": "2640394e07d059ea8e621515d81da093c70aa377d1c27ff30bbe5353f7ce774b"
+      "sha256": "abce26d69a919cc3b30be214fec8ffaa6ef2e4131eca6b20dca75e26799c3975"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/wheel_hub_bg.png",
-      "sha256": "8026a4b7dff0ddda742d55c162ef6fdd256c57c43c8c4598a27ffa6bcd9cdda7"
+      "sha256": "909c65bf58be35100801318fc73307e1b5214b2594f86a6a21e97701ef49a8c3"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/wheel_hub_border.png",
-      "sha256": "602f15c1e460683748e10053fb1aaeef905609ae9c58fc291bb7d3d30702a41e"
+      "sha256": "7a423e1ac85ecae03395896af7bd5b31fc875ef1e3a0ab8577b0e0ec7f755f3f"
     },
     {
       "theme": "daedric-oblivion",

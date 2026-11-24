@@ -145,9 +145,9 @@ int main(int argc,char** argv)try {
     check(probe::find("Rename").size()==1&&probe::one("Rename").disabled&&probe::find("Delete preset").empty(),"Built-in presets cannot be renamed or deleted");
     click("Appearance");click("Theme");click("##theme");click("Skyrim silver");check(state.options.themeId=="silver"&&state.options.shape==1,"Theme remains independent of geometry");
     click("Selector");click("##selector shape");click("Squares");check(state.options.selectorShape==2,"Selector shapes can be chosen independently");
-    check(!probe::find("##Scale").empty()&&probe::find("Match widget scale").empty(),"The selector always has a scale of its own");
+    check(!probe::find("##Size").empty()&&probe::find("Match widget scale").empty(),"The selector always has a scale of its own");
     {
-        const float widget=state.options.scale,own=state.options.selectorScale,opacity=state.options.selectorOpacity;click("+##Scale");
+        const float widget=state.options.scale,own=state.options.selectorScale,opacity=state.options.selectorOpacity;click("+##Size");
         check(state.options.selectorScale>own&&state.options.scale==widget,"The selector's scale changes on its own");
         click("+##Opacity");click("-##Opacity");click("-##Opacity");check(state.options.selectorOpacity<state.options.opacity,"The selector has its own opacity");
         click("Undo");click("Undo");click("Undo");click("Undo");check(state.options.selectorScale==own&&state.options.selectorOpacity==opacity,"Selector sizing supports Undo");
@@ -277,7 +277,7 @@ int main(int argc,char** argv)try {
         {
             // The Scale slider and the element's own appearance change only the chosen element.
             const float widget=state.options.scale,own=state.options.selectorScale;
-            const auto r=probe::one("Scale").rect;mouse({r.Min.x+r.GetWidth()*.85f,r.GetCenter().y});frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();
+            const auto r=probe::one("Size").rect;mouse({r.Min.x+r.GetWidth()*.85f,r.GetCenter().y});frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();
             check(state.options.selectorScale!=own&&state.options.scale==widget,"Position Scale resizes only the selector");
             click("Undo");check(state.options.selectorScale==own,"The selector's Position scale supports Undo");
             click("Appearance##position");click("Arrangement##position");click("Wheel");
@@ -325,7 +325,7 @@ int main(int argc,char** argv)try {
     }
     click("##layout");click("Circle");click("##reset Arrangement");check(state.options.layout==Options{}.layout,"Choices have the same reset mark");
     {
-        const auto before=state.options;click("##layout");click("Vertical");click("Show group names");click("+##Scale");
+        const auto before=state.options;click("##layout");click("Vertical");click("Show group names");click("+##Size");
         click("Reset page");const auto& reset=state.options;const Options defaults;
         check(reset.layout==defaults.layout&&reset.showLabels==defaults.showLabels&&reset.scale==defaults.scale&&reset.shape==defaults.shape,"Reset page restores the page's defaults");
         check(reset.themeId==before.themeId&&reset.selector==before.selector&&reset.keys==before.keys&&reset.names==before.names,"Reset page leaves other pages, controls and group names alone");
@@ -483,7 +483,7 @@ int main(int argc,char** argv)try {
         click("Duplicate");check(state.presets.size()==2&&state.presetInfo->at("Field kit 2").complete,"Duplicate adds a copy under the new name");
         check(probe::one("Rename").disabled&&probe::one("Duplicate").disabled,"A name already in use cannot be the target of a rename or copy");
         click("Field kit");click("Apply preset");
-        click("Appearance");click("Widget");click("+##Scale");click("Presets");frame();
+        click("Appearance");click("Widget");click("+##Size");click("Presets");frame();
         check(state.options.activePreset=="Field kit"&&!lookMatches(state.options,state.presetInfo->at("Field kit").options),"Editing after applying a preset marks it as modified");
         click("Undo");check(lookMatches(state.options,state.presetInfo->at("Field kit").options),"Undo returns to the preset's look");
         click("Field kit 2");click("Delete preset");click("Delete");check(state.presets==std::vector<std::string>{"Field kit"},"A duplicate deletes independently");
@@ -661,7 +661,7 @@ int main(int argc,char** argv)try {
         }
         const auto r=probe::one(label).rect;mouse({r.Min.x+r.GetWidth()*.8f,r.GetCenter().y});frame({{EditorInputType::button,0,true}});frame({{EditorInputType::button,0,false}});frame();};
     changeSlider("##Preview zoom");click("Fit preview");check(encodeOptions(state.options)==equipmentBefore,"Preview magnification and Fit leave saved HUD settings intact");
-    changeSlider("##Scale");check(state.options.equipmentScale>1.4f&&state.options.scale==groupScale,"Equipment Scale changes independently of group size");
+    changeSlider("##Size");check(state.options.equipmentScale>1.4f&&state.options.scale==groupScale,"Equipment Scale changes independently of group size");
     click("Undo");check(state.options.equipmentScale==1,"Equipment Scale supports Undo");
     changeSlider("##Text size");check(state.options.equipmentTextScale>1.2f&&state.options.textScale==1,"Equipment Text size changes independently of other text");
     click("Undo");check(state.options.equipmentTextScale==1,"Equipment Text size supports Undo");
@@ -670,8 +670,8 @@ int main(int argc,char** argv)try {
     click("Undo");check(state.options.equipmentSpacing==8,"Equipment Spacing supports Undo");
     click("Widget");changeSlider("##Spacing");check(state.options.spacing>100&&state.options.equipmentSpacing==8,"Groups use their own Spacing control");click("Undo");
     click("Selector");changeSlider("##Spacing");check(state.options.selectorSpacing>100&&state.options.spacing==groupSpacing,"Selector uses its own Spacing control");click("Undo");click("Equipment");
-    click("Position");check(!probe::find("Scale").empty(),"Equipment placement exposes its independent scale");
-    const auto oldEquipmentScale=state.options.equipmentScale;changeSlider("Scale");check(state.options.equipmentScale!=oldEquipmentScale&&state.options.scale==groupScale,"Position Scale affects only the selected equipment widget");
+    click("Position");check(!probe::find("Size").empty(),"Equipment placement exposes its independent size");
+    const auto oldEquipmentScale=state.options.equipmentScale;changeSlider("Size");check(state.options.equipmentScale!=oldEquipmentScale&&state.options.scale==groupScale,"Position Size affects only the selected equipment widget");
     click("Back");click("Close");
     state=fixture::editor();state.session=session++;state.vr=true;state.controller=false;frame();frame();
     const auto desktopBindings=state.options.controllerGroups;
@@ -1106,7 +1106,7 @@ int main(int argc,char** argv)try {
         click("Appearance");click("Widget");
         check(!probe::find("Hide empty groups").empty()&&!probe::find("##Spacing").empty(),"The advanced view shows every Widget setting");
         click("Show advanced settings");
-        check(!state.options.advancedAppearance&&probe::find("Hide empty groups").empty()&&probe::find("##Spacing").empty()&&!probe::find("##layout").empty()&&!probe::find("##Scale").empty()&&!probe::find("Position").empty(),
+        check(!state.options.advancedAppearance&&probe::find("Hide empty groups").empty()&&probe::find("##Spacing").empty()&&!probe::find("##layout").empty()&&!probe::find("##Size").empty()&&!probe::find("Position").empty(),
               "The simple view keeps arrangement, shape, scale and Position and leaves the rest out");
         click("Theme");check(probe::find("Custom text color").empty()&&!probe::find("##theme").empty()&&!probe::find("Custom accent").empty(),"The simple Theme page keeps the theme, font and accent");
         click("Undo");check(state.options.advancedAppearance,"The view choice supports Undo");

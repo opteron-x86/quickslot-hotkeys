@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.17.0-rc.5
+## 0.17.0-rc.6
 
 - Armor, clothing and jewelry can be added to groups. A tap puts a piece on, and a tap on a worn piece takes it off.
 - **New → Outfit** saves a set of worn pieces as one entry, with **Use worn**, **Include hands** and **Take off everything else**. A tap on a worn outfit puts back the gear worn before it.
@@ -22,6 +22,7 @@
 - **Free** group tiles have per-tile **This tile shape**, **This tile name** and **This tile key** overrides. **Appearance → Widget → Content** has **Key position** and **Count position**.
 - **Appearance → Equipment** has **Grid** and **Free** arrangements, **Mirror equipment list**, per-role visibility (**Show**, **When equipped**, **Hide**) and **Keep visible in combat** / **Keep visible with weapons drawn** options when dimming on idle.
 - **Position** snaps edges and centers against sibling Free tiles and other HUD elements, and **Align** and **Distribute** line up or space Free tiles and Free equipment cells.
+- **Widget**, **Selector** and **Equipment** have independent **Size** (`25%`–`300%`) and **Text size** (`50%`–`300%`) controls, so resizing tiles, frames or wheels keeps label text at its chosen size.
 - HUD fades ease out smoothly, group tiles animate item changes, and radial wheel highlights and raised segments glide between wedges.
 
 ## 0.16.0

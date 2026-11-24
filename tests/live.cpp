@@ -292,6 +292,10 @@ int main(int argc,char** argv)try {
         const auto actionBar=applyBuiltin(Options{},"builtin:action-bar");
         check(souls.layout==5&&souls.shape==2&&souls.selector==4&&souls.activeGroupBoost>0,"Souls Cross preset configures compact squares cross and list selector");
         check(actionBar.layout==0&&actionBar.shape==2&&actionBar.unifiedBar&&actionBar.labelPosition==1,"Action Bar preset configures unified hotbar with labels above");
+        // Size and Text size stay independent across widget, selector and equipment.
+        Options ind;ind.scale=2.2f;ind.textScale=1.1f;ind.selectorScale=3.0f;ind.selectorTextScale=1.0f;ind.equipmentScale=1.8f;ind.equipmentTextScale=1.25f;
+        check(near(ind.scale*hudTextFactor(ind),1.1f)&&near(ind.selectorScale*selectorTextFactor(ind),1.0f)&&near(ind.equipmentScale*equipmentTextFactor(ind),1.25f),
+            "Element Size and Text size remain independent across widget, selector and equipment");
     }
     std::cout<<"PASS: "<<checks<<" live editing, identity-safe undo, autosave, theme loading, placement and motion checks.\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

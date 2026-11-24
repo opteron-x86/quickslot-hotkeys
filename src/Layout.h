@@ -13,8 +13,11 @@ struct Bounds {
 };
 struct HudBounds {Bounds widget,selector,equipment;std::vector<Bounds> tiles,equipmentCells;};
 
-inline float hudTextFactor(const Options& o){return o.textScale;}
-inline float selectorTextFactor(const Options& o){return o.selectorTextScale;}
+// Size and Text size are independent: dividing by the element's own size keeps rendered text proportional only to its
+// Text size setting (and screen resolution), so enlarging frames or wheels never inflates labels unexpectedly.
+inline float hudTextFactor(const Options& o){return o.textScale/std::max(.25f,o.scale);}
+inline float selectorTextFactor(const Options& o){return o.selectorTextScale/std::max(.25f,o.selectorScale);}
+inline float equipmentTextFactor(const Options& o){return o.equipmentTextScale/std::max(.25f,o.equipmentScale);}
 // The room a card keeps at its outer end for its key or button label.
 inline constexpr float cardKeyColumn=26;
 // tileScales and tileSizes size each tile in the Free arrangement; elsewhere they are empty and every tile shares scale 1 and tileWidth x tileHeight.
@@ -258,7 +261,7 @@ inline float equipmentCellScale(const EquipmentGeometry& g,std::size_t slot){ret
 inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={},
                                            std::array<EquipmentRole,6> roles=defaultEquipmentRoles) {
     EquipmentGeometry g;rows=std::clamp(rows,1u,6u);g.rowCount=rows;g.roles=roles;
-    const float t=o.equipmentTextScale,textHeight=36*t;
+    const float t=equipmentTextFactor(o),textHeight=36*t;
     const bool labels=o.equipmentShowText||o.equipmentStyle==0||o.equipmentStyle==4;
     const bool mirroredList=o.mirrorEquipment&&o.equipmentStyle==0;
     g.iconSize=o.equipmentStyle==0?30.f:o.equipmentStyle==4?0.f:o.equipmentStyle==2?32.f:38.f;

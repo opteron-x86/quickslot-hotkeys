@@ -265,9 +265,9 @@ def _shade_metal(
     if em_str > 0.01:
         lit = np.clip(lit + em_rgb[None, None, :] * (orn_em[:, :, None] * em_str), 0.0, 1.0)
 
-    # Soft feathered outer drop shadow (on the border layer so it stays grounded even at low bgOpacity)
+    # Soft feathered outer drop shadow ONLY outside the shape (sdf > 0), never inside the transparent center hole!
     sh_op = float(recipe.get("shadowOpacity", 0.60))
-    shadow = np.exp(-(np.maximum(sdf, 0.0) / max(pad * 0.42, 2.0)) ** 2) * (1.0 - metal_mask) * sh_op
+    shadow = np.exp(-(np.maximum(sdf, 0.0) / max(pad * 0.42, 2.0)) ** 2) * (1.0 - outer_mask) * (1.0 - metal_mask) * sh_op
     # Subtle inner cast shadow right inside the metallic rim
     in_sh = np.zeros_like(shadow)
     if include_inner_shadow:
@@ -429,15 +429,14 @@ def forge_wheel_assets(recipe: Dict[str, Any]) -> Dict[str, Image.Image]:
     _, outer_border, _, _ = _shade_metal(sdf_o, rim_w, pad, recipe, oh, oa, oe, seed_offset=311, include_inner_shadow=False)
     out["wheel_outer_rim.png"] = outer_border
 
-    # 3. Inner metallic collar (384x384, delicate thinner rim).
+    # 3. Inner metallic collar (384x384, clean delicate thinner rim with no duplicate studs).
     # pad=12 with manifest outset=0.033 aligns irad=180 flush to layout.inner.
     isize = 384
-    irim_w = float(recipe.get("rimPx", 3.4)) * 2.1
+    irim_w = float(recipe.get("rimPx", 3.4)) * 1.9
     ipad = 12.0
     irad = isize * 0.5 - ipad
     sdf_i = circle_sdf(isize, irad)
-    ih, ia, ie = radial_ornaments(recipe.get("ornament", "oathvein_clasp"), isize, irad, irim_w, n_fold=8)
-    _, inner_border, _, _ = _shade_metal(sdf_i, irim_w, ipad, recipe, ih * 0.65, ia * 0.65, ie * 0.65, seed_offset=319, include_inner_shadow=False)
+    _, inner_border, _, _ = _shade_metal(sdf_i, irim_w, ipad, recipe, None, None, None, seed_offset=319, include_inner_shadow=False)
     out["wheel_inner_rim.png"] = inner_border
 
     # 4. Hub background & border (256x256)

@@ -670,7 +670,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         UI::Checkbox("Pick the nearest anchor when dragging",&autoAnchor_);
         {
             float percent=scaleValue()*100;ImGui::SetNextItemWidth(-px(90));
-            if(UI::SliderFloat((tileElement(placementTarget_)||equipmentElement(placementTarget_))?"Tile size":"Scale",&percent,scaleRange.low*100,scaleRange.high*100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){if(elementAnchor(options,placementTarget_,&geometry)>=unanchored)placeElement(options,placementTarget_,placementOf(placementTarget_),&geometry);scaleValue()=percent/100;measured.reset();changed=true;}
+            if(UI::SliderFloat((tileElement(placementTarget_)||equipmentElement(placementTarget_))?"Tile size":"Size",&percent,scaleRange.low*100,scaleRange.high*100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){if(elementAnchor(options,placementTarget_,&geometry)>=unanchored)placeElement(options,placementTarget_,placementOf(placementTarget_),&geometry);scaleValue()=percent/100;measured.reset();changed=true;}
         }
         if(UI::CollapsingHeader("Appearance##position")) {
             // The chosen element's main look settings, so it can be tuned where it sits.
@@ -1725,7 +1725,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(options.shape==0&&(options.showCardNames||options.showLabels)){if(flag("Mirror cards",&Options::mirrorCards)&&ImGui::IsItemHovered())UI::SetTooltip("Puts the icon on the right and aligns the text to it, for a widget on the right side of the screen.");}
                 }
                 if(heading("Size")) {
-                    number("Scale",&Options::scale);
+                    number("Size",&Options::scale);
                     if(options.shape==0){if(options.showCardNames||options.showLabels)number("Card width",&Options::cardWidth);}
                     else number("Tile size",&Options::tileSize);
                     if(!unifiedHotbar(options)&&number("Active tile emphasis",&Options::activeGroupBoost)&&ImGui::IsItemHovered())UI::SetTooltip("Subtly enlarges the active group's tile around its center.");
@@ -1807,7 +1807,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(number("Rotation",&Options::wheelRotation)&&ImGui::IsItemHovered())UI::SetTooltip("Turns the wheel so its first item sits away from the top.");
                 }
                 if(heading("Size")) {
-                    number("Scale",&Options::selectorScale);
+                    number("Size",&Options::selectorScale);
                     number("Text size",&Options::selectorTextScale);number("Opacity",&Options::selectorOpacity);
                 }
                 if(heading("Placement")) {
@@ -1851,7 +1851,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     }
                 }
                 if(heading("Size")) {
-                    number("Scale",&Options::equipmentScale);number("Text size",&Options::equipmentTextScale);number("Opacity",&Options::equipmentOpacity);
+                    number("Size",&Options::equipmentScale);number("Text size",&Options::equipmentTextScale);number("Opacity",&Options::equipmentOpacity);
                 }
                 if(heading("Placement")) {
                     if(options.equipmentLayout==freeLayout) {

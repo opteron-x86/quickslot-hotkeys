@@ -719,7 +719,7 @@ void Hud::drawItemIcon(ImDrawList* list,ImVec2 center,float size,const Entry& en
 }
 EquipmentMetrics Hud::equipmentMetrics(const EquippedDisplay& state,const Options& o)const {
     EquipmentMetrics metrics;auto* font=bodyFont(o);if(!font)return metrics;
-    metrics.measured=true;unsigned index=0;const float t=o.equipmentTextScale;
+    metrics.measured=true;unsigned index=0;const float t=equipmentTextFactor(o);
     forEachEquipmentRow(state,o,[&](const char* role,const std::optional<Row>& row) {
         const auto name=equipmentTextName(row,o.equipmentStyle!=4,o);
         if(index<metrics.textWidths.size())metrics.textWidths[index++]=std::max(font->CalcTextSizeA(11.5f*t,FLT_MAX,0,tr(role)).x,
@@ -1129,8 +1129,8 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             if((o.layout==0&&i>0)||(o.layout==6&&(i%cols)!=0))groups.line(x,y+6,x,y+ownTileSize.y-6,sep,.8f);
             if((o.layout==1&&i>0)||(o.layout==6&&i>=cols))groups.line(x+8,y,x+ownTileSize.x-8,y,sep,.8f);
         }
-        // A Free tile with its own size draws from its corner at that size.
-        if(const float own=tileScale(geometry.groups,i);own!=1){q.origin=q.p(x,y);q.scale*=own;x=y=0;}
+        // A Free tile with its own size draws from its corner at that size while keeping its text size independent.
+        if(const float own=tileScale(geometry.groups,i);own!=1){q.origin=q.p(x,y);q.scale*=own;q.textFactor/=own;x=y=0;}
         // Optional subtle center-anchored scale pop on the active group tile.
         if(selected&&o.activeGroupBoost>0&&!unified) {
             const float boost=1.f+o.activeGroupBoost;
@@ -1332,8 +1332,8 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     if(equipmentAlpha>0&&showEquipmentDisplay(state,o,now)&&eqRows>0) {
         const int start=p.d->VtxBuffer.Size;
         auto panel=p;const auto& box=geometry.equipment;
-        panel.origin={origin.x+box.origin.x,origin.y+box.origin.y};panel.scale=box.scale;panel.alpha=o.equipmentOpacity*equipmentAlpha;panel.textFactor=o.equipmentTextScale;
-        const float width=box.width,height=box.height,t=o.equipmentTextScale;
+        panel.origin={origin.x+box.origin.x,origin.y+box.origin.y};panel.scale=box.scale;panel.alpha=o.equipmentOpacity*equipmentAlpha;panel.textFactor=equipmentTextFactor(o);
+        const float width=box.width,height=box.height,t=equipmentTextFactor(o);
         const bool mirroredList=o.mirrorEquipment&&o.equipmentStyle==0;
         if(o.equipmentStyle==0&&o.equipmentLayout==1) {
             if(panel.textures.equipmentPanel.any()) {
@@ -1355,7 +1355,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             const auto cell=box.cells[curSlot];
             auto cellPaint=panel;
             Point localOrigin=cell.origin;
-            if(const float own=equipmentCellScale(box,curSlot);own!=1){cellPaint.origin=cellPaint.p(cell.origin.x,cell.origin.y);cellPaint.scale*=own;localOrigin={0,0};}
+            if(const float own=equipmentCellScale(box,curSlot);own!=1){cellPaint.origin=cellPaint.p(cell.origin.x,cell.origin.y);cellPaint.scale*=own;cellPaint.textFactor/=own;localOrigin={0,0};}
             const float x=localOrigin.x+cell.icon.x,y=localOrigin.y+cell.icon.y;
             if(o.equipmentStyle==0&&o.equipmentLayout==1&&slot>1) {
                 const float lx0=mirroredList?8.f:45.f,lx1=mirroredList?width-45.f:width-8.f;

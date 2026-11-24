@@ -278,7 +278,7 @@ inline Options decodeOptions(const std::string& bytes) {
         for(std::size_t i=0;i<std::min(roles->size(),o.equipmentRoles.size());++i)if((*roles)[i].is_number_unsigned())o.equipmentRoles[i]=(*roles)[i].get<unsigned>();
     if(j.value("layoutVersion",1)<3) {
         // Earlier files shared one text size and one opacity across the HUD, and widget text kept its size below 100% scale.
-        const float scale=std::isfinite(o.scale)&&o.scale>0?o.scale:1,size=std::isfinite(o.textScale)?o.textScale:1,text=size*std::max(1.f,scale)/scale;
+        const float scale=std::isfinite(o.scale)&&o.scale>0?o.scale:1,size=std::isfinite(o.textScale)?o.textScale:1,text=size*std::max(1.f,scale);
         o.equipmentTextScale*=size;o.textScale=o.selectorTextScale=text;
         o.selectorOpacity=o.equipmentOpacity=o.opacity;
         // Icon size was kept per theme; the active theme's value becomes the one icon size.

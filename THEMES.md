@@ -52,14 +52,16 @@ Schema `3` themes supply standalone PNG or SVG images under `"assets"`. Any omit
 "assets": {
   "card": {
     "shadow": "card_shadow.png",
-    "bg": "card_bg.svg",
-    "border": { "file": "card_border.svg", "tint": "border", "slice": [40, 40, 40, 40], "rasterSize": 512 },
-    "selected": { "file": "card_selected.svg", "tint": "accent", "slice": 40 },
-    "equipped": { "file": "card_equipped.svg", "tint": "equipped", "slice": 40 }
+    "bg": "card_bg.png",
+    "border": { "file": "card_border.png", "slice": 54, "sliceSize": 18 },
+    "selected": { "file": "card_selected.png", "tint": "accent", "slice": 54, "sliceSize": 18 },
+    "equipped": { "file": "card_equipped.png", "tint": "equipped", "slice": 54, "sliceSize": 18 }
   },
-  "square": { "bg": "square_bg.svg", "border": "square_border.svg", "selected": "square_selected.svg" },
-  "diamond": { "bg": "diamond_bg.svg", "border": "diamond_border.svg", "selected": "diamond_selected.svg" },
-  "circle": { "bg": "circle_bg.svg", "border": "circle_border.svg", "selected": "circle_selected.svg" },
+  "square": { "bg": "square_bg.png", "border": { "file": "square_border.png", "slice": 60, "sliceSize": 20 }, "selected": "square_selected.png", "equipped": "square_equipped.png" },
+  "panel": { "bg": { "file": "panel_bg.png", "slice": 60, "sliceSize": 20 }, "border": { "file": "panel_border.png", "slice": 60, "sliceSize": 20 } },
+  "diamond": { "bg": "diamond_bg.png", "border": "diamond_border.png", "selected": "diamond_selected.png", "equipped": "diamond_equipped.png" },
+  "circle": { "bg": "circle_bg.png", "border": "circle_border.png", "selected": "circle_selected.png", "equipped": "circle_equipped.png" },
+  "hexagon": { "bg": "hexagon_bg.png", "border": "hexagon_border.png", "selected": "hexagon_selected.png", "equipped": "hexagon_equipped.png" },
   "wheel": {
     "ringBg": { "file": "wheel_ring_bg.svg", "rasterSize": 1024 },
     "outerRim": { "file": "wheel_outer_rim.svg", "rasterSize": 1024 },
@@ -93,11 +95,14 @@ Each asset accepts a file path string or an object:
 | `file` | Relative `.png` or `.svg` path inside the pack folder | Required |
 | `tint` | Color tint role: `none`, `text`, `secondary`, `muted`, `accent`, `border`, `selection`, `equipped`, `background`, `warning`, `depleted`, `poison`, `charge` | `none` |
 | `opacity` | Layer opacity multiplier (`0.0`–`1.0`) | `1.0` |
-| `slice` | Nine-slice margins in source pixels: a single integer or `[left, top, right, bottom]` (`0`–`1024`). Corners scale uniformly against the frame's shorter side | `[0, 0, 0, 0]` |
+| `slice` | Nine-slice margins in source pixels: a single integer or `[left, top, right, bottom]` (`0`–`1024`). Corners scale uniformly against the frame's shorter side unless `sliceSize` is set | `[0, 0, 0, 0]` |
+| `sliceSize` | Constant logical-pixel corner size for nine-sliced images (`0`–`128`). Keeps border thickness identical across small tiles and wide panels | `0` |
 | `rasterSize` | Longest-edge pixel dimension used when rasterizing an SVG (`64`–`2048`) | `512` |
 | `outset` | Outward bleed ratio beyond the frame bounds (`0.0`–`0.35`) for decorative spikes, clasps or filigree | `0.0` |
 
-Background layers (`bg`, `ringBg`, `hubBg`) multiply by the user's **Background opacity** and **Frame opacity** settings; border layers multiply by **Frame opacity**. `diamond` and `circle` layers draw upright across the tile's bounding square. An optional `glyphs` array supplies up to 16 per-slot decorative images rendered subtly behind group tile icons (`glyphs[slot % count]`). On segmented wheels, `wheel.outerRim` scales to the outer radius, `wheel.innerRim` scales to the inner radius across any **Ring thickness** (`10%`–`100%`), and `wheel.ringBg` maps radially across each wedge from inner to outer radius, including raised pointed segments. `wheel.pointer` artwork points upward and rotates toward the active direction.
+Background layers (`bg`, `ringBg`, `hubBg`) multiply by the user's **Background opacity** and **Frame opacity** settings; border layers multiply by **Frame opacity**. `panel` frames style the compact List selector and Unified hotbar (falling back to `card` when omitted). `diamond`, `circle` and `hexagon` layers draw upright across the tile's bounding square. When a tile shape supplies `selected` or `equipped` overlay artwork, Quickslot uses those luminous overlays for active and equipped states in place of procedural outlines. An optional `glyphs` array supplies up to 16 per-slot decorative images rendered subtly behind group tile icons (`glyphs[slot % count]`). On segmented wheels, `wheel.outerRim` scales to the outer radius, `wheel.innerRim` scales to the inner radius across any **Ring thickness** (`10%`–`100%`), and `wheel.ringBg` maps radially across each wedge from inner to outer radius, including raised pointed segments. `wheel.pointer` artwork points upward and rotates toward the active direction.
+
+See [`tools/design-studio/README.md`](tools/design-studio/README.md) for the included 2.5D PBR theme generator and live browser preview studio.
 
 ### Recommended look (schema 3)
 

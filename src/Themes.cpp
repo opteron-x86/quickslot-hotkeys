@@ -89,6 +89,11 @@ ThemeImage parseImage(const std::filesystem::path& root,const Json& value) {
             for(std::size_t i=0;i<4;++i)image.slice[i]=std::min(s[i].get<unsigned>(),1024u);
         } else throw std::runtime_error("Invalid image slice");
     }
+    if(value.contains("sliceSize")) {
+        const float ss=value.at("sliceSize").get<float>();
+        if(!std::isfinite(ss))throw std::runtime_error("Invalid image sliceSize");
+        image.sliceSize=std::clamp(ss,0.f,128.f);
+    }
     if(value.contains("rasterSize"))image.rasterSize=std::clamp(value.at("rasterSize").get<unsigned>(),64u,2048u);
     if(value.contains("outset")) {
         const float o=value.at("outset").get<float>();
@@ -248,6 +253,8 @@ void applyManifest(Theme& t,TrackedFlags& flags,const Json& j,const std::filesys
             applyFrameLayers(t.assets.square,root,assets,"square");
             applyFrameLayers(t.assets.diamond,root,assets,"diamond");
             applyFrameLayers(t.assets.circle,root,assets,"circle");
+            applyFrameLayers(t.assets.hexagon,root,assets,"hexagon");
+            applyFrameLayers(t.assets.panel,root,assets,"panel");
             applyWheelLayers(t.assets.wheel,root,assets,"wheel");
             applyImageSlot(t.assets.divider,root,assets,"divider");
             applyMarkerLayers(t.assets.markers,root,assets,"markers");

@@ -24,4 +24,14 @@ Press **R** in the preview window at any time to force a reload.
 - `wheel_outer_rim.svg` — `512 × 512` circular outer rim (`r = 253`) tracking any segmented wheel radius.
 - `wheel_pointer.svg` — `64 × 64` upward-pointing indicator mask tinted by `"accent"`.
 
+## PNG reskin dimensions and Design Studio
+
+For hand-painted RGBA PNG packs (Photoshop, Krita, GIMP, Affinity, or Blender), recommended canvas sizes at `3×` logical density are:
+
+- `square` (`256 × 256`, `slice: 60`, `sliceSize: 20`), `card` (`384 × 144`, `slice: 54`, `sliceSize: 18`), `panel` (`384 × 256`, `slice: 60`, `sliceSize: 20`)
+- `diamond`, `circle`, `hexagon` (`256 × 256`)
+- `wheel.outerRim` (`512 × 512`), `wheel.innerRim` (`384 × 384`), `wheel.hub*` (`256 × 256`), `wheel.pointer` (`96 × 96`)
+
+Setting `"sliceSize"` keeps border and corner thickness constant in logical HUD pixels across small tiles and wide List panels. To synthesize a matching PBR PNG set interactively, run `python3 tools/design-studio/studio.py --open` (see [`tools/design-studio/README.md`](../../tools/design-studio/README.md)).
+
 See [`THEMES.md`](../../THEMES.md) for the complete `schema: 3` reference.

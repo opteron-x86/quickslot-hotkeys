@@ -66,10 +66,10 @@
     ]
   },
   "style": {
-    "cornerCut": 10,
-    "borderWidth": 1.45,
-    "shadowOpacity": 0.5,
-    "glowOpacity": 0.4,
+    "cornerCut": 9.0,
+    "borderWidth": 1.2,
+    "shadowOpacity": 0.55,
+    "glowOpacity": 0.32,
     "editorRounding": 1,
     "accentLine": false
   },
@@ -87,91 +87,178 @@
   "assets": {
     "card": {
       "bg": {
-        "file": "card_bg.svg",
-        "slice": 40
+        "file": "card_bg.png",
+        "slice": 54,
+        "sliceSize": 18.0,
+        "outset": 0.04
       },
       "border": {
-        "file": "card_border.svg",
-        "slice": 40
+        "file": "card_border.png",
+        "slice": 54,
+        "sliceSize": 18.0,
+        "outset": 0.04
       },
       "selected": {
-        "file": "card_selected.svg",
-        "tint": "selection",
-        "slice": 40
+        "file": "card_selected.png",
+        "slice": 54,
+        "sliceSize": 18.0,
+        "tint": "accent",
+        "outset": 0.04
+      },
+      "equipped": {
+        "file": "card_equipped.png",
+        "slice": 54,
+        "sliceSize": 18.0,
+        "tint": "equipped",
+        "outset": 0.04
       }
     },
     "square": {
       "bg": {
-        "file": "card_bg.svg",
-        "slice": 40
+        "file": "square_bg.png",
+        "slice": 60,
+        "sliceSize": 20.0,
+        "outset": 0.04
       },
       "border": {
-        "file": "card_border.svg",
-        "slice": 40
+        "file": "square_border.png",
+        "slice": 60,
+        "sliceSize": 20.0,
+        "outset": 0.04
       },
       "selected": {
-        "file": "card_selected.svg",
-        "tint": "selection",
-        "slice": 40
+        "file": "square_selected.png",
+        "slice": 60,
+        "sliceSize": 20.0,
+        "tint": "accent",
+        "outset": 0.04
+      },
+      "equipped": {
+        "file": "square_equipped.png",
+        "slice": 60,
+        "sliceSize": 20.0,
+        "tint": "equipped",
+        "outset": 0.04
+      }
+    },
+    "panel": {
+      "bg": {
+        "file": "panel_bg.png",
+        "slice": 60,
+        "sliceSize": 20.0,
+        "outset": 0.04
+      },
+      "border": {
+        "file": "panel_border.png",
+        "slice": 60,
+        "sliceSize": 20.0,
+        "outset": 0.04
       }
     },
     "diamond": {
-      "bg": "diamond_bg.svg",
-      "border": "diamond_border.svg",
+      "bg": {
+        "file": "diamond_bg.png",
+        "outset": 0.04
+      },
+      "border": {
+        "file": "diamond_border.png",
+        "outset": 0.04
+      },
       "selected": {
-        "file": "diamond_selected.svg",
-        "tint": "selection"
+        "file": "diamond_selected.png",
+        "tint": "accent",
+        "outset": 0.04
+      },
+      "equipped": {
+        "file": "diamond_equipped.png",
+        "tint": "equipped",
+        "outset": 0.04
       }
     },
     "circle": {
-      "bg": "circle_bg.svg",
-      "border": "circle_border.svg",
+      "bg": {
+        "file": "circle_bg.png",
+        "outset": 0.04
+      },
+      "border": {
+        "file": "circle_border.png",
+        "outset": 0.04
+      },
       "selected": {
-        "file": "circle_selected.svg",
-        "tint": "selection"
+        "file": "circle_selected.png",
+        "tint": "accent",
+        "outset": 0.04
+      },
+      "equipped": {
+        "file": "circle_equipped.png",
+        "tint": "equipped",
+        "outset": 0.04
+      }
+    },
+    "hexagon": {
+      "bg": {
+        "file": "hexagon_bg.png",
+        "outset": 0.04
+      },
+      "border": {
+        "file": "hexagon_border.png",
+        "outset": 0.04
+      },
+      "selected": {
+        "file": "hexagon_selected.png",
+        "tint": "accent",
+        "outset": 0.04
+      },
+      "equipped": {
+        "file": "hexagon_equipped.png",
+        "tint": "equipped",
+        "outset": 0.04
       }
     },
     "wheel": {
-      "ringBg": {
-        "file": "wheel_ring_bg.svg",
-        "rasterSize": 256
-      },
-      "outerRim": {
-        "file": "wheel_outer_rim.svg",
-        "rasterSize": 512
-      },
-      "innerRim": {
-        "file": "wheel_inner_rim.svg",
-        "rasterSize": 512
-      },
-      "hubBg": "wheel_hub_bg.svg",
-      "hubBorder": "wheel_hub_border.svg",
-      "hubOverlay": "wheel_hub_overlay.svg",
+      "ringBg": "wheel_ring_bg.png",
+      "outerRim": "wheel_outer_rim.png",
+      "innerRim": "wheel_inner_rim.png",
+      "hubBg": "wheel_hub_bg.png",
+      "hubBorder": "wheel_hub_border.png",
+      "hubOverlay": "wheel_hub_overlay.png",
       "pointer": {
-        "file": "wheel_pointer.svg",
+        "file": "wheel_pointer.png",
         "tint": "accent"
       },
-      "divider": "wheel_spoke.svg"
+      "divider": "wheel_spoke.png"
     },
-    "divider": "rule.svg",
+    "divider": "rule.png",
     "markers": {
       "equipped": {
-        "file": "marker_equipped.svg",
+        "file": "marker_equipped.png",
         "tint": "equipped"
       },
       "chargePip": {
-        "file": "marker_pip.svg",
+        "file": "marker_pip.png",
         "tint": "charge"
       }
     },
     "equipmentPanel": {
       "bg": {
-        "file": "equip_bg.svg",
-        "slice": 28
+        "file": "equip_bg.png",
+        "slice": [
+          24,
+          16,
+          24,
+          16
+        ],
+        "sliceSize": 12.0
       },
       "border": {
-        "file": "equip_border.svg",
-        "slice": 28
+        "file": "equip_border.png",
+        "slice": [
+          12,
+          16,
+          12,
+          16
+        ],
+        "sliceSize": 8.0
       }
     }
   }

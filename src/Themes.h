@@ -19,6 +19,9 @@ struct ThemeImage {
     float opacity=1.f;
     // Nine-slice margins in source artwork pixels: left, top, right, bottom. All zero draws as a single quad.
     std::array<unsigned,4> slice{};
+    // Optional logical-pixel size for nine-slice corners (0..128). Zero scales proportionally with the frame's shorter side;
+    // a positive value keeps rim and corner thickness constant across small tiles and wide panels.
+    float sliceSize=0.f;
     // Target longest-edge pixel size when rasterizing an SVG asset (clamped 64..2048).
     unsigned rasterSize=512;
     // Optional outward bleed as a fraction of element size (0..0.35), letting spikes, gears or knotwork extend beyond the structural frame.
@@ -42,7 +45,7 @@ struct EquipmentPanelLayers {
     bool any()const{return bg||border;}
 };
 struct ThemeAssets {
-    FrameLayers card,square,diamond,circle;
+    FrameLayers card,square,diamond,circle,hexagon,panel;
     WheelLayers wheel;
     ThemeImage divider;
     MarkerLayers markers;
@@ -51,7 +54,7 @@ struct ThemeAssets {
     std::vector<ThemeImage> glyphs;
 };
 template<class Assets,class F> void forEachThemeImage(Assets& a,const F& f) {
-    for(auto* frame:{&a.card,&a.square,&a.diamond,&a.circle}) {
+    for(auto* frame:{&a.card,&a.square,&a.diamond,&a.circle,&a.hexagon,&a.panel}) {
         f(frame->shadow);f(frame->bg);f(frame->border);f(frame->selected);f(frame->equipped);
     }
     f(a.wheel.ringBg);f(a.wheel.outerRim);f(a.wheel.innerRim);f(a.wheel.hubBg);f(a.wheel.hubBorder);

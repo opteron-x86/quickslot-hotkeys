@@ -38,7 +38,7 @@ struct SkinEquipmentPanel {
 };
 struct SkinTextures {
     ImTextureID atlas=0;
-    SkinFrameLayers card,square,diamond,circle;
+    SkinFrameLayers card,square,diamond,circle,hexagon,panel;
     SkinWheelLayers wheel;
     LoadedTexture divider;
     SkinMarkerLayers markers;
@@ -55,6 +55,8 @@ template<class Upload> SkinTextures loadSkinTextures(const Theme& theme,Upload&&
     loadFrame(theme.assets.square,out.square);
     loadFrame(theme.assets.diamond,out.diamond);
     loadFrame(theme.assets.circle,out.circle);
+    loadFrame(theme.assets.hexagon,out.hexagon);
+    loadFrame(theme.assets.panel,out.panel);
     out.wheel.ringBg=upload(theme.assets.wheel.ringBg);
     out.wheel.outerRim=upload(theme.assets.wheel.outerRim);
     out.wheel.innerRim=upload(theme.assets.wheel.innerRim);

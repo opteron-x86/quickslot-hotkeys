@@ -227,7 +227,7 @@ Groups and equipment have independent visibility settings. Choose always visible
 
 Scenes that take control of the player, including OStim, receive keyboard and controller input while Quickslot's HUD is hidden. Quickslot cancels any active selection and resumes when the scene returns control to the player.
 
-See [Theme and icon packs](THEMES.md) for customization files.
+See [Theme and icon packs](THEMES.md) and [Quickslot Design Studio](tools/design-studio/README.md) for theme authoring, hand-painted PNG reskins and interactive PBR theme forging.
 
 QuickLoot input is optional under **Settings**. Enable keyboard/mouse, controller, or both; both start disabled. While browsing a Quickslot group, captured navigation goes to Quickslot and other input still reaches QuickLoot. Other menus and the editor retain their normal restrictions.
 

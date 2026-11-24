@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quickslot Design Studio</title>
+<style>
+  :root {
+    --bg: #0f1013;
+    --panel: #17191e;
+    --border: #2a2e38;
+    --text: #e8e4da;
+    --muted: #98948c;
+    --accent: #c87a4a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg); color: var(--text); display: grid;
+    grid-template-columns: 350px 1fr; height: 100vh; overflow: hidden;
+  }
+  aside {
+    background: var(--panel); border-right: 1px solid var(--border);
+    padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;
+  }
+  h1 { margin: 0; font-size: 18px; letter-spacing: 0.04em; color: #f2ece0; }
+  .sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  section {
+    border: 1px solid var(--border); border-radius: 6px; padding: 11px 12px;
+    background: rgba(255,255,255,0.015); display: flex; flex-direction: column; gap: 9px;
+  }
+  section h2 {
+    margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+  }
+  label { display: flex; justify-content: space-between; align-items: center; font-size: 12px; gap: 8px; }
+  select, input[type="text"], input[type="number"] {
+    background: #101216; color: var(--text); border: 1px solid var(--border);
+    border-radius: 4px; padding: 5px 7px; font-size: 12px; width: 175px;
+  }
+  input[type="range"] { width: 135px; accent-color: var(--accent); }
+  input[type="color"] { width: 42px; height: 24px; border: 1px solid var(--border); background: none; padding: 0; cursor: pointer; }
+  .val { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 11px; min-width: 34px; text-align: right; }
+  .row { display: flex; gap: 6px; align-items: center; }
+  .colors { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .colors label { justify-content: space-between; font-size: 11px; }
+  button {
+    background: #232732; color: var(--text); border: 1px solid #394050; border-radius: 5px;
+    padding: 7px 11px; font-size: 12px; cursor: pointer; font-weight: 600;
+  }
+  button:hover { background: #2d3342; }
+  button.primary { background: #8f3d2e; border-color: #c65d48; color: #fff; }
+  button.primary:hover { background: #a74937; }
+  main {
+    display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  }
+  .toolbar {
+    display: flex; gap: 10px; align-items: center; justify-content: space-between;
+    padding: 10px 16px; border-bottom: 1px solid var(--border); background: #14161b;
+  }
+  .pill-group { display: flex; gap: 4px; }
+  .pill { padding: 5px 10px; font-size: 12px; border-radius: 4px; background: #1d2028; border: 1px solid var(--border); }
+  .pill.active { background: #363c4b; border-color: var(--accent); color: #fff; }
+  .stage {
+    flex: 1; padding: 24px; overflow: auto;
+    background-size: cover; background-position: center; transition: background 0.2s ease;
+  }
+  .stage-zoom-wrap {
+    margin: 0 auto; width: fit-content; min-width: 100%; display: flex; justify-content: center;
+  }
+  .stage-content {
+    display: flex; flex-direction: column; gap: 24px;
+    transform-origin: top center; transition: transform 0.08s ease-out;
+    width: 960px; padding-bottom: 40px;
+  }
+  .zoom-controls {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .zoom-controls input[type="range"] { width: 92px; }
+  .zoom-controls .pill { padding: 4px 7px; font-size: 11px; }
+  .stage.forest {
+    background: radial-gradient(circle at 25% 20%, #2a3026 0%, #171a16 48%, #0e100d 100%);
+  }
+  .stage.snow {
+    background: radial-gradient(circle at 60% 20%, #dce4ec 0%, #b8c6d4 55%, #8d9eae 100%);
+  }
+  .stage.dungeon {
+    background: radial-gradient(circle at 50% 40%, #1d1920 0%, #0d0b0f 70%, #060507 100%);
+  }
+  .hud-grid {
+    display: grid; grid-template-columns: auto 1fr; gap: 40px; align-items: end;
+    max-width: 1020px; margin: 0 auto; width: 100%;
+  }
+  .souls-cross {
+    display: grid; grid-template-columns: 78px 78px 78px; grid-template-rows: 78px 78px 78px;
+    gap: 4px; align-items: center; justify-items: center;
+  }
+  .slot-tile {
+    position: relative; width: 78px; height: 78px;
+  }
+  .slot-tile img { width: 100%; height: 100%; display: block; }
+  .slot-tile .key {
+    position: absolute; top: 6px; left: 8px; font-size: 11px; color: #ddd6c8;
+    text-shadow: 0 1px 2px #000; font-weight: 600;
+  }
+  .slot-tile .glyph {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 26px; color: #ece6da; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.85));
+  }
+  .list-panel {
+    position: relative; width: 280px; height: 178px;
+  }
+  .list-panel > img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .list-inner {
+    position: relative; z-index: 1; padding: 10px 16px; display: flex; flex-direction: column; gap: 4px;
+    font-size: 13px; color: #e8e2d5; text-shadow: 0 1px 2px #000;
+  }
+  .list-head {
+    display: flex; justify-content: space-between; font-size: 12px; color: #c4bab0;
+    border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 5px; margin-bottom: 2px;
+  }
+  .list-row {
+    padding: 5px 8px; border-radius: 2px; display: flex; justify-content: space-between;
+  }
+  .list-row.active {
+    background: rgba(255,255,255,0.12); border-left: 3px solid var(--accent);
+  }
+  .shapes-strip {
+    display: flex; flex-wrap: wrap; gap: 22px; align-items: center; justify-content: center;
+    max-width: 1020px; margin: 0 auto; width: 100%; padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .shape-box { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .shape-box span { font-size: 11px; color: #d8d4ca; text-shadow: 0 1px 2px #000; }
+  .status { font-size: 12px; color: #a8d49c; min-height: 16px; }
+  .stamp-preview { width: 52px; height: 52px; border: 1px solid var(--border); border-radius: 4px; background: #0a0b0d; object-fit: contain; }
+</style>
+</head>
+<body>
+<aside>
+  <div>
+    <h1>Quickslot Design Studio</h1>
+    <div class="sub">2.5D PBR Material &amp; Ornament Forge</div>
+  </div>
+
+  <section>
+    <h2>Theme &amp; Base Material</h2>
+    <label>Load Theme
+      <select id="flagshipSelect"></select>
+    </label>
+    <label>Material Preset
+      <select id="materialSelect"></select>
+    </label>
+    <label>Theme ID
+      <input type="text" id="themeId" value="oathvein">
+    </label>
+    <label>Ornament Style
+      <select id="ornamentSelect"></select>
+    </label>
+  </section>
+
+  <section>
+    <h2>Geometry &amp; Forging</h2>
+    <label>Rim Thickness (px) <div class="row"><input type="range" id="rimPx" min="2.0" max="6.0" step="0.2"><span class="val" id="rimPxVal"></span></div></label>
+    <label>Corner Chamfer <div class="row"><input type="range" id="chamferPx" min="0" max="14" step="0.5"><span class="val" id="chamferPxVal"></span></div></label>
+    <label>Bevel Relief <div class="row"><input type="range" id="bevelHeight" min="1.5" max="7.5" step="0.2"><span class="val" id="bevelHeightVal"></span></div></label>
+    <label>Surface Grain <div class="row"><input type="range" id="grain" min="0" max="1" step="0.05"><span class="val" id="grainVal"></span></div></label>
+    <label>Edge Wear <div class="row"><input type="range" id="wear" min="0" max="1" step="0.05"><span class="val" id="wearVal"></span></div></label>
+    <label>Patina Depth <div class="row"><input type="range" id="patinaStrength" min="0" max="0.8" step="0.04"><span class="val" id="patinaStrengthVal"></span></div></label>
+    <label>Emissive Inlay <div class="row"><input type="range" id="emissiveStrength" min="0" max="1" step="0.05"><span class="val" id="emissiveStrengthVal"></span></div></label>
+    <label>BG Opacity <div class="row"><input type="range" id="bgOpacity" min="0.3" max="0.98" step="0.02"><span class="val" id="bgOpacityVal"></span></div></label>
+  </section>
+
+  <section>
+    <h2>Material Palette</h2>
+    <div class="colors">
+      <label>Metal Base <input type="color" id="metalBase"></label>
+      <label>Specular Hi <input type="color" id="metalHi"></label>
+      <label>Dark Rim <input type="color" id="metalDark"></label>
+      <label>Clasp Accent <input type="color" id="accentMetal"></label>
+      <label>Patina <input type="color" id="patina"></label>
+      <label>Emissive <input type="color" id="emissive"></label>
+      <label>Glass BG <input type="color" id="bgColor"></label>
+    </div>
+  </section>
+
+  <section>
+    <h2>Custom PNG / AI Ornament Stamp</h2>
+    <div class="row">
+      <input type="file" id="stampFile" accept="image/png,image/jpeg,image/webp" style="width:185px;font-size:11px;">
+      <img id="stampThumb" class="stamp-preview" alt="">
+    </div>
+    <label>Symmetry
+      <select id="stampSymmetry">
+        <option value="quad">4-Way Mirror (Quad)</option>
+        <option value="oct">8-Way Mirror (Oct)</option>
+        <option value="radial8">8-Fold Radial</option>
+        <option value="none">None</option>
+      </select>
+    </label>
+    <label>Stamp Relief <div class="row"><input type="range" id="stampStrength" min="0" max="1" step="0.05" value="0.85"><span class="val" id="stampStrengthVal">0.85</span></div></label>
+  </section>
+
+  <section>
+    <h2>Export to Quickslot</h2>
+    <label>Themes Folder
+      <input type="text" id="exportRoot" value="">
+    </label>
+    <div class="row">
+      <button class="primary" id="exportBtn" style="flex:1">Forge &amp; Export Pack</button>
+      <button id="downloadJsonBtn">Recipe JSON</button>
+    </div>
+    <div class="status" id="statusMsg"></div>
+  </section>
+</aside>
+
+<main>
+  <div class="toolbar">
+    <div class="pill-group" id="backdropGroup">
+      <button class="pill active" data-bg="forest">Dark Forest</button>
+      <button class="pill" data-bg="snow">Bright Snow</button>
+      <button class="pill" data-bg="dungeon">Dungeon</button>
+    </div>
+    <div class="pill-group" id="stateGroup">
+      <button class="pill active" data-state="normal">Normal</button>
+      <button class="pill" data-state="equipped">Equipped</button>
+      <button class="pill" data-state="selected">Selected</button>
+    </div>
+    <div class="zoom-controls" title="Zoom widget preview (or Ctrl + mouse wheel)">
+      <button class="pill" id="zoomOutBtn" type="button">−</button>
+      <input type="range" id="zoomSlider" min="75" max="300" step="5" value="100">
+      <button class="pill" id="zoomInBtn" type="button">+</button>
+      <span class="val" id="zoomVal" style="min-width:38px">100%</span>
+      <button class="pill" data-zoom="100" type="button">1x</button>
+      <button class="pill" data-zoom="150" type="button">1.5x</button>
+      <button class="pill" data-zoom="200" type="button">2x</button>
+      <button class="pill" id="zoomFitBtn" type="button">Fit</button>
+    </div>
+    <div class="sub" id="renderInfo">Ready</div>
+  </div>
+
+  <div class="stage forest" id="stage">
+    <div class="stage-zoom-wrap" id="stageZoomWrap">
+      <div class="stage-content" id="stageContent">
+        <div class="hud-grid">
+          <div class="souls-cross">
+            <div></div>
+            <div class="slot-tile" style="transform:scale(1.08)"><img id="imgCrossTop" alt=""><span class="key">1</span><span class="glyph">&#9876;</span></div>
+            <div></div>
+            <div class="slot-tile"><img id="imgCrossLeft" alt=""><span class="key">4</span><span class="glyph">&#128737;</span></div>
+            <div class="slot-tile"><img id="imgCrossBottom" alt=""><span class="key">3</span><span class="glyph">&#9879;</span></div>
+            <div class="slot-tile"><img id="imgCrossRight" alt=""><span class="key">2</span><span class="glyph">&#128293;</span></div>
+            <div></div><div></div><div></div>
+          </div>
+
+          <div class="list-panel">
+            <img id="imgPanel" alt="">
+            <div class="list-inner">
+              <div class="list-head"><span>Weapons</span><span>1 / 4</span></div>
+              <div class="list-row active"><span>Ancient Nord Mace</span><span>R</span></div>
+              <div class="list-row"><span>Iron Greatsword</span><span></span></div>
+              <div class="list-row"><span>Iron Rapier</span><span></span></div>
+              <div class="list-row"><span>Wooden Shortbow</span><span>59</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="shapes-strip">
+          <div class="shape-box"><img id="imgSquare" width="84" height="84" alt=""><span>Square (1:1)</span></div>
+          <div class="shape-box"><img id="imgDiamond" width="88" height="88" alt=""><span>Diamond</span></div>
+          <div class="shape-box"><img id="imgCircle" width="84" height="84" alt=""><span>Circle</span></div>
+          <div class="shape-box"><img id="imgHexagon" width="88" height="88" alt=""><span>Hexagon</span></div>
+          <div class="shape-box"><img id="imgCard" width="176" height="66" alt=""><span>Card</span></div>
+          <div class="shape-box"><img id="imgWheel" width="128" height="128" alt=""><span>Wheel Rim</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const rgbToHex = (a) => '#' + a.slice(0, 3).map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+const hexToRgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+
+const SLIDERS = ['rimPx', 'chamferPx', 'bevelHeight', 'grain', 'wear', 'patinaStrength', 'emissiveStrength', 'bgOpacity', 'stampStrength'];
+const COLORS = ['metalBase', 'metalHi', 'metalDark', 'accentMetal', 'patina', 'emissive', 'bgColor'];
+
+let PRESETS = null;
+let currentRecipe = null;
+let previewState = 'normal';
+let previewZoom = 100;
+let debounceTimer = null;
+
+function setZoom(pct) {
+  previewZoom = Math.max(75, Math.min(300, Math.round(pct)));
+  const factor = previewZoom / 100;
+  $('zoomSlider').value = previewZoom;
+  $('zoomVal').textContent = `${previewZoom}%`;
+  const content = $('stageContent');
+  content.style.transform = `scale(${factor})`;
+  const baseH = content.offsetHeight || 560;
+  const baseW = content.offsetWidth || 960;
+  $('stageZoomWrap').style.height = `${Math.ceil(baseH * factor) + 24}px`;
+  $('stageZoomWrap').style.minWidth = `${Math.ceil(baseW * factor)}px`;
+  document.querySelectorAll('[data-zoom]').forEach(btn => {
+    btn.classList.toggle('active', Number(btn.dataset.zoom) === previewZoom);
+  });
+}
+
+function fitZoom() {
+  const stage = $('stage');
+  const availW = Math.max(400, stage.clientWidth - 64);
+  const availH = Math.max(300, stage.clientHeight - 64);
+  const content = $('stageContent');
+  const baseW = content.offsetWidth || 960;
+  const baseH = content.offsetHeight || 560;
+  const fitPct = Math.min(availW / baseW, availH / baseH) * 100;
+  setZoom(Math.max(100, Math.min(260, Math.floor(fitPct / 5) * 5)));
+}
+
+function applyRecipeToUI(r) {
+  currentRecipe = JSON.parse(JSON.stringify(r));
+  $('themeId').value = r.id || 'custom-theme';
+  if (r.material) $('materialSelect').value = r.material;
+  if (r.ornament) $('ornamentSelect').value = r.ornament;
+  for (const k of SLIDERS) {
+    const val = r[k] !== undefined ? r[k] : (k === 'stampStrength' ? 0.85 : 0);
+    $(k).value = val;
+    $(k + 'Val').textContent = Number(val).toFixed(k === 'rimPx' || k === 'chamferPx' || k === 'bevelHeight' ? 1 : 2);
+  }
+  for (const k of COLORS) {
+    if (r[k]) $(k).value = rgbToHex(r[k]);
+  }
+  schedulePreview();
+}
+
+function readRecipeFromUI() {
+  const r = Object.assign({}, currentRecipe || {});
+  r.id = $('themeId').value.trim() || 'custom-theme';
+  r.material = $('materialSelect').value;
+  r.ornament = $('ornamentSelect').value;
+  r.stampSymmetry = $('stampSymmetry').value;
+  for (const k of SLIDERS) {
+    r[k] = parseFloat($(k).value);
+    $(k + 'Val').textContent = r[k].toFixed(k === 'rimPx' || k === 'chamferPx' || k === 'bevelHeight' ? 1 : 2);
+  }
+  for (const k of COLORS) {
+    r[k] = hexToRgb($(k).value);
+  }
+  currentRecipe = r;
+  return r;
+}
+
+function schedulePreview() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(refreshPreview, 120);
+}
+
+async function refreshPreview() {
+  const t0 = performance.now();
+  $('renderInfo').textContent = 'Forging PBR preview...';
+  const recipe = readRecipeFromUI();
+  const res = await fetch('/api/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recipe, state: previewState })
+  });
+  const data = await res.json();
+  $('imgCrossTop').src = data.squareSelected;
+  $('imgCrossLeft').src = data.squareEquipped;
+  $('imgCrossRight').src = data.squareNormal;
+  $('imgCrossBottom').src = data.squareNormal;
+  $('imgPanel').src = data.panel;
+  $('imgSquare').src = data.square;
+  $('imgDiamond').src = data.diamond;
+  $('imgCircle').src = data.circle;
+  $('imgHexagon').src = data.hexagon;
+  $('imgCard').src = data.card;
+  $('imgWheel').src = data.wheel;
+  $('renderInfo').textContent = `Forged in ${Math.round(performance.now() - t0)} ms`;
+}
+
+async function init() {
+  const res = await fetch('/api/presets');
+  PRESETS = await res.json();
+  $('exportRoot').value = PRESETS.defaultExportRoot;
+
+  for (const [id, r] of Object.entries(PRESETS.flagships)) {
+    const opt = document.createElement('option');
+    opt.value = id; opt.textContent = id;
+    $('flagshipSelect').appendChild(opt);
+  }
+  for (const [id, m] of Object.entries(PRESETS.materials)) {
+    const opt = document.createElement('option');
+    opt.value = id; opt.textContent = m.label;
+    $('materialSelect').appendChild(opt);
+  }
+  for (const o of PRESETS.ornaments) {
+    const opt = document.createElement('option');
+    opt.value = o.id; opt.textContent = o.label;
+    $('ornamentSelect').appendChild(opt);
+  }
+
+  $('flagshipSelect').addEventListener('change', () => {
+    applyRecipeToUI(PRESETS.flagships[$('flagshipSelect').value]);
+  });
+  $('materialSelect').addEventListener('change', () => {
+    const mat = PRESETS.materials[$('materialSelect').value];
+    applyRecipeToUI(Object.assign({}, currentRecipe, mat, { material: $('materialSelect').value }));
+  });
+  $('ornamentSelect').addEventListener('change', schedulePreview);
+  $('stampSymmetry').addEventListener('change', schedulePreview);
+  for (const k of [...SLIDERS, ...COLORS]) $(k).addEventListener('input', schedulePreview);
+
+  $('backdropGroup').addEventListener('click', (e) => {
+    if (!e.target.dataset.bg) return;
+    document.querySelectorAll('#backdropGroup .pill').forEach(p => p.classList.remove('active'));
+    e.target.classList.add('active');
+    $('stage').className = 'stage ' + e.target.dataset.bg;
+  });
+  $('stateGroup').addEventListener('click', (e) => {
+    if (!e.target.dataset.state) return;
+    document.querySelectorAll('#stateGroup .pill').forEach(p => p.classList.remove('active'));
+    e.target.classList.add('active');
+    previewState = e.target.dataset.state;
+    schedulePreview();
+  });
+
+  $('stampFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const res = await fetch('/api/upload-stamp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataUrl: reader.result, symmetry: $('stampSymmetry').value })
+      });
+      const out = await res.json();
+      if (out.stampPath) {
+        currentRecipe.stampPath = out.stampPath;
+        $('stampThumb').src = out.preview;
+        $('statusMsg').textContent = 'Stamp imported & symmetrized.';
+        schedulePreview();
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('exportBtn').addEventListener('click', async () => {
+    $('statusMsg').textContent = 'Forging complete PNG theme pack...';
+    const recipe = readRecipeFromUI();
+    const res = await fetch('/api/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipe, exportRoot: $('exportRoot').value })
+    });
+    const out = await res.json();
+    $('statusMsg').textContent = out.ok
+      ? `Exported ${out.files.length} PNGs to ${out.outDir}`
+      : `Error: ${out.error}`;
+  });
+
+  $('downloadJsonBtn').addEventListener('click', () => {
+    const recipe = readRecipeFromUI();
+    const blob = new Blob([JSON.stringify(recipe, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${recipe.id || 'theme'}.recipe.json`;
+    a.click();
+  });
+
+  $('zoomSlider').addEventListener('input', (e) => setZoom(Number(e.target.value)));
+  $('zoomOutBtn').addEventListener('click', () => setZoom(previewZoom - 25));
+  $('zoomInBtn').addEventListener('click', () => setZoom(previewZoom + 25));
+  $('zoomFitBtn').addEventListener('click', fitZoom);
+  document.querySelectorAll('[data-zoom]').forEach(btn => {
+    btn.addEventListener('click', () => setZoom(Number(btn.dataset.zoom)));
+  });
+  $('stage').addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    setZoom(previewZoom + (e.deltaY < 0 ? 15 : -15));
+  }, { passive: false });
+
+  // Automatically scale comfortably on 4K / wide monitors
+  if (window.innerWidth >= 2400) setZoom(190);
+  else if (window.innerWidth >= 1800) setZoom(145);
+  else setZoom(100);
+
+  applyRecipeToUI(PRESETS.flagships['oathvein']);
+}
+
+init();
+</script>
+</body>
+</html>

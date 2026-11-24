@@ -2,8 +2,9 @@ Quickslot 0.17.0 — theme artwork and fonts
 
 Theme artwork:
 All 16 external theme packs in Quickslot/themes/ use original Quickslot-authored
-SVG artwork and color palettes licensed with Quickslot. SHA-256 checksums for
-all bundled SVG assets are recorded in themes/packs-manifest.json.
+2.5D PBR PNG artwork forged with Quickslot Design Studio and color palettes
+licensed with Quickslot. SHA-256 checksums for all bundled theme assets are
+recorded in themes/packs-manifest.json.
 
 Interface compatibility and visual pairing:
 Quickslot includes automatic interface detection and coordinated visual palettes

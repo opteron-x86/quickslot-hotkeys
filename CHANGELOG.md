@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.17.0-rc.2
+## 0.17.0-rc.3
 
 - Armor, clothing and jewelry can be added to groups. A tap puts a piece on, and a tap on a worn piece takes it off.
 - **New → Outfit** saves a set of worn pieces as one entry, with **Use worn**, **Include hands** and **Take off everything else**. A tap on a worn outfit puts back the gear worn before it.
@@ -10,10 +10,11 @@
 - **Cast ready spell** binding under **Controls → Keyboard** and **Controls → Controller**.
 - The equipment display lists the ready spell while an Oblivion-style group exists.
 - `tools/build-cast-animations.py` builds Quickslot Casting Animations from the game's `Skyrim - Animations.bsa`.
-- Schema 3 theme packs support modular PNG and SVG frame, wheel, marker, divider, equipment and per-slot `glyphs` layers, `outset` bleed, semantic color tints, nine-slice scaling, `extends` inheritance, `@fonts/` shared font paths and prioritized interface detection (`sha256`, `exists` and `contains`). See [Theme and icon packs](THEMES.md) and [`docs/starter-theme/`](docs/starter-theme/README.md).
+- Schema 3 theme packs support modular PNG and SVG `card`, `square`, `panel`, `diamond`, `circle`, `hexagon`, `wheel`, `marker`, `divider`, `equipmentPanel` and per-slot `glyphs` layers, logical-pixel `sliceSize` nine-slice scaling, `outset` bleed, semantic color tints, luminous metallic `selected`/`equipped` overlays, `extends` inheritance, `@fonts/` shared font paths and prioritized interface detection (`sha256`, `exists` and `contains`). See [Theme and icon packs](THEMES.md), [`docs/starter-theme/`](docs/starter-theme/README.md) and [Quickslot Design Studio](tools/design-studio/README.md).
 - Segmented radial wheels support `outerRim`, `innerRim` and polar annular `ringBg` artwork that scales across any **Ring thickness** (`10%`–`100%`) and raised pointed wedges.
 - **Appearance → Theme** has **Apply theme's recommended look**, **Reload themes**, **Auto-reload theme changes** and **Theme diagnostics**, and filters icon and script/rune faces (such as Daedric, Falmer and Dragon scripts) out of **Font**. `quickslot_preview` supports `--watch` for live reload on Linux.
-- Bundled SVG theme packs with SIL Open Font License typography cover Dear Diary Dark, Edge, Norden, Nordic, Oathvein, Untarnished and Vel'dun; interface-matching packs for Amethyst, Horizons, Immortal and Outlander; and standalone Crimson Filigree, Daedric Oblivion, Dwemer Aetherium, Imperial Parchment and Sovngarde Astral themes.
+- Bundled 2.5D PBR PNG theme packs forged with Quickslot Design Studio and SIL Open Font License typography cover Dear Diary Dark, Edge, Norden, Nordic, Oathvein, Untarnished and Vel'dun; interface-matching packs for Amethyst, Horizons, Immortal and Outlander; and standalone Crimson Filigree, Daedric Oblivion, Dwemer Aetherium, Imperial Parchment and Sovngarde Astral themes.
+- **Quickslot Design Studio** (`tools/design-studio/studio.py` and `forge.py`) provides an interactive browser UI (with `75%`–`300%` preview zoom, material and ornament controls, custom PNG stamp symmetry importer and live Skyrim-backdrop previews) and a CLI forge for creating or reskinning themes.
 - **Peek HUD** docks the editor as a left or right side-drawer while drawing the live HUD across the full screen. The split preview pane has **Backdrop** (**Dark**, **Mid**, **Snow**) and **State** (**Normal**, **Equipped**, **Enchanted**, **Poisoned**, **Cooldown**, **Depleted**) controls.
 - Widget tiles and selectors include **Hexagons** and **Frameless** (icon-only) shapes, true 1:1 **Squares** with corner hotkeys, centered **Diamonds** icons, single-line **Cards** with a leading-edge accent bar, **Unified hotbar** (fusing Horizontal, Vertical or Grid slots with hairline dividers), **Active tile emphasis** (`0%`–`25%`) and **Label position** (**Below**, **Above**, **Inside**).
 - **Selector → Style → List** displays a compact scrollable panel with the group name and item count in the header, inline hand, equipped, unavailable, poison, count and cooldown details on each row, and a scrollbar thumb.

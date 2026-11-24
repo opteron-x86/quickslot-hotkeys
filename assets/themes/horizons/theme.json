@@ -66,10 +66,10 @@
     ]
   },
   "style": {
-    "cornerCut": 0,
-    "borderWidth": 1.1,
-    "shadowOpacity": 0.34,
-    "glowOpacity": 0.28,
+    "cornerCut": 4.5,
+    "borderWidth": 1.0,
+    "shadowOpacity": 0.38,
+    "glowOpacity": 0.24,
     "editorRounding": 3,
     "accentLine": false
   },
@@ -86,91 +86,144 @@
   "assets": {
     "card": {
       "bg": {
-        "file": "card_bg.svg",
-        "slice": 40
+        "file": "card_bg.png",
+        "slice": 54,
+        "sliceSize": 18.0
       },
       "border": {
-        "file": "card_border.svg",
-        "slice": 40
+        "file": "card_border.png",
+        "slice": 54,
+        "sliceSize": 18.0
       },
       "selected": {
-        "file": "card_selected.svg",
-        "tint": "selection",
-        "slice": 40
+        "file": "card_selected.png",
+        "slice": 54,
+        "sliceSize": 18.0,
+        "tint": "selection"
+      },
+      "equipped": {
+        "file": "card_equipped.png",
+        "slice": 54,
+        "sliceSize": 18.0,
+        "tint": "equipped"
       }
     },
     "square": {
       "bg": {
-        "file": "card_bg.svg",
-        "slice": 40
+        "file": "square_bg.png",
+        "slice": 60,
+        "sliceSize": 20.0
       },
       "border": {
-        "file": "card_border.svg",
-        "slice": 40
+        "file": "square_border.png",
+        "slice": 60,
+        "sliceSize": 20.0
       },
       "selected": {
-        "file": "card_selected.svg",
-        "tint": "selection",
-        "slice": 40
+        "file": "square_selected.png",
+        "slice": 60,
+        "sliceSize": 20.0,
+        "tint": "selection"
+      },
+      "equipped": {
+        "file": "square_equipped.png",
+        "slice": 60,
+        "sliceSize": 20.0,
+        "tint": "equipped"
+      }
+    },
+    "panel": {
+      "bg": {
+        "file": "panel_bg.png",
+        "slice": 60,
+        "sliceSize": 20.0
+      },
+      "border": {
+        "file": "panel_border.png",
+        "slice": 60,
+        "sliceSize": 20.0
       }
     },
     "diamond": {
-      "bg": "diamond_bg.svg",
-      "border": "diamond_border.svg",
+      "bg": "diamond_bg.png",
+      "border": "diamond_border.png",
       "selected": {
-        "file": "diamond_selected.svg",
+        "file": "diamond_selected.png",
         "tint": "selection"
+      },
+      "equipped": {
+        "file": "diamond_equipped.png",
+        "tint": "equipped"
       }
     },
     "circle": {
-      "bg": "circle_bg.svg",
-      "border": "circle_border.svg",
+      "bg": "circle_bg.png",
+      "border": "circle_border.png",
       "selected": {
-        "file": "circle_selected.svg",
+        "file": "circle_selected.png",
         "tint": "selection"
+      },
+      "equipped": {
+        "file": "circle_equipped.png",
+        "tint": "equipped"
+      }
+    },
+    "hexagon": {
+      "bg": "hexagon_bg.png",
+      "border": "hexagon_border.png",
+      "selected": {
+        "file": "hexagon_selected.png",
+        "tint": "selection"
+      },
+      "equipped": {
+        "file": "hexagon_equipped.png",
+        "tint": "equipped"
       }
     },
     "wheel": {
-      "ringBg": {
-        "file": "wheel_ring_bg.svg",
-        "rasterSize": 256
-      },
-      "outerRim": {
-        "file": "wheel_outer_rim.svg",
-        "rasterSize": 512
-      },
-      "innerRim": {
-        "file": "wheel_inner_rim.svg",
-        "rasterSize": 512
-      },
-      "hubBg": "wheel_hub_bg.svg",
-      "hubBorder": "wheel_hub_border.svg",
-      "hubOverlay": "wheel_hub_overlay.svg",
+      "ringBg": "wheel_ring_bg.png",
+      "outerRim": "wheel_outer_rim.png",
+      "innerRim": "wheel_inner_rim.png",
+      "hubBg": "wheel_hub_bg.png",
+      "hubBorder": "wheel_hub_border.png",
+      "hubOverlay": "wheel_hub_overlay.png",
       "pointer": {
-        "file": "wheel_pointer.svg",
+        "file": "wheel_pointer.png",
         "tint": "accent"
       },
-      "divider": "wheel_spoke.svg"
+      "divider": "wheel_spoke.png"
     },
-    "divider": "rule.svg",
+    "divider": "rule.png",
     "markers": {
       "equipped": {
-        "file": "marker_equipped.svg",
+        "file": "marker_equipped.png",
         "tint": "equipped"
       },
       "chargePip": {
-        "file": "marker_pip.svg",
+        "file": "marker_pip.png",
         "tint": "charge"
       }
     },
     "equipmentPanel": {
       "bg": {
-        "file": "equip_bg.svg",
-        "slice": 28
+        "file": "equip_bg.png",
+        "slice": [
+          24,
+          16,
+          24,
+          16
+        ],
+        "sliceSize": 12.0
       },
       "border": {
-        "file": "equip_border.svg",
-        "slice": 28
+        "file": "equip_border.png",
+        "slice": [
+          12,
+          16,
+          12,
+          16
+        ],
+        "sliceSize": 8.0
       }
     }
   },

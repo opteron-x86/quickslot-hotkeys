@@ -87,8 +87,15 @@ struct Paint {
         const float tw=tex.width,th=tex.height;
         const float sl=std::min(float(flipX?s[2]:s[0]),tw*.5f),sr=std::min(float(flipX?s[0]:s[2]),tw*.5f);
         const float st=std::min(float(s[1]),th*.5f),sb=std::min(float(s[3]),th*.5f);
-        const float unit=std::min(1.f,std::min(w,h)/std::min(tw,th));
-        float el=sl*unit,er=sr*unit,et=st*unit,eb=sb*unit;
+        float el=0.f,er=0.f,et=0.f,eb=0.f;
+        if(meta.sliceSize>0.f) {
+            const float ref=std::max({sl,sr,st,sb,1.f});
+            const float k=meta.sliceSize/ref;
+            el=sl*k;er=sr*k;et=st*k;eb=sb*k;
+        } else {
+            const float unit=std::min(1.f,std::min(w,h)/std::min(tw,th));
+            el=sl*unit;er=sr*unit;et=st*unit;eb=sb*unit;
+        }
         if(el+er>w&&el+er>0){const float k=w/(el+er);el*=k;er*=k;}
         if(et+eb>h&&et+eb>0){const float k=h/(et+eb);et*=k;eb*=k;}
         const std::array<float,4> xs{x,x+el,x+w-er,x+w},ys{y,y+et,y+h-eb,y+h};
@@ -206,6 +213,14 @@ struct Paint {
         if(tex.border)drawThemeImage(x,y,w,h,tex.border,meta.border);
         return true;
     }
+    void panelFrame(float x,float y,float w,float h) {
+        if(textures.panel.hasBase()) {
+            struct Restore {float& value;float old;~Restore(){value=old;}} restore{alpha,alpha};alpha*=tweaks.frameOpacity;
+            drawBaseLayers(x,y,w,h,theme.assets.panel,textures.panel);
+            return;
+        }
+        frame(x,y,w,h,false,1,true,false);
+    }
     void frame(float x,float y,float w,float h,bool selected,unsigned variant=1,bool isCard=false,bool equipped=false) {
         struct Restore {float& value;float old;~Restore(){value=old;}} restore{alpha,alpha};alpha*=tweaks.frameOpacity;
         const auto& meta=isCard?theme.assets.card:theme.assets.square;
@@ -227,7 +242,7 @@ struct Paint {
                 }
             }
         }
-        if(equipped&&tex.equipped)drawThemeImage(x,y,w,h,tex.equipped,meta.equipped);
+        if(equipped&&options.equippedHighlight&&tex.equipped)drawThemeImage(x,y,w,h,tex.equipped,meta.equipped);
         if(selected) {
             if(tex.selected)drawThemeImage(x,y,w,h,tex.selected,meta.selected);
             else if(theme.style.accentLine) {
@@ -251,7 +266,7 @@ struct Paint {
             } else d->AddCircleFilled(p(x,y),r*scale,color(dark,options.backgroundOpacity),48);
             circle(x,y,r,selected?selection():theme.border,false,theme.style.borderWidth);
         }
-        if(equipped&&tex.equipped)drawThemeImage(x-r,y-r,2*r,2*r,tex.equipped,meta.equipped);
+        if(equipped&&options.equippedHighlight&&tex.equipped)drawThemeImage(x-r,y-r,2*r,2*r,tex.equipped,meta.equipped);
         if(selected) {
             if(tex.selected)drawThemeImage(x-r,y-r,2*r,2*r,tex.selected,meta.selected);
             else if(theme.style.accentLine) {
@@ -273,7 +288,7 @@ struct Paint {
             }
             else {diamond(x,y,r,dark,true,options.backgroundOpacity);diamond(x,y,r,selected?selectionMark:muted,false);}
         }
-        if(equipped&&tex.equipped)drawThemeImage(x-r,y-r,2*r,2*r,tex.equipped,meta.equipped);
+        if(equipped&&options.equippedHighlight&&tex.equipped)drawThemeImage(x-r,y-r,2*r,2*r,tex.equipped,meta.equipped);
         if(selected) {
             if(tex.selected)drawThemeImage(x-r,y-r,2*r,2*r,tex.selected,meta.selected);
             else if(theme.style.accentLine){const float inner=r-4;const ImVec2 points[]{p(x,y-inner),p(x+inner,y),p(x,y+inner),p(x-inner,y)};d->AddPolyline(points,4,color(accent()),ImDrawFlags_Closed,std::max(1.f,1.2f*scale));}
@@ -284,12 +299,17 @@ struct Paint {
     }
     void hexagon(float x,float y,float r,bool selected,bool equipped=false) {
         struct Restore {float& value;float old;~Restore(){value=old;}} restore{alpha,alpha};alpha*=tweaks.frameOpacity;
-        ImVec2 pts[6],inner[6];hexVertices(x,y,r,pts);hexVertices(x,y,std::max(1.f,r-4.f),inner);
-        if(theme.style.shadowOpacity>0){ImVec2 sh[6];hexVertices(x,y+1.5f,r+2.f,sh);d->AddConvexPolyFilled(sh,6,color(IM_COL32(0,0,0,unsigned(180*theme.style.shadowOpacity))));}
-        d->AddConvexPolyFilled(pts,6,color(dark,options.backgroundOpacity));
-        d->AddPolyline(pts,6,color(selected?selection():theme.border),ImDrawFlags_Closed,std::max(1.f,theme.style.borderWidth*scale*1.3f));
-        d->AddPolyline(inner,6,color(selected?accent():theme.border,selected?.75f:.32f),ImDrawFlags_Closed,std::max(1.f,.9f*scale));
-        if(equipped&&!options.equippedHighlight)d->AddPolyline(pts,6,color(equippedMark,.8f),ImDrawFlags_Closed,std::max(1.2f,1.5f*scale));
+        const auto& meta=theme.assets.hexagon;const auto& tex=textures.hexagon;
+        if(!drawBaseLayers(x-r,y-r,2*r,2*r,meta,tex)) {
+            ImVec2 pts[6],inner[6];hexVertices(x,y,r,pts);hexVertices(x,y,std::max(1.f,r-4.f),inner);
+            if(theme.style.shadowOpacity>0){ImVec2 sh[6];hexVertices(x,y+1.5f,r+2.f,sh);d->AddConvexPolyFilled(sh,6,color(IM_COL32(0,0,0,unsigned(180*theme.style.shadowOpacity))));}
+            d->AddConvexPolyFilled(pts,6,color(dark,options.backgroundOpacity));
+            d->AddPolyline(pts,6,color(selected?selection():theme.border),ImDrawFlags_Closed,std::max(1.f,theme.style.borderWidth*scale*1.3f));
+            d->AddPolyline(inner,6,color(selected?accent():theme.border,selected?.75f:.32f),ImDrawFlags_Closed,std::max(1.f,.9f*scale));
+            if(equipped&&!options.equippedHighlight)d->AddPolyline(pts,6,color(equippedMark,.8f),ImDrawFlags_Closed,std::max(1.2f,1.5f*scale));
+        }
+        if(equipped&&options.equippedHighlight&&tex.equipped)drawThemeImage(x-r,y-r,2*r,2*r,tex.equipped,meta.equipped);
+        if(selected&&tex.selected)drawThemeImage(x-r,y-r,2*r,2*r,tex.selected,meta.selected);
     }
     void frameless(float x,float y,float r,bool selected,bool equipped=false) {
         // Soft radial vignette keeps icons readable on bright snow without drawing a box border.
@@ -351,10 +371,22 @@ struct Paint {
     }
     // Marks a tile in one color with an outline, a tint over the frame, or both; grow moves the outline outward.
     // Shapes: 1 circle, 3 diamond, 4 hexagon, 5 frameless, otherwise rectangle.
+    const FrameLayers& shapeMeta(unsigned shape,bool isCard=false)const {
+        if(shape==1)return theme.assets.circle;
+        if(shape==3)return theme.assets.diamond;
+        if(shape==4)return theme.assets.hexagon;
+        return isCard?theme.assets.card:theme.assets.square;
+    }
+    const SkinFrameLayers& shapeTex(unsigned shape,bool isCard=false)const {
+        if(shape==1)return textures.circle;
+        if(shape==3)return textures.diamond;
+        if(shape==4)return textures.hexagon;
+        return isCard?textures.card:textures.square;
+    }
     void highlight(float x,float y,float w,float h,unsigned shape,ImU32 c,bool outline,bool tinted,float grow=0) {
         const float cx=x+w*.5f,cy=y+h*.5f,r=w*.5f+grow;
-        const auto tint=color(c,.24f),halo=color(c,theme.style.glowOpacity),edge=color(c);
-        const float thin=std::max(1.5f,1.8f*scale),wide=std::max(3.f,5*scale);
+        const auto tint=color(c,.16f),halo=color(c,theme.style.glowOpacity*.65f),edge=color(c,.92f);
+        const float thin=std::max(1.1f,1.35f*scale),wide=std::max(2.2f,3.0f*scale);
         if(shape==1) {
             if(tinted)d->AddCircleFilled(p(cx,cy),w*.5f*scale,tint,48);
             if(outline){d->AddCircle(p(cx,cy),r*scale,halo,48,wide);d->AddCircle(p(cx,cy),r*scale,edge,48,thin);}
@@ -391,8 +423,28 @@ struct Paint {
         }
     }
     // The tile of an equipped item, marked as the Equipped highlight setting asks.
-    void equippedHighlight(float x,float y,float w,float h,unsigned shape) {
-        if(const unsigned mode=options.equippedHighlight)highlight(x,y,w,h,shape,equippedMark,mode!=2,mode!=1);
+    // When a theme provides its own crafted equipped overlay texture, it replaces the procedural outline to avoid stacked borders.
+    void equippedHighlight(float x,float y,float w,float h,unsigned shape,bool isCard=false) {
+        const unsigned mode=options.equippedHighlight;
+        if(!mode)return;
+        if(shape!=5&&shapeTex(shape,isCard).equipped) {
+            if(mode!=1)highlight(x,y,w,h,shape,equippedMark,false,true,0);
+            return;
+        }
+        highlight(x,y,w,h,shape,equippedMark,mode!=2,mode!=1);
+    }
+    // Highlights the active group tile while browsing; prefers the theme's own luminous metallic selected overlay when provided.
+    void previewHighlight(float x,float y,float w,float h,unsigned shape,bool isCard=false,float grow=2.f) {
+        if(shape!=5) {
+            const auto& tex=shapeTex(shape,isCard);
+            if(tex.selected) {
+                ThemeImage meta=shapeMeta(shape,isCard).selected;
+                meta.tint=ThemeTint::accent;
+                drawThemeImage(x,y,w,h,tex.selected,meta,tweaks.frameOpacity);
+                return;
+            }
+        }
+        highlight(x,y,w,h,shape,accent(),true,false,grow);
     }
     void equippedMarker(float x,float y,float r) {
         if(textures.markers.equipped){drawThemeImage(x-r*1.5f,y-r*1.5f,r*3,r*3,textures.markers.equipped,theme.assets.markers.equipped);return;}
@@ -931,7 +983,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
             } else if(o.selector==4) {
                 // Compact SkyUI/QuickLoot-style scrollable panel: single frame, header with group/position, inline row metadata.
                 const float panelX=6.f,panelW=layout.width-12.f,panelH=layout.ruleY-4.f;
-                p.frame(panelX,0,panelW,panelH,false,1,true,false);
+                p.panelFrame(panelX,0,panelW,panelH);
                 if(layout.listHeaderHeight>0) {
                     p.label(panelX+16,6,o.names[group],13,p.groupAccent?p.accent():ImU32(silver),true,panelW-84);
                     if(n>1)p.label(panelX+panelW-16,6.5f,std::to_string(index+1)+" / "+std::to_string(n),12,silver,false,60,false,true);
@@ -1048,7 +1100,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     const bool showGroups=visibility>0&&showGroupDisplay(state,o,now);
     const bool unified=unifiedHotbar(o);
     if(showGroups&&unified&&!geometry.groups.tiles.empty()) {
-        groups.frame(-4,-3,geometry.groups.width+8,geometry.groups.height+6,false,1,o.shape==0,false);
+        groups.panelFrame(-4,-3,geometry.groups.width+8,geometry.groups.height+6);
     }
     if(showGroups)for(std::size_t i=0;i<geometry.groups.tiles.size();++i) {
         const int tileStart=p.d->VtxBuffer.Size;
@@ -1123,8 +1175,11 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 const float bx=mirror?x+width-4:x+1;
                 q.d->AddRectFilled(q.p(bx,y+4),q.p(bx+3,y+h),q.color(previewing?q.accent():equippedMark,q.tweaks.frameOpacity),q.scale);
             }
-            if(equipped&&!unified)q.equippedHighlight(x,y+2,width,h,0);
-            if(previewing)q.highlight(x,y+2,width,h,0,q.accent(),true,false,unified?0.f:3.f);
+            if(equipped&&!unified)q.equippedHighlight(x,y+2,width,h,0,true);
+            if(previewing) {
+                if(unified)q.highlight(x,y+2,width,h,0,q.accent(),true,false,0.f);
+                else q.previewHighlight(x,y+2,width,h,0,true,2.f);
+            }
             q.pulse(x,y+2,width,h,0,pulse);
             q.slotGlyph(id,wide?(mirror?x+20.f:x+width-keyColumn-20.f):iconX,cy,h*.76f,(previewing||equipped)?.65f:.44f);
             if(entry)drawTileIcon(q,iconX,cy,34);
@@ -1180,8 +1235,8 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 else if(hex)q.hexagon(cx,cy,halfR,emphasized,equipped);
                 else if(bare)q.frameless(cx,cy,halfR,emphasized,equipped);
                 else q.lozenge(cx,cy,halfR,emphasized,equipped);
-                if(equipped)q.equippedHighlight(cx-halfR,cy-halfR,hlW,hlH,hlShape);
-                if(previewing)q.highlight(cx-halfR,cy-halfR,hlW,hlH,hlShape,q.accent(),true,false,3);
+                if(equipped)q.equippedHighlight(cx-halfR,cy-halfR,hlW,hlH,hlShape,false);
+                if(previewing)q.previewHighlight(cx-halfR,cy-halfR,hlW,hlH,hlShape,false,2.f);
                 q.pulse(cx-halfR,cy-halfR,hlW,hlH,hlShape,pulse);
             }
             q.slotGlyph(id,cx,cy,halfR*1.32f,(previewing||equipped)?.62f:.42f);

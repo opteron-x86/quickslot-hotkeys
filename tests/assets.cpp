@@ -110,9 +110,9 @@ int main(int argc,char** argv)try {
         if(img.pixels[3]!=0)throw std::runtime_error("SVG transparent margin lost");++checks;
         if(decodeThemeImage(".bmp",raw,256)||decodeThemeImage(".svg",std::span<const unsigned char>(reinterpret_cast<const unsigned char*>("not-svg"),7),256))
             throw std::runtime_error("Unsupported or corrupt theme image did not fail cleanly");++checks;
-        for(const char* rel:{"oathvein/diamond_border.svg","dwemer-aetherium/wheel_outer_rim.svg","crimson-filigree/card_border.svg","amethyst/wheel_ring_bg.svg"}) {
-            const auto svgTex=loadThemeImage(root/"assets/themes"/rel,256,2048);
-            if(!svgTex||svgTex.width!=256)throw std::runtime_error(std::string("Bundled SVG theme asset failed to rasterize: ")+rel);++checks;
+        for(const char* rel:{"assets/themes/oathvein/diamond_border.png","assets/themes/oathvein/panel_border.png","assets/themes/dwemer-aetherium/wheel_outer_rim.png","assets/themes/daedric-oblivion/hexagon_border.png","assets/themes/crimson-filigree/card_border.png","assets/themes/amethyst/wheel_ring_bg.png","docs/starter-theme/card_border.svg","docs/starter-theme/wheel_outer_rim.svg"}) {
+            const auto tex=loadThemeImage(root/rel,256,2048);
+            if(!tex||tex.width<256||tex.height<128)throw std::runtime_error(std::string("Bundled theme asset failed to load: ")+rel);++checks;
         }
     }
     std::cout<<"PASS: "<<checks<<" native image checks (theme frames, SVG/PNG theme assets, keycaps, transparent padding, missing/corrupt fallback).\n";

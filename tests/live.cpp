@@ -87,6 +87,8 @@ int main(int argc,char** argv)try {
             {"assets",{
                 {"card",{{"bg","card_bg.png"},{"border",{{"file","card_border.svg"},{"tint","border"},{"slice",{24,16,24,16}},{"rasterSize",256},{"outset",0.08}}}}},
                 {"diamond",{{"bg","diamond.svg"},{"selected",{{"file","diamond_sel.svg"},{"tint","accent"},{"opacity",0.8}}}}},
+                {"panel",{{"bg",{{"file","card_bg.png"},{"slice",24},{"sliceSize",14}}},{"border",{{"file","card_border.svg"},{"slice",24},{"sliceSize",14}}}}},
+                {"hexagon",{{"bg","diamond.svg"},{"border","diamond.svg"},{"selected","diamond_sel.svg"}}},
                 {"wheel",{{"ringBg","ring.png"},{"outerRim","ring.png"},{"innerRim","ring.png"},{"pointer",{{"file","ptr.svg"},{"tint","selection"}}}}},
                 {"divider","rule.svg"},
                 {"markers",{{"equipped",{{"file","eq.svg"},{"tint","equipped"}}}}},
@@ -120,6 +122,7 @@ int main(int argc,char** argv)try {
         const auto& base=t3.get("base-v3");const auto& child=t3.get("child-v3");
         check(base.charge==rgba(100,190,255)&&near(base.style.cornerCut,8)&&near(base.style.borderWidth,1.5f)&&near(base.style.editorRounding,6)&&!base.style.accentLine,"Schema 3 style and charge color load");
         check(near(base.assets.card.border.outset,.08f)&&base.assets.glyphs.size()==2&&child.assets.glyphs.size()==2,"Schema 3 outset and glyphs array load and inherit cleanly");
+        check(near(base.assets.panel.border.sliceSize,14.f)&&child.assets.panel.bg.path==parentDir/"card_bg.png"&&child.assets.hexagon.selected.path==parentDir/"diamond_sel.svg","Schema 3 sliceSize, panel and hexagon slots load and inherit cleanly");
         check(base.assets.card.border.tint==ThemeTint::border&&base.assets.card.border.slice==std::array<unsigned,4>{24,16,24,16}&&base.assets.card.border.rasterSize==256,"Schema 3 asset slice, tint and rasterSize load");
         check(child.accent==rgba(40,180,90)&&child.text==base.text&&child.charge==base.charge&&near(child.style.cornerCut,8),"Child inherits parent palette and style while overriding accent");
         check(child.assets.card.bg.path==parentDir/"card_bg.png"&&child.assets.wheel.ringBg.path==parentDir/"ring.png"&&child.assets.wheel.outerRim.path==parentDir/"ring.png"&&child.assets.wheel.innerRim.path==parentDir/"ring.png","Inherited asset paths resolve inside the parent folder");

@@ -1235,6 +1235,21 @@ int main(int argc,char** argv)try {
         click("Position");
         check(!probe::find("##placement element").empty(),"Position mode opens on Free equipment cells");
         click("Back");
+
+        // Widget pass UI: Hexagons, Frameless, Unified hotbar, Label position, compact List, Souls Cross & Action Bar presets, and -script font filter.
+        check(Hud::isNonTextFont("Daedric-Script.ttf")&&Hud::isNonTextFont("Falmer-Script.otf")&&Hud::isNonTextFont("Dragon-Script.ttf")&&Hud::isNonTextFont("fa-solid-900.ttf")&&!Hud::isNonTextFont("Jost-Regular.ttf")&&!Hud::isNonTextFont("FuturaBook.ttf"),"Non-text script and icon fonts are filtered out of font selection");
+        click("Widget");
+        click("##layout");click("Horizontal");
+        click("##shape");click("Hexagons");check(state.options.shape==4,"Widget shape selects Hexagons");frame();
+        click("##shape");click("Frameless");check(state.options.shape==5,"Widget shape selects Frameless");frame();
+        click("##shape");click("Squares");
+        click("Unified hotbar");check(state.options.unifiedBar,"Unified hotbar toggles on for horizontal widget");frame();
+        if(!state.options.showLabels)click("Show group names");
+        click("##label position");click("Above");check(state.options.labelPosition==1,"Label position updates to Above");frame();
+        click("##label position");click("Inside");check(state.options.labelPosition==2,"Label position updates to Inside");frame();
+        click("Selector");click("##selector");click("List");check(state.options.selector==4,"Compact List selector renders cleanly");frame();
+        click("Presets");click("Souls Cross");click("Apply preset");check(state.options.layout==5&&state.options.shape==2&&state.options.selector==4,"Souls Cross built-in preset applies from Presets tab");
+        click("Action Bar");click("Apply preset");check(state.options.unifiedBar&&state.options.labelPosition==1,"Action Bar built-in preset applies from Presets tab");
     }
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

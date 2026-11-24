@@ -36,8 +36,8 @@ void run() {
         for(unsigned count=2;count<=8;++count)for(float requested:{0.f,8.f,32.f,128.f}) {
             Options o;o.layout=layout;o.shape=shape;o.groupCount=count;o.showLabels=false;o.spacing=requested;
             const auto g=groupGeometry(o);
-            const Point size=shape==1?Point{58,58}:shape==2?Point{82,100}:Point{84,84};
-            const Point offset{g.tileWidth*.5f,shape==1?37.f:shape==2?50.f:44.f};float nearest=1e9f;
+            const Point size=shape==1?Point{58,58}:shape==2?Point{78,78}:Point{84,84};
+            const Point offset{g.tileWidth*.5f,shape==1?34.f:shape==2?39.f:44.f};float nearest=1e9f;
             for(unsigned i=0;i<count;++i)for(unsigned j=0;j<i;++j) {
                 const float actual=gap({g.tiles[i].x+offset.x,g.tiles[i].y+offset.y},size,
                     {g.tiles[j].x+offset.x,g.tiles[j].y+offset.y},size,shape);

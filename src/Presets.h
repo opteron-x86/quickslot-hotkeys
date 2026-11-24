@@ -63,7 +63,7 @@ inline Options mergeOptions(const Options& current,const Options& source,unsigne
 // Built-in presets ship with the mod and cannot be changed. Default restores the whole look;
 // the layouts rearrange the widget, selector and equipment display and keep everything else.
 struct BuiltinPreset {const char* id;const char* name;};
-inline constexpr BuiltinPreset builtinPresets[]{{"builtin:default","Default"},{"builtin:cards","Cards"},{"builtin:cross","Cross"},{"builtin:diamond","Diamond"},{"builtin:circle","Circle"},{"builtin:wheel","Wheel"}};
+inline constexpr BuiltinPreset builtinPresets[]{{"builtin:default","Default"},{"builtin:cards","Cards"},{"builtin:cross","Cross"},{"builtin:diamond","Diamond"},{"builtin:circle","Circle"},{"builtin:wheel","Wheel"},{"builtin:souls-cross","Souls Cross"},{"builtin:action-bar","Action Bar"}};
 inline const BuiltinPreset* builtinPreset(std::string_view id) {
     for(const auto& preset:builtinPresets)if(id==preset.id)return &preset;
     return nullptr;
@@ -73,6 +73,8 @@ inline Options applyBuiltin(const Options& current,std::string_view id) {
     if(id=="builtin:default")importAppearance(result,Options{});
     else if(id=="builtin:cards")cardsPreset(result);
     else if(id=="builtin:wheel")wheelPreset(result);
+    else if(id=="builtin:souls-cross")soulsCrossPreset(result);
+    else if(id=="builtin:action-bar")actionBarPreset(result);
     else if(id=="builtin:cross"||id=="builtin:diamond"||id=="builtin:circle"){const unsigned layout=id=="builtin:cross"?0u:id=="builtin:diamond"?1u:2u;layoutPreset(result,layout);equipmentLayoutPreset(result,layout);}
     return result;
 }

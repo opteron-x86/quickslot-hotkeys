@@ -24,6 +24,7 @@ inline constexpr FloatSetting floatSettings[]{
     {"spacing",&Options::spacing,0,128,1,Unit::pixels,Section::widget},
     {"cardWidth",&Options::cardWidth,60,260,1,Unit::pixels,Section::widget,true},
     {"tileSize",&Options::tileSize,.6f,2,.05f,Unit::percent,Section::widget,true},
+    {"activeGroupBoost",&Options::activeGroupBoost,0,.25f,.02f,Unit::percent,Section::widget,true},
     {"gridColumns",&Options::gridColumns,1,8,1,Unit::count,Section::widget,true},
     {"offsetX",&Options::offsetX,-8000,8000,1,Unit::pixels,Section::widget,true},
     {"offsetY",&Options::offsetY,-8000,8000,1,Unit::pixels,Section::widget,true},
@@ -62,13 +63,14 @@ inline constexpr ChoiceSetting choiceSettings[]{
     {"equippedHighlight",&Options::equippedHighlight,3,Section::theme,true},
     {"anchor",&Options::anchor,9,Section::widget,true},
     {"layout",&Options::layout,freeLayout,Section::widget},
-    {"shape",&Options::shape,3,Section::widget},
+    {"shape",&Options::shape,5,Section::widget},
+    {"labelPosition",&Options::labelPosition,2,Section::widget,true},
     {"keyPosition",&Options::keyPosition,5,Section::widget,true},
     {"badgePosition",&Options::badgePosition,3,Section::widget,true},
     {"inactiveGroups",&Options::inactiveGroups,2,Section::widget},
     {"selectorAnchor",&Options::selectorAnchor,9,Section::selector,true},
     {"selector",&Options::selector,wheelSelector,Section::selector},
-    {"selectorShape",&Options::selectorShape,3,Section::selector},
+    {"selectorShape",&Options::selectorShape,5,Section::selector},
     {"selectorVisible",&Options::selectorVisible,3,Section::selector,true},
     {"wheelStyle",&Options::wheelStyle,1,Section::selector,true},
     {"wheelName",&Options::wheelName,2,Section::selector,true},
@@ -89,6 +91,7 @@ inline constexpr FlagSetting flagSettings[]{
     {"customTextColor",&Options::customTextColor,Section::theme,true},
     {"customSelectionColor",&Options::customSelectionColor,Section::theme,true},
     {"mirrorCards",&Options::mirrorCards,Section::widget,true},
+    {"unifiedBar",&Options::unifiedBar,Section::widget,true},
     {"showLabels",&Options::showLabels,Section::widget},
     {"showKeys",&Options::showKeys,Section::widget},
     {"showCardNames",&Options::showCardNames,Section::widget},
@@ -121,14 +124,14 @@ inline constexpr FlagSetting flagSettings[]{
 inline const Options& defaultOptions(){static const Options options;return options;}
 // Settings Appearance shows only with Show advanced settings on.
 inline bool advancedSetting(float Options::*member) {
-    for(const auto each:{&Options::backgroundOpacity,&Options::equippedMarkerScale,&Options::spacing,&Options::cardWidth,&Options::tileSize,&Options::textScale,
+    for(const auto each:{&Options::backgroundOpacity,&Options::equippedMarkerScale,&Options::spacing,&Options::cardWidth,&Options::tileSize,&Options::activeGroupBoost,&Options::textScale,
         &Options::inactiveGroupOpacity,&Options::fadeDelay,&Options::idleOpacity,&Options::selectorSpacing,&Options::wheelGap,&Options::wheelRotation,&Options::wheelOpacity,&Options::selectorTextScale,
         &Options::selectorOpacity,&Options::selectorGap,&Options::equipmentFadeDelay,&Options::equipmentIdleOpacity,&Options::equipmentSpacing,
         &Options::equipmentTextScale,&Options::equipmentOpacity})if(each==member)return true;
     return false;
 }
 inline bool advancedSetting(unsigned Options::*member) {
-    for(const auto each:{&Options::selectorVisible,&Options::inactiveGroups,&Options::equipmentTextPosition,&Options::keyPosition,&Options::badgePosition})if(each==member)return true;
+    for(const auto each:{&Options::selectorVisible,&Options::inactiveGroups,&Options::equipmentTextPosition,&Options::labelPosition,&Options::keyPosition,&Options::badgePosition})if(each==member)return true;
     return false;
 }
 inline bool advancedSetting(bool Options::*member) {

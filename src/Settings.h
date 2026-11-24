@@ -9,7 +9,7 @@ inline void sanitizeOptions(Options& o) {
         if(t.anchor>9)t.anchor=9;
         for(float* v:{&t.x,&t.y})*v=std::isfinite(*v)?std::clamp(*v,-8000.f,8000.f):0.f;
         t.scale=std::isfinite(t.scale)?std::clamp(t.scale,.25f,3.f):1.f;
-        if(t.shape>4)t.shape=0;
+        if(t.shape>6)t.shape=0;
         if(t.showLabel>2)t.showLabel=0;
         if(t.showKey>2)t.showKey=0;
     };

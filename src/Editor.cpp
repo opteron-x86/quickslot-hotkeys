@@ -690,8 +690,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 pick("Arrangement",&Options::selector,"Horizontal strip\0Arc\0Ring\0Vertical strip\0List\0Wheel\0");
                 const bool wheel=options.selector==wheelSelector,segments=wheel&&options.wheelStyle==1;
                 if(wheel)pick("Wheel style",&Options::wheelStyle,"Tiles\0Segments\0");
-                if(options.selector!=4&&!segments)pick("Item shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
-                if(!segments)slider("Spacing",&Options::selectorSpacing);
+                if(options.selector!=4&&!segments)pick("Item shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0Hexagons\0Frameless\0");
+                if(!segments&&options.selector!=4)slider("Spacing",&Options::selectorSpacing);
                 if(wheel)slider("Wheel size",&Options::wheelSize);else if(options.selector!=2)pick("Visible items",&Options::selectorVisible,"3\0005\0007\0009\0");
                 if(segments) {
                     slider("Ring thickness",&Options::wheelThickness);slider("Gap",&Options::wheelGap);
@@ -717,11 +717,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 const unsigned arrangedBefore=options.layout;
                 if(pick("Arrangement",&Options::layout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0Grid\0Free\0")&&options.layout==freeLayout&&arrangedBefore!=freeLayout)
                     {options.layout=arrangedBefore;freeTilesFrom(options,arrangedBefore,screen.x,screen.y);placementTarget_=firstTileElement;placementTile_=0;measured.reset();}
-                pick("Tile shape",&Options::shape,"Cards\0Circles\0Squares\0Diamonds\0");
+                pick("Tile shape",&Options::shape,"Cards\0Circles\0Squares\0Diamonds\0Hexagons\0Frameless\0");
+                if(options.layout==0||options.layout==1||options.layout==6)toggle("Unified hotbar",&Options::unifiedBar);
                 if(tileElement(placementTarget_)) {
                     auto& tp=options.tilePlaces[options.groupOrder[tileSlot(placementTarget_)]];
                     int ownShape=int(tp.shape),ownLabel=int(tp.showLabel),ownKey=int(tp.showKey);
-                    ImGui::SetNextItemWidth(-px(120));if(UI::Combo("This tile shape##position",&ownShape,"Follow widget\0Cards\0Circles\0Squares\0Diamonds\0")){tp.shape=unsigned(ownShape);measured.reset();changed=true;}
+                    ImGui::SetNextItemWidth(-px(120));if(UI::Combo("This tile shape##position",&ownShape,"Follow widget\0Cards\0Circles\0Squares\0Diamonds\0Hexagons\0Frameless\0")){tp.shape=unsigned(ownShape);measured.reset();changed=true;}
                     ImGui::SetNextItemWidth(-px(120));if(UI::Combo("This tile name##position",&ownLabel,"Follow widget\0Show\0Hide\0")){tp.showLabel=unsigned(ownLabel);measured.reset();changed=true;}
                     ImGui::SetNextItemWidth(-px(120));if(UI::Combo("This tile key##position",&ownKey,"Follow widget\0Show\0Hide\0")){tp.showKey=unsigned(ownKey);measured.reset();changed=true;}
                 }
@@ -1716,14 +1717,18 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(options.layout==freeLayout&&arrangedBefore!=freeLayout){options.layout=arrangedBefore;freeTilesFrom(options,arrangedBefore,screen.x,screen.y);changed=true;}
                     if(options.layout==freeLayout&&ImGui::IsItemHovered())UI::SetTooltip("Each group's tile has its own position and size. Drag them in Position.");
                     if(options.layout==6)number("Columns",&Options::gridColumns);
-                    choice("Tile shape","##shape",&Options::shape,"Cards\0Circles\0Squares\0Diamonds\0");
-                    number("Spacing",&Options::spacing);
+                    choice("Tile shape","##shape",&Options::shape,"Cards\0Circles\0Squares\0Diamonds\0Hexagons\0Frameless\0");
+                    if(options.layout==0||options.layout==1||options.layout==6) {
+                        if(flag("Unified hotbar",&Options::unifiedBar)&&ImGui::IsItemHovered())UI::SetTooltip("Fuses the group tiles into one continuous bar with hairline dividers.");
+                    }
+                    if(!unifiedHotbar(options))number("Spacing",&Options::spacing);
                     if(options.shape==0&&(options.showCardNames||options.showLabels)){if(flag("Mirror cards",&Options::mirrorCards)&&ImGui::IsItemHovered())UI::SetTooltip("Puts the icon on the right and aligns the text to it, for a widget on the right side of the screen.");}
                 }
                 if(heading("Size")) {
                     number("Scale",&Options::scale);
                     if(options.shape==0){if(options.showCardNames||options.showLabels)number("Card width",&Options::cardWidth);}
                     else number("Tile size",&Options::tileSize);
+                    if(!unifiedHotbar(options)&&number("Active tile emphasis",&Options::activeGroupBoost)&&ImGui::IsItemHovered())UI::SetTooltip("Subtly enlarges the active group's tile around its center.");
                     number("Text size",&Options::textScale);number("Opacity",&Options::opacity);
                 }
                 if(heading("Placement")) {
@@ -1738,7 +1743,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                         if(UI::SliderFloat("##free tile size",&percent,25,300,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){tile.scale=percent/100;measured.reset();changed=true;}
                         int ownShape=int(tile.shape),ownLabel=int(tile.showLabel),ownKey=int(tile.showKey);
                         rowLabel("This tile shape");ImGui::SetNextItemWidth(-1);
-                        if(UI::Combo("##free tile shape",&ownShape,"Follow widget\0Cards\0Circles\0Squares\0Diamonds\0")){tile.shape=unsigned(ownShape);measured.reset();changed=true;}
+                        if(UI::Combo("##free tile shape",&ownShape,"Follow widget\0Cards\0Circles\0Squares\0Diamonds\0Hexagons\0Frameless\0")){tile.shape=unsigned(ownShape);measured.reset();changed=true;}
                         if(advanced) {
                             rowLabel("This tile name");ImGui::SetNextItemWidth(-1);
                             if(UI::Combo("##free tile label",&ownLabel,"Follow widget\0Show\0Hide\0")){tile.showLabel=unsigned(ownLabel);measured.reset();changed=true;}
@@ -1753,7 +1758,9 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     }else {if(advanced)placementControls(0);place(0);}
                 }
                 if(heading("Content")) {
-                    flag("Show group names",&Options::showLabels);flag("Show keys",&Options::showKeys);
+                    flag("Show group names",&Options::showLabels);
+                    if(options.shape!=0&&options.showLabels)choice("Label position","##label position",&Options::labelPosition,"Below\0Above\0Inside\0");
+                    flag("Show keys",&Options::showKeys);
                     choice("Key position","##key position",&Options::keyPosition,"Automatic\0Top\0Bottom\0Left\0Right\0Corner\0");
                     choice("Count position","##badge position",&Options::badgePosition,"Automatic\0Bottom-right\0Bottom-left\0Top-right\0");
                     if(options.shape==0)flag("Show card item names",&Options::showCardNames);
@@ -1779,8 +1786,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(options.selector==wheelSelector)UI::TextWrapped("Every item keeps its place on the wheel. Point at one with the browsing stick or the mouse; scrolling and previous / next still step.");
                     if(options.selector==wheelSelector)choice("Wheel style","##wheel style",&Options::wheelStyle,"Tiles\0Segments\0");
                     const bool wheel=options.selector==wheelSelector,segments=wheel&&options.wheelStyle==1;
-                    if(options.selector!=4&&!segments)choice("Item shape","##selector shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0");
-                    if(!segments)number("Spacing",&Options::selectorSpacing);
+                    if(options.selector!=4&&!segments)choice("Item shape","##selector shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0Hexagons\0Frameless\0");
+                    if(!segments&&options.selector!=4)number("Spacing",&Options::selectorSpacing);
                     if(wheel){if(number("Wheel size",&Options::wheelSize)&&ImGui::IsItemHovered())UI::SetTooltip("The wheel's outer radius. Its ring, icons and center grow with it.");}
                     else if(options.selector!=2)choice("Visible items","##selector visible",&Options::selectorVisible,"3\0005\0007\0009\0");
                 }

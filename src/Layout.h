@@ -78,17 +78,21 @@ inline Arrangement arrangeTiles(const std::vector<Point>& sizes,unsigned layout,
     for(auto& p:a.centers){p.x-=bounds.min.x;p.y-=bounds.min.y;}
     a.width=bounds.width();a.height=bounds.height();return a;
 }
+inline bool unifiedHotbar(const Options& o){return o.unifiedBar&&(o.layout==0||o.layout==1||o.layout==6);}
 struct TileMetrics {float tileWidth=0,tileHeight=0;Point footprint{};unsigned shape=2;};
 inline TileMetrics tileMetricsFor(const Options& o,unsigned shapeChoice,bool showLabels,bool showKeys) {
     const float text=hudTextFactor(o),size=o.tileSize;TileMetrics m;
+    const bool outsideLabel=showLabels&&o.labelPosition!=2;
     switch(shapeChoice) {
-    // Circle, square and diamond tiles scale with tileSize; the name under them keeps its own text size.
-    case 1:m.tileWidth=std::max(68*size,showLabels?76*std::max(1.f,text):0.f);m.tileHeight=showLabels?71*size+12*text+4:70*size;m.footprint={58*size,58*size};m.shape=1;break;
-    case 2:m.tileWidth=std::max(82*size,showLabels?82*std::max(1.f,text):0.f);m.tileHeight=showLabels?100*size+12*text+4:100*size;m.footprint={82*size,100*size};m.shape=2;break;
-    case 3:m.tileWidth=std::max(88*size,showLabels?88*std::max(1.f,text):0.f);m.tileHeight=showLabels?88*size+12*text+4:88*size;m.footprint={84*size,84*size};m.shape=3;break;
-    default:m.tileWidth=(o.showCardNames||showLabels?59+o.cardWidth*std::max(1.f,text):64)+(showKeys?cardKeyColumn:0);m.tileHeight=std::max(56.f,(o.showCardNames&&showLabels?26:14)*text+20);m.footprint={m.tileWidth,m.tileHeight-7};m.shape=2;break;
+    // Circle, square, diamond, hexagon and frameless tiles scale with tileSize; external names keep their own text size.
+    case 1:m.tileWidth=std::max(68*size,outsideLabel?76*std::max(1.f,text):0.f);m.tileHeight=outsideLabel?71*size+12*text+4:66*size;m.footprint={58*size,58*size};m.shape=1;break;
+    case 2:m.tileWidth=std::max(78*size,outsideLabel?78*std::max(1.f,text):0.f);m.tileHeight=outsideLabel?78*size+12*text+4:78*size;m.footprint={78*size,78*size};m.shape=2;break;
+    case 3:m.tileWidth=std::max(88*size,outsideLabel?88*std::max(1.f,text):0.f);m.tileHeight=outsideLabel?88*size+12*text+4:88*size;m.footprint={84*size,84*size};m.shape=3;break;
+    case 4:m.tileWidth=std::max(76*size,outsideLabel?78*std::max(1.f,text):0.f);m.tileHeight=outsideLabel?84*size+12*text+4:84*size;m.footprint={72*size,82*size};m.shape=1;break;
+    case 5:m.tileWidth=std::max(64*size,outsideLabel?72*std::max(1.f,text):0.f);m.tileHeight=outsideLabel?64*size+12*text+4:64*size;m.footprint={60*size,60*size};m.shape=1;break;
+    default:m.tileWidth=(o.showCardNames||showLabels?59+o.cardWidth*std::max(1.f,text):56)+(showKeys?cardKeyColumn:0);m.tileHeight=o.showCardNames&&showLabels?std::max(54.f,26*text+20):std::max(48.f,14*text+20);m.footprint={m.tileWidth,m.tileHeight-4};m.shape=2;break;
     }
-    if(showLabels&&shapeChoice){m.footprint={m.tileWidth,m.tileHeight};m.shape=2;}
+    if(outsideLabel&&shapeChoice){m.footprint={m.tileWidth,m.tileHeight};m.shape=2;}
     return m;
 }
 inline LayoutGeometry groupGeometry(const Options& o) {
@@ -102,7 +106,8 @@ inline LayoutGeometry groupGeometry(const Options& o) {
             g.tileSizes.push_back({m.tileWidth,m.tileHeight});
         }
     }
-    const auto arranged=arrangeTiles(std::vector<Point>(count,base.footprint),o.layout==freeLayout?0u:o.layout,o.spacing,base.shape,0,unsigned(std::clamp(o.gridColumns,1.f,8.f)));
+    const float gap=unifiedHotbar(o)?0.f:o.spacing;
+    const auto arranged=arrangeTiles(std::vector<Point>(count,base.footprint),o.layout==freeLayout?0u:o.layout,gap,base.shape,0,unsigned(std::clamp(o.gridColumns,1.f,8.f)));
     for(const auto p:arranged.centers)g.tiles.push_back({std::max(0.f,p.x-base.footprint.x*.5f),std::max(0.f,p.y-base.footprint.y*.5f)});
     g.width=arranged.width+g.tileWidth-base.footprint.x;g.height=arranged.height+g.tileHeight-base.footprint.y;
     return g;
@@ -125,7 +130,8 @@ inline Point selectorOffset(const Options& o,float position) {
     return o.selector==3?Point{0,shift}:Point{shift,std::abs(position)*rise};
 }
 struct SelectorGeometry {
-    float width=420,height=155,centerY=16,ruleY=67,nameY=76,statusY=104,descriptionY=0,pagerY=132,hintY=154,listPitch=0,listHeight=46;
+    float width=420,height=155,centerY=16,ruleY=67,nameY=76,statusY=104,descriptionY=0,pagerY=132,hintY=154,listPitch=0,listHeight=46,listHeaderHeight=0;
+    unsigned listVisible=0;
     std::vector<Point> ring;
     // Wheel selectors: the center the slots surround and their distance from it. A segmented wheel is a ring
     // from inner to outer around a hub of hubRadius; the pointed segment reaches out by lift. rotation turns the
@@ -178,26 +184,33 @@ inline SelectorGeometry selectorGeometry(const Options& o,std::size_t count=5,fl
         const float reach=selectorOffset(o,side).y+selectorRadius(side);
         s.width=std::max(240.f,240*text);s.centerY=reach;s.ruleY=reach*2+18;
     } else if(o.selector==4) {
-        s.width=320*std::max(1.f,text);s.listHeight=std::max(46.f,16*text+14);s.listPitch=s.listHeight+o.selectorSpacing;s.centerY=s.listPitch*side;
-        s.ruleY=s.centerY+s.listPitch*side+s.listHeight*.5f+16;
+        // Compact QuickLoot/SkyUI-style panel: header bar + tight scrollable rows, no redundant repeated title underneath.
+        const unsigned maxRows=std::clamp(o.selectorVisible*2u+3u,3u,9u);
+        s.listVisible=std::max(1u,std::min(maxRows,unsigned(std::max<std::size_t>(count,1))));
+        s.listHeaderHeight=o.selectorFooter?std::max(28.f,14*text+14):0.f;
+        s.width=std::max(268.f,268*text);s.listHeight=std::max(32.f,15*text+14);s.listPitch=s.listHeight;
+        s.centerY=s.listHeaderHeight+4.f;
+        s.ruleY=s.centerY+s.listPitch*float(s.listVisible)+6.f;
     } else {
         const auto last=selectorOffset(o,side);
         s.width=std::max(240*std::max(1.f,text),(last.x+selectorRadius(side))*2+48);
         s.ruleY=s.centerY+std::max(40.f,last.y+selectorRadius(side))+16;
     }
-    // Under the selector: the name and its status line (unless the wheel holds them in its hub or hides them), the
-    // footer with the group and position, then the hints.
-    const bool name=!s.segments||s.nameBelow;
+    // Under the selector: the name and its status line (unless the wheel holds them in its hub, hides them, or the compact list displays them inline),
+    // the footer with the group and position, then the hints.
+    const bool listMode=o.selector==4;
+    const bool name=!listMode&&(!s.segments||s.nameBelow);
+    const bool footer=!listMode&&o.selectorFooter;
     // With charge shown, a row under the status holds the enchantment charge.
     s.nameY=s.ruleY+9;s.statusY=s.nameY+28*text;const float charge=o.showCharge?14*text*1.1f:0;
     // Two lines describe a potion, food, poison or scroll.
-    const float afterName=name?s.statusY+14*text+charge+9:s.ruleY-8;
+    const float afterName=name?s.statusY+14*text+charge+9:listMode?s.ruleY+(o.showCharge?charge+4:0):s.ruleY-8;
     s.descriptionY=afterName-(name?4:0);
     const float afterDescription=o.showDescriptions?s.descriptionY+2*14*text+8:afterName;
     s.pagerY=afterDescription;
-    const float afterFooter=o.selectorFooter?s.pagerY+13*text+10:afterDescription;
+    const float afterFooter=footer?s.pagerY+13*text+10:afterDescription;
     s.hintY=afterFooter;
-    s.height=o.showHints?s.hintY+13*text+4:o.selectorFooter?s.pagerY+13*text+6:o.showDescriptions?afterDescription-3:name?s.statusY+14*text+charge+6:s.ruleY-2;return s;
+    s.height=o.showHints?s.hintY+13*text+4:footer?s.pagerY+13*text+6:o.showDescriptions?afterDescription-3:name?s.statusY+14*text+charge+6:listMode?afterName+2:s.ruleY-2;return s;
 }
 // Placement. An anchored element rests a point of itself on the matching point of the screen area, moved by an
 // offset in 1080p pixels, so it grows and shrinks away from that point. An unanchored element's position is a
@@ -570,7 +583,7 @@ inline HudGeometry previewGeometry(const Options& o,float screenX,float screenY,
 }
 
 inline void layoutPreset(Options& o,unsigned preset) {
-    o.showLabels=false;
+    o.showLabels=false;o.unifiedBar=false;o.labelPosition=0;o.activeGroupBoost=0;
     o.selector=1;o.selectorShape=0;o.selectorSpacing=8;o.spacing=4;
     if(preset==0){o.layout=5;o.shape=2;o.selectorShape=2;}
     else if(preset==1){o.layout=2;o.shape=3;o.selectorShape=3;}
@@ -583,12 +596,24 @@ inline void equipmentListPreset(Options& o) {
     o.equipmentAnchor=3;o.equipmentOffsetX=16;o.equipmentOffsetY=0;
 }
 inline void cardsPreset(Options& o) {
-    o.showLabels=true;o.layout=0;o.shape=0;o.selector=0;o.selectorShape=0;o.spacing=14;o.selectorSpacing=16;
+    o.showLabels=true;o.labelPosition=0;o.unifiedBar=false;o.activeGroupBoost=0;o.layout=0;o.shape=0;o.selector=0;o.selectorShape=0;o.spacing=14;o.selectorSpacing=16;
     equipmentListPreset(o);
 }
 // Diamond tiles with a wheel of segments for a selector.
 inline void wheelPreset(Options& o) {
-    o.showLabels=false;o.layout=2;o.shape=3;o.selector=wheelSelector;o.selectorShape=3;o.wheelStyle=1;o.selectorSpacing=8;o.spacing=4;
+    o.showLabels=false;o.labelPosition=0;o.unifiedBar=false;o.activeGroupBoost=0;o.layout=2;o.shape=3;o.selector=wheelSelector;o.selectorShape=3;o.wheelStyle=1;o.selectorSpacing=8;o.spacing=4;
+    equipmentListPreset(o);
+}
+// Tight 4-way Souls/D-Pad cross with true 1:1 squares and a compact list selector.
+inline void soulsCrossPreset(Options& o) {
+    o.showLabels=false;o.labelPosition=0;o.unifiedBar=false;o.layout=5;o.shape=2;o.spacing=4;o.activeGroupBoost=.1f;o.keyPosition=0;
+    o.selector=4;o.selectorShape=2;o.selectorSpacing=8;o.anchor=6;o.offsetX=28;o.offsetY=-28;
+    equipmentListPreset(o);
+}
+// Unified MMO-style bottom-center hotbar with labels above and corner hotkeys.
+inline void actionBarPreset(Options& o) {
+    o.showLabels=true;o.labelPosition=1;o.unifiedBar=true;o.layout=0;o.shape=2;o.spacing=0;o.activeGroupBoost=.08f;o.keyPosition=5;
+    o.selector=0;o.selectorShape=2;o.selectorSpacing=8;o.anchor=7;o.offsetX=0;o.offsetY=-22;
     equipmentListPreset(o);
 }
 inline void equipmentLayoutPreset(Options& o,unsigned){equipmentListPreset(o);}

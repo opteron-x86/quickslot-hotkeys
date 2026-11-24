@@ -90,6 +90,11 @@ ThemeImage parseImage(const std::filesystem::path& root,const Json& value) {
         } else throw std::runtime_error("Invalid image slice");
     }
     if(value.contains("rasterSize"))image.rasterSize=std::clamp(value.at("rasterSize").get<unsigned>(),64u,2048u);
+    if(value.contains("outset")) {
+        const float o=value.at("outset").get<float>();
+        if(!std::isfinite(o))throw std::runtime_error("Invalid image outset");
+        image.outset=std::clamp(o,0.f,.35f);
+    }
     return image;
 }
 void applyImageSlot(ThemeImage& target,const std::filesystem::path& root,const Json& obj,const char* key) {
@@ -247,6 +252,15 @@ void applyManifest(Theme& t,TrackedFlags& flags,const Json& j,const std::filesys
             applyImageSlot(t.assets.divider,root,assets,"divider");
             applyMarkerLayers(t.assets.markers,root,assets,"markers");
             applyEquipmentPanel(t.assets.equipmentPanel,root,assets,"equipmentPanel");
+            if(assets.contains("glyphs")) {
+                const auto& g=assets.at("glyphs");
+                if(g.is_null())t.assets.glyphs.clear();
+                else {
+                    if(!g.is_array()||g.size()>16)throw std::runtime_error("Invalid glyphs array");
+                    t.assets.glyphs.clear();
+                    for(const auto& item:g)if(auto img=parseImage(root,item))t.assets.glyphs.push_back(std::move(img));
+                }
+            }
         }
     }
 }

@@ -43,6 +43,7 @@ struct SkinTextures {
     LoadedTexture divider;
     SkinMarkerLayers markers;
     SkinEquipmentPanel equipmentPanel;
+    std::vector<LoadedTexture> glyphs;
 };
 template<class Upload> SkinTextures loadSkinTextures(const Theme& theme,Upload&& upload) {
     SkinTextures out;
@@ -70,6 +71,8 @@ template<class Upload> SkinTextures loadSkinTextures(const Theme& theme,Upload&&
     out.markers.soulGem=upload(theme.assets.markers.soulGem);
     out.equipmentPanel.bg=upload(theme.assets.equipmentPanel.bg);
     out.equipmentPanel.border=upload(theme.assets.equipmentPanel.border);
+    out.glyphs.reserve(theme.assets.glyphs.size());
+    for(const auto& glyph:theme.assets.glyphs)out.glyphs.push_back(upload(glyph));
     return out;
 }
 class Hud {
@@ -118,15 +121,23 @@ public:
     std::uint64_t themeRevision()const{return themeRevision_;}
     const std::vector<std::string>& themeWarnings()const{return themes_.warnings();}
     const std::vector<FontChoice>& fonts()const{return fonts_;}
-    // The installed interface's text typeface. Interface font folders also hold rune, script and icon
-    // faces (ImGui Icons ships Daedric-Script and fa-solid), so those are skipped, and a Regular or
-    // Book weight is preferred. Null when the folder has no text face.
+    // True for icon, rune and lore-script typefaces (e.g. Daedric-Script, Falmer-Script, Dragon-Script, fa-solid)
+    // that cannot render readable UI text.
+    static bool isNonTextFont(std::string_view raw) {
+        std::string name(raw);for(auto& c:name)c=char(std::tolower(static_cast<unsigned char>(c)));
+        return name.starts_with("fa-")||std::ranges::any_of(std::array{
+            "script","rune","awesome","icon","symbol","glyph","dingbat","emoji","daedric","falmer","dovah"
+        },[&](const char* mark){return name.contains(mark);});
+    }
+    // The installed interface's text typeface. Skips non-text faces and prefers a Regular or Book weight.
+    // Null when the folder has no text face.
     static const FontChoice* interfaceFont(const std::vector<FontChoice>& fonts) {
         const FontChoice* first=nullptr;
         for(const auto& choice:fonts) {
             if(!choice.id.starts_with("ui/")||!choice.font)continue;
-            std::string name=choice.id.substr(3);for(auto& c:name)c=char(std::tolower(static_cast<unsigned char>(c)));
-            if(name.starts_with("fa-")||std::ranges::any_of(std::array{"script","rune","awesome","icon","symbol","glyph","dingbat","emoji"},[&](const char* mark){return name.contains(mark);}))continue;
+            const std::string_view tail=std::string_view(choice.id).substr(3);
+            if(isNonTextFont(tail))continue;
+            std::string name(tail);for(auto& c:name)c=char(std::tolower(static_cast<unsigned char>(c)));
             if(name.contains("regular")||name.contains("book"))return &choice;
             if(!first)first=&choice;
         }

@@ -531,7 +531,9 @@ struct Options {
     bool equipmentShowText=true;
     std::array<TilePlace,std::size_t(EquipmentRole::count)> equipmentPlaces{};
     std::array<unsigned,std::size_t(EquipmentRole::count)> equipmentRoles{};
-    unsigned keyPosition=0,badgePosition=0;
+    unsigned keyPosition=0,badgePosition=0,labelPosition=0;
+    bool unifiedBar=false;
+    float activeGroupBoost=0;
     float equipmentFadeDelay=4,equipmentIdleOpacity=.35f;
     unsigned inactiveGroups=0;
     float inactiveGroupOpacity=.3f;
@@ -539,7 +541,7 @@ struct Options {
     float placementGridSize=16;
 };
 inline unsigned effectiveTileShape(const Options& o,std::size_t id) {
-    return o.layout==freeLayout&&id<Arsenal::count&&o.tilePlaces[id].shape>=1&&o.tilePlaces[id].shape<=4?o.tilePlaces[id].shape-1:o.shape;
+    return o.layout==freeLayout&&id<Arsenal::count&&o.tilePlaces[id].shape>=1&&o.tilePlaces[id].shape<=6?o.tilePlaces[id].shape-1:o.shape;
 }
 inline bool effectiveTileShowLabel(const Options& o,std::size_t id) {
     return o.layout==freeLayout&&id<Arsenal::count&&o.tilePlaces[id].showLabel>=1&&o.tilePlaces[id].showLabel<=2?o.tilePlaces[id].showLabel==1:o.showLabels;

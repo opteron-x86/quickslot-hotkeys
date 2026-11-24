@@ -116,10 +116,15 @@ int main()try {
         }
         for(unsigned layout=0;layout<5;++layout) {
             textOptions.selector=layout;textOptions.showHints=true;const auto g=selectorGeometry(textOptions);const float factor=selectorTextFactor(textOptions);
-            check(g.statusY>=g.nameY+(layout==2?20:23)*factor,"Selected name and status do not overlap");
-            check(g.pagerY>=g.statusY+13*factor,"Pager follows the status row");
-            check(g.hintY>=g.pagerY+6+12*factor&&g.height>=g.hintY+13*factor,"Hints fit below pager at every text scale");
-            if(layout==4)check(g.listHeight>=16*factor+14&&g.listPitch>=g.listHeight,"List rows reserve enough height for scaled names");
+            if(layout==4) {
+                check(g.listHeaderHeight>0&&g.listVisible>0,"Compact list reserves a header bar and visible row count");
+                check(g.listHeight>=15*factor+14&&g.listPitch>=g.listHeight,"List rows reserve enough height for scaled names");
+                check(g.hintY>=g.ruleY&&g.height>=g.hintY+13*factor,"Compact list fits hints cleanly below the panel");
+            } else {
+                check(g.statusY>=g.nameY+(layout==2?20:23)*factor,"Selected name and status do not overlap");
+                check(g.pagerY>=g.statusY+13*factor,"Pager follows the status row");
+                check(g.hintY>=g.pagerY+6+12*factor&&g.height>=g.hintY+13*factor,"Hints fit below pager at every text scale");
+            }
         }
     }
     for(unsigned dock=0;dock<5;++dock)for(float own:{.5f,2.f}) {
@@ -167,11 +172,11 @@ int main()try {
     {
         Options grid;grid.layout=6;grid.shape=2;grid.groupCount=6;grid.gridColumns=3;grid.spacing=10;grid.showLabels=false;
         const auto three=groupGeometry(grid);
-        check(three.tiles.size()==6&&std::abs(three.width-(3*82+2*10))<.01f&&std::abs(three.height-(2*100+10))<.01f,"A grid fills rows of the chosen width");
+        check(three.tiles.size()==6&&std::abs(three.width-(3*78+2*10))<.01f&&std::abs(three.height-(2*78+10))<.01f,"A grid fills rows of the chosen width with true 1:1 squares");
         check(three.tiles[3].x==three.tiles[0].x&&three.tiles[3].y>three.tiles[0].y&&three.tiles[1].y==three.tiles[0].y,"Grid tiles run left to right, then down");
         grid.gridColumns=1;const auto column=groupGeometry(grid);grid.gridColumns=8;const auto row=groupGeometry(grid);
-        check(std::abs(column.width-82)<.01f&&std::abs(row.height-100)<.01f,"One column stacks the groups and eight columns keep six in a row");
-        grid.groupCount=2;grid.gridColumns=2;check(std::abs(groupGeometry(grid).width-(2*82+10))<.01f,"Two groups in a grid keep the set spacing");
+        check(std::abs(column.width-78)<.01f&&std::abs(row.height-78)<.01f,"One column stacks the groups and eight columns keep six in a row");
+        grid.groupCount=2;grid.gridColumns=2;check(std::abs(groupGeometry(grid).width-(2*78+10))<.01f,"Two groups in a grid keep the set spacing");
         Options sized;sized.shape=1;sized.showLabels=false;const auto normal=groupGeometry(sized);sized.tileSize=2;const auto doubled=groupGeometry(sized);
         check(std::abs(doubled.tileWidth-normal.tileWidth*2)<.01f&&std::abs(doubled.tileHeight-normal.tileHeight*2)<.01f,"Tile size scales circle, square and diamond tiles");
         sized.showLabels=true;sized.tileSize=1;const auto named=groupGeometry(sized);sized.tileSize=2;const auto namedLarge=groupGeometry(sized);

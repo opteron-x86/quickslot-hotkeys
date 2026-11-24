@@ -85,12 +85,13 @@ int main(int argc,char** argv)try {
             {"style",{{"cornerCut",8},{"borderWidth",1.5},{"shadowOpacity",0.5},{"glowOpacity",0.4},{"iconInset",0.18},{"editorRounding",6},{"accentLine",false}}},
             {"recommended",{{"wheelStyle",1},{"wheelThickness",0.5},{"wheelHighlight",3},{"equippedHighlight",1}}},
             {"assets",{
-                {"card",{{"bg","card_bg.png"},{"border",{{"file","card_border.svg"},{"tint","border"},{"slice",{24,16,24,16}},{"rasterSize",256}}}}},
+                {"card",{{"bg","card_bg.png"},{"border",{{"file","card_border.svg"},{"tint","border"},{"slice",{24,16,24,16}},{"rasterSize",256},{"outset",0.08}}}}},
                 {"diamond",{{"bg","diamond.svg"},{"selected",{{"file","diamond_sel.svg"},{"tint","accent"},{"opacity",0.8}}}}},
                 {"wheel",{{"ringBg","ring.png"},{"outerRim","ring.png"},{"innerRim","ring.png"},{"pointer",{{"file","ptr.svg"},{"tint","selection"}}}}},
                 {"divider","rule.svg"},
                 {"markers",{{"equipped",{{"file","eq.svg"},{"tint","equipped"}}}}},
-                {"equipmentPanel",{{"bg","equip.png"}}}
+                {"equipmentPanel",{{"bg","equip.png"}}},
+                {"glyphs",Json::array({"diamond.svg","rule.svg"})}
             }},
             {"detect",Json::array({
                 {{"file","Interface/hudmenu.swf"},{"sha256",sha256(std::vector<unsigned char>{'h','u','d'})}},
@@ -118,6 +119,7 @@ int main(int argc,char** argv)try {
         check(!t3.contains("cycle-a")&&!t3.contains("cycle-b")&&!t3.contains("orphan")&&!t3.contains("bad-tint")&&!t3.contains("bad-ext"),"Cyclic extends, missing parents, invalid tints and non-PNG/SVG assets are rejected");
         const auto& base=t3.get("base-v3");const auto& child=t3.get("child-v3");
         check(base.charge==rgba(100,190,255)&&near(base.style.cornerCut,8)&&near(base.style.borderWidth,1.5f)&&near(base.style.editorRounding,6)&&!base.style.accentLine,"Schema 3 style and charge color load");
+        check(near(base.assets.card.border.outset,.08f)&&base.assets.glyphs.size()==2&&child.assets.glyphs.size()==2,"Schema 3 outset and glyphs array load and inherit cleanly");
         check(base.assets.card.border.tint==ThemeTint::border&&base.assets.card.border.slice==std::array<unsigned,4>{24,16,24,16}&&base.assets.card.border.rasterSize==256,"Schema 3 asset slice, tint and rasterSize load");
         check(child.accent==rgba(40,180,90)&&child.text==base.text&&child.charge==base.charge&&near(child.style.cornerCut,8),"Child inherits parent palette and style while overriding accent");
         check(child.assets.card.bg.path==parentDir/"card_bg.png"&&child.assets.wheel.ringBg.path==parentDir/"ring.png"&&child.assets.wheel.outerRim.path==parentDir/"ring.png"&&child.assets.wheel.innerRim.path==parentDir/"ring.png","Inherited asset paths resolve inside the parent folder");
@@ -267,6 +269,26 @@ int main(int argc,char** argv)try {
         check(mid.hasPrevious&&mid.previous.form==0x100&&mid.progress>=0,"Changing tile item outside browsing starts a directional swap transition");
         const auto prog=swap.update(&b,1.12,true);
         check(prog.hasPrevious&&prog.progress>0&&prog.progress<1&&!swap.update(&b,1.30,true).hasPrevious,"Swap transition progresses and settles cleanly");
+
+        // Widget pass: true 1:1 Squares, Hexagons, Frameless, Unified hotbar, label position, active tile emphasis, compact List & Souls/Action Bar presets.
+        Options w;w.layout=0;w.shape=2;w.groupCount=4;w.showLabels=false;w.spacing=12;
+        const auto sq=groupGeometry(w);
+        check(near(sq.tileWidth,78.f)&&near(sq.tileHeight,78.f),"Squares use a true 1:1 footprint");
+        w.unifiedBar=true;const auto bar=groupGeometry(w);
+        check(near(bar.width,4*78.f),"Unified hotbar packs slots edge-to-edge regardless of spacing");
+        w.unifiedBar=false;w.shape=4;const auto hex=groupGeometry(w);
+        w.shape=5;const auto bare=groupGeometry(w);
+        check(hex.tileWidth>0&&bare.tileWidth>0&&bare.tileHeight<hex.tileHeight,"Hexagons and Frameless compute distinct footprints");
+        w.showLabels=true;w.labelPosition=2;const auto inside=groupGeometry(w);
+        w.labelPosition=1;const auto above=groupGeometry(w);
+        check(above.tileHeight>inside.tileHeight,"Inside labels fit inside the tile without adding external height");
+        w.activeGroupBoost=.12f;
+        const auto wLoaded=decodeOptions(encodeOptions(w));
+        check(wLoaded.shape==5&&wLoaded.labelPosition==1&&near(wLoaded.activeGroupBoost,.12f)&&!wLoaded.unifiedBar,"Widget shape, label position, unified bar and emphasis persist");
+        const auto souls=applyBuiltin(Options{},"builtin:souls-cross");
+        const auto actionBar=applyBuiltin(Options{},"builtin:action-bar");
+        check(souls.layout==5&&souls.shape==2&&souls.selector==4&&souls.activeGroupBoost>0,"Souls Cross preset configures compact squares cross and list selector");
+        check(actionBar.layout==0&&actionBar.shape==2&&actionBar.unifiedBar&&actionBar.labelPosition==1,"Action Bar preset configures unified hotbar with labels above");
     }
     std::cout<<"PASS: "<<checks<<" live editing, identity-safe undo, autosave, theme loading, placement and motion checks.\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

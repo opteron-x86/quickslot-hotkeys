@@ -123,6 +123,57 @@ int main(int argc,char** argv) {
         // A wheel shows best with a fuller group.
         if(options.selector==wheelSelector){for(const char* name:{"Ebony Dagger","Flames","Daedric Mace","Healing"}){auto row=snapshot.rows[snapshot.rows.size()%2];row.entry.name=name;row.equipped=false;snapshot.rows.push_back(row);}snapshot.preview=2;snapshot.pointerX=.6f;snapshot.pointerY=.8f;}
     }
+    // art:<theme> renders a tight high-resolution composition of the wheel, all 4 tile shapes (with distinct group glyphs), and equipment panel.
+    if(scene.starts_with("art:")) {
+        options.themeId=scene.substr(4);
+        options.groupCount=4;options.layout=freeLayout;options.scale=1.28f;options.selector=wheelSelector;options.wheelStyle=1;
+        options.selectorScale=1.18f;options.wheelSize=168.f;options.wheelThickness=.46f;options.wheelHighlight=3;options.wheelPointer=true;
+        options.selectorDock=4;options.selectorAnchor=5;options.selectorX=-42.f;options.selectorY=0.f;
+        options.showEquipment=true;options.equipmentStyle=0;options.equipmentScale=1.15f;options.equipmentAnchor=0;options.equipmentX=28.f;options.equipmentY=22.f;
+        options.names={"Arsenal","Destruction","Restoration","Offhand","Group 5","Group 6","Group 7","Group 8"};
+        options.tilePlaces[0]={6,28.f,-210.f,1.06f,1,1,1}; // Card
+        options.tilePlaces[1]={6,34.f,-38.f,1.05f,4,1,1};  // Diamond
+        options.tilePlaces[2]={6,184.f,-46.f,1.08f,2,1,1}; // Circle
+        options.tilePlaces[3]={6,302.f,-32.f,0.96f,3,1,1}; // Square
+        snapshot.activeGroup=1;snapshot.browsing=true;snapshot.selected=1;snapshot.preview=2;snapshot.pointerX=.82f;snapshot.pointerY=.58f;
+        snapshot.rows.clear();
+        for(const int idx:{0,1,2,4,5,6})snapshot.rows.push_back({editing.catalog[std::size_t(idx)].entry,true,idx==1,{}});
+        snapshot.rows[3].entry.icon=Icon::fire;snapshot.rows[4].entry.icon=Icon::restoration;
+        snapshot.groups[0]={snapshot.rows[0].entry,4,true,true};
+        snapshot.groups[1]={snapshot.rows[1].entry,6,true,true};
+        snapshot.groups[2]={snapshot.rows[4].entry,3,true,false};
+        snapshot.groups[3]={snapshot.rows[5].entry,2,true,false};
+        snapshot.equipment=editing.equippedDisplay;
+    }
+    if(scene.starts_with("widget-")) {
+        options.themeId="oathvein";options.groupCount=4;options.scale=1.3f;options.selectorScale=1.15f;
+        options.names={"Weapons","Magic","Supplies","Shouts","Group 5","Group 6","Group 7","Group 8"};
+        snapshot.activeGroup=0;snapshot.browsing=true;snapshot.selected=0;snapshot.preview=2;
+        snapshot.rows.clear();
+        for(std::size_t i=0;i<8&&i<editing.catalog.size();++i)snapshot.rows.push_back({editing.catalog[i].entry,i!=6,i==0,{},i==3?7:0});
+        snapshot.rows[1].weapon.poisoned=true;snapshot.rows[2].weapon.charge=.65f;snapshot.rows[2].description="Deals 25 points of shock damage to Health and half to Magicka.";
+        snapshot.groups[0]={snapshot.rows[0].entry,8,true,true};
+        snapshot.groups[1]={snapshot.rows[4].entry,4,true,false};
+        snapshot.groups[2]={snapshot.rows[3].entry,5,true,false,7};
+        snapshot.groups[3]={snapshot.rows[5].entry,2,true,false};
+        snapshot.equipment=editing.equippedDisplay;
+        if(scene=="widget-souls"){soulsCrossPreset(options);options.showEquipment=false;}
+        else if(scene=="widget-actionbar"){actionBarPreset(options);options.showEquipment=false;options.themeId="edge";}
+        else if(scene=="widget-shapes") {
+            options.themeId="nordic";options.layout=freeLayout;options.showEquipment=false;snapshot.browsing=false;
+            options.showLabels=true;options.showCardNames=false;
+            options.tilePlaces[0]={3,40,-40,1.15f,4,1,1};  // Diamond (centered icon!)
+            options.tilePlaces[1]={3,170,-40,1.15f,3,1,1}; // True 1:1 Square!
+            options.tilePlaces[2]={3,300,-40,1.15f,5,1,1}; // Hexagon!
+            options.tilePlaces[3]={3,430,-40,1.15f,6,1,1}; // Frameless!
+            options.groupCount=5;options.names[4]="Quick Card";
+            snapshot.groups[4]={snapshot.rows[1].entry,3,true,true};
+            options.tilePlaces[4]={3,550,-32,1.15f,1,1,1}; // Single-line Card with accent bar!
+        } else if(scene=="widget-frameless") {
+            options.themeId="edge";options.layout=0;options.shape=5;options.spacing=18;options.showLabels=true;options.labelPosition=1;
+            options.activeGroupBoost=.12f;options.selector=4;options.selectorVisible=2;options.showEquipment=false;options.anchor=7;options.offsetX=0;options.offsetY=-24;
+        }
+    }
     if(scene.starts_with("oathvein")) {
         options.layout=2;options.shape=1;options.selector=1;options.groupCount=4;options.scale=1.3f;
         options.names[0]="Arsenal";options.names[1]="Offhand";options.names[2]="Destruction";options.names[3]="Restoration";

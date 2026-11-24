@@ -79,7 +79,10 @@ Schema `3` themes supply standalone PNG or SVG images under `"assets"`. Any omit
     "chargePip": { "file": "marker_pip.svg", "tint": "charge" },
     "soulGem": { "file": "marker_soulgem.svg", "tint": "charge" }
   },
-  "equipmentPanel": { "bg": "equip_bg.svg", "border": "equip_border.svg" }
+  "equipmentPanel": { "bg": "equip_bg.svg", "border": "equip_border.svg" },
+  "glyphs": [
+    { "file": "glyph_0.png", "tint": "accent", "opacity": 0.45 }
+  ]
 }
 ```
 
@@ -92,8 +95,9 @@ Each asset accepts a file path string or an object:
 | `opacity` | Layer opacity multiplier (`0.0`–`1.0`) | `1.0` |
 | `slice` | Nine-slice margins in source pixels: a single integer or `[left, top, right, bottom]` (`0`–`1024`). Corners scale uniformly against the frame's shorter side | `[0, 0, 0, 0]` |
 | `rasterSize` | Longest-edge pixel dimension used when rasterizing an SVG (`64`–`2048`) | `512` |
+| `outset` | Outward bleed ratio beyond the frame bounds (`0.0`–`0.35`) for decorative spikes, clasps or filigree | `0.0` |
 
-Background layers (`bg`, `ringBg`, `hubBg`) multiply by the user's **Background opacity** and **Frame opacity** settings; border layers multiply by **Frame opacity**. `diamond` and `circle` layers draw upright across the tile's bounding square. On segmented wheels, `wheel.outerRim` scales to the outer radius, `wheel.innerRim` scales to the inner radius across any **Ring thickness** (`10%`–`100%`), and `wheel.ringBg` maps radially across each wedge from inner to outer radius, including raised pointed segments. `wheel.pointer` artwork points upward and rotates toward the active direction.
+Background layers (`bg`, `ringBg`, `hubBg`) multiply by the user's **Background opacity** and **Frame opacity** settings; border layers multiply by **Frame opacity**. `diamond` and `circle` layers draw upright across the tile's bounding square. An optional `glyphs` array supplies up to 16 per-slot decorative images rendered subtly behind group tile icons (`glyphs[slot % count]`). On segmented wheels, `wheel.outerRim` scales to the outer radius, `wheel.innerRim` scales to the inner radius across any **Ring thickness** (`10%`–`100%`), and `wheel.ringBg` maps radially across each wedge from inner to outer radius, including raised pointed segments. `wheel.pointer` artwork points upward and rotates toward the active direction.
 
 ### Recommended look (schema 3)
 
@@ -101,8 +105,8 @@ An optional `"recommended"` object suggests visual defaults tuned for the theme 
 
 | Field | Values | Purpose |
 | --- | --- | --- |
-| `shape` | `0` Cards, `1` Circles, `2` Squares, `3` Diamonds | Group tile shape |
-| `selectorShape` | `0` Cards, `1` Circles, `2` Squares, `3` Diamonds | Selector item shape |
+| `shape` | `0` Cards, `1` Circles, `2` Squares, `3` Diamonds, `4` Hexagons, `5` Frameless | Group tile shape |
+| `selectorShape` | `0` Cards, `1` Circles, `2` Squares, `3` Diamonds, `4` Hexagons, `5` Frameless | Selector item shape |
 | `equipmentStyle` | `0` List, `1` Circles, `2` Diamonds, `3` Squares, `4` Text | Equipment display style |
 | `wheelStyle` | `0` Tiles, `1` Segments | Wheel selector style |
 | `wheelHighlight` | `0` Fill and outline, `1` Fill, `2` Outline, `3` Rim | Pointed segment highlight |
@@ -145,7 +149,7 @@ Exact `sha256` matches take precedence over `exists` and `contains` checks. Amon
 
 ### Fonts
 
-**Appearance → Theme → Font** offers the theme's font, the interface's own font and every font found. Interface mods and ImGui Icons packs install fonts in `Data/Interface/ImGuiIcons/Fonts`; **Installed UI font** uses the first readable `.ttf` or `.otf` there. Optional `font`, `titleFont` and `numberFont` fields supply body, title and badge/count typefaces as paths inside the pack folder or `@fonts/<filename>` paths in `Data/Quickslot/fonts/`. The default font is Jost.
+**Appearance → Theme → Font** offers the theme's font, the interface's own font and every readable text font found (icon and script/rune faces such as Daedric, Falmer and Dragon scripts are filtered out). Interface mods and ImGui Icons packs install fonts in `Data/Interface/ImGuiIcons/Fonts`; **Installed UI font** uses the first readable `.ttf` or `.otf` there. Optional `font`, `titleFont` and `numberFont` fields supply body, title and badge/count typefaces as paths inside the pack folder or `@fonts/<filename>` paths in `Data/Quickslot/fonts/`. The default font is Jost.
 
 ### Palette roles
 

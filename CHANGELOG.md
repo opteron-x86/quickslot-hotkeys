@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.17.0-rc.1
+## 0.17.0-rc.2
 
 - Armor, clothing and jewelry can be added to groups. A tap puts a piece on, and a tap on a worn piece takes it off.
 - **New → Outfit** saves a set of worn pieces as one entry, with **Use worn**, **Include hands** and **Take off everything else**. A tap on a worn outfit puts back the gear worn before it.
@@ -10,11 +10,14 @@
 - **Cast ready spell** binding under **Controls → Keyboard** and **Controls → Controller**.
 - The equipment display lists the ready spell while an Oblivion-style group exists.
 - `tools/build-cast-animations.py` builds Quickslot Casting Animations from the game's `Skyrim - Animations.bsa`.
-- Schema 3 theme packs support modular PNG and SVG frame, wheel, marker, divider and equipment layers, semantic color tints, nine-slice scaling, `extends` inheritance, `@fonts/` shared font paths and prioritized interface detection (`sha256`, `exists` and `contains`). See [Theme and icon packs](THEMES.md) and [`docs/starter-theme/`](docs/starter-theme/README.md).
+- Schema 3 theme packs support modular PNG and SVG frame, wheel, marker, divider, equipment and per-slot `glyphs` layers, `outset` bleed, semantic color tints, nine-slice scaling, `extends` inheritance, `@fonts/` shared font paths and prioritized interface detection (`sha256`, `exists` and `contains`). See [Theme and icon packs](THEMES.md) and [`docs/starter-theme/`](docs/starter-theme/README.md).
 - Segmented radial wheels support `outerRim`, `innerRim` and polar annular `ringBg` artwork that scales across any **Ring thickness** (`10%`–`100%`) and raised pointed wedges.
-- **Appearance → Theme** has **Apply theme's recommended look**, **Reload themes**, **Auto-reload theme changes** and **Theme diagnostics**. `quickslot_preview` supports `--watch` for live reload on Linux.
+- **Appearance → Theme** has **Apply theme's recommended look**, **Reload themes**, **Auto-reload theme changes** and **Theme diagnostics**, and filters icon and script/rune faces (such as Daedric, Falmer and Dragon scripts) out of **Font**. `quickslot_preview` supports `--watch` for live reload on Linux.
 - Bundled SVG theme packs with SIL Open Font License typography cover Dear Diary Dark, Edge, Norden, Nordic, Oathvein, Untarnished and Vel'dun; interface-matching packs for Amethyst, Horizons, Immortal and Outlander; and standalone Crimson Filigree, Daedric Oblivion, Dwemer Aetherium, Imperial Parchment and Sovngarde Astral themes.
 - **Peek HUD** docks the editor as a left or right side-drawer while drawing the live HUD across the full screen. The split preview pane has **Backdrop** (**Dark**, **Mid**, **Snow**) and **State** (**Normal**, **Equipped**, **Enchanted**, **Poisoned**, **Cooldown**, **Depleted**) controls.
+- Widget tiles and selectors include **Hexagons** and **Frameless** (icon-only) shapes, true 1:1 **Squares** with corner hotkeys, centered **Diamonds** icons, single-line **Cards** with a leading-edge accent bar, **Unified hotbar** (fusing Horizontal, Vertical or Grid slots with hairline dividers), **Active tile emphasis** (`0%`–`25%`) and **Label position** (**Below**, **Above**, **Inside**).
+- **Selector → Style → List** displays a compact scrollable panel with the group name and item count in the header, inline hand, equipped, unavailable, poison, count and cooldown details on each row, and a scrollbar thumb.
+- **Presets** includes **Souls Cross** (1:1 square four-way cross with the compact list selector) and **Action Bar** (bottom unified hotbar with labels above and corner hotkeys).
 - **Free** group tiles have per-tile **This tile shape**, **This tile name** and **This tile key** overrides. **Appearance → Widget → Content** has **Key position** and **Count position**.
 - **Appearance → Equipment** has **Grid** and **Free** arrangements, **Mirror equipment list**, per-role visibility (**Show**, **When equipped**, **Hide**) and **Keep visible in combat** / **Keep visible with weapons drawn** options when dimming on idle.
 - **Position** snaps edges and centers against sibling Free tiles and other HUD elements, and **Align** and **Distribute** line up or space Free tiles and Free equipment cells.

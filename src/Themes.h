@@ -21,6 +21,8 @@ struct ThemeImage {
     std::array<unsigned,4> slice{};
     // Target longest-edge pixel size when rasterizing an SVG asset (clamped 64..2048).
     unsigned rasterSize=512;
+    // Optional outward bleed as a fraction of element size (0..0.35), letting spikes, gears or knotwork extend beyond the structural frame.
+    float outset=0.f;
     explicit operator bool()const{return !path.empty();}
 };
 struct FrameLayers {
@@ -45,6 +47,8 @@ struct ThemeAssets {
     ThemeImage divider;
     MarkerLayers markers;
     EquipmentPanelLayers equipmentPanel;
+    // Optional per-slot etched glyphs / runes cycled across widget tiles and wheel wedges (up to 16).
+    std::vector<ThemeImage> glyphs;
 };
 template<class Assets,class F> void forEachThemeImage(Assets& a,const F& f) {
     for(auto* frame:{&a.card,&a.square,&a.diamond,&a.circle}) {
@@ -55,6 +59,7 @@ template<class Assets,class F> void forEachThemeImage(Assets& a,const F& f) {
     f(a.divider);
     f(a.markers.equipped);f(a.markers.ready);f(a.markers.poison);f(a.markers.chargePip);f(a.markers.soulGem);
     f(a.equipmentPanel.bg);f(a.equipmentPanel.border);
+    for(auto& glyph:a.glyphs)f(glyph);
 }
 struct ThemeStyle {
     // Negative uses the frameStyle default; 0..24 overrides procedural corner bevel size.

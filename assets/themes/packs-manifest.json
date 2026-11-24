@@ -154,12 +154,12 @@
     {
       "theme": "amethyst",
       "asset": "amethyst/wheel_inner_rim.png",
-      "sha256": "84273cd064ac5d69d8cc6fed0ca0094e99d20b9021290261cc008166990c1814"
+      "sha256": "b5a3dd243933356c61db7d74ad07b6c250ef22b20b59eb1a754fc03391b78638"
     },
     {
       "theme": "amethyst",
       "asset": "amethyst/wheel_outer_rim.png",
-      "sha256": "5ce6ceaa2a59f27c5d20f3b96d15d00271c54654fbd5cca34aca60fd389812ac"
+      "sha256": "c923b67d4571e8cf744b91e8cc217a5bb28b6783585ac35b26ed030154cb1523"
     },
     {
       "theme": "amethyst",
@@ -329,12 +329,12 @@
     {
       "theme": "crimson-filigree",
       "asset": "crimson-filigree/wheel_inner_rim.png",
-      "sha256": "f886a0c7fdd35f607f73ef3382baa33421e6823ea5daf2e1b78ff6264c2450fb"
+      "sha256": "91bc9f42b9f360cd099a9546eae42ea2907e804ac956c58fd18a810b06aa7e56"
     },
     {
       "theme": "crimson-filigree",
       "asset": "crimson-filigree/wheel_outer_rim.png",
-      "sha256": "404fbe5a40d9e9fc8e458f80d8bf8b5d2eed31131104e9223c3186ad6941d36c"
+      "sha256": "feb361918104bcee563ebb703a4e579eb3829eef1e43c20be7ed25f7eb745c99"
     },
     {
       "theme": "crimson-filigree",
@@ -504,12 +504,12 @@
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/wheel_inner_rim.png",
-      "sha256": "d5d96131b8fd6122f21e4018efe8f9abb154dec10b3eeb0676b441aa88f46b57"
+      "sha256": "aaca0555d9761cc399b5fd5a81c5abfc92c31acbd668f337dff8aab7d7a3dc8f"
     },
     {
       "theme": "daedric-oblivion",
       "asset": "daedric-oblivion/wheel_outer_rim.png",
-      "sha256": "e8bfd8c8b8f544bc2d7dfe9884b6bdb9d8e0f5db5232c1617927ff2fb3789e1c"
+      "sha256": "40d6e1bde1469f1ce1dffcdb1b44334e519a6006fe6ff128c94beee283b30c2f"
     },
     {
       "theme": "daedric-oblivion",
@@ -679,12 +679,12 @@
     {
       "theme": "dear-diary-dark",
       "asset": "dear-diary-dark/wheel_inner_rim.png",
-      "sha256": "6b7c2ac37f70173e5195ba69859de2724e01a9a36fa5b0e445e8867b3eb13248"
+      "sha256": "c443ed6945e6b2581e65133b8099c2bad95dc2b465955382a1ce74b3b21062f0"
     },
     {
       "theme": "dear-diary-dark",
       "asset": "dear-diary-dark/wheel_outer_rim.png",
-      "sha256": "474ff0baeee87db20cd358da78614f51a9b2058310c8217d58f13215a8c3ccc6"
+      "sha256": "12f333ff5a4f49d17ffc5aca63b5446d5ff381d56fab7747227128bccccb73d1"
     },
     {
       "theme": "dear-diary-dark",
@@ -854,12 +854,12 @@
     {
       "theme": "dwemer-aetherium",
       "asset": "dwemer-aetherium/wheel_inner_rim.png",
-      "sha256": "7713921d619804d4bd856a1fcb29a50180450461ad0b66333a8445f3294faac1"
+      "sha256": "52bfb0da698f61bf91a7075c7a47646b0789e7b169078ff2b6e443c0916c9147"
     },
     {
       "theme": "dwemer-aetherium",
       "asset": "dwemer-aetherium/wheel_outer_rim.png",
-      "sha256": "1a0fca999331df1fe2a3e4e692b985c360267b0c48ba18a0bfb32e5385562d8b"
+      "sha256": "fd0c2378d1fa409f6629f8c9ec7bc4bdf359ca78e2cebc662f387754b8146c35"
     },
     {
       "theme": "dwemer-aetherium",
@@ -1029,12 +1029,12 @@
     {
       "theme": "edge",
       "asset": "edge/wheel_inner_rim.png",
-      "sha256": "40326ee81623b1b0066a0eb7189712824d7e775d5abc6d9eceda9d72f4a2d60a"
+      "sha256": "4f24c38a9871cc10294cf977dd6fbf4edb06099ca7f5ecc5bc8f7ef98fe33f77"
     },
     {
       "theme": "edge",
       "asset": "edge/wheel_outer_rim.png",
-      "sha256": "5ee002ec7e4aad12cf6f81a9f4bc50c0c4152fcb9e962a10265c22d00663a1d7"
+      "sha256": "22971e5cdf1eb45c871a9cc01c4344727395aecbb51619a1cb98f51b53f561c3"
     },
     {
       "theme": "edge",
@@ -1204,12 +1204,12 @@
     {
       "theme": "horizons",
       "asset": "horizons/wheel_inner_rim.png",
-      "sha256": "4917e98e84942ba9d60005c921973d7ddae2450ce3efc97674a704a980d883a7"
+      "sha256": "7ab26f32dea17dc181db31a55618ce676cac91ded76fba98df122f21779be580"
     },
     {
       "theme": "horizons",
       "asset": "horizons/wheel_outer_rim.png",
-      "sha256": "ffbb5bb06524baee1b9452c619209394a455e00f299ccd55c5642799943bffde"
+      "sha256": "9dddf9f4cbe2ac59e9f6ee95cc8b40bdfd3036876e56621e4440e316466632fe"
     },
     {
       "theme": "horizons",
@@ -1379,12 +1379,12 @@
     {
       "theme": "immortal",
       "asset": "immortal/wheel_inner_rim.png",
-      "sha256": "0a98167a0912097a58d5a3bf96c1f7f108014a2c9d257e5c7bf2bf7a81d2003e"
+      "sha256": "50b5bc57bb2eebfe98a357b0688615afaa29fcc31b66e0465ca9d5766aefb9ca"
     },
     {
       "theme": "immortal",
       "asset": "immortal/wheel_outer_rim.png",
-      "sha256": "d82265b55e55e5002ad653dd623e4b004b6f5f9a670a474664d6f5b297014854"
+      "sha256": "e0066125c4261ed006c8ec20534015b0fe4caf611a666ddc51cdcfa7307fd690"
     },
     {
       "theme": "immortal",
@@ -1554,12 +1554,12 @@
     {
       "theme": "imperial-parchment",
       "asset": "imperial-parchment/wheel_inner_rim.png",
-      "sha256": "c9dcfb37e16eb788d6797149a5ab86805fd7d57265b46a7de8a8b2c40dd254b7"
+      "sha256": "92c66708191866901fa4b018d98780eecd71dd9ffb71ff419ec215602183e0ff"
     },
     {
       "theme": "imperial-parchment",
       "asset": "imperial-parchment/wheel_outer_rim.png",
-      "sha256": "03c8e031ca76715e8db7691d62bd5d523af579c0fca2615d84df9845cfcbffce"
+      "sha256": "18d1782af8d21694edc9956d0839c9f9bc94f84c90e79414cefed0c024eaf7c9"
     },
     {
       "theme": "imperial-parchment",
@@ -1729,12 +1729,12 @@
     {
       "theme": "norden",
       "asset": "norden/wheel_inner_rim.png",
-      "sha256": "63d064a9898b8c718a68a3c078d1055559f9289179b3e00b28ccbcf92da6e055"
+      "sha256": "bb0267f00812537f6e34b5f4019d4b03df0e431a695eadf95dd693cf2e6401b6"
     },
     {
       "theme": "norden",
       "asset": "norden/wheel_outer_rim.png",
-      "sha256": "2beb269d01896f7df7ef5c816ecd1a931cb51dbafe2c2b1b9391f932cc46b2bb"
+      "sha256": "db1b68aae27433d19621036820728788df3c92bf07ec9590d0367ce1acae69fa"
     },
     {
       "theme": "norden",
@@ -1904,12 +1904,12 @@
     {
       "theme": "nordic",
       "asset": "nordic/wheel_inner_rim.png",
-      "sha256": "0411e603b15aa95942fcc2705e58af40943006dc214980c10897fa7a9e42cb87"
+      "sha256": "c53c6d271e286cdfade020fac0eeddbdf8783b61caadd2d472d32f9698fbe12d"
     },
     {
       "theme": "nordic",
       "asset": "nordic/wheel_outer_rim.png",
-      "sha256": "56a723dbd5c998a5a37a734b0e5fb8b099023549afc178462345f8b8e717385d"
+      "sha256": "c48f3ecacf638638301e36419f1823ec640318a4d14ce4df411750cc5938ceb5"
     },
     {
       "theme": "nordic",
@@ -2079,12 +2079,12 @@
     {
       "theme": "oathvein",
       "asset": "oathvein/wheel_inner_rim.png",
-      "sha256": "84209296325844fb7c519ec9e84668e0feefcb1673a469ae8a5a1718d0375cef"
+      "sha256": "fcf08789c23352fcd1460588824e9726530bf3cbe9545d70478325412ef95dca"
     },
     {
       "theme": "oathvein",
       "asset": "oathvein/wheel_outer_rim.png",
-      "sha256": "11d1e97b546392510bab746537a1e827bd940a79ca4ef52792ab79d346335adb"
+      "sha256": "729e980aecd334590194f618c737e5cfaaa86bd3a112dd88686128fa729409af"
     },
     {
       "theme": "oathvein",
@@ -2254,12 +2254,12 @@
     {
       "theme": "outlander",
       "asset": "outlander/wheel_inner_rim.png",
-      "sha256": "0753b4dfbcc5f78781579e08d167c37947ae1e0be07884547796efb2335d4068"
+      "sha256": "9bb561171c5e8a89e54e7bfa4e34e728743439aeb1c9b7407cfccbd586a5ec90"
     },
     {
       "theme": "outlander",
       "asset": "outlander/wheel_outer_rim.png",
-      "sha256": "b07fa29397e1edc77cd93f2567b64e7017f3606f09aa82173df6bc9dcb78d144"
+      "sha256": "3f50bc98f770501565d96fd0eeb4dd6caa92c39409d6e02444fde148dc060280"
     },
     {
       "theme": "outlander",
@@ -2429,12 +2429,12 @@
     {
       "theme": "sovngarde-astral",
       "asset": "sovngarde-astral/wheel_inner_rim.png",
-      "sha256": "f9df758805bd9d588299b2f5abe915469711d55d7b5bb62416f1281a8fffba10"
+      "sha256": "734d89776548f95d6c430f13bbf64d52fa567c2bbb91610d89844dd92bb5d27c"
     },
     {
       "theme": "sovngarde-astral",
       "asset": "sovngarde-astral/wheel_outer_rim.png",
-      "sha256": "06af1855d99ba5a932168887866963986e0cd667ce99c4f009182484dde111b7"
+      "sha256": "2c56f2cfa5b81179c8d286d26658842bb856d46c35dbf4ac0446cc9505cfd7c1"
     },
     {
       "theme": "sovngarde-astral",
@@ -2604,12 +2604,12 @@
     {
       "theme": "untarnished",
       "asset": "untarnished/wheel_inner_rim.png",
-      "sha256": "2ebe9a8eee8f6a506cd7142795809cf500653d25057cf9287ce36e807d0bf055"
+      "sha256": "9675e84e46ba946fd096fa23b637ee1cb2338a11ad4753333b23b0f36dc895f3"
     },
     {
       "theme": "untarnished",
       "asset": "untarnished/wheel_outer_rim.png",
-      "sha256": "95b07413f218553da104f2bc4759a37fc84a0141052f173de70b1b64aa2ebc0c"
+      "sha256": "ed6933e284f4e1122dc966d533decb2e7d1581ff33f0b01992dded360be79295"
     },
     {
       "theme": "untarnished",
@@ -2779,12 +2779,12 @@
     {
       "theme": "veldun",
       "asset": "veldun/wheel_inner_rim.png",
-      "sha256": "ffe8e73f458d55bd51c5f49013beb24d2fe45c8406fe801541686e1c6f321204"
+      "sha256": "b274aaae0bdd6375c979de0c077b0b451a3da05f054d87018dd53c6bf0d1a429"
     },
     {
       "theme": "veldun",
       "asset": "veldun/wheel_outer_rim.png",
-      "sha256": "88dc52ec73042bc39549e231878d2b46621e5681b9a7f9f694bc805d42529b67"
+      "sha256": "c8761158c823010fe2eabcd6c294baa460d664b8305e8ddc62c55348525b53d0"
     },
     {
       "theme": "veldun",

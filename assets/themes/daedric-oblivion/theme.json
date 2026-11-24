@@ -217,10 +217,22 @@
     },
     "wheel": {
       "ringBg": "wheel_ring_bg.png",
-      "outerRim": "wheel_outer_rim.png",
-      "innerRim": "wheel_inner_rim.png",
-      "hubBg": "wheel_hub_bg.png",
-      "hubBorder": "wheel_hub_border.png",
+      "outerRim": {
+        "file": "wheel_outer_rim.png",
+        "outset": 0.025
+      },
+      "innerRim": {
+        "file": "wheel_inner_rim.png",
+        "outset": 0.033
+      },
+      "hubBg": {
+        "file": "wheel_hub_bg.png",
+        "outset": 0.029
+      },
+      "hubBorder": {
+        "file": "wheel_hub_border.png",
+        "outset": 0.029
+      },
       "hubOverlay": "wheel_hub_overlay.png",
       "pointer": {
         "file": "wheel_pointer.png",

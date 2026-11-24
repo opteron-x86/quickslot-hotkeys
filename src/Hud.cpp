@@ -878,13 +878,6 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 if(index<shapes.size()&&(filled||rim)) {
                     const float outer=layout.outer+(index<lifts.size()?lifts[index]:layout.lift);
                     fill(segment(wheelHighlight_,layout.inner,outer),outer,p.color(selectionMark,filled?.3f:.12f));
-                    if(rim) {
-                        // A rim highlight is a band of the accent color along the segment's outer edge.
-                        const float width=std::max(3.f,thickness*.08f),edge=outer-width*.5f;
-                        const float inset=n>1&&edge>0?std::asin(std::min(1.f,layout.wedgeGap*.5f/edge)):0.f;
-                        p.d->PathArcTo(center,edge*p.scale,wheelHighlight_-turn*.5f+inset,wheelHighlight_+turn*.5f-inset,std::max(6,int(turn*edge*p.scale/4)));
-                        p.d->PathStroke(p.color(p.accent()),n>1?0:ImDrawFlags_Closed,width*p.scale);
-                    }
                 }
                 for(std::size_t i=0;i<shapes.size();++i) {
                     const auto& row=state.rows[i];const bool pointed=i==index;const float outer=layout.outer+lifts[i];
@@ -902,6 +895,14 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 }
                 if(wTex.innerRim&&layout.inner>2.f)p.drawThemeImage(hub.x-layout.inner,hub.y-layout.inner,layout.inner*2,layout.inner*2,wTex.innerRim,wMeta.innerRim,frameAlpha);
                 if(wTex.outerRim)p.drawThemeImage(hub.x-layout.outer,hub.y-layout.outer,layout.outer*2,layout.outer*2,wTex.outerRim,wMeta.outerRim,frameAlpha);
+                if(index<shapes.size()&&rim) {
+                    // A rim highlight is a band of the accent color along the segment's outer edge, drawn above the outer rim so it stays clear at any lift.
+                    const float outer=layout.outer+(index<lifts.size()?lifts[index]:layout.lift);
+                    const float width=std::max(3.f,thickness*.08f),edge=outer-width*.5f;
+                    const float inset=n>1&&edge>0?std::asin(std::min(1.f,layout.wedgeGap*.5f/edge)):0.f;
+                    p.d->PathArcTo(center,edge*p.scale,wheelHighlight_-turn*.5f+inset,wheelHighlight_+turn*.5f-inset,std::max(6,int(turn*edge*p.scale/4)));
+                    p.d->PathStroke(p.color(p.accent()),n>1?0:ImDrawFlags_Closed,width*p.scale);
+                }
                 for(std::size_t i=0;i<shapes.size();++i) {
                     const auto& row=state.rows[i];const bool pointed=i==index;
                     const float lift=lifts[i],middle=middleOf(float(i)),outer=layout.outer+lift,reach=layout.reach+lift*.5f;

@@ -418,20 +418,22 @@ def forge_wheel_assets(recipe: Dict[str, Any]) -> Dict[str, Image.Image]:
     ring_a = np.full((sz, sz), float(recipe.get("bgOpacity", 0.82)) * 0.92, dtype=np.float32)
     out["wheel_ring_bg.png"] = _to_rgba_image(ring_rgb, ring_a)
 
-    # 2. Outer metallic rim (512x512, transparent center)
+    # 2. Outer metallic rim (512x512, transparent center).
+    # pad=12 leaves room for soft drop shadow & ornament tips; manifest outset=0.025 aligns orad=244 exactly to layout.outer.
     osize = 512
-    rim_w = float(recipe.get("rimPx", 3.4)) * 3.2
-    pad = 14.0
+    rim_w = float(recipe.get("rimPx", 3.4)) * 2.6
+    pad = 12.0
     orad = osize * 0.5 - pad
     sdf_o = circle_sdf(osize, orad)
     oh, oa, oe = radial_ornaments(recipe.get("ornament", "oathvein_clasp"), osize, orad, rim_w, n_fold=8)
     _, outer_border, _, _ = _shade_metal(sdf_o, rim_w, pad, recipe, oh, oa, oe, seed_offset=311, include_inner_shadow=False)
     out["wheel_outer_rim.png"] = outer_border
 
-    # 3. Inner metallic collar (384x384, delicate thinner rim)
+    # 3. Inner metallic collar (384x384, delicate thinner rim).
+    # pad=12 with manifest outset=0.033 aligns irad=180 flush to layout.inner.
     isize = 384
-    irim_w = float(recipe.get("rimPx", 3.4)) * 2.4
-    ipad = 10.0
+    irim_w = float(recipe.get("rimPx", 3.4)) * 2.1
+    ipad = 12.0
     irad = isize * 0.5 - ipad
     sdf_i = circle_sdf(isize, irad)
     ih, ia, ie = radial_ornaments(recipe.get("ornament", "oathvein_clasp"), isize, irad, irim_w, n_fold=8)
@@ -650,10 +652,10 @@ def forge_theme_pack(
         },
         "wheel": {
             "ringBg": "wheel_ring_bg.png",
-            "outerRim": "wheel_outer_rim.png",
-            "innerRim": "wheel_inner_rim.png",
-            "hubBg": "wheel_hub_bg.png",
-            "hubBorder": "wheel_hub_border.png",
+            "outerRim": {"file": "wheel_outer_rim.png", "outset": 0.025},
+            "innerRim": {"file": "wheel_inner_rim.png", "outset": 0.033},
+            "hubBg": {"file": "wheel_hub_bg.png", "outset": 0.029},
+            "hubBorder": {"file": "wheel_hub_border.png", "outset": 0.029},
             "hubOverlay": "wheel_hub_overlay.png",
             "pointer": {"file": "wheel_pointer.png", "tint": "accent"},
             "divider": "wheel_spoke.png",

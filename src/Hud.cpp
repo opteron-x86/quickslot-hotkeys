@@ -797,14 +797,17 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                 // A ring of segments, one for each entry, from the first slot clockwise around a hub.
                 const auto hub=layout.hub;const float turn=2*pi/float(std::max<std::size_t>(n,1)),frameAlpha=p.tweaks.frameOpacity;
                 const auto center=p.p(hub.x,hub.y);const float thickness=layout.outer-layout.inner;
+                const auto& wTex=p.textures.wheel;const auto& wMeta=theme.assets.wheel;
+                // Themes with continuous forged wheel rims use radial dividers instead of open wedge gaps.
+                const float wedgeGap=wTex.outerRim?0.f:layout.wedgeGap;
                 const auto middleOf=[&](float slot){return -pi*.5f+layout.rotation+slot*turn;};
                 // A segment between two radii around a middle angle. The gap between segments keeps one width from the
                 // hub to the rim; a segment that reaches the center ends in a point set back by the gap.
                 const auto segment=[&](float middle,float inner,float outer) {
-                    const auto inset=[&](float radius){return n>1&&radius>0?std::asin(std::min(1.f,layout.wedgeGap*.5f/radius)):0.f;};
+                    const auto inset=[&](float radius){return n>1&&radius>0?std::asin(std::min(1.f,wedgeGap*.5f/radius)):0.f;};
                     const int steps=std::max(4,int(turn*outer*p.scale/5));
                     p.d->PathArcTo(center,outer*p.scale,middle-turn*.5f+inset(outer),middle+turn*.5f-inset(outer),steps);
-                    const float apex=n>1&&turn<pi?layout.wedgeGap*.5f/std::sin(turn*.5f):0;
+                    const float apex=n>1&&turn<pi?wedgeGap*.5f/std::sin(turn*.5f):0;
                     if(inner>apex+1)p.d->PathArcTo(center,inner*p.scale,middle+turn*.5f-inset(inner),middle-turn*.5f+inset(inner),steps);
                     else p.d->PathLineTo({center.x+std::cos(middle)*apex*p.scale,center.y+std::sin(middle)*apex*p.scale});
                     std::vector<ImVec2> points(p.d->_Path.begin(),p.d->_Path.end());p.d->PathClear();return points;
@@ -820,12 +823,11 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     else for(const float radius:{layout.inner,outer})if(radius>0)p.d->AddCircle(center,radius*p.scale,c,96,std::max(1.f,width*p.scale));
                 };
                 const bool outline=o.wheelHighlight==0||o.wheelHighlight==2,filled=o.wheelHighlight==0||o.wheelHighlight==1,rim=o.wheelHighlight==3;
-                const auto& wTex=p.textures.wheel;const auto& wMeta=theme.assets.wheel;
                 const auto drawWedgeRing=[&](float middle,float inner,float outer) {
-                    const float insetOuter=n>1&&outer>0?std::asin(std::min(1.f,layout.wedgeGap*.5f/outer)):0.f;
-                    const float apex=n>1&&turn<pi?layout.wedgeGap*.5f/std::sin(turn*.5f):0.f;
+                    const float insetOuter=n>1&&outer>0?std::asin(std::min(1.f,wedgeGap*.5f/outer)):0.f;
+                    const float apex=n>1&&turn<pi?wedgeGap*.5f/std::sin(turn*.5f):0.f;
                     const bool hasInner=inner>apex+1.f;
-                    const float insetInner=hasInner&&n>1&&inner>0?std::asin(std::min(1.f,layout.wedgeGap*.5f/inner)):0.f;
+                    const float insetInner=hasInner&&n>1&&inner>0?std::asin(std::min(1.f,wedgeGap*.5f/inner)):0.f;
                     const float spanOuter=std::max(0.f,turn-2*insetOuter),spanInner=hasInner?std::max(0.f,turn-2*insetInner):0.f;
                     const int steps=std::max(6,int(turn*outer*p.scale/6));
                     const ImU32 tint=p.roleColor(wMeta.ringBg.tint,wMeta.ringBg.opacity*o.backgroundOpacity*o.wheelOpacity*frameAlpha);
@@ -899,7 +901,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     // A rim highlight is a band of the accent color along the segment's outer edge, drawn above the outer rim so it stays clear at any lift.
                     const float outer=layout.outer+(index<lifts.size()?lifts[index]:layout.lift);
                     const float width=std::max(3.f,thickness*.08f),edge=outer-width*.5f;
-                    const float inset=n>1&&edge>0?std::asin(std::min(1.f,layout.wedgeGap*.5f/edge)):0.f;
+                    const float inset=n>1&&edge>0?std::asin(std::min(1.f,wedgeGap*.5f/edge)):0.f;
                     p.d->PathArcTo(center,edge*p.scale,wheelHighlight_-turn*.5f+inset,wheelHighlight_+turn*.5f-inset,std::max(6,int(turn*edge*p.scale/4)));
                     p.d->PathStroke(p.color(p.accent()),n>1?0:ImDrawFlags_Closed,width*p.scale);
                 }
@@ -907,7 +909,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     const auto& row=state.rows[i];const bool pointed=i==index;
                     const float lift=lifts[i],middle=middleOf(float(i)),outer=layout.outer+lift,reach=layout.reach+lift*.5f;
                     // Icons fill the ring: as large as its thickness and the segment's width allow.
-                    const float chord=n>1?2*reach*std::sin(std::min(turn,pi)*.5f)-layout.wedgeGap:thickness;
+                    const float chord=n>1?2*reach*std::sin(std::min(turn,pi)*.5f)-wedgeGap:thickness;
                     const float liftRatio=layout.lift>0?std::clamp(lift/layout.lift,0.f,1.f):(pointed?1.f:0.f);
                     const float size=std::max(8.f,std::min(thickness*.62f,chord*.72f))*(1.f+.12f*liftRatio);
                     const bool labelled=o.wheelLabels&&thickness>=size+16*text;

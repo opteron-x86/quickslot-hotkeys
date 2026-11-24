@@ -694,7 +694,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(!segments&&options.selector!=4)slider("Spacing",&Options::selectorSpacing);
                 if(wheel)slider("Wheel size",&Options::wheelSize);else if(options.selector!=2)pick("Visible items",&Options::selectorVisible,"3\0005\0007\0009\0");
                 if(segments) {
-                    slider("Ring thickness",&Options::wheelThickness);slider("Gap",&Options::wheelGap);
+                    slider("Ring thickness",&Options::wheelThickness);
+                    if(!hud.theme(options).assets.wheel.outerRim)slider("Gap",&Options::wheelGap);
                     pick("Item name",&Options::wheelName,"In the center\0Below the wheel\0Hidden\0");
                     pick("Highlight",&Options::wheelHighlight,"Fill and outline\0Fill\0Outline\0Rim\0");
                     slider("Ring opacity",&Options::wheelOpacity);
@@ -1795,7 +1796,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     const bool segments=options.wheelStyle==1;
                     if(segments) {
                         if(number("Ring thickness",&Options::wheelThickness)&&ImGui::IsItemHovered())UI::SetTooltip("How much of the wheel's radius the ring of items takes. At 100% the segments reach the center.");
-                        number("Gap",&Options::wheelGap);
+                        if(!currentTheme.assets.wheel.outerRim)number("Gap",&Options::wheelGap);
                         if(choice("Item name","##wheel name",&Options::wheelName,"In the center\0Below the wheel\0Hidden\0")&&ImGui::IsItemHovered())UI::SetTooltip("Where the pointed item's name appears. A center too small for it sends the name below the wheel.");
                         if(choice("Highlight","##wheel highlight",&Options::wheelHighlight,"Fill and outline\0Fill\0Outline\0Rim\0")&&ImGui::IsItemHovered())UI::SetTooltip("How the pointed segment stands out. Rim draws a band of the accent color along its outer edge.");
                         if(flag("Raise the pointed segment",&Options::wheelLift)&&ImGui::IsItemHovered())UI::SetTooltip("Moves the pointed segment outward and enlarges its icon.");

@@ -311,7 +311,7 @@ int main()try {
         check(bad.equipmentSpacing==(std::isfinite(value)?std::clamp(value,0.f,128.f):8.f),"Invalid equipment spacing is bounded with a finite default");
     }
     bad.equipmentStyle=99;bad.equipmentLayout=99;bad.equipmentTextPosition=99;bad.equipmentIdleOpacity=0;bad.equipmentFadeDelay=100;
-    sanitizeOptions(bad);check(bad.equipmentStyle==4&&bad.equipmentLayout==5&&bad.equipmentTextPosition==3&&bad.equipmentIdleOpacity==.05f&&bad.equipmentFadeDelay==20,"Equipment settings bounded; dim cannot hide completely");
+    sanitizeOptions(bad);check(bad.equipmentStyle==4&&bad.equipmentLayout==freeLayout&&bad.equipmentTextPosition==3&&bad.equipmentIdleOpacity==.05f&&bad.equipmentFadeDelay==20,"Equipment settings bounded; dim cannot hide completely");
 
     group.selected=2;rememberConsumable(a,0,2);a.groups[1].add(potion);a.active=1;
     check(selectedConsumableGroup(a)==0,"Last chosen consumable survives another group");

@@ -78,6 +78,24 @@ inline Options applyBuiltin(const Options& current,std::string_view id) {
 }
 // True when applying the preset's look would change nothing.
 inline bool lookMatches(const Options& current,const Options& look) {return encodeOptions(mergeOptions(current,look,presetPart::look))==encodeOptions(current);}
+// Applies a schema 3 theme's recommended appearance settings while keeping the player's theme/font choice, controls and groups.
+inline Options mergeRecommendedLook(const Options& current,std::string_view recommendedJson) {
+    if(recommendedJson.empty())return current;
+    auto base=Json::parse(encodeOptions(current));
+    const auto rec=Json::parse(recommendedJson);
+    if(!rec.is_object())return current;
+    for(const auto& [k,val]:rec.items()) {
+        if(k=="schema"||k=="themeId"||k=="fontId"||!base.contains(k))continue;
+        if((val.is_boolean()&&base[k].is_boolean())||(val.is_number()&&base[k].is_number()))base[k]=val;
+    }
+    auto result=current;
+    importAppearance(result,decodeOptions(base.dump()));
+    result.themeId=current.themeId;result.fontId=current.fontId;
+    return result;
+}
+inline bool recommendedLookMatches(const Options& current,std::string_view recommendedJson) {
+    return recommendedJson.empty()||encodeOptions(mergeRecommendedLook(current,recommendedJson))==encodeOptions(current);
+}
 using DescribeForm=std::function<Json(std::uint32_t)>;
 using FindForm=std::function<std::uint32_t(const std::string&,std::uint32_t)>;
 inline std::string exportPreset(const Arsenal& arsenal,const Options& options,bool appearanceOnly,const DescribeForm& describe) {

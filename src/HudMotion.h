@@ -24,23 +24,52 @@ struct FadePolicy {
 };
 
 inline float easeOut(float t){t=std::clamp(t,0.f,1.f);return 1-(1-t)*(1-t)*(1-t);}
-// Display-side easing toward a target. A value rises over `rise` seconds and falls over `fall`;
+inline float smootherStep(float t){t=std::clamp(t,0.f,1.f);return t*t*t*(t*(t*6.f-15.f)+10.f);}
+// Display-side easing toward a target. A value rises over `rise` seconds and falls over `fall` using smooth cubic/quintic curves;
 // zero follows the target at once. After a pause in drawing it starts again from zero.
 class Eased {
-    float shown_=0;
+    float raw_=0,shown_=0;
     double last_=0;
-    bool started_=false;
+    bool started_=false,falling_=false;
 public:
     float update(float target,double now,float rise,float fall=0) {
         double elapsed=started_?now-last_:-1;last_=now;
         // A fresh start begins one frame in, so the first frame already draws.
-        if(elapsed<0||elapsed>.5){started_=true;shown_=0;elapsed=1./60;}
+        if(elapsed<0||elapsed>.5){started_=true;raw_=0;shown_=0;falling_=false;elapsed=1./60;}
         const float step=float(elapsed);
-        if(target>shown_)shown_=rise>0?std::min(target,shown_+step/rise):target;
-        else if(target<shown_)shown_=fall>0?std::max(target,shown_-step/fall):target;
+        if(target>raw_){falling_=false;raw_=rise>0?std::min(target,raw_+step/rise):target;}
+        else if(target<raw_){falling_=true;raw_=fall>0?std::max(target,raw_-step/fall):target;}
+        if(raw_<=0||raw_>=1)shown_=raw_;
+        else shown_=falling_?smootherStep(raw_):easeOut(raw_);
         return shown_;
     }
     float value()const{return shown_;}
+};
+struct TileSwapState {
+    Entry previous{};
+    bool hasPrevious=false;
+    float progress=1;
+};
+// Short directional slide and crossfade when a group's displayed item changes outside the selector.
+class TileSwapMotion {
+    bool seen_=false;
+    Entry current_{},previous_{};
+    double started_=-1;
+public:
+    static constexpr double duration=.14;
+    TileSwapState update(const Entry* entry,double now,bool animate) {
+        if(!entry){seen_=false;started_=-1;return {};}
+        if(!seen_){seen_=true;current_=*entry;return {};}
+        if(!current_.same(*entry)) {
+            previous_=current_;current_=*entry;
+            started_=animate?now:-1;
+        }
+        if(!animate||started_<0)return {};
+        const double t=(now-started_)/duration;
+        if(t<0||t>=1){started_=-1;return {};}
+        return {previous_,true,float(t)};
+    }
+    void reset(){seen_=false;started_=-1;}
 };
 // Marks the moment a group's item becomes equipped, changes while equipped, or is used.
 class TilePulse {
@@ -111,7 +140,7 @@ public:
         if(s.editorPreview||s.holding||s.browsing||now<s.revealUntil)return 1;
         if(!o.showIdle)return 0;
         if(!o.fadeIdle)return 1;
-        const float t=float(std::clamp((now-activity_-o.fadeDelay)/.35,0.,1.));return 1+(o.idleOpacity-1)*t;
+        const float t=smootherStep(float(std::clamp((now-activity_-o.fadeDelay)/.35,0.,1.)));return 1+(o.idleOpacity-1)*t;
     }
 };
 class EquipmentFade {
@@ -138,7 +167,7 @@ public:
         const std::array current{key(s.equipment.hands[0]),key(s.equipment.hands[1]),key(s.equipment.consumable),key(s.equipment.voice)};
         const bool changed=current!=previous_;previous_=current;
 
-        return fade_.update(s,FadePolicy{true,o.equipmentDim,true,false,o.equipmentFadeDelay,o.equipmentIdleOpacity},now,changed);
+        return fade_.update(s,FadePolicy{true,o.equipmentDim,o.equipmentKeepCombatVisible,o.equipmentKeepDrawnVisible,o.equipmentFadeDelay,o.equipmentIdleOpacity},now,changed);
     }
 };
 }

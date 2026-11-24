@@ -1,0 +1,192 @@
+{
+  "schema": 3,
+  "id": "horizons",
+  "name": "Horizons",
+  "description": "Sleek slate glass with warm horizon-amber hairlines matching Horizons UI",
+  "frameStyle": 1,
+  "palette": {
+    "text": [
+      238,
+      235,
+      228
+    ],
+    "secondary": [
+      186,
+      184,
+      178
+    ],
+    "muted": [
+      128,
+      130,
+      132
+    ],
+    "accent": [
+      218,
+      166,
+      92
+    ],
+    "background": [
+      13,
+      16,
+      20,
+      192
+    ],
+    "border": [
+      152,
+      146,
+      136,
+      210
+    ],
+    "selection": [
+      242,
+      198,
+      128
+    ],
+    "equipped": [
+      224,
+      180,
+      112
+    ],
+    "charge": [
+      128,
+      168,
+      238
+    ],
+    "panel": [
+      16,
+      20,
+      25,
+      246
+    ],
+    "panelBorder": [
+      138,
+      132,
+      122,
+      200
+    ]
+  },
+  "style": {
+    "cornerCut": 0,
+    "borderWidth": 1.1,
+    "shadowOpacity": 0.34,
+    "glowOpacity": 0.28,
+    "editorRounding": 3,
+    "accentLine": false
+  },
+  "font": "@fonts/Jost-Regular.ttf",
+  "titleFont": "@fonts/Jost-Medium.ttf",
+  "numberFont": "@fonts/Jost-Medium.ttf",
+  "recommended": {
+    "shape": 0,
+    "selector": 5,
+    "wheelStyle": 1,
+    "wheelHighlight": 3,
+    "equippedHighlight": 1
+  },
+  "assets": {
+    "card": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "square": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "diamond": {
+      "bg": "diamond_bg.svg",
+      "border": "diamond_border.svg",
+      "selected": {
+        "file": "diamond_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "circle": {
+      "bg": "circle_bg.svg",
+      "border": "circle_border.svg",
+      "selected": {
+        "file": "circle_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "wheel": {
+      "ringBg": {
+        "file": "wheel_ring_bg.svg",
+        "rasterSize": 256
+      },
+      "outerRim": {
+        "file": "wheel_outer_rim.svg",
+        "rasterSize": 512
+      },
+      "innerRim": {
+        "file": "wheel_inner_rim.svg",
+        "rasterSize": 512
+      },
+      "hubBg": "wheel_hub_bg.svg",
+      "hubBorder": "wheel_hub_border.svg",
+      "hubOverlay": "wheel_hub_overlay.svg",
+      "pointer": {
+        "file": "wheel_pointer.svg",
+        "tint": "accent"
+      },
+      "divider": "wheel_spoke.svg"
+    },
+    "divider": "rule.svg",
+    "markers": {
+      "equipped": {
+        "file": "marker_equipped.svg",
+        "tint": "equipped"
+      },
+      "chargePip": {
+        "file": "marker_pip.svg",
+        "tint": "charge"
+      }
+    },
+    "equipmentPanel": {
+      "bg": {
+        "file": "equip_bg.svg",
+        "slice": 28
+      },
+      "border": {
+        "file": "equip_border.svg",
+        "slice": 28
+      }
+    }
+  },
+  "detectPriority": 65,
+  "detect": [
+    {
+      "file": "Interface/hudmenu.swf",
+      "sha256": "871654b1a754af3dca4b3e8723452c1cf7a516d0104244382ba452886a0a7452"
+    },
+    {
+      "file": "Interface/startmenu.swf",
+      "sha256": "f9fc19b8c17e8681684b84b5182cd8423025978815a91638206c613c5d0c064c"
+    },
+    {
+      "file": "Interface/tweenmenu.swf",
+      "sha256": "bd405522eba1a8530d7301666416160561fb374c648a4d8b3c6d12b59b9dc679"
+    }
+  ]
+}

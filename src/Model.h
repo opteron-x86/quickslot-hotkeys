@@ -393,7 +393,14 @@ inline bool& castingInstalled(){static bool installed=false;return installed;}
 inline bool cyclesOnTap(GroupMode mode){return mode==GroupMode::cycle||mode==GroupMode::cycleBrowse;}
 // Where one group's tile sits in the Free arrangement: an anchor from 0 to 8 and an offset in 1080p pixels.
 // Anchor 9 means not placed yet; the tile then sits beside the previous one.
-struct TilePlace {unsigned anchor=9;float x=0,y=0,scale=1;bool operator==(const TilePlace&)const=default;};
+// Optional overrides in Free widget layout: shape (0 widget, 1..4 Cards..Diamonds), showLabel/showKey (0 widget, 1 on, 2 off).
+struct TilePlace {
+    unsigned anchor=9;
+    float x=0,y=0,scale=1;
+    unsigned shape=0,showLabel=0,showKey=0;
+    bool operator==(const TilePlace&)const=default;
+};
+enum class EquipmentRole : unsigned {rightHand=0,leftHand=1,ammo=2,consumable=3,voice=4,readySpell=5,count=6};
 inline constexpr unsigned freeLayout=7;
 struct Options {
     std::array<unsigned,Arsenal::count> keys{2,3,4,5,6,7,8,9};
@@ -517,16 +524,29 @@ struct Options {
     unsigned itemIconColor=1;
     bool placementGrid=false,placementSnap=false;
     bool showEquipment=false,equipmentDim=false,hideEmptyGroups=false,showEquipmentAmmo=false;
+    bool mirrorEquipment=false,equipmentKeepCombatVisible=true,equipmentKeepDrawnVisible=false;
     float equipmentX=.02f,equipmentY=.8f;
     float equipmentScale=1,equipmentTextScale=1,equipmentSpacing=8;
     unsigned equipmentStyle=0,equipmentLayout=1,equipmentTextPosition=3;
     bool equipmentShowText=true;
+    std::array<TilePlace,std::size_t(EquipmentRole::count)> equipmentPlaces{};
+    std::array<unsigned,std::size_t(EquipmentRole::count)> equipmentRoles{};
+    unsigned keyPosition=0,badgePosition=0;
     float equipmentFadeDelay=4,equipmentIdleOpacity=.35f;
     unsigned inactiveGroups=0;
     float inactiveGroupOpacity=.3f;
     unsigned placementSpacing=1,placementFrame=0;
     float placementGridSize=16;
 };
+inline unsigned effectiveTileShape(const Options& o,std::size_t id) {
+    return o.layout==freeLayout&&id<Arsenal::count&&o.tilePlaces[id].shape>=1&&o.tilePlaces[id].shape<=4?o.tilePlaces[id].shape-1:o.shape;
+}
+inline bool effectiveTileShowLabel(const Options& o,std::size_t id) {
+    return o.layout==freeLayout&&id<Arsenal::count&&o.tilePlaces[id].showLabel>=1&&o.tilePlaces[id].showLabel<=2?o.tilePlaces[id].showLabel==1:o.showLabels;
+}
+inline bool effectiveTileShowKey(const Options& o,std::size_t id) {
+    return o.layout==freeLayout&&id<Arsenal::count&&o.tilePlaces[id].showKey>=1&&o.tilePlaces[id].showKey<=2?o.tilePlaces[id].showKey==1:o.showKeys;
+}
 // The wheel's turn in radians; its first slot sits this far clockwise from the top.
 inline float wheelTurn(const Options& o){return std::isfinite(o.wheelRotation)?o.wheelRotation*3.141592654f/180:0.f;}
 // Decides when to apply the preset chosen for an input device: once, after the device has been in use for a moment.

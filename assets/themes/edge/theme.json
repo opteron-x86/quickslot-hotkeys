@@ -1,33 +1,180 @@
 {
-  "schema": 1,
+  "schema": 3,
   "id": "edge",
   "name": "Edge",
-  "description": "EdgeUI",
+  "description": "Champagne-gold double hairlines and corner studs matching Edge UI",
   "frameStyle": 2,
   "palette": {
-    "accent": [
-      193,
-      171,
-      112
-    ],
-    "border": [
-      146,
-      133,
-      99,
-      205
-    ],
     "text": [
-      233,
-      230,
-      221
+      236,
+      232,
+      222
+    ],
+    "secondary": [
+      188,
+      180,
+      162
+    ],
+    "muted": [
+      132,
+      128,
+      118
+    ],
+    "accent": [
+      202,
+      178,
+      116
     ],
     "background": [
-      13,
-      16,
+      12,
+      15,
       17,
-      180
+      190
+    ],
+    "border": [
+      158,
+      142,
+      102,
+      215
+    ],
+    "selection": [
+      238,
+      218,
+      162
+    ],
+    "equipped": [
+      216,
+      192,
+      132
+    ],
+    "charge": [
+      146,
+      132,
+      228
+    ],
+    "panel": [
+      15,
+      18,
+      20,
+      246
+    ],
+    "panelBorder": [
+      144,
+      130,
+      94,
+      205
     ]
   },
+  "style": {
+    "cornerCut": 0,
+    "borderWidth": 1.1,
+    "shadowOpacity": 0.35,
+    "glowOpacity": 0.3,
+    "editorRounding": 2,
+    "accentLine": false
+  },
+  "font": "@fonts/Jost-Regular.ttf",
+  "titleFont": "@fonts/Jost-Medium.ttf",
+  "numberFont": "@fonts/Jost-Medium.ttf",
+  "recommended": {
+    "shape": 3,
+    "selector": 5,
+    "wheelStyle": 1,
+    "wheelHighlight": 3,
+    "equippedHighlight": 1
+  },
+  "assets": {
+    "card": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "square": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "diamond": {
+      "bg": "diamond_bg.svg",
+      "border": "diamond_border.svg",
+      "selected": {
+        "file": "diamond_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "circle": {
+      "bg": "circle_bg.svg",
+      "border": "circle_border.svg",
+      "selected": {
+        "file": "circle_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "wheel": {
+      "ringBg": {
+        "file": "wheel_ring_bg.svg",
+        "rasterSize": 256
+      },
+      "outerRim": {
+        "file": "wheel_outer_rim.svg",
+        "rasterSize": 512
+      },
+      "innerRim": {
+        "file": "wheel_inner_rim.svg",
+        "rasterSize": 512
+      },
+      "hubBg": "wheel_hub_bg.svg",
+      "hubBorder": "wheel_hub_border.svg",
+      "hubOverlay": "wheel_hub_overlay.svg",
+      "pointer": {
+        "file": "wheel_pointer.svg",
+        "tint": "accent"
+      },
+      "divider": "wheel_spoke.svg"
+    },
+    "divider": "rule.svg",
+    "markers": {
+      "equipped": {
+        "file": "marker_equipped.svg",
+        "tint": "equipped"
+      },
+      "chargePip": {
+        "file": "marker_pip.svg",
+        "tint": "charge"
+      }
+    },
+    "equipmentPanel": {
+      "bg": {
+        "file": "equip_bg.svg",
+        "slice": 28
+      },
+      "border": {
+        "file": "equip_border.svg",
+        "slice": 28
+      }
+    }
+  },
+  "detectPriority": 60,
   "detect": [
     {
       "file": "Interface/hudmenu.swf",

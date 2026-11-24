@@ -1,34 +1,179 @@
 {
-  "schema": 1,
+  "schema": 3,
   "id": "norden",
   "name": "Norden",
-  "description": "Norden",
+  "description": "Chiseled octagonal frost-steel matching Norden UI",
   "frameStyle": 0,
   "palette": {
-    "accent": [
-      210,
-      213,
-      212
-    ],
-    "border": [
-      169,
-      176,
-      179,
-      210
-    ],
     "text": [
-      233,
-      230,
-      221
+      235,
+      238,
+      240
+    ],
+    "secondary": [
+      182,
+      190,
+      196
+    ],
+    "muted": [
+      126,
+      134,
+      140
+    ],
+    "accent": [
+      196,
+      210,
+      222
     ],
     "background": [
-      13,
-      14,
+      12,
       15,
-      170
+      18,
+      195
+    ],
+    "border": [
+      168,
+      178,
+      186,
+      220
+    ],
+    "selection": [
+      230,
+      240,
+      248
+    ],
+    "equipped": [
+      194,
+      218,
+      236
+    ],
+    "charge": [
+      132,
+      176,
+      238
+    ],
+    "panel": [
+      15,
+      19,
+      23,
+      246
+    ],
+    "panelBorder": [
+      142,
+      154,
+      164,
+      205
     ]
   },
-  "atlas": "frames.png",
+  "style": {
+    "cornerCut": 12,
+    "borderWidth": 1.3,
+    "shadowOpacity": 0.4,
+    "glowOpacity": 0.3,
+    "editorRounding": 2,
+    "accentLine": false
+  },
+  "font": "@fonts/Jost-Regular.ttf",
+  "titleFont": "@fonts/Jost-Medium.ttf",
+  "numberFont": "@fonts/Jost-Medium.ttf",
+  "recommended": {
+    "shape": 3,
+    "selector": 1,
+    "selectorShape": 3,
+    "equippedHighlight": 1
+  },
+  "assets": {
+    "card": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "square": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "diamond": {
+      "bg": "diamond_bg.svg",
+      "border": "diamond_border.svg",
+      "selected": {
+        "file": "diamond_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "circle": {
+      "bg": "circle_bg.svg",
+      "border": "circle_border.svg",
+      "selected": {
+        "file": "circle_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "wheel": {
+      "ringBg": {
+        "file": "wheel_ring_bg.svg",
+        "rasterSize": 256
+      },
+      "outerRim": {
+        "file": "wheel_outer_rim.svg",
+        "rasterSize": 512
+      },
+      "innerRim": {
+        "file": "wheel_inner_rim.svg",
+        "rasterSize": 512
+      },
+      "hubBg": "wheel_hub_bg.svg",
+      "hubBorder": "wheel_hub_border.svg",
+      "hubOverlay": "wheel_hub_overlay.svg",
+      "pointer": {
+        "file": "wheel_pointer.svg",
+        "tint": "accent"
+      },
+      "divider": "wheel_spoke.svg"
+    },
+    "divider": "rule.svg",
+    "markers": {
+      "equipped": {
+        "file": "marker_equipped.svg",
+        "tint": "equipped"
+      },
+      "chargePip": {
+        "file": "marker_pip.svg",
+        "tint": "charge"
+      }
+    },
+    "equipmentPanel": {
+      "bg": {
+        "file": "equip_bg.svg",
+        "slice": 28
+      },
+      "border": {
+        "file": "equip_border.svg",
+        "slice": 28
+      }
+    }
+  },
+  "detectPriority": 65,
   "detect": [
     {
       "file": "Interface/hudmenu.swf",
@@ -41,6 +186,10 @@
     {
       "file": "Interface/tweenmenu.swf",
       "sha256": "e917d2aad9c488dc96ab6832cba3932a218f77eb98725c1d2e15779031a20a85"
+    },
+    {
+      "file": "Interface/skyhud/skyhud.txt",
+      "sha256": "5f5a8a67a36661d224d5c3984fc9ab3d1536ae34ac1a1ce6f312ea15fcbc0e6f"
     }
   ]
 }

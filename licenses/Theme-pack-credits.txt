@@ -1,45 +1,42 @@
-Quickslot 0.9.0 RC4 — theme artwork and fonts
+Quickslot 0.17.0 — theme artwork and fonts
 
-Nithog — Oathvein UI, Norden UI and Vel'dun UI.
-Oathvein and Norden frames: converted equipWidget_STB.swf shapes 81, 82, 83.
-Vel'dun frames: converted equipWidget_STB.swf shape 82, unrotated for tile use.
-https://www.nexusmods.com/skyrimspecialedition/mods/160916
-https://www.nexusmods.com/skyrimspecialedition/mods/166086
-https://www.nexusmods.com/skyrimspecialedition/mods/176230
-Their upstream credits include STBteam (STB Widgets), 3THANY (STB widget
-reskins) and rob18 (Horizons UI Remake / New Horizons UI).
-Nithog permits use of their own assets with credit. Other contributors' assets
-retain their own terms. This credit file does not grant additional rights.
+Theme artwork:
+All 16 external theme packs in Quickslot/themes/ use original Quickslot-authored
+SVG artwork and color palettes licensed with Quickslot. SHA-256 checksums for
+all bundled SVG assets are recorded in themes/packs-manifest.json.
 
-Native Quickslot visual adaptations:
-Edge UI — EugeneUI; https://www.nexusmods.com/skyrimspecialedition/mods/130983
-Untarnished UI — Vorganger; https://www.nexusmods.com/skyrimspecialedition/mods/75188
-NORDIC UI — outobugi; https://www.nexusmods.com/skyrimspecialedition/mods/49881
-Dear Diary Dark Mode — uranreactor; https://www.nexusmods.com/skyrimspecialedition/mods/60837
-These themes use Quickslot geometry and palettes. Complete upstream menus,
-SWFs and plugins are not included.
+Interface compatibility and visual pairing:
+Quickslot includes automatic interface detection and coordinated visual palettes
+for the following Skyrim UI overhauls (no upstream SWFs, textures, or binaries
+from these mods are distributed):
+- Oathvein UI — Nithog (https://www.nexusmods.com/skyrimspecialedition/mods/160916)
+- Norden UI — Nithog (https://www.nexusmods.com/skyrimspecialedition/mods/166086)
+- Vel'dun UI — Nithog (https://www.nexusmods.com/skyrimspecialedition/mods/176230)
+- NORDIC UI — outobugi (https://www.nexusmods.com/skyrimspecialedition/mods/49881)
+- Edge UI — EugeneUI (https://www.nexusmods.com/skyrimspecialedition/mods/130983)
+- Untarnished UI — Vorganger (https://www.nexusmods.com/skyrimspecialedition/mods/75188)
+- Dear Diary Dark Mode — uranreactor (https://www.nexusmods.com/skyrimspecialedition/mods/60837)
+- Amethyst UI (SkyHUD / Dear Diary Dark configuration)
+- Horizons UI — rob18
+- Immortal UI
+- Outlander UI II
 
-Untarnished theme font: Futura Book, from ImGui Icons - Untarnished UI.
-https://www.nexusmods.com/skyrimspecialedition/mods/114953
-Embedded copyright: Copyright 1990-1993 Bitstream Inc. All rights reserved.
-Original font metadata is preserved in untarnished-font.txt. A separate
-redistribution grant for the font binary has not been established by this audit.
+Original signature Quickslot themes:
+- Crimson Filigree, Dwemer Aetherium, Sovngarde Astral, Imperial Parchment,
+  and Daedric Oblivion are original Quickslot designs.
 
-Vel'dun theme font: Lato, by Lukasz Dziedzic, licensed under SIL OFL 1.1.
-https://github.com/latofonts/lato-source
-The installed font's metadata is preserved in veldun-font.txt. Full license:
-Lato-OFL.txt.
+Bundled fonts:
+- Jost (Regular and Medium): Owen Earl / the Jost Project Authors, licensed
+  under SIL Open Font License 1.1. Full license: Jost-OFL.txt.
+- Liberation Sans and Liberation Serif: Liberation Fonts authors, licensed
+  under SIL Open Font License 1.1. Full license: Liberation-Fonts.txt.
+- Noto Sans CJK SC Regular (Sans2.004, missing-glyph fallback): Google / Adobe,
+  licensed under SIL Open Font License 1.1.
+  Source: https://github.com/notofonts/noto-cjk/tree/Sans2.004
+  Font: Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf
+  Full license: NotoSansCJK-OFL.txt.
+  © 2014-2021 Adobe (http://www.adobe.com/).
 
-Jost: Owen Earl / the Jost Project Authors; Jost-OFL.txt.
-Liberation fonts: see Liberation-Fonts.txt.
-
-Source asset hashes are recorded in themes/packs-manifest.json. ImGui keycap
-images remain supplied by the user's installation and are not bundled.
-
-Missing-glyph fallback: Noto Sans CJK SC Regular, Sans2.004, from
-https://github.com/notofonts/noto-cjk/tree/Sans2.004
-Font: Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf
-License: NotoSansCJK-OFL.txt. This font supplies missing characters only;
-primary theme fonts, including Futura, retain priority.
-
-© 2014-2021 Adobe (http://www.adobe.com/).
+ImGui Icons keycap atlases and installed interface fonts under
+Data/Interface/ImGuiIcons/ are read from the user's installation at runtime
+and are not distributed with Quickslot.

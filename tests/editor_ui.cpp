@@ -75,8 +75,8 @@ int main(int argc,char** argv)try {
         for(unsigned attempt=0;attempt<24;++attempt) {
             const auto item=probe::one(label,index);auto* window=ImGui::FindWindowByName(item.window.c_str());
             if(!window||window->InnerClipRect.Contains(item.rect.GetCenter()))break;
-            if(attempt==23)throw std::runtime_error("Cannot scroll to "+label);
-            const auto clip=window->InnerClipRect;const float wheel=item.rect.GetCenter().y>clip.Max.y?-2.f:2.f;
+            if(attempt==23)throw std::runtime_error("Cannot scroll to "+label+" at line "+std::to_string(at.line()));
+            const auto clip=window->InnerClipRect;const float wheel=item.rect.GetCenter().y>=clip.Max.y?-2.f:2.f;
             mouse(clip.GetCenter());frame({{EditorInputType::wheel,0,false,0,wheel}});frame();
         }
         for(unsigned settle=0;settle<4;++settle){const auto target=probe::one(label,index).rect.GetCenter();mouse(target);const auto next=probe::one(label,index).rect.GetCenter();if(std::abs(next.x-target.x)<.1f&&std::abs(next.y-target.y)<.1f)break;}
@@ -162,7 +162,12 @@ int main(int argc,char** argv)try {
     click("##equipped highlight");click("Outline and tint");check(state.options.equippedHighlight==3,"The equipped highlight applies immediately");
     click("##reset Equipped highlight");check(state.options.equippedHighlight==0,"The equipped highlight resets to the marker alone");
     const bool colored=state.options.coloredMagic;click("Tint magic icons");check(state.options.coloredMagic!=colored,"Magic coloring is independent of the frame theme");
-    for(const auto& pair:std::vector<std::pair<const char*,const char*>>{{"Oathvein","oathvein"},{"Vel'dun","veldun"},{"Norden","norden"},{"Edge","edge"},{"Untarnished","untarnished"},{"Nordic","nordic"},{"Dear Diary Dark","dear-diary-dark"}}) {
+    for(const auto& pair:std::vector<std::pair<const char*,const char*>>{
+        {"Oathvein","oathvein"},{"Vel'dun","veldun"},{"Norden","norden"},{"Edge","edge"},{"Untarnished","untarnished"},
+        {"Nordic","nordic"},{"Dear Diary Dark","dear-diary-dark"},{"Amethyst","amethyst"},{"Horizons","horizons"},
+        {"Immortal","immortal"},{"Outlander","outlander"},{"Crimson Filigree","crimson-filigree"},
+        {"Dwemer Aetherium","dwemer-aetherium"},{"Sovngarde Astral","sovngarde-astral"},
+        {"Imperial Parchment","imperial-parchment"},{"Daedric Oblivion","daedric-oblivion"}}) {
         click("##theme");click(pair.first);check(state.options.themeId==pair.second,"External theme is selectable through the real ImGui picker");
     }
     click("##theme");click("Norden");click("Custom accent");check(adjustments(state.options).customAccent,"Theme customization applies immediately");
@@ -1150,6 +1155,86 @@ int main(int argc,char** argv)try {
         click("##group source");check(!probe::find("Favorite armor / clothing").empty()&&!probe::find("Favorite jewelry").empty(),"Favorites groups offer armor and jewelry");
         click("Favorite jewelry");
         check(state.draft.groups[1].source==FavoriteSource::jewelry&&state.draft.groups[1].entries.size()==2&&std::all_of(state.draft.groups[1].entries.begin(),state.draft.groups[1].entries.end(),[](const Entry& e){return jewelry(e);}),"A Favorites group can follow jewelry");
+    }
+    {
+        // Theme Engine v3 hot-reload controls, diagnostics and modular SkinTextures rendering.
+        key(1);state=fixture::editor();state.session=9002;frame();frame();
+        const auto tempThemes=std::filesystem::temp_directory_path()/"quickslot-ui-theme-v3";
+        std::filesystem::remove_all(tempThemes);std::filesystem::create_directories(tempThemes/"broken");
+        std::ofstream(tempThemes/"broken/theme.json")<<R"({"schema":99,"id":"bad","name":"Bad"})";
+        std::filesystem::create_directories(tempThemes/"v3pack");
+        std::ofstream(tempThemes/"v3pack/theme.json")<<R"({"schema":3,"id":"v3pack","name":"V3 Pack","palette":{"accent":[180,50,40],"charge":[90,200,255]},"style":{"editorRounding":5},"recommended":{"wheelStyle":1,"wheelHighlight":3,"equippedHighlight":1},"assets":{"card":{"bg":"a.png","border":{"file":"b.svg","slice":[16,16,16,16]}},"diamond":{"bg":"a.png","selected":"b.svg"},"circle":{"bg":"a.png"},"wheel":{"ringBg":"a.png","outerRim":"b.svg","innerRim":"b.svg","hubBg":"a.png","pointer":"b.svg","divider":"b.svg"},"divider":"b.svg","markers":{"equipped":"a.png","ready":"a.png","poison":"a.png","chargePip":"a.png","soulGem":"a.png"},"equipmentPanel":{"bg":"a.png","border":"b.svg"}}})";
+        std::ofstream(tempThemes/"v3pack/a.png")<<"x";std::ofstream(tempThemes/"v3pack/b.svg")<<"x";
+        hud.reloadThemes(tempThemes);
+        check(hud.themes().contains("v3pack")&&!hud.themeWarnings().empty(),"Reloading themes loads v3 packs and records warnings");
+        SkinTextures skin;const LoadedTexture fake{ImTextureID(1),64,64};
+        skin.card.bg=skin.card.border=skin.diamond.bg=skin.diamond.selected=skin.circle.bg=fake;
+        skin.wheel.ringBg=skin.wheel.outerRim=skin.wheel.innerRim=skin.wheel.hubBg=skin.wheel.pointer=skin.wheel.divider=fake;
+        skin.divider=skin.markers.equipped=skin.markers.ready=skin.markers.poison=skin.markers.chargePip=skin.markers.soulGem=fake;
+        skin.equipmentPanel.bg=skin.equipmentPanel.border=fake;
+        hud.setThemeTextures("v3pack",skin);
+        click("Appearance");click("Theme");
+        check(!probe::find("Reload themes").empty()&&!probe::find("Auto-reload theme changes").empty(),"Theme page exposes hot-reload and auto-reload controls");
+        check(!probe::find("Theme diagnostics (1)##theme diagnostics").empty(),"Theme diagnostics appear inline when load warnings exist");
+        click("Reload themes");
+        check(editor.consumeThemeReloadRequest(1.0,tempThemes,true)&&!editor.consumeThemeReloadRequest(1.1,tempThemes,true),"Clicking Reload themes queues a single reload request");
+        click("Auto-reload theme changes");
+        check(!editor.consumeThemeReloadRequest(2.0,tempThemes,true),"Enabling auto-reload primes the watcher");
+        std::ofstream(tempThemes/"v3pack/b.svg")<<"changed";
+        check(editor.consumeThemeReloadRequest(2.6,tempThemes,true),"Editing a watched theme asset triggers an automatic reload");
+        click("Auto-reload theme changes");
+        // Render all modular HUD paths (cards, circles, diamonds, segmented wheel, equipment panel) with the v3 theme.
+        state.options.themeId="v3pack";frame();
+        check(!probe::find("Apply theme's recommended look").empty(),"A theme with recommended settings shows its apply button");
+        click("Apply theme's recommended look");
+        check(state.options.wheelStyle==1&&state.options.wheelHighlight==3&&state.options.equippedHighlight==1&&probe::one("Apply theme's recommended look").disabled,"Applying a theme's recommended look updates appearance and disables the button when matched");
+        click("Undo");check(state.options.equippedHighlight!=1,"Applying a theme's recommended look supports Undo");
+        state.options.showEquipment=true;state.options.equipmentStyle=0;state.options.equipmentLayout=1;
+        state.options.selector=wheelSelector;state.options.wheelStyle=1;state.options.chargeIcons=2;
+        for(unsigned shape:{0u,1u,2u,3u}){state.options.shape=shape;frame();}
+        hud.reloadThemes(std::filesystem::path(argv[1])/"assets/themes");
+        std::filesystem::remove_all(tempThemes);
+    }
+    {
+        // Phase 3 UI: Peek HUD drawer, preview backdrops/states, Free tile overrides, Align/Distribute, key/badge anchors & Equipment parity.
+        key(1);state=fixture::editor();state.session=9003;state.options.advancedAppearance=true;state.options.groupCount=4;io.DisplaySize={1600,900};frame();frame();
+        click("Appearance");
+        click("##preview backdrop");click("Snow");
+        click("##preview state");click("Enchanted");frame();
+        click("##preview state");click("Poisoned");frame();
+        click("##preview state");click("Cooldown");frame();
+        click("##preview state");click("Depleted");frame();
+        click("##preview state");click("Normal");
+        click("##preview backdrop");click("Dark");
+
+        click("Peek HUD");
+        check(!probe::find("Dock right").empty()&&ImGui::GetBackgroundDrawList()->VtxBuffer.Size>0,"Peek HUD docks the editor and renders the live HUD on the background draw list");
+        click("Dock right");check(!probe::find("Dock left").empty(),"Peek drawer switches sides cleanly");
+        click("Dock left");click("Peek HUD");
+        check(probe::find("Dock right").empty()&&!probe::find("##preview backdrop").empty(),"Leaving Peek HUD restores the split preview pane");
+
+        click("Widget");
+        click("##key position");click("Left");check(state.options.keyPosition==3,"Key position updates from Widget Content");
+        click("##badge position");click("Bottom-left");check(state.options.badgePosition==2,"Count position updates from Widget Content");
+        click("##layout");click("Free");check(state.options.layout==freeLayout,"Widget switches to Free arrangement");
+        click("##free tile shape");click("Cards");check(state.options.tilePlaces[state.options.groupOrder[0]].shape==1,"Per-tile shape override applies");
+        click("##free tile label");click("Show");check(state.options.tilePlaces[state.options.groupOrder[0]].showLabel==1,"Per-tile label override applies");
+        click("##free tile key");click("Hide");check(state.options.tilePlaces[state.options.groupOrder[0]].showKey==2,"Per-tile key override applies");
+        click("Left##align");
+        const auto alignedG=hudGeometry(state.options,1600,900);
+        check(std::abs(elementCorner(alignedG,firstTileElement).x-elementCorner(alignedG,firstTileElement+1).x)<1.5f,"Left align lines up Free tiles");
+        click("Distribute horizontally");
+
+        click("Equipment");
+        click("##equipment visibility");click("Dim when idle");
+        click("Keep visible with weapons drawn");check(state.options.equipmentKeepDrawnVisible,"Equipment drawn-weapons visibility toggle applies");
+        click("Mirror equipment list");check(state.options.mirrorEquipment,"Equipment list mirroring toggle applies");
+        click("##equip role 3");click("When equipped");check(state.options.equipmentRoles[unsigned(EquipmentRole::consumable)]==1,"Per-role equipment visibility updates");
+        click("##equipment layout");click("Free");check(state.options.equipmentLayout==freeLayout,"Equipment switches to Free arrangement");
+        click("Left##align");
+        click("Position");
+        check(!probe::find("##placement element").empty(),"Position mode opens on Free equipment cells");
+        click("Back");
     }
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

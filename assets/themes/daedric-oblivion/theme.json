@@ -1,0 +1,178 @@
+{
+  "schema": 3,
+  "id": "daedric-oblivion",
+  "name": "Daedric Oblivion",
+  "description": "Jagged volcanic obsidian plates with glowing sigil-stone magma runes",
+  "frameStyle": 0,
+  "palette": {
+    "text": [
+      242,
+      228,
+      218
+    ],
+    "secondary": [
+      196,
+      164,
+      148
+    ],
+    "muted": [
+      138,
+      110,
+      102
+    ],
+    "accent": [
+      228,
+      78,
+      34
+    ],
+    "background": [
+      14,
+      10,
+      10,
+      216
+    ],
+    "border": [
+      132,
+      92,
+      84,
+      232
+    ],
+    "selection": [
+      252,
+      136,
+      56
+    ],
+    "equipped": [
+      238,
+      108,
+      46
+    ],
+    "charge": [
+      244,
+      96,
+      68
+    ],
+    "panel": [
+      18,
+      12,
+      12,
+      248
+    ],
+    "panelBorder": [
+      146,
+      78,
+      64,
+      215
+    ]
+  },
+  "style": {
+    "cornerCut": 10,
+    "borderWidth": 1.45,
+    "shadowOpacity": 0.5,
+    "glowOpacity": 0.4,
+    "editorRounding": 1,
+    "accentLine": false
+  },
+  "font": "@fonts/Jost-Regular.ttf",
+  "titleFont": "@fonts/LiberationSerif-Regular.ttf",
+  "numberFont": "@fonts/Jost-Medium.ttf",
+  "recommended": {
+    "shape": 3,
+    "selector": 5,
+    "wheelStyle": 1,
+    "wheelThickness": 0.46,
+    "wheelHighlight": 3,
+    "equippedHighlight": 3
+  },
+  "assets": {
+    "card": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "square": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "diamond": {
+      "bg": "diamond_bg.svg",
+      "border": "diamond_border.svg",
+      "selected": {
+        "file": "diamond_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "circle": {
+      "bg": "circle_bg.svg",
+      "border": "circle_border.svg",
+      "selected": {
+        "file": "circle_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "wheel": {
+      "ringBg": {
+        "file": "wheel_ring_bg.svg",
+        "rasterSize": 256
+      },
+      "outerRim": {
+        "file": "wheel_outer_rim.svg",
+        "rasterSize": 512
+      },
+      "innerRim": {
+        "file": "wheel_inner_rim.svg",
+        "rasterSize": 512
+      },
+      "hubBg": "wheel_hub_bg.svg",
+      "hubBorder": "wheel_hub_border.svg",
+      "hubOverlay": "wheel_hub_overlay.svg",
+      "pointer": {
+        "file": "wheel_pointer.svg",
+        "tint": "accent"
+      },
+      "divider": "wheel_spoke.svg"
+    },
+    "divider": "rule.svg",
+    "markers": {
+      "equipped": {
+        "file": "marker_equipped.svg",
+        "tint": "equipped"
+      },
+      "chargePip": {
+        "file": "marker_pip.svg",
+        "tint": "charge"
+      }
+    },
+    "equipmentPanel": {
+      "bg": {
+        "file": "equip_bg.svg",
+        "slice": 28
+      },
+      "border": {
+        "file": "equip_border.svg",
+        "slice": 28
+      }
+    }
+  }
+}

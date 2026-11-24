@@ -21,13 +21,42 @@ inline unsigned entryHands(const Entry& e,bool equipped) {
     return e.hand==Hand::left?2:1;
 }
 inline bool twoHandedDisplay(const EquippedDisplay& state){return state.hands[0]&&state.hands[0]->entry.twoHanded;}
-inline unsigned equipmentRows(const EquippedDisplay& state,const Options& options={}){return (twoHandedDisplay(state)?3u:4u)+(options.showEquipmentAmmo?1u:0u)+(state.castsReady?1u:0u);}
-template<class Draw> void forEachEquipmentRow(const EquippedDisplay& state,const Options& options,Draw draw) {
-    if(twoHandedDisplay(state))draw("Both hands",state.hands[0]);
-    else {draw("Right hand",state.hands[0]);draw("Left hand",state.hands[1]);}
-    if(options.showEquipmentAmmo)draw("Ammunition",state.ammo);
-    draw("Consumable",state.consumable);draw("Power / shout",state.voice);
-    if(state.castsReady)draw("Ready spell",state.readySpell);
+inline constexpr const char* equipmentRoleName(EquipmentRole role,bool twoHanded=false) {
+    switch(role) {
+    case EquipmentRole::rightHand:return twoHanded?"Both hands":"Right hand";
+    case EquipmentRole::leftHand:return "Left hand";
+    case EquipmentRole::ammo:return "Ammunition";
+    case EquipmentRole::consumable:return "Consumable";
+    case EquipmentRole::voice:return "Power / shout";
+    default:return "Ready spell";
+    }
+}
+template<class Draw> void forEachEquipmentRole(const EquippedDisplay& state,const Options& options,Draw draw,bool includeWhenEquipped=false) {
+    const auto emit=[&](EquipmentRole role,const std::optional<Row>& row) {
+        const unsigned mode=options.equipmentRoles[unsigned(role)];
+        if(mode==2||(mode==1&&!row&&!includeWhenEquipped))return;
+        draw(role,equipmentRoleName(role,twoHandedDisplay(state)),row);
+    };
+    emit(EquipmentRole::rightHand,state.hands[0]);
+    if(!twoHandedDisplay(state))emit(EquipmentRole::leftHand,state.hands[1]);
+    if(options.showEquipmentAmmo)emit(EquipmentRole::ammo,state.ammo);
+    emit(EquipmentRole::consumable,state.consumable);
+    emit(EquipmentRole::voice,state.voice);
+    if(state.castsReady)emit(EquipmentRole::readySpell,state.readySpell);
+}
+template<class Draw> void forEachEquipmentRow(const EquippedDisplay& state,const Options& options,Draw draw,bool includeWhenEquipped=false) {
+    forEachEquipmentRole(state,options,[&](EquipmentRole,const char* label,const std::optional<Row>& row){draw(label,row);},includeWhenEquipped);
+}
+inline unsigned equipmentRows(const EquippedDisplay& state,const Options& options={},bool includeWhenEquipped=false) {
+    unsigned n=0;
+    forEachEquipmentRole(state,options,[&](EquipmentRole,const char*,const std::optional<Row>&){++n;},includeWhenEquipped);
+    return n;
+}
+inline std::array<EquipmentRole,6> activeEquipmentRoles(const EquippedDisplay& state,const Options& options={},bool includeWhenEquipped=false) {
+    std::array<EquipmentRole,6> out{EquipmentRole::rightHand,EquipmentRole::leftHand,EquipmentRole::consumable,EquipmentRole::voice,EquipmentRole::ammo,EquipmentRole::readySpell};
+    unsigned n=0;
+    forEachEquipmentRole(state,options,[&](EquipmentRole role,const char*,const std::optional<Row>&){if(n<out.size())out[n++]=role;},includeWhenEquipped);
+    return out;
 }
 inline bool equipmentDimmed(const Row& row){return !row.available||row.powerUsed||row.cooldown>0;}
 inline int compatibleAmmoCount(bool crossbow,std::optional<bool> bolt,int count) {

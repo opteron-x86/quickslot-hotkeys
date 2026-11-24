@@ -1,0 +1,196 @@
+{
+  "schema": 3,
+  "id": "immortal",
+  "name": "Immortal",
+  "description": "Dark mythic bronze and molten ember-gold matching Immortal UI",
+  "frameStyle": 0,
+  "palette": {
+    "text": [
+      238,
+      228,
+      212
+    ],
+    "secondary": [
+      194,
+      176,
+      152
+    ],
+    "muted": [
+      138,
+      122,
+      106
+    ],
+    "accent": [
+      212,
+      136,
+      68
+    ],
+    "background": [
+      16,
+      13,
+      11,
+      208
+    ],
+    "border": [
+      164,
+      128,
+      88,
+      225
+    ],
+    "selection": [
+      244,
+      184,
+      112
+    ],
+    "equipped": [
+      226,
+      168,
+      98
+    ],
+    "charge": [
+      156,
+      128,
+      232
+    ],
+    "panel": [
+      20,
+      16,
+      14,
+      248
+    ],
+    "panelBorder": [
+      148,
+      114,
+      78,
+      215
+    ]
+  },
+  "style": {
+    "cornerCut": 8,
+    "borderWidth": 1.35,
+    "shadowOpacity": 0.45,
+    "glowOpacity": 0.34,
+    "editorRounding": 2,
+    "accentLine": false
+  },
+  "font": "@fonts/LiberationSans-Regular.ttf",
+  "titleFont": "@fonts/LiberationSerif-Regular.ttf",
+  "numberFont": "@fonts/Jost-Medium.ttf",
+  "recommended": {
+    "shape": 3,
+    "selector": 5,
+    "wheelStyle": 1,
+    "wheelHighlight": 0,
+    "equippedHighlight": 1
+  },
+  "assets": {
+    "card": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "square": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "diamond": {
+      "bg": "diamond_bg.svg",
+      "border": "diamond_border.svg",
+      "selected": {
+        "file": "diamond_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "circle": {
+      "bg": "circle_bg.svg",
+      "border": "circle_border.svg",
+      "selected": {
+        "file": "circle_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "wheel": {
+      "ringBg": {
+        "file": "wheel_ring_bg.svg",
+        "rasterSize": 256
+      },
+      "outerRim": {
+        "file": "wheel_outer_rim.svg",
+        "rasterSize": 512
+      },
+      "innerRim": {
+        "file": "wheel_inner_rim.svg",
+        "rasterSize": 512
+      },
+      "hubBg": "wheel_hub_bg.svg",
+      "hubBorder": "wheel_hub_border.svg",
+      "hubOverlay": "wheel_hub_overlay.svg",
+      "pointer": {
+        "file": "wheel_pointer.svg",
+        "tint": "accent"
+      },
+      "divider": "wheel_spoke.svg"
+    },
+    "divider": "rule.svg",
+    "markers": {
+      "equipped": {
+        "file": "marker_equipped.svg",
+        "tint": "equipped"
+      },
+      "chargePip": {
+        "file": "marker_pip.svg",
+        "tint": "charge"
+      }
+    },
+    "equipmentPanel": {
+      "bg": {
+        "file": "equip_bg.svg",
+        "slice": 28
+      },
+      "border": {
+        "file": "equip_border.svg",
+        "slice": 28
+      }
+    }
+  },
+  "detectPriority": 70,
+  "detect": [
+    {
+      "file": "Interface/hudmenu.swf",
+      "sha256": "adb0102b8472451be4691701ccea2d4744b959a7738ba9e5fa760de93a83fa5e"
+    },
+    {
+      "file": "Interface/startmenu.swf",
+      "sha256": "e11f9445199288ef3bffecfe207f71db64129a52b161efcbb83b6cb35282c54a"
+    },
+    {
+      "file": "Interface/wheelmenu.swf",
+      "sha256": "746cf6e681f5e8ad0af08e709569db0f7f487825c3d44595a1cc93253b0a2c56"
+    },
+    {
+      "file": "Interface/fontconfig.txt",
+      "contains": "fonts_maiandra.swf"
+    }
+  ]
+}

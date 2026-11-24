@@ -1,50 +1,1765 @@
 {
+  "origin": "Quickslot original clean-room SVG theme artwork.",
   "assets": [
     {
       "theme": "oathvein",
-      "source": "Oathvein UI/Interface/equipWidget_STB.swf",
-      "sha256": "06880ee16a271bdd489f826bfbd300b186a79839be43a311ac3191af8f35e4a7"
+      "asset": "oathvein/card_bg.svg",
+      "sha256": "7036b8f39571b86bcecc34d385966736b710c8e99dfd18b177f04fd85e602367"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/card_border.svg",
+      "sha256": "addb561ab08a5f4c9acccdf52ca1e37bcd9d1a5c19dd69ab2db3189a5f21d446"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/card_selected.svg",
+      "sha256": "dbfec9a08c398e7c6ba22653025d938c33be1b026fc5ab1e8eb6f10642b557f9"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/diamond_bg.svg",
+      "sha256": "3ca47f3a227551f5d8100ae768cd429a015ef65e46d8aa2ebc90dc80ab01242f"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/diamond_border.svg",
+      "sha256": "294313fbf2fda3ee5730024fbb1e773d46f20b23933f65d37df6250f50dc0bd3"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/circle_bg.svg",
+      "sha256": "a12034e5048fc7ee7e79b198596d4390c77313a190072b6c5ae78a1cf3d7b4ae"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/circle_border.svg",
+      "sha256": "f465306ee871f48c3dee8fef57e0f14bb9bd54195418c1c67072535d8927822b"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/wheel_ring_bg.svg",
+      "sha256": "ff32143bed2c4e980d58bc649db824db873deac8c22ec2d66a82583e97d5c8e1"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/wheel_outer_rim.svg",
+      "sha256": "8a7667c906c73a79331f51fa3c35fa6dfbf16c3c96463faec0ea3d249d342bd7"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/wheel_inner_rim.svg",
+      "sha256": "fce2c8f0bd6ba431f6de32d7949ee0b9492b787b2eb4e0ca651c63d2bf31a761"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/wheel_hub_bg.svg",
+      "sha256": "a12034e5048fc7ee7e79b198596d4390c77313a190072b6c5ae78a1cf3d7b4ae"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/wheel_hub_border.svg",
+      "sha256": "f465306ee871f48c3dee8fef57e0f14bb9bd54195418c1c67072535d8927822b"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/wheel_hub_overlay.svg",
+      "sha256": "92c6f3d708c31ac3dc78bdf3897d5f5e4491aca00333fa9de63f2de0e6e1cbb5"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/wheel_spoke.svg",
+      "sha256": "7328725d8baf321ac7bbdf6c16ee87de4996e7dea3e65f397b3cde16be84795e"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/wheel_pointer.svg",
+      "sha256": "3f15aab1e21cbea1b175771a813d62e858efafb385a64d336cb7675a617964ca"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/rule.svg",
+      "sha256": "351bdb2b6f7628532659c6c895e3c51bc77235ac8ec0f1afe4bae67f56b83b09"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/equip_bg.svg",
+      "sha256": "009550499d3dd9a553acfa50bb55266e6747dd1834db95c0b88bd93c9348795f"
+    },
+    {
+      "theme": "oathvein",
+      "asset": "oathvein/equip_border.svg",
+      "sha256": "ceb186607768669c381c8ad9700c055b2483b25254751f60a36954207680ceee"
     },
     {
       "theme": "norden",
-      "source": "NordenUI/Interface/equipWidget_STB.swf",
-      "sha256": "42a04165cdce9e8493590241c448741471571a5a26d7aa1d6611b2a34471deab"
+      "asset": "norden/card_bg.svg",
+      "sha256": "6cf59879c3a5c127ace881243c570322f4ce073b3a151b0aad826dd60de29b79"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/card_border.svg",
+      "sha256": "69468d3eeea90f71c58a5e2832902ae70b166b3dfc632bea59bfc1fb59deda06"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/card_selected.svg",
+      "sha256": "c875b24e66158fe7a187abe6fabed8b552fbd2732c6ed2370acdcbadc3f57ce9"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/diamond_bg.svg",
+      "sha256": "f93d75bcc7ee942b8561fcd7a9e200da28dbd2c14dc876ebe3ad7a3f3260fe3a"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/diamond_border.svg",
+      "sha256": "1be2e4d37a2f6fe910b53e12f0b0030e1c0951e344d29194c504b517e4f07ab0"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/circle_bg.svg",
+      "sha256": "15b0ceb615752f9a6f750cb32cd7984029416d9387607fd49eab916241d3a0d8"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/circle_border.svg",
+      "sha256": "c4033f861ac4ad5d7ce6bbe6a963a5a1415c9cbe099ac79ec31e226307c825d2"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/wheel_ring_bg.svg",
+      "sha256": "8cd842667b26e7749f98a1532248a88a468002c2ce2ccff9a60f25f2101192bf"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/wheel_outer_rim.svg",
+      "sha256": "025640a1a8387b02bd3ccdc4d95122886bf2b8acb789782ceefb6a36900350e6"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/wheel_inner_rim.svg",
+      "sha256": "214f1335943145207c79ea1c41822b92f4bafd0614250e4bb339617edd61420d"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/wheel_hub_bg.svg",
+      "sha256": "15b0ceb615752f9a6f750cb32cd7984029416d9387607fd49eab916241d3a0d8"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/wheel_hub_border.svg",
+      "sha256": "c4033f861ac4ad5d7ce6bbe6a963a5a1415c9cbe099ac79ec31e226307c825d2"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/wheel_hub_overlay.svg",
+      "sha256": "7272be5ed4add936f777457a18a9ddabfb4b8e6f6750bf8a3bbc4fabd1da75f5"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/wheel_spoke.svg",
+      "sha256": "52b789b810e22cc2b8e7b61e456cf62002a6ed45997a4202035ee6d8031b6675"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/wheel_pointer.svg",
+      "sha256": "e5fc5e852b53d72543300b65d2d40a4934a8ffa0fd095b55f40197c69bbf3134"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/rule.svg",
+      "sha256": "2ca798210490652dc643adb9b0a2e2edfe60abc6067ba9e3231899f1cdd4183d"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/equip_bg.svg",
+      "sha256": "a0a4251893197aacf8002211bbbe5dbcc239621314f1e03c8ca41c5ba09d8960"
+    },
+    {
+      "theme": "norden",
+      "asset": "norden/equip_border.svg",
+      "sha256": "60908028e9eb827f9968ea765372c3770c8e99e5a77587546c5e168065729436"
     },
     {
       "theme": "veldun",
-      "font": "Vel'dun UI/Interface/ImGuiIcons/Fonts/Lato-Regular.ttf",
-      "sha256": "67d15fbedf53b0bd31f2d0d9a8cfeba7a8679d3bd96f3154d22bb8f8ace96d95"
+      "asset": "veldun/card_bg.svg",
+      "sha256": "32ce251da3846b00df13cde56e5264e41322a38427a1bb8e342e79d9a8568c3a"
     },
     {
       "theme": "veldun",
-      "source": "Vel'dun UI/Interface/equipWidget_STB.swf",
-      "sha256": "b4cd4bf01797cfa88f56addbd38da4da8ae77210f1a763d04681fab224238b0f"
+      "asset": "veldun/card_border.svg",
+      "sha256": "27060e0c165752c6e32ec695b008d7d75ad730d3d3adea9cf76bd6bbfd8b1ee8"
     },
     {
-      "theme": "edge",
-      "source": "Edge UI/interface/TrueHUD_Assets0.swf",
-      "sha256": "edd78d44e93e6ec6bb4905c4072d2f3d379eefc4fe76bea92680c1eb54d15405"
+      "theme": "veldun",
+      "asset": "veldun/card_selected.svg",
+      "sha256": "dbfec9a08c398e7c6ba22653025d938c33be1b026fc5ab1e8eb6f10642b557f9"
     },
     {
-      "theme": "untarnished",
-      "font": "ImGui Icons - Untarnished UI/Interface/ImGuiIcons/Fonts/Futura Book Regular.ttf",
-      "sha256": "bf42509f521fc7fd13221780dfc76eb4121e010a8f24438c115521108a838097"
+      "theme": "veldun",
+      "asset": "veldun/diamond_bg.svg",
+      "sha256": "e9122b2a87832fcbe791ba8535e291897540f4125bd95ed0fa7dacd14c25d3f8"
     },
     {
-      "theme": "untarnished",
-      "source": "Untarnished UI 1.1.6/interface/TrueHUD_Assets0.swf",
-      "sha256": "d2f2f6b155a933bbd35dcc22b0b875b359306c635384b423fb9827ce2dba3ee4"
+      "theme": "veldun",
+      "asset": "veldun/diamond_border.svg",
+      "sha256": "01bb3eabc08bcd038ace8cbf00678fce18de5eddd0f35db2bfe2e58bd28793d2"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/circle_bg.svg",
+      "sha256": "655f9dc668e1c855016c92b48c99d86534844f45930e58a3f9d887081247c01d"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/circle_border.svg",
+      "sha256": "55419ed96600b1870702796d1dc2d462a4d4058bc98f42aa001ff314b3c70b38"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/wheel_ring_bg.svg",
+      "sha256": "aca3c404e98236763ad439480a133250aa7784ee892e085c0b0e563124e83884"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/wheel_outer_rim.svg",
+      "sha256": "7b4e41ffff72da8a947f3915e3aba687cf2f600bd04fb38e41406444d84e15b6"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/wheel_inner_rim.svg",
+      "sha256": "4d98b978c97a825937a421cec66ddba3ea2dd84d682be0a06ffb97a606514d35"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/wheel_hub_bg.svg",
+      "sha256": "655f9dc668e1c855016c92b48c99d86534844f45930e58a3f9d887081247c01d"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/wheel_hub_border.svg",
+      "sha256": "55419ed96600b1870702796d1dc2d462a4d4058bc98f42aa001ff314b3c70b38"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/wheel_hub_overlay.svg",
+      "sha256": "7ef77bfbefb49a0490bb00585be8056067119b42153e663049af802a01c263c4"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/wheel_spoke.svg",
+      "sha256": "ba02fafb174533bca9e0be81ef344e3d8304bcf9b2aba047d219d5e231fb42f5"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/wheel_pointer.svg",
+      "sha256": "e5fc5e852b53d72543300b65d2d40a4934a8ffa0fd095b55f40197c69bbf3134"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/rule.svg",
+      "sha256": "8322aa79c13e469da4f97ed2b987327ca710f3c8c49eb4bd0d5cbc781004bedb"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/equip_bg.svg",
+      "sha256": "2bbbfa1b86d56216b7e369e2ec7ba15623855731ad99612dcc933ab8c0d8eb49"
+    },
+    {
+      "theme": "veldun",
+      "asset": "veldun/equip_border.svg",
+      "sha256": "9c4e005a1055443707cfa927b865f52bc7c69692026abbb916387dde56e81685"
     },
     {
       "theme": "nordic",
-      "source": "NORDIC UI - Interface Overhaul/interface/hudmenu.swf",
-      "sha256": "f464ad6124b87de7707dd6bc5f81c9737476a4b1d92b1b4edb9828c5b27aed62"
+      "asset": "nordic/card_bg.svg",
+      "sha256": "0660207dde09dbf0e4deb49269620837ed26eeff5cf6f396446d224f9c2e4089"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/card_border.svg",
+      "sha256": "c55d7ba5ad6a67e936d60a9b29b64c8ba00863656940e9c8f2121ebe0c784205"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/card_selected.svg",
+      "sha256": "c875b24e66158fe7a187abe6fabed8b552fbd2732c6ed2370acdcbadc3f57ce9"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/diamond_bg.svg",
+      "sha256": "2ad2725f2b9dce71f59acb51343c9fb2835c02f37852b070fee51a4beb7005e5"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/diamond_border.svg",
+      "sha256": "a468afe511a4b128f52e3e8a9d7011046d712e2d74c512a61e485a13c37d05e0"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/circle_bg.svg",
+      "sha256": "d970237bf567b481483df369c6d2ff57f99dd5d670db86802663b958dac6a66a"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/circle_border.svg",
+      "sha256": "a3ed2771211bdb5a566ca7fab86d317cd28494b9674e16ea05735b0cba7b3a4b"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/wheel_ring_bg.svg",
+      "sha256": "37cdea6076263b233d1ebfdb94d04df0d84e0cfca5e1263928f57d6cbfdc67c3"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/wheel_outer_rim.svg",
+      "sha256": "04e824e7f80e5b61dd7cf4f38f4b4fe410892d254447df77e9619ad52d134a58"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/wheel_inner_rim.svg",
+      "sha256": "fd03da0432f33ebfd35e72db8f2f0a3b5f183ec11907c215af66accc2b5680a3"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/wheel_hub_bg.svg",
+      "sha256": "d970237bf567b481483df369c6d2ff57f99dd5d670db86802663b958dac6a66a"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/wheel_hub_border.svg",
+      "sha256": "a3ed2771211bdb5a566ca7fab86d317cd28494b9674e16ea05735b0cba7b3a4b"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/wheel_hub_overlay.svg",
+      "sha256": "9b82b4b90b598367de0defc416674dfe925645b0f7bd8b1650066e2b57306c5e"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/wheel_spoke.svg",
+      "sha256": "b7d1b2d971b75c6b86e15262a575fa9c248d3498135dfa82562337f91a4589ee"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/wheel_pointer.svg",
+      "sha256": "3f15aab1e21cbea1b175771a813d62e858efafb385a64d336cb7675a617964ca"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/rule.svg",
+      "sha256": "c87cc7cd898b52779276ca660f9d18d387074d5a72ae4d4a41fff979d7009781"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/equip_bg.svg",
+      "sha256": "0f70d9d3f3c53e9b64fdd3aef141ad019325027647c7b98782a2f8c3a04ee04e"
+    },
+    {
+      "theme": "nordic",
+      "asset": "nordic/equip_border.svg",
+      "sha256": "dc22b1d681a754fe42a373cb75e61622a212c47cff669746768a323d57102d14"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/card_bg.svg",
+      "sha256": "455a94868f9b3131d46c281a5905820b3b30c7568ed6f3bd94dcd5a74a1ac0ff"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/card_border.svg",
+      "sha256": "d04205d86de365d24b642927630482ad6a1e80d52fc66cc8a569d898e712d294"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/card_selected.svg",
+      "sha256": "ec698d7f60bfb772f33932a0fd244e8c348d84b1693dd04c3e1476f178c06221"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/diamond_bg.svg",
+      "sha256": "01db09bdab4e2377d293cce23af203576c2f533bd8131c246b2e8ce3753eb210"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/diamond_border.svg",
+      "sha256": "969c2426407e4d4fe8d2ab95b5f136e0acee7a2e1c4b2a2fb62f2c0e961de5cb"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/circle_bg.svg",
+      "sha256": "cecc6f6b036100b1b1bed46fc29d98eb55a6d4a47dd1a5cd40fd5099c584a5ea"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/circle_border.svg",
+      "sha256": "6c7af0d3159cdfaeefdf356a79d4845a5fa06357d0c2684584f7efe0e086b114"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/wheel_ring_bg.svg",
+      "sha256": "67eebde0c409121785625ef7871ee87322c55edbd4b5a887f650d9517f431ed1"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/wheel_outer_rim.svg",
+      "sha256": "d7481d22ef620a71c5d2b5e86d9e0eb7aff64d25221464937b637601d108d81a"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/wheel_inner_rim.svg",
+      "sha256": "7d4d076bfdc338592a96f171ae0f489f696e37995b60f29dac18405f2616e89f"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/wheel_hub_bg.svg",
+      "sha256": "cecc6f6b036100b1b1bed46fc29d98eb55a6d4a47dd1a5cd40fd5099c584a5ea"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/wheel_hub_border.svg",
+      "sha256": "6c7af0d3159cdfaeefdf356a79d4845a5fa06357d0c2684584f7efe0e086b114"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/wheel_hub_overlay.svg",
+      "sha256": "cd77271dd3dff204bca7a158f39896a6f7ff5cbb612449c16ec2dba58bef3f67"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/wheel_spoke.svg",
+      "sha256": "26e92a21f9e881c5f67ab39016dd96581940e8112e746d8cb86b6d375d66fcb2"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/wheel_pointer.svg",
+      "sha256": "e846f6715fa09d93b1cd77455f589ac73a69f6d3a893cbdd3248359b197a2648"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/rule.svg",
+      "sha256": "d74484fc771d2c72353eb90400750d4415d89db546e251d5c413bb4b955b1dc8"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/equip_bg.svg",
+      "sha256": "c4e7c177f1f03b475244ef3b3e5c9735d0c663e2d2f81b9c22a512b2a491b025"
+    },
+    {
+      "theme": "edge",
+      "asset": "edge/equip_border.svg",
+      "sha256": "efe2ea13a5b7c0ec7ad9ed685a20a45ab743339c756187926017ff021555db07"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/card_bg.svg",
+      "sha256": "b1be82e51890ebf9da71d0beccb9bc7d2264e65ae7bcac7ef08c71845988293e"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/card_border.svg",
+      "sha256": "0e2a504888bc36dea1dc62aa6970c7d9fa446807ddf3bd06ecd529afc7c4bfe5"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/card_selected.svg",
+      "sha256": "ec698d7f60bfb772f33932a0fd244e8c348d84b1693dd04c3e1476f178c06221"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/diamond_bg.svg",
+      "sha256": "1d35f31e2412fd5383319a400854f111c21384aeee60ed87b466dfa624359829"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/diamond_border.svg",
+      "sha256": "51ed4cc6fcf9b4faeb9345d8f3d3455e1e1015c45c4cae714ce0563f3c56c247"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/circle_bg.svg",
+      "sha256": "3ad80fb015d473c3c7c22c68b5baf125e28e42e27499def6c839e6d33d168291"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/circle_border.svg",
+      "sha256": "767e879a61c48d4bbd16807b6a5df3220d458194e118568cc59203cf6a1deb2b"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/wheel_ring_bg.svg",
+      "sha256": "b7aeb3eba635fd050e146d2c074fc486a866031cf81e821f1d62cf2e05433f2c"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/wheel_outer_rim.svg",
+      "sha256": "6cccbd52d5efc3525a022c18abb61c52466e20fb229c80c6aca4d46947e9496c"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/wheel_inner_rim.svg",
+      "sha256": "cb9c6a5ed94133d2cb9c1bb18ce72ddc52da70a7a07179d1f3b202b1dbc698bc"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/wheel_hub_bg.svg",
+      "sha256": "3ad80fb015d473c3c7c22c68b5baf125e28e42e27499def6c839e6d33d168291"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/wheel_hub_border.svg",
+      "sha256": "767e879a61c48d4bbd16807b6a5df3220d458194e118568cc59203cf6a1deb2b"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/wheel_hub_overlay.svg",
+      "sha256": "65575405e212e29687e4cfc5ee26e0b44ef92c101adf00a1e0a0d577af7bebc6"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/wheel_spoke.svg",
+      "sha256": "18ef5d7e72b370bc274314576f1491b3297f749b7bb8692d8163b2413a035683"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/wheel_pointer.svg",
+      "sha256": "e846f6715fa09d93b1cd77455f589ac73a69f6d3a893cbdd3248359b197a2648"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/rule.svg",
+      "sha256": "9aba99aaad555ced35a736e4268e58dbf0e7add98f68bb6cd7110c3ddd087c6a"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/equip_bg.svg",
+      "sha256": "bcbaed90db4304f0ecb3a71ba0068ab2beeef9a7434970f37cf27379a54a7691"
+    },
+    {
+      "theme": "untarnished",
+      "asset": "untarnished/equip_border.svg",
+      "sha256": "89f1b75c5afb3d822c82b07bbad048c12b067bbda2932f71a1d2ee18c187899b"
     },
     {
       "theme": "dear-diary-dark",
-      "source": "Dear Diary Dark Mode (white text)/interface/deardiary_dm/favoritesmenu/favoritesmenu_group.swf",
-      "sha256": "7310f6dec15e97f77e6a56bdfab09ae9ac6aa676b22c888db55d28c06bd063f2"
+      "asset": "dear-diary-dark/card_bg.svg",
+      "sha256": "dc75db64ccfb812e84b285bcb962720262ad54ac3b30f654151869b619ec196b"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/card_border.svg",
+      "sha256": "99ae3c6ead8c0865e0d71778ead169765716ba90eb78a2b25f557afb51701f51"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/card_selected.svg",
+      "sha256": "dbfec9a08c398e7c6ba22653025d938c33be1b026fc5ab1e8eb6f10642b557f9"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/diamond_bg.svg",
+      "sha256": "71c9cb99421637f70d30c4c314dcbaaec80c82a5c96c11651b4dbde2d5c13044"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/diamond_border.svg",
+      "sha256": "e83dbf468f5c32837dbc1d4d3a61a92c5f7c5259dfcbea8e23b1623902aa7add"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/circle_bg.svg",
+      "sha256": "a994a2a994069cf6dee41cc8ff6c43a90a059f93c4e877090e9da9493000809c"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/circle_border.svg",
+      "sha256": "c96af861a244c3413766f3ebb9efed56445cdf46ae79566a0ea9c37ffdbbb8e8"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/wheel_ring_bg.svg",
+      "sha256": "02de98c69214eb2b00deb7f4f052de083511e41ef2faa110cdae85506e216d0b"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/wheel_outer_rim.svg",
+      "sha256": "b44022cc6af0e75a668905d86d973e96f33a02c66a37b8d2c67ed772bb0d12d8"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/wheel_inner_rim.svg",
+      "sha256": "abd64ea7df9d02a59baf935b80f633b21a900c4db3a7e94c581ecf9fad58fffe"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/wheel_hub_bg.svg",
+      "sha256": "a994a2a994069cf6dee41cc8ff6c43a90a059f93c4e877090e9da9493000809c"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/wheel_hub_border.svg",
+      "sha256": "c96af861a244c3413766f3ebb9efed56445cdf46ae79566a0ea9c37ffdbbb8e8"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/wheel_hub_overlay.svg",
+      "sha256": "44cbfa6b57c0a0e0480ca8b1683e758e633ef291c7501c3a8bc7911e898263a5"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/wheel_spoke.svg",
+      "sha256": "3d3974fa7f22a7f244ce85427efae6ca48677a6a8d98375794a570e8760580f1"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/wheel_pointer.svg",
+      "sha256": "e5fc5e852b53d72543300b65d2d40a4934a8ffa0fd095b55f40197c69bbf3134"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/rule.svg",
+      "sha256": "8f54a0fb52dc7bf8ca2c282009cdc12412b9b13a43fad704a5d48d32f259c82c"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/equip_bg.svg",
+      "sha256": "777fc5c215fb2f4b85baf52fbbdc18c99aaa81e37c933aa9e602fce4a80aafc7"
+    },
+    {
+      "theme": "dear-diary-dark",
+      "asset": "dear-diary-dark/equip_border.svg",
+      "sha256": "71e778f7f567ce6c5cd1595ec168d9d1dbf9026647d1313c5aaeb3cb11f3322d"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/card_bg.svg",
+      "sha256": "364cd1f59fa90a733f68bde96bc61510f3f6e36c81f67164041afae251406ebc"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/card_border.svg",
+      "sha256": "1210fda5a8696b414a755529e1fd0a80dd03650cb684bd4fecc4b5994d3a7fb4"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/card_selected.svg",
+      "sha256": "dbfec9a08c398e7c6ba22653025d938c33be1b026fc5ab1e8eb6f10642b557f9"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/diamond_bg.svg",
+      "sha256": "edb94dc30b2099fef8241aff99da550afe51975408c4908b23a988038ab2de64"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/diamond_border.svg",
+      "sha256": "796ff85fbc125919bea026da50259d24a7954ddbc77f9ffefd8e4de670515fa4"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/circle_bg.svg",
+      "sha256": "a06561ddc596b21b04dd2e98ef61e51b3a4314c54f70e5e98db59f46192539dd"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/circle_border.svg",
+      "sha256": "3f461dec4591411bc95386b4aa0d1e9b4946d2940e459c8a036e7361caa5edb5"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/wheel_ring_bg.svg",
+      "sha256": "c1ec530aa4ccb2e23559fd7c0cf87f1b6e3d8dddec4d4f28fa05d23f0988ef1a"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/wheel_outer_rim.svg",
+      "sha256": "eda336fa13d4d1106ccea257906bed8958829b25d89311f7fec929527f371f4f"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/wheel_inner_rim.svg",
+      "sha256": "4b63e1fedd1570c082a37c308b9f774440ec751cbe629ada89c406adee9db0b7"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/wheel_hub_bg.svg",
+      "sha256": "a06561ddc596b21b04dd2e98ef61e51b3a4314c54f70e5e98db59f46192539dd"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/wheel_hub_border.svg",
+      "sha256": "3f461dec4591411bc95386b4aa0d1e9b4946d2940e459c8a036e7361caa5edb5"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/wheel_hub_overlay.svg",
+      "sha256": "2846b35494b5a043448f3a90b614c39075e977754f0c07e3d28165e144d48d8d"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/wheel_spoke.svg",
+      "sha256": "10c884505a2fc2ba3d7f0fcd0ccafaf350603f176a8fa66d5f2cf053224779b3"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/wheel_pointer.svg",
+      "sha256": "e5fc5e852b53d72543300b65d2d40a4934a8ffa0fd095b55f40197c69bbf3134"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/rule.svg",
+      "sha256": "3b8ddd5fe4012d2769ffd932e3dff61cbaf01cd38ddd01012c5794328b8eb6a3"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/equip_bg.svg",
+      "sha256": "0b995c781e0a0e53d4554d49319c8a74e3994c25497e4cf1a080a4bb34f59175"
+    },
+    {
+      "theme": "amethyst",
+      "asset": "amethyst/equip_border.svg",
+      "sha256": "f06cbcce4507b2354dc27af635d31cfc2d9974675f563b551c355c3782c0995e"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/card_bg.svg",
+      "sha256": "8ad7737be0769d573328554c34dad0fbcb6ae9bcf0ad3feca1f490df5cb3247f"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/card_border.svg",
+      "sha256": "61cd4cb2516bfb5c534fe0b6565ca5afc3ca94c1310e61dbca48b7dc057c0373"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/card_selected.svg",
+      "sha256": "ec698d7f60bfb772f33932a0fd244e8c348d84b1693dd04c3e1476f178c06221"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/diamond_bg.svg",
+      "sha256": "193d557a4d498d5d5c9f8677d65268ec6ae3086723878ee9645d03dfb2cd7a64"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/diamond_border.svg",
+      "sha256": "225d281336e6b6c6b6380c905ecca593db32f7a6420f2f068b9a471859168362"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/circle_bg.svg",
+      "sha256": "e0cfd6e1125e9222a87db5862711a577815070c8a0cbe24533b4f3bb60cba40d"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/circle_border.svg",
+      "sha256": "3975bb1ae2a5aa5deb3da6d66a46cef4af11622478fd601ca24e1f00d9bb79f9"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/wheel_ring_bg.svg",
+      "sha256": "438fef31eb75d1dba246cb4a2b03e3745b2dffcaade4853a5d0ab721aa782ab4"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/wheel_outer_rim.svg",
+      "sha256": "df15bad909633d1209c6c0d08ceececd96adb5c72ef5326ebb3c85b2d3beaf3b"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/wheel_inner_rim.svg",
+      "sha256": "a07540ac85cbbc47315461dfe35f2c8501328124912105361d33b10ac91d0135"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/wheel_hub_bg.svg",
+      "sha256": "e0cfd6e1125e9222a87db5862711a577815070c8a0cbe24533b4f3bb60cba40d"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/wheel_hub_border.svg",
+      "sha256": "3975bb1ae2a5aa5deb3da6d66a46cef4af11622478fd601ca24e1f00d9bb79f9"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/wheel_hub_overlay.svg",
+      "sha256": "9bba7b1a6059be73a1f8f1832080a4089bb0a00920850180f35e526b1508b01f"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/wheel_spoke.svg",
+      "sha256": "d256ce43f734d12fda24d604a09a97c857a42a952781971383e1bef72c6e718e"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/wheel_pointer.svg",
+      "sha256": "e846f6715fa09d93b1cd77455f589ac73a69f6d3a893cbdd3248359b197a2648"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/rule.svg",
+      "sha256": "baab8e117816caf6d5de0f488f201d99a8e40a55033f054f197f0d5bfe8bbbc7"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/equip_bg.svg",
+      "sha256": "78bf94b2f3456e89ca87752990f24021eda8a55821a08ce7a6444ceb0437a22c"
+    },
+    {
+      "theme": "horizons",
+      "asset": "horizons/equip_border.svg",
+      "sha256": "d58cd781d0232a79a125bbbac581e1ed7a917268f5b33166197293990929a6f6"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/card_bg.svg",
+      "sha256": "229b28e665fe084a94a7ca95966bba274c80026c05d670c23ba4938f4f81ff0e"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/card_border.svg",
+      "sha256": "fb06fd9893f0cf8f80a0fb65b1beabae7fb7b39c30d5aae9713d3652785e5f05"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/card_selected.svg",
+      "sha256": "dbfec9a08c398e7c6ba22653025d938c33be1b026fc5ab1e8eb6f10642b557f9"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/diamond_bg.svg",
+      "sha256": "58bd52cfa75d0abe399b43435a5abec956e4500791758535ca8f3b368941fa6d"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/diamond_border.svg",
+      "sha256": "df50406268510b1d03da32ca94a5295d68aa028bfaabe879b054164b18e9c8d0"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/circle_bg.svg",
+      "sha256": "e7dda59ab91be54250612ff1dee601d05056d6bb09bb380c2cb635533ffdaf6c"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/circle_border.svg",
+      "sha256": "ff962a8e29a68ae0b845121f378877a55c4b8d5a8b5d0ba19857ef6c8d2f9962"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/wheel_ring_bg.svg",
+      "sha256": "e1ecc859a7299c4da42635e2480df3b3aa1ac52d7084215ead7d050af33af3ce"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/wheel_outer_rim.svg",
+      "sha256": "ecd1a3b839aef5538d0a387a6a8af94a68749021619fae6adba95bc9e3c90c92"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/wheel_inner_rim.svg",
+      "sha256": "cee16f60ce05571fa4afba962261b2929cc21c807e3552342afb0d303c0d6315"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/wheel_hub_bg.svg",
+      "sha256": "e7dda59ab91be54250612ff1dee601d05056d6bb09bb380c2cb635533ffdaf6c"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/wheel_hub_border.svg",
+      "sha256": "ff962a8e29a68ae0b845121f378877a55c4b8d5a8b5d0ba19857ef6c8d2f9962"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/wheel_hub_overlay.svg",
+      "sha256": "f962fa1a6ef9a998261c1ced36fd62440b3246e9924d13261342fabf8eea4695"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/wheel_spoke.svg",
+      "sha256": "3b2f8239e82579a6ebcb8ce186633265a961ff8c2734bf46b2f37659873f4c54"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/wheel_pointer.svg",
+      "sha256": "e5fc5e852b53d72543300b65d2d40a4934a8ffa0fd095b55f40197c69bbf3134"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/rule.svg",
+      "sha256": "55a7adcc52ac88f94bc3b30e0305c6e80dd4898d23f8a46aefe0a3821f8f95a4"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/equip_bg.svg",
+      "sha256": "2b5e04b387b4034c99180d0858213b5182f4b1e91377e93661b76668fc648749"
+    },
+    {
+      "theme": "immortal",
+      "asset": "immortal/equip_border.svg",
+      "sha256": "f5c09c9778df26b2b6a68ba0c8890284cba885a11f37f13b802b1cfa941c6dec"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/card_bg.svg",
+      "sha256": "c7957c3e1408b33768ee16189c1a59c4b620bcf84bf08ad08afcb1cf121765b1"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/card_border.svg",
+      "sha256": "991e822930eb8c25240a05d787e02ceca693714cc75b4dfe7269e99f3e5be3a4"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/card_selected.svg",
+      "sha256": "dbfec9a08c398e7c6ba22653025d938c33be1b026fc5ab1e8eb6f10642b557f9"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/diamond_bg.svg",
+      "sha256": "8bfa9978669edffd173ca4bfef96b354adf38d1390d2274b358e7ca3c6c8ea70"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/diamond_border.svg",
+      "sha256": "49c4650c289bea42463d3e1ac7b3dc6c45a6a561b9e80e17d57f2eea9c9edd1a"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/circle_bg.svg",
+      "sha256": "f1edaf04fa7bd846868b938d6c3c8113d65761964da90e547f45ec2d3ddfe33f"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/circle_border.svg",
+      "sha256": "abf19a4849e8a824b46f908cd4dd29a3ae79ff66a9f4978354318e70b3658db5"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/wheel_ring_bg.svg",
+      "sha256": "01a3e9b0677b66309fffdd8cc00f8e9de941cb719a9d8b7124d462e5cbadbfc9"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/wheel_outer_rim.svg",
+      "sha256": "54fd852d08ee78024e2093e06f582d4c87f6813c0902b52c104ef212c67dc5ad"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/wheel_inner_rim.svg",
+      "sha256": "dc108a744601f068be9832d4eb1c0c0ea15c4782c997d47bd1f847cde70d3f5b"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/wheel_hub_bg.svg",
+      "sha256": "f1edaf04fa7bd846868b938d6c3c8113d65761964da90e547f45ec2d3ddfe33f"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/wheel_hub_border.svg",
+      "sha256": "abf19a4849e8a824b46f908cd4dd29a3ae79ff66a9f4978354318e70b3658db5"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/wheel_hub_overlay.svg",
+      "sha256": "35f388a41b54120d8055a1940219d399414f9ed34e2b494bec3c38a40280aa02"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/wheel_spoke.svg",
+      "sha256": "f1eaa4502d9c3fc9cb17d7c2ab54e9203e7fd4adbde62e2cdef1f997da176e3c"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/wheel_pointer.svg",
+      "sha256": "e5fc5e852b53d72543300b65d2d40a4934a8ffa0fd095b55f40197c69bbf3134"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/rule.svg",
+      "sha256": "6d2d2a41cc278ee626cf2dd4b345820d11c61887775b3c421dc75c857fc3cf79"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/equip_bg.svg",
+      "sha256": "dc428bcba1ff20dc8f93d5425eecb313dbb8351c51e3a8f318914ff4fa87eed2"
+    },
+    {
+      "theme": "outlander",
+      "asset": "outlander/equip_border.svg",
+      "sha256": "91cd7c5131883aef8937ada7b0ed0ec57a8c47f2238fc046db258741b4ec32e7"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/card_bg.svg",
+      "sha256": "89fc8a08504eeecc8210a424b6270fcf8913a2a6a27af836a1e263167e86594c"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/card_border.svg",
+      "sha256": "0180aab8b7326dda42711ad5fcb8e641454a9b8e728c496ad5e7da8b79574ea6"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/card_selected.svg",
+      "sha256": "dbfec9a08c398e7c6ba22653025d938c33be1b026fc5ab1e8eb6f10642b557f9"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/diamond_bg.svg",
+      "sha256": "64dd8046e6b35a960274cd1d9deb1d117ea84728cae1b1f87efff7f472a0bf49"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/diamond_border.svg",
+      "sha256": "9042b499025f38e38d72f9e13728061182209520ce73c86c2799a41e48533554"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/circle_bg.svg",
+      "sha256": "124155d980fd8577401c3114d208053e0141f31d5448e2491b8b3ffeec85b000"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/circle_border.svg",
+      "sha256": "50cf2757e19c8e122932f90312b783f4afa20e82cb61d7b66e7dcb69c5dabaa3"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/wheel_ring_bg.svg",
+      "sha256": "5ffeede28c487894e65f93a74069bfea645126ef15074f25040c14f0d101b12e"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/wheel_outer_rim.svg",
+      "sha256": "b17a8916dcc9c6a91abba2919b3a52a9e3a2c843192db99614a4e41017bab79d"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/wheel_inner_rim.svg",
+      "sha256": "12091dd7e2f8d058014c91a5f63512d11356145aba4f05a69fca8f3aaac2dbe5"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/wheel_hub_bg.svg",
+      "sha256": "124155d980fd8577401c3114d208053e0141f31d5448e2491b8b3ffeec85b000"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/wheel_hub_border.svg",
+      "sha256": "50cf2757e19c8e122932f90312b783f4afa20e82cb61d7b66e7dcb69c5dabaa3"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/wheel_hub_overlay.svg",
+      "sha256": "0b6a59b2482c6ec1b9c67652a4262c2767970ac12e91b520f2eef707bd9e9d3b"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/wheel_spoke.svg",
+      "sha256": "c882a500039a4477791642397034d1cfb99b62d97ecf59cf7aa79810483a5edd"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/wheel_pointer.svg",
+      "sha256": "e5fc5e852b53d72543300b65d2d40a4934a8ffa0fd095b55f40197c69bbf3134"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/rule.svg",
+      "sha256": "bfd85dc00073bd085cdc612b74551b4bc45a1960fe6fe8307774390f1309eca2"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/equip_bg.svg",
+      "sha256": "06213b9f568676038610d88c71e5a5a65dc3fe04be50a29a462deaa31d9680a4"
+    },
+    {
+      "theme": "crimson-filigree",
+      "asset": "crimson-filigree/equip_border.svg",
+      "sha256": "4c34931b406a2055fee9389ba9d63e380a92c5e1d52c04476efe854959ec35f8"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/card_bg.svg",
+      "sha256": "8a2b74c4f28fefa85ba68c839ebe398568dc57462d8d72e38fa928418c3ec1eb"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/card_border.svg",
+      "sha256": "e37b418f533fd5f1c8f5ab1099bcdd1d38c03d99efed6b86fb93b8d41b1a72df"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/card_selected.svg",
+      "sha256": "c875b24e66158fe7a187abe6fabed8b552fbd2732c6ed2370acdcbadc3f57ce9"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/diamond_bg.svg",
+      "sha256": "4fb9e67ebbb15ae4be94d401f754c9abb2465f5c2f810efc72f23b1879f4cb63"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/diamond_border.svg",
+      "sha256": "3b0cb7077e60c5857c598ee20358e725f21a54b81fa01bba41994be7beee0214"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/circle_bg.svg",
+      "sha256": "15ba24a6cc3d434ff7810a4e11a07588c228186e334969a51e4dc054a9e21e96"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/circle_border.svg",
+      "sha256": "92b033ed7b66d270944c126c4fa156f599fed25ec4a4adb41519ea0decb830d4"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/wheel_ring_bg.svg",
+      "sha256": "8750c3fa3485fe7f791f421c2645ed887fe3c2ef1ae8da1fd4092990cb056f69"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/wheel_outer_rim.svg",
+      "sha256": "6eb59d6c9aa8e00542c374e08ade2e3528f8eb35a3dd116adf1875dc3d92ca7f"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/wheel_inner_rim.svg",
+      "sha256": "22e556a1808bde799818a3eab0ed50c2f8855f0f931426ba3bc9b1929e1e63ed"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/wheel_hub_bg.svg",
+      "sha256": "15ba24a6cc3d434ff7810a4e11a07588c228186e334969a51e4dc054a9e21e96"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/wheel_hub_border.svg",
+      "sha256": "92b033ed7b66d270944c126c4fa156f599fed25ec4a4adb41519ea0decb830d4"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/wheel_hub_overlay.svg",
+      "sha256": "195a757934a85762c7c4189b17941f2161e3d907d532c13a8189825cf7023fee"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/wheel_spoke.svg",
+      "sha256": "19b8dbb1728dc800d6fdba1453f98dcb50930c9df8bbcc57b66a5022f8f713bb"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/wheel_pointer.svg",
+      "sha256": "e5fc5e852b53d72543300b65d2d40a4934a8ffa0fd095b55f40197c69bbf3134"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/rule.svg",
+      "sha256": "8a94ddb8d67b59ebb90849d111ad07bbf0900f1b253bbd5b10102fb513138763"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/equip_bg.svg",
+      "sha256": "024eea4cdc87d48605d676fc33df0b4a60608437e6736396abc7574b5d2c273f"
+    },
+    {
+      "theme": "dwemer-aetherium",
+      "asset": "dwemer-aetherium/equip_border.svg",
+      "sha256": "42889342ae02e708da6c3b7fdf03eb1584dfada5e4792ea46cb0f233f4924a85"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/card_bg.svg",
+      "sha256": "f3e631f1699fb59a2164822c64dfb83e46913293036f5f2d0afa4e06f7039495"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/card_border.svg",
+      "sha256": "21cad501d45656ad4b61a0f0cf7d5c0b038be3623f80f4e1b03cf03f53baf27a"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/card_selected.svg",
+      "sha256": "dbfec9a08c398e7c6ba22653025d938c33be1b026fc5ab1e8eb6f10642b557f9"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/diamond_bg.svg",
+      "sha256": "7e18c206f20a25ba8091c632915089b6514f4fe5de74d890d1c6e572830d732c"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/diamond_border.svg",
+      "sha256": "e6d59d00fee8ed80e0c6524fa31c3691da09348a3cbc492c04d2a4fcb6dd7e5e"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/circle_bg.svg",
+      "sha256": "2315fa42a5f0b31d6ab13308c9cd69e5f600637ae92a77660e14c66d686d2b1c"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/circle_border.svg",
+      "sha256": "41b4e3435bbb9114efba3ec5e89a3de04274731bd245125f1ffec5fe68b91ba6"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/wheel_ring_bg.svg",
+      "sha256": "fd6889d98a0b5d743fbf75ba4246f9028d1b841d0c8149384b377daf9f4022d1"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/wheel_outer_rim.svg",
+      "sha256": "ccd40c67e744085cae0961d2f517f53d2937fc6f685dfea1a0b18e63c1a318e1"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/wheel_inner_rim.svg",
+      "sha256": "750a95e27749b6d854295b53d67b8b769f5326927aae79363af7218a423d3133"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/wheel_hub_bg.svg",
+      "sha256": "2315fa42a5f0b31d6ab13308c9cd69e5f600637ae92a77660e14c66d686d2b1c"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/wheel_hub_border.svg",
+      "sha256": "41b4e3435bbb9114efba3ec5e89a3de04274731bd245125f1ffec5fe68b91ba6"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/wheel_hub_overlay.svg",
+      "sha256": "cb205b8d8e4613a65dacdabacc39f37fe06e10964525753039c6a1d211571bb6"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/wheel_spoke.svg",
+      "sha256": "6ca229d3c6570859eca9474525e59794d056822a914483d7c2d6a609f8327a86"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/wheel_pointer.svg",
+      "sha256": "e5fc5e852b53d72543300b65d2d40a4934a8ffa0fd095b55f40197c69bbf3134"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/rule.svg",
+      "sha256": "f6f70b7f634b0299d6851efc9c0c5d4be8304aad0958b94a598f3cf77a271587"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/equip_bg.svg",
+      "sha256": "cb0e9c733ea1b1d7b8ac5b8e6babb03ffdd7fa88cb308807242d29b900d5ac76"
+    },
+    {
+      "theme": "sovngarde-astral",
+      "asset": "sovngarde-astral/equip_border.svg",
+      "sha256": "62bb8ea615a6782449f4b0bbf21a4a34a10fc901868e2693e76507fda3ac2c4a"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/card_bg.svg",
+      "sha256": "032ed71df340671d9d5d13b9a7786ccb599478209a4b8a4f284666d4636c39ea"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/card_border.svg",
+      "sha256": "0602e921283757b067143757dafb59e2bf21b35a57604949afd050c94f57cb99"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/card_selected.svg",
+      "sha256": "dbfec9a08c398e7c6ba22653025d938c33be1b026fc5ab1e8eb6f10642b557f9"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/diamond_bg.svg",
+      "sha256": "e10b692d5ad71e724098c94984ea0d1261b3cca17146852bd5f28cd17128f72f"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/diamond_border.svg",
+      "sha256": "179dd7d7359ba2f7a9e0677b0d88f554528a0896cb4114eeb5086253d9e10236"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/circle_bg.svg",
+      "sha256": "31135929fd8b1adf092440e7f3240fcc61a1022adb60c2d9156f8aebf39fc3e2"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/circle_border.svg",
+      "sha256": "cd30540a496ad8e3fa8524226987cfe69d70cd3e50008d412650e08f466ea7d6"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/wheel_ring_bg.svg",
+      "sha256": "ee197141bb72805123b092c9620d1791ff74354bef43b40d88a66b97a1832be4"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/wheel_outer_rim.svg",
+      "sha256": "7b62864d7cf1d332bd80aa9c329aaba4a882fdc734e47cd5d1b26b8bd3520a38"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/wheel_inner_rim.svg",
+      "sha256": "e74c35e64c8fed67bd89bb51da31cd292d2ac9901e19f3c01f12bdb8ee06de39"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/wheel_hub_bg.svg",
+      "sha256": "31135929fd8b1adf092440e7f3240fcc61a1022adb60c2d9156f8aebf39fc3e2"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/wheel_hub_border.svg",
+      "sha256": "cd30540a496ad8e3fa8524226987cfe69d70cd3e50008d412650e08f466ea7d6"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/wheel_hub_overlay.svg",
+      "sha256": "fbeaa27818b144faf27647a106e4aa284b81555da8d3af85b6e0dcbf0b4ab60f"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/wheel_spoke.svg",
+      "sha256": "266a9cbe63e2addbbfa5357b53a3cc8c585bb70670c2308cc1e4650b455f58f3"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/wheel_pointer.svg",
+      "sha256": "e5fc5e852b53d72543300b65d2d40a4934a8ffa0fd095b55f40197c69bbf3134"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/rule.svg",
+      "sha256": "4054b9444ca893341d95cf97e325f9a6e6ab105bc0da02463bf0de454d89a0a3"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/equip_bg.svg",
+      "sha256": "352c2690c388956d15fda2cb52089ddc8bac39f268986837b4b40e83102d206d"
+    },
+    {
+      "theme": "imperial-parchment",
+      "asset": "imperial-parchment/equip_border.svg",
+      "sha256": "977e88b8199c5097a9dcbcf61391a4649f0d81cdab7ad5ed697aa0cbec35ebdc"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/card_bg.svg",
+      "sha256": "1b60b0b57d0363b70ed1a45f6d9d1beb4ca4754e1549bf314a5bf56dc7f915d5"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/card_border.svg",
+      "sha256": "fd2433b569a2f7e2e9ab0e237d153fd58a5b8dfed535c7af86dbc17ca4db2412"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/card_selected.svg",
+      "sha256": "dbfec9a08c398e7c6ba22653025d938c33be1b026fc5ab1e8eb6f10642b557f9"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/diamond_bg.svg",
+      "sha256": "475c15fa2026ba869328015ff877c0ede973b34e4f027b8a4d5713e77167419c"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/diamond_border.svg",
+      "sha256": "07bfe995acb96a5d922284bd7a8c0618ac3d3bd8054873d1e7818938e24e2954"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/diamond_selected.svg",
+      "sha256": "9eb4be15a7867bc4665440e3d00049e66cca5493e10942347288bf0a3a2b3eee"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/circle_bg.svg",
+      "sha256": "e30b4f91e65e245f21ee2bdc0c9760fda8e963a3f1acd1a209fd2570be326a8f"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/circle_border.svg",
+      "sha256": "7a13c5e9e3add97afcee03ae9e421ca6b17868186f60977eefe287cb8f2422a5"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/circle_selected.svg",
+      "sha256": "f60dee47fea8019f56d038f40af637707a57373ac87634aca9d89395f8f09a11"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/wheel_ring_bg.svg",
+      "sha256": "d8a6bcf3fbdf2c649633447c1cd098610c9290bd762993febacd5ea0632297ef"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/wheel_outer_rim.svg",
+      "sha256": "ce8cd63dbf1b8d71e17c6385351ab7659fdccd9ce4784c38905a5bfa79255ab5"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/wheel_inner_rim.svg",
+      "sha256": "7057ee257c356a8cd6314db231c1720616be485c9d64ac2430135a1907a60a1e"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/wheel_hub_bg.svg",
+      "sha256": "e30b4f91e65e245f21ee2bdc0c9760fda8e963a3f1acd1a209fd2570be326a8f"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/wheel_hub_border.svg",
+      "sha256": "7a13c5e9e3add97afcee03ae9e421ca6b17868186f60977eefe287cb8f2422a5"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/wheel_hub_overlay.svg",
+      "sha256": "08d013f46ec47732063ff23af7d87f2d206cd7625e2c309be77a86227a6d68d7"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/wheel_spoke.svg",
+      "sha256": "22d80cf46c711bb1eae36de8a04f8a8517f1bab6561c553f97f9dc47c23168d0"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/wheel_pointer.svg",
+      "sha256": "3f15aab1e21cbea1b175771a813d62e858efafb385a64d336cb7675a617964ca"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/rule.svg",
+      "sha256": "c476b12af500ff66e982d31037d07698b842639a48542afc0edf7849a6e79fc2"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/marker_equipped.svg",
+      "sha256": "61939681d9117b7be15296d9fe370d3063a39d442b43789567fec1e0755f88cf"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/marker_pip.svg",
+      "sha256": "99d4d91f01eed9232e305b413d3cf3d351c4e6befb87449482d7b51009a606d3"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/equip_bg.svg",
+      "sha256": "286f4d24304c406ea916d01260e16ece90c8e6d259a66ddea6d9a6284d0d4f5f"
+    },
+    {
+      "theme": "daedric-oblivion",
+      "asset": "daedric-oblivion/equip_border.svg",
+      "sha256": "fb405076856e7fa87b4afcea73791286d9cb93213cffe0700979f1d34c86a3c2"
     }
-  ],
-  "usage": "Source references and hashes for theme artwork and fonts."
+  ]
 }

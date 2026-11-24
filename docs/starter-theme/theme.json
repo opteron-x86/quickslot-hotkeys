@@ -1,0 +1,54 @@
+{
+  "schema": 3,
+  "id": "starter-custom",
+  "name": "Starter Custom",
+  "description": "Template schema 3 vector theme for Quickslot",
+  "extends": "minimal",
+  "palette": {
+    "text": [238, 234, 224],
+    "secondary": [188, 182, 168],
+    "muted": [132, 128, 120],
+    "accent": [196, 152, 84],
+    "background": [14, 16, 20, 200],
+    "border": [168, 148, 112, 220],
+    "selection": [238, 208, 148],
+    "equipped": [218, 188, 128],
+    "charge": [132, 184, 242],
+    "panel": [18, 20, 24, 246],
+    "panelBorder": [146, 128, 96, 205]
+  },
+  "style": {
+    "cornerCut": 8,
+    "borderWidth": 1.25,
+    "shadowOpacity": 0.4,
+    "glowOpacity": 0.32,
+    "editorRounding": 3,
+    "accentLine": true
+  },
+  "font": "@fonts/Jost-Regular.ttf",
+  "titleFont": "@fonts/Jost-Medium.ttf",
+  "numberFont": "@fonts/Jost-Medium.ttf",
+  "recommended": {
+    "shape": 3,
+    "selector": 5,
+    "wheelStyle": 1,
+    "wheelThickness": 0.45,
+    "wheelHighlight": 3,
+    "equippedHighlight": 1
+  },
+  "assets": {
+    "card": {
+      "border": { "file": "card_border.svg", "slice": 40 }
+    },
+    "square": {
+      "border": { "file": "card_border.svg", "slice": 40 }
+    },
+    "diamond": {
+      "border": "diamond_border.svg"
+    },
+    "wheel": {
+      "outerRim": { "file": "wheel_outer_rim.svg", "rasterSize": 512 },
+      "pointer": { "file": "wheel_pointer.svg", "tint": "accent" }
+    }
+  }
+}

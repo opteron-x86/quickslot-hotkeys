@@ -63,6 +63,8 @@ inline constexpr ChoiceSetting choiceSettings[]{
     {"anchor",&Options::anchor,9,Section::widget,true},
     {"layout",&Options::layout,freeLayout,Section::widget},
     {"shape",&Options::shape,3,Section::widget},
+    {"keyPosition",&Options::keyPosition,5,Section::widget,true},
+    {"badgePosition",&Options::badgePosition,3,Section::widget,true},
     {"inactiveGroups",&Options::inactiveGroups,2,Section::widget},
     {"selectorAnchor",&Options::selectorAnchor,9,Section::selector,true},
     {"selector",&Options::selector,wheelSelector,Section::selector},
@@ -77,7 +79,7 @@ inline constexpr ChoiceSetting choiceSettings[]{
     {"equipmentAnchor",&Options::equipmentAnchor,9,Section::equipment,true},
     {"equipmentStyle",&Options::equipmentStyle,4,Section::equipment},
     {"anchorFrame",&Options::anchorFrame,3,Section::general,true},
-    {"equipmentLayout",&Options::equipmentLayout,5,Section::equipment},
+    {"equipmentLayout",&Options::equipmentLayout,freeLayout,Section::equipment},
     {"equipmentTextPosition",&Options::equipmentTextPosition,3,Section::equipment},
 };
 inline constexpr FlagSetting flagSettings[]{
@@ -108,6 +110,9 @@ inline constexpr FlagSetting flagSettings[]{
     {"animateScroll",&Options::animateScroll,Section::selector},
     {"showEquipment",&Options::showEquipment,Section::equipment},
     {"equipmentDim",&Options::equipmentDim,Section::equipment},
+    {"equipmentKeepCombatVisible",&Options::equipmentKeepCombatVisible,Section::equipment,true},
+    {"equipmentKeepDrawnVisible",&Options::equipmentKeepDrawnVisible,Section::equipment,true},
+    {"mirrorEquipment",&Options::mirrorEquipment,Section::equipment,true},
     {"showEquipmentAmmo",&Options::showEquipmentAmmo,Section::equipment},
     {"equipmentShowText",&Options::equipmentShowText,Section::equipment},
     {"animateHud",&Options::animateHud,Section::general},
@@ -123,13 +128,13 @@ inline bool advancedSetting(float Options::*member) {
     return false;
 }
 inline bool advancedSetting(unsigned Options::*member) {
-    for(const auto each:{&Options::selectorVisible,&Options::inactiveGroups,&Options::equipmentTextPosition})if(each==member)return true;
+    for(const auto each:{&Options::selectorVisible,&Options::inactiveGroups,&Options::equipmentTextPosition,&Options::keyPosition,&Options::badgePosition})if(each==member)return true;
     return false;
 }
 inline bool advancedSetting(bool Options::*member) {
     for(const auto each:{&Options::customTextColor,&Options::customSelectionColor,&Options::coloredMagic,&Options::keyIcons,&Options::customEquippedColor,
         &Options::mirrorCards,&Options::showCardNames,&Options::showPoison,&Options::showAmmo,&Options::hideEmptyGroups,&Options::keepCombatVisible,&Options::keepDrawnVisible,
-        &Options::showHints,&Options::animateScroll,&Options::showEquipmentAmmo,&Options::wheelLift,&Options::wheelLabels,&Options::wheelPointer,&Options::selectorFooter})if(each==member)return true;
+        &Options::showHints,&Options::animateScroll,&Options::showEquipmentAmmo,&Options::mirrorEquipment,&Options::equipmentKeepCombatVisible,&Options::equipmentKeepDrawnVisible,&Options::wheelLift,&Options::wheelLabels,&Options::wheelPointer,&Options::selectorFooter})if(each==member)return true;
     return false;
 }
 inline const FloatSetting& setting(float Options::*member) {
@@ -162,6 +167,8 @@ inline void resetSection(Options& o,Section section) {
     for(const auto& s:choiceSettings)if(s.section==section)o.*s.value=defaults.*s.value;
     for(const auto& s:flagSettings)if(s.section==section)o.*s.value=defaults.*s.value;
     if(section==Section::theme){o.themeAdjustments.erase(o.themeId);o.themeId=defaults.themeId;o.themeAdjustments.erase(o.themeId);o.fontId=defaults.fontId;o.equippedColor=defaults.equippedColor;o.textColor=defaults.textColor;o.selectionColor=defaults.selectionColor;}
+    if(section==Section::widget)o.tilePlaces=defaults.tilePlaces;
+    if(section==Section::equipment){o.equipmentPlaces=defaults.equipmentPlaces;o.equipmentRoles=defaults.equipmentRoles;}
 }
 inline void encodeTable(nlohmann::json& j,const Options& o) {
     for(const auto& s:floatSettings)if(s.stored)j[s.key]=o.*s.value;

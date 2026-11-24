@@ -12,9 +12,7 @@
 namespace quickslot {
 namespace {
 // Palette roles. These zero-alpha tokens stand for the active theme's colors; Paint::color resolves them.
-constexpr ImU32 ivory=1,silver=2,muted=3,blood=4,dark=5,selectionMark=6,equippedMark=7,poisonMark=8,depletedMark=9;
-// Enchantment charge, in the violet of Skyrim's own charge meter.
-constexpr ImU32 chargeViolet=IM_COL32(138,108,214,255);
+constexpr ImU32 ivory=1,silver=2,muted=3,blood=4,dark=5,selectionMark=6,equippedMark=7,poisonMark=8,depletedMark=9,chargeMark=10;
 // Atlas cells hold 248 x 308 artwork; this factor matches the size of a square tile.
 constexpr float atlasScale=82.f/248;
 constexpr float pi=3.141592654f;
@@ -37,7 +35,7 @@ ImU32 iconColor(const Entry& e) {
     }
 }
 struct Paint {
-    ImDrawList* d;ImVec2 origin;float scale,alpha;ImFont* medium;ImFont* sans;ImTextureID themeTexture,keyTexture;const KeyGlyphs& keyGlyphs;const Options& options;const Theme& theme;ThemeAdjustments tweaks;const ItemIconProvider& itemIcons;
+    ImDrawList* d;ImVec2 origin;float scale,alpha;ImFont* medium;ImFont* sans;ImFont* numbers;const SkinTextures& textures;ImTextureID keyTexture;const KeyGlyphs& keyGlyphs;const Options& options;const Theme& theme;ThemeAdjustments tweaks;const ItemIconProvider& itemIcons;
     // Text sizes passed to label() are multiplied by the text size of the HUD part being drawn.
     float textFactor=1;
     // A group with its own color replaces the accent while that group is drawn.
@@ -51,9 +49,55 @@ struct Paint {
         switch(c) {
         case ivory:c=options.customTextColor?solid(options.textColor):theme.text;break;case silver:c=theme.secondary;break;case muted:c=theme.muted;break;case dark:c=theme.background;break;
         case blood:c=theme.warning;break;case selectionMark:c=selection();break;case equippedMark:c=options.customEquippedColor?ImU32(rgba(unsigned(options.equippedColor[0]*255),unsigned(options.equippedColor[1]*255),unsigned(options.equippedColor[2]*255))):theme.equipped;break;
-        case poisonMark:c=theme.poison;break;case depletedMark:c=theme.depleted;break;default:break;
+        case poisonMark:c=theme.poison;break;case depletedMark:c=theme.depleted;break;case chargeMark:c=theme.charge;break;default:break;
         }
         return (c&0xffffff)|(ImU32(float(c>>24)*std::clamp(alpha*opacity,0.f,1.f))<<24);
+    }
+    ImU32 roleColor(ThemeTint tint,float opacity=1)const {
+        switch(tint) {
+        case ThemeTint::text:return color(ivory,opacity);
+        case ThemeTint::secondary:return color(silver,opacity);
+        case ThemeTint::muted:return color(muted,opacity);
+        case ThemeTint::accent:return color(accent(),opacity);
+        case ThemeTint::border:return color(theme.border,opacity);
+        case ThemeTint::selection:return color(selectionMark,opacity);
+        case ThemeTint::equipped:return color(equippedMark,opacity);
+        case ThemeTint::background:return color(dark,opacity);
+        case ThemeTint::warning:return color(blood,opacity);
+        case ThemeTint::depleted:return color(depletedMark,opacity);
+        case ThemeTint::poison:return color(poisonMark,opacity);
+        case ThemeTint::charge:return color(chargeMark,opacity);
+        default:return color(IM_COL32_WHITE,opacity);
+        }
+    }
+    void drawThemeImage(float x,float y,float w,float h,const LoadedTexture& tex,const ThemeImage& meta,float opacity=1,bool flipX=false) {
+        if(!tex||w<=0||h<=0)return;
+        const ImU32 tint=roleColor(meta.tint,meta.opacity*opacity);
+        const auto& s=meta.slice;
+        if(!(s[0]||s[1]||s[2]||s[3])) {
+            d->AddImage(tex.id,p(x,y),p(x+w,y+h),{flipX?1.f:0.f,0},{flipX?0.f:1.f,1},tint);
+            return;
+        }
+        const float tw=tex.width,th=tex.height;
+        const float sl=std::min(float(flipX?s[2]:s[0]),tw*.5f),sr=std::min(float(flipX?s[0]:s[2]),tw*.5f);
+        const float st=std::min(float(s[1]),th*.5f),sb=std::min(float(s[3]),th*.5f);
+        const float unit=std::min(1.f,std::min(w,h)/std::min(tw,th));
+        float el=sl*unit,er=sr*unit,et=st*unit,eb=sb*unit;
+        if(el+er>w&&el+er>0){const float k=w/(el+er);el*=k;er*=k;}
+        if(et+eb>h&&et+eb>0){const float k=h/(et+eb);et*=k;eb*=k;}
+        const std::array<float,4> xs{x,x+el,x+w-er,x+w},ys{y,y+et,y+h-eb,y+h};
+        const std::array<float,4> us=flipX?std::array<float,4>{1.f,(tw-sl)/tw,sr/tw,0.f}:std::array<float,4>{0.f,sl/tw,(tw-sr)/tw,1.f};
+        const std::array<float,4> vs{0,st/th,(th-sb)/th,1};
+        for(unsigned row=0;row<3;++row)for(unsigned col=0;col<3;++col) {
+            if(xs[col+1]<=xs[col]||ys[row+1]<=ys[row])continue;
+            d->AddImage(tex.id,p(xs[col],ys[row]),p(xs[col+1],ys[row+1]),{us[col],vs[row]},{us[col+1],vs[row+1]},tint);
+        }
+    }
+    void drawRotatedImage(float cx,float cy,float w,float h,float angle,const LoadedTexture& tex,const ThemeImage& meta,float opacity=1) {
+        if(!tex||w<=0||h<=0)return;
+        const float c=std::cos(angle),s=std::sin(angle),hw=w*.5f,hh=h*.5f;
+        const auto rot=[&](float dx,float dy){return p(cx+dx*c-dy*s,cy+dx*s+dy*c);};
+        d->AddImageQuad(tex.id,rot(-hw,-hh),rot(hw,-hh),rot(hw,hh),rot(-hw,hh),{0,0},{1,0},{1,1},{0,1},roleColor(meta.tint,meta.opacity*opacity));
     }
     void line(float x,float y,float x2,float y2,ImU32 c=silver,float width=1) {
         d->AddLine(p(x,y),p(x2,y2),color(c),std::max(1.f,width*scale));
@@ -117,7 +161,7 @@ struct Paint {
         for(unsigned row=0;row<3;++row)for(unsigned column=0;column<3;++column) {
             if(xs[column+1]<=xs[column]||ys[row+1]<=ys[row])continue;
             const ImVec2 a{us[column]/1024,vs[row]/320},b{us[column+1]/1024,vs[row+1]/320};
-            d->AddImageQuad(themeTexture,place(xs[column],ys[row]),place(xs[column+1],ys[row]),place(xs[column+1],ys[row+1]),place(xs[column],ys[row+1]),
+            d->AddImageQuad(textures.atlas,place(xs[column],ys[row]),place(xs[column+1],ys[row]),place(xs[column+1],ys[row+1]),place(xs[column],ys[row+1]),
                 a,{b.x,a.y},b,{a.x,b.y},row==1&&column==1?inside:tint);
         }
     }
@@ -135,66 +179,97 @@ struct Paint {
             const auto c=row==1&&column==1?inside:tint;
             // Cells on the diagonal are halved along it; the last two corners coincide to draw a triangle.
             const unsigned last=column>row?column:column+1;
-            d->AddImageQuad(themeTexture,point(column,row),point(column+1,row),point(column+1,row+1),point(last,row+1),uv(column,row),uv(column+1,row),uv(column+1,row+1),uv(last,row+1),c);
-            d->AddImageQuad(themeTexture,point(row,column),point(row,column+1),point(row+1,column+1),point(row+1,last),uv(column,row),uv(column+1,row),uv(column+1,row+1),uv(last,row+1),c);
+            d->AddImageQuad(textures.atlas,point(column,row),point(column+1,row),point(column+1,row+1),point(last,row+1),uv(column,row),uv(column+1,row),uv(column+1,row+1),uv(last,row+1),c);
+            d->AddImageQuad(textures.atlas,point(row,column),point(row,column+1),point(row+1,column+1),point(row+1,last),uv(column,row),uv(column+1,row),uv(column+1,row+1),uv(last,row+1),c);
         }
     }
     void textureFrame(float x,float y,float w,float h,unsigned cell) {
         slicedFrame(w,h,cell,[&](float fx,float fy){return p(x+fx,y+fy);});
     }
-    void frame(float x,float y,float w,float h,bool selected,unsigned variant=1) {
+    bool drawBaseLayers(float x,float y,float w,float h,const FrameLayers& meta,const SkinFrameLayers& tex) {
+        if(!tex.hasBase())return false;
+        if(tex.shadow)drawThemeImage(x-2,y-1,w+4,h+4,tex.shadow,meta.shadow,theme.style.shadowOpacity);
+        if(tex.bg)drawThemeImage(x,y,w,h,tex.bg,meta.bg,options.backgroundOpacity);
+        if(tex.border)drawThemeImage(x,y,w,h,tex.border,meta.border);
+        return true;
+    }
+    void frame(float x,float y,float w,float h,bool selected,unsigned variant=1,bool isCard=false,bool equipped=false) {
         struct Restore {float& value;float old;~Restore(){value=old;}} restore{alpha,alpha};alpha*=tweaks.frameOpacity;
-        if(themeTexture) {
-            textureFrame(x,y,w,h,variant);
-            if(selected){line(x+4,y+h*.82f,x+w-4,y+h*.82f,accent(),1.2f);diamond(x+w*.5f,y+h*.82f,2.5f,selectionMark);}
-            return;
+        const auto& meta=isCard?theme.assets.card:theme.assets.square;
+        const auto& tex=isCard?textures.card:textures.square;
+        if(!drawBaseLayers(x,y,w,h,meta,tex)) {
+            if(textures.atlas) {
+                textureFrame(x,y,w,h,variant);
+            } else {
+                const float cut=theme.style.cornerCut>=0?std::min(theme.style.cornerCut,std::min(w,h)*.45f):theme.frameStyle==1||theme.frameStyle==2?0:std::min(6.f,h*.16f);
+                const ImVec2 points[]{p(x+cut,y),p(x+w-cut,y),p(x+w,y+cut),p(x+w,y+h-cut),
+                    p(x+w-cut,y+h),p(x+cut,y+h),p(x,y+h-cut),p(x,y+cut)};
+                d->AddConvexPolyFilled(points,8,color(dark,options.backgroundOpacity));
+                d->AddPolyline(points,8,color(selected?selection():theme.border),ImDrawFlags_Closed,std::max(1.f,scale*theme.style.borderWidth));
+                if(theme.frameStyle==2) {
+                    d->AddRect(p(x+3,y+3),p(x+w-3,y+h-3),color(theme.border,.45f),0,0,std::max(1.f,.65f*scale));
+                    for(float cx:{x,x+w})for(float cy:{y,y+h})diamond(cx,cy,2,accent());
+                } else if(theme.frameStyle==3) {
+                    line(x+3,y+4,x+3,y+h-4,theme.border,.7f);line(x+w-3,y+4,x+w-3,y+h-4,theme.border,.7f);
+                }
+            }
         }
-        const float cut=theme.frameStyle==1||theme.frameStyle==2?0:std::min(6.f,h*.16f);
-        const ImVec2 points[]{p(x+cut,y),p(x+w-cut,y),p(x+w,y+cut),p(x+w,y+h-cut),
-            p(x+w-cut,y+h),p(x+cut,y+h),p(x,y+h-cut),p(x,y+cut)};
-        d->AddConvexPolyFilled(points,8,color(dark,options.backgroundOpacity));
-        d->AddPolyline(points,8,color(selected?selection():theme.border),ImDrawFlags_Closed,std::max(1.f,scale*.8f));
-        if(theme.frameStyle==2) {
-            d->AddRect(p(x+3,y+3),p(x+w-3,y+h-3),color(theme.border,.45f),0,0,std::max(1.f,.65f*scale));
-            for(float cx:{x,x+w})for(float cy:{y,y+h})diamond(cx,cy,2,accent());
-        } else if(theme.frameStyle==3) {
-            line(x+3,y+4,x+3,y+h-4,theme.border,.7f);line(x+w-3,y+4,x+w-3,y+h-4,theme.border,.7f);
-        }
+        if(equipped&&tex.equipped)drawThemeImage(x,y,w,h,tex.equipped,meta.equipped);
         if(selected) {
-            line(x+cut+2,y+2,x+w-cut-2,y+2,accent(),1.5f);
-            line(x+cut+2,y+h-2,x+w-cut-2,y+h-2,accent(),1.5f);
-            diamond(x+w*.5f,y+h,2.5f,selectionMark);
+            if(tex.selected)drawThemeImage(x,y,w,h,tex.selected,meta.selected);
+            else if(theme.style.accentLine) {
+                if(textures.atlas||tex.hasBase()){line(x+4,y+h*.82f,x+w-4,y+h*.82f,accent(),1.2f);diamond(x+w*.5f,y+h*.82f,2.5f,selectionMark);}
+                else {
+                    const float cut=theme.style.cornerCut>=0?std::min(theme.style.cornerCut,std::min(w,h)*.45f):theme.frameStyle==1||theme.frameStyle==2?0:std::min(6.f,h*.16f);
+                    line(x+cut+2,y+2,x+w-cut-2,y+2,accent(),1.5f);
+                    line(x+cut+2,y+h-2,x+w-cut-2,y+h-2,accent(),1.5f);
+                    diamond(x+w*.5f,y+h,2.5f,selectionMark);
+                }
+            }
         }
     }
-    void medallion(float x,float y,float r,bool selected) {
+    void medallion(float x,float y,float r,bool selected,bool equipped=false) {
         struct Restore {float& value;float old;~Restore(){value=old;}} restore{alpha,alpha};alpha*=tweaks.frameOpacity;
-
-        circle(x,y,r+2,IM_COL32(0,0,0,90),false,3);
-        if(themeTexture) {
-            d->AddImageRounded(themeTexture,p(x-r,y-r),p(x+r,y+r),{772.f/1024,6.f/320},{1020.f/1024,314.f/320},color(IM_COL32_WHITE,options.backgroundOpacity),r*scale);
-        } else d->AddCircleFilled(p(x,y),r*scale,color(dark,options.backgroundOpacity),48);
-        circle(x,y,r,selected?selection():theme.border,false,.8f);
+        const auto& meta=theme.assets.circle;const auto& tex=textures.circle;
+        if(!drawBaseLayers(x-r,y-r,2*r,2*r,meta,tex)) {
+            if(theme.style.shadowOpacity>0)circle(x,y,r+2,IM_COL32(0,0,0,unsigned(255*theme.style.shadowOpacity)),false,3);
+            if(textures.atlas) {
+                d->AddImageRounded(textures.atlas,p(x-r,y-r),p(x+r,y+r),{772.f/1024,6.f/320},{1020.f/1024,314.f/320},color(IM_COL32_WHITE,options.backgroundOpacity),r*scale);
+            } else d->AddCircleFilled(p(x,y),r*scale,color(dark,options.backgroundOpacity),48);
+            circle(x,y,r,selected?selection():theme.border,false,theme.style.borderWidth);
+        }
+        if(equipped&&tex.equipped)drawThemeImage(x-r,y-r,2*r,2*r,tex.equipped,meta.equipped);
         if(selected) {
-            circle(x,y,r-3,accent(),false,.8f);
-            d->PathArcTo(p(x,y),(r+3)*scale,.18f*pi,.82f*pi,24);
-            d->PathStroke(color(accent()),0,std::max(1.f,1.5f*scale));
-            diamond(x,y-r-3,2.8f,selectionMark);
+            if(tex.selected)drawThemeImage(x-r,y-r,2*r,2*r,tex.selected,meta.selected);
+            else if(theme.style.accentLine) {
+                circle(x,y,r-3,accent(),false,.8f);
+                d->PathArcTo(p(x,y),(r+3)*scale,.18f*pi,.82f*pi,24);
+                d->PathStroke(color(accent()),0,std::max(1.f,1.5f*scale));
+                diamond(x,y-r-3,2.8f,selectionMark);
+            }
         }
     }
-    void lozenge(float x,float y,float r,bool selected) {
+    void lozenge(float x,float y,float r,bool selected,bool equipped=false) {
         struct Restore {float& value;float old;~Restore(){value=old;}} restore{alpha,alpha};alpha*=tweaks.frameOpacity;
-        if(themeTexture) {
-            // The frame's top-left corner sits at the diamond's top point; its sides run toward the right and left points.
-            const float side=r*std::sqrt(2.f);
-            mirroredFrame(side,1,[&](float fx,float fy){const float u=fx/side,v=fy/side;return p(x+(u-v)*r,y-r+(u+v)*r);});
+        const auto& meta=theme.assets.diamond;const auto& tex=textures.diamond;
+        if(!drawBaseLayers(x-r,y-r,2*r,2*r,meta,tex)) {
+            if(textures.atlas) {
+                // The frame's top-left corner sits at the diamond's top point; its sides run toward the right and left points.
+                const float side=r*std::sqrt(2.f);
+                mirroredFrame(side,1,[&](float fx,float fy){const float u=fx/side,v=fy/side;return p(x+(u-v)*r,y-r+(u+v)*r);});
+            }
+            else {diamond(x,y,r,dark,true,options.backgroundOpacity);diamond(x,y,r,selected?selectionMark:muted,false);}
         }
-        else {diamond(x,y,r,dark,true,options.backgroundOpacity);diamond(x,y,r,selected?selectionMark:muted,false);}
-        if(selected){const float inner=r-4;const ImVec2 points[]{p(x,y-inner),p(x+inner,y),p(x,y+inner),p(x-inner,y)};d->AddPolyline(points,4,color(accent()),ImDrawFlags_Closed,std::max(1.f,1.2f*scale));}
+        if(equipped&&tex.equipped)drawThemeImage(x-r,y-r,2*r,2*r,tex.equipped,meta.equipped);
+        if(selected) {
+            if(tex.selected)drawThemeImage(x-r,y-r,2*r,2*r,tex.selected,meta.selected);
+            else if(theme.style.accentLine){const float inner=r-4;const ImVec2 points[]{p(x,y-inner),p(x+inner,y),p(x,y+inner),p(x-inner,y)};d->AddPolyline(points,4,color(accent()),ImDrawFlags_Closed,std::max(1.f,1.2f*scale));}
+        }
     }
-    void tile(float x,float y,float r,bool selected,unsigned shape) {
-        if(shape==2)frame(x-r,y-r,2*r,2*r,selected);
-        else if(shape==3)lozenge(x,y,r,selected);
-        else medallion(x,y,r,selected);
+    void tile(float x,float y,float r,bool selected,unsigned shape,bool equipped=false) {
+        if(shape==2)frame(x-r,y-r,2*r,2*r,selected,1,false,equipped);
+        else if(shape==3)lozenge(x,y,r,selected,equipped);
+        else medallion(x,y,r,selected,equipped);
     }
     // charge, from 0 to 1, fills an enchanted weapon's icon from the bottom when the charge shows on icons.
     void icon(float x,float y,float size,const Entry& e,ImU32 c,float charge=-1) {
@@ -220,6 +295,11 @@ struct Paint {
         }
     }
     float mark()const{return options.equippedMarkerScale;}
+    float rectCornerCut(float w,float h)const {
+        if(theme.style.cornerCut>0)return std::min(theme.style.cornerCut*std::min(1.f,std::min(w,h)/82.f),std::min(w,h)*.45f);
+        if(theme.style.cornerCut==0||theme.frameStyle==1||theme.frameStyle==2)return 0.f;
+        return std::min(6.f,h*.16f);
+    }
     // An expanding outline in the accent color; t runs from 0 to 1. Shapes: 1 circle, 3 diamond, otherwise rectangle.
     void pulse(float x,float y,float w,float h,unsigned shape,float t) {
         if(t<0||t>=1)return;
@@ -227,13 +307,17 @@ struct Paint {
         const float cx=x+w*.5f,cy=y+h*.5f;
         if(shape==1)d->AddCircle(p(cx,cy),(w*.5f+grow)*scale,c,48,width);
         else if(shape==3){const float r=w*.5f+grow*1.4f;const ImVec2 points[]{p(cx,cy-r),p(cx+r,cy),p(cx,cy+r),p(cx-r,cy)};d->AddPolyline(points,4,c,ImDrawFlags_Closed,width);}
-        else d->AddRect(p(x-grow,y-grow),p(x+w+grow,y+h+grow),c,2*scale,0,width);
+        else if(const float cut=rectCornerCut(w,h);cut>0) {
+            const float x0=x-grow,y0=y-grow,x1=x+w+grow,y1=y+h+grow,oc=cut+grow*.41f;
+            const ImVec2 pts[]{p(x0+oc,y0),p(x1-oc,y0),p(x1,y0+oc),p(x1,y1-oc),p(x1-oc,y1),p(x0+oc,y1),p(x0,y1-oc),p(x0,y0+oc)};
+            d->AddPolyline(pts,8,c,ImDrawFlags_Closed,width);
+        } else d->AddRect(p(x-grow,y-grow),p(x+w+grow,y+h+grow),c,2*scale,0,width);
     }
     // Marks a tile in one color with an outline, a tint over the frame, or both; grow moves the outline outward.
     // Shapes: 1 circle, 3 diamond, otherwise rectangle.
     void highlight(float x,float y,float w,float h,unsigned shape,ImU32 c,bool outline,bool tinted,float grow=0) {
         const float cx=x+w*.5f,cy=y+h*.5f,r=w*.5f+grow;
-        const auto tint=color(c,.24f),halo=color(c,.28f),edge=color(c);
+        const auto tint=color(c,.24f),halo=color(c,theme.style.glowOpacity),edge=color(c);
         const float thin=std::max(1.5f,1.8f*scale),wide=std::max(3.f,5*scale);
         if(shape==1) {
             if(tinted)d->AddCircleFilled(p(cx,cy),w*.5f*scale,tint,48);
@@ -243,6 +327,17 @@ struct Paint {
             const ImVec2 fill[]{p(cx,cy-inner),p(cx+inner,cy),p(cx,cy+inner),p(cx-inner,cy)},points[]{p(cx,cy-outer),p(cx+outer,cy),p(cx,cy+outer),p(cx-outer,cy)};
             if(tinted)d->AddConvexPolyFilled(fill,4,tint);
             if(outline){d->AddPolyline(points,4,halo,ImDrawFlags_Closed,wide);d->AddPolyline(points,4,edge,ImDrawFlags_Closed,thin);}
+        } else if(const float cut=rectCornerCut(w,h);cut>0) {
+            if(tinted) {
+                const ImVec2 fill[]{p(x+cut,y),p(x+w-cut,y),p(x+w,y+cut),p(x+w,y+h-cut),p(x+w-cut,y+h),p(x+cut,y+h),p(x,y+h-cut),p(x,y+cut)};
+                d->AddConvexPolyFilled(fill,8,tint);
+            }
+            if(outline) {
+                const float x0=x-grow,y0=y-grow,x1=x+w+grow,y1=y+h+grow,oc=cut+grow*.41f;
+                const ImVec2 pts[]{p(x0+oc,y0),p(x1-oc,y0),p(x1,y0+oc),p(x1,y1-oc),p(x1-oc,y1),p(x0+oc,y1),p(x0,y1-oc),p(x0,y0+oc)};
+                d->AddPolyline(pts,8,halo,ImDrawFlags_Closed,wide);
+                d->AddPolyline(pts,8,edge,ImDrawFlags_Closed,thin);
+            }
         } else {
             if(tinted)d->AddRectFilled(p(x,y),p(x+w,y+h),tint,2*scale);
             if(outline){d->AddRect(p(x-grow,y-grow),p(x+w+grow,y+h+grow),halo,2*scale,0,wide);d->AddRect(p(x-grow,y-grow),p(x+w+grow,y+h+grow),edge,2*scale,0,thin);}
@@ -252,19 +347,31 @@ struct Paint {
     void equippedHighlight(float x,float y,float w,float h,unsigned shape) {
         if(const unsigned mode=options.equippedHighlight)highlight(x,y,w,h,shape,equippedMark,mode!=2,mode!=1);
     }
+    void equippedMarker(float x,float y,float r) {
+        if(textures.markers.equipped){drawThemeImage(x-r*1.5f,y-r*1.5f,r*3,r*3,textures.markers.equipped,theme.assets.markers.equipped);return;}
+        diamond(x,y,r,equippedMark);
+    }
     // A small arrowhead: the consumable its Use key takes.
-    void ready(float x,float y,float r,ImU32 c){d->AddTriangleFilled(p(x-r*.8f,y-r),p(x+r,y),p(x-r*.8f,y+r),color(c));}
+    void ready(float x,float y,float r,ImU32 c){
+        if(textures.markers.ready){drawThemeImage(x-r*1.5f,y-r*1.5f,r*3,r*3,textures.markers.ready,theme.assets.markers.ready);return;}
+        d->AddTriangleFilled(p(x-r*.8f,y-r),p(x+r,y),p(x-r*.8f,y+r),color(c));
+    }
     // A clockwise shade over an icon covering the remaining share of a cooldown.
     // A small soul gem at an icon's upper left marks an enchanted weapon; it fills with the remaining charge and turns
     // red at a fifth or less. An empty gem keeps a red outline.
     void soulGem(float x,float y,float r,float fraction) {
         if(options.chargeIcons!=2||!(fraction>=0))return;
         const float f=std::clamp(fraction,0.f,1.f),gx=x-r*.8f,gy=y-r*.56f,s=std::max(3.5f,r*.24f),line=std::max(1.f,scale);
+        if(textures.markers.soulGem) {
+            const float w=s*2.2f,h=s*2.6f;
+            drawThemeImage(gx-w*.5f,gy-h*.5f,w,h,textures.markers.soulGem,theme.assets.markers.soulGem,f>0?.35f+.65f*f:.4f);
+            return;
+        }
         const ImVec2 points[]{p(gx,gy-s*1.25f),p(gx+s*.8f,gy-s*.35f),p(gx+s*.55f,gy+s),p(gx-s*.55f,gy+s),p(gx-s*.8f,gy-s*.35f)};
         d->AddConvexPolyFilled(points,5,color(IM_COL32(10,8,16,210)));
         if(f>0) {
             const float cut=gy+s-2.25f*s*f;
-            d->PushClipRect(p(gx-s,cut),p(gx+s,gy+s+1),true);d->AddConvexPolyFilled(points,5,color(f<=.2f?ImU32(theme.warning):chargeViolet,.95f));d->PopClipRect();
+            d->PushClipRect(p(gx-s,cut),p(gx+s,gy+s+1),true);d->AddConvexPolyFilled(points,5,color(f<=.2f?ImU32(theme.warning):chargeMark,.95f));d->PopClipRect();
             d->AddLine(p(gx-s*.3f,gy-s*.6f),p(gx+s*.05f,gy-s*.95f),color(IM_COL32(220,206,255,255),.6f),line);
         }
         d->AddPolyline(points,5,f>0?color(IM_COL32(0,0,0,200)):color(theme.warning,.9f),ImDrawFlags_Closed,line*1.2f);
@@ -275,8 +382,13 @@ struct Paint {
         const float f=std::clamp(fraction,0.f,1.f),pitch=size*1.9f,r=size*.62f;
         for(int i=0;i<5;++i) {
             const float gx=left+r+float(i)*pitch,lit=std::clamp(f*5-float(i),0.f,1.f);
+            if(textures.markers.chargePip) {
+                const float op=lit>0?(lit<1?.35f+.65f*lit:1.f):.25f;
+                drawThemeImage(gx-r*1.2f,y-r*1.2f,r*2.4f,r*2.4f,textures.markers.chargePip,theme.assets.markers.chargePip,op);
+                continue;
+            }
             diamond(gx,y,r+.8f,dark,true);
-            if(lit>0)diamond(gx,y,r,f<=.2f?blood:chargeViolet,true,lit<1?.35f+.65f*lit:1.f);
+            if(lit>0)diamond(gx,y,r,f<=.2f?blood:chargeMark,true,lit<1?.35f+.65f*lit:1.f);
             else diamond(gx,y,r,f>0?muted:blood,false,.7f);
         }
     }
@@ -299,11 +411,17 @@ struct Paint {
         }
     }
     void rule(float x,float y,float half=70) {
-        line(x-half,y,x-7,y,IM_COL32(175,173,161,130),.7f);
-        line(x+7,y,x+half,y,IM_COL32(175,173,161,130),.7f);diamond(x,y,2.5f,accent());
+        if(textures.divider) {
+            const float w=half*2,h=std::clamp(w*(textures.divider.height/textures.divider.width),6.f,28.f);
+            drawThemeImage(x-w*.5f,y-h*.5f,w,h,textures.divider,theme.assets.divider);
+            return;
+        }
+        const auto edge=(theme.border&0x00ffffffu)|0x82000000u;
+        line(x-half,y,x-7,y,edge,.7f);
+        line(x+7,y,x+half,y,edge,.7f);diamond(x,y,2.5f,accent());
     }
-    void key(float x,float y,unsigned scan,bool selected,float height=18) {
-        if(!options.showKeys)return;
+    void key(float x,float y,unsigned scan,bool selected,float height=18,bool show=true) {
+        if(!show)return;
         if(scan>=256&&scan<288&&(scan-256)%16<4) {
             const auto direction=(scan-256)%16;const float r=height*.5f;
             const ImVec2 offsets[]{{0,-1},{1,0},{0,1},{-1,0}};
@@ -335,100 +453,156 @@ struct Paint {
         return std::max(16.f,sans->CalcTextSizeA(12*scale,FLT_MAX,0,keyLabel(scan).c_str()).x/scale+8);
     }
     // The width a group's key or button label takes; zero when it shows none.
-    float groupKeyWidth(std::size_t group,bool controller,bool vr,float height=18)const {
-        if(!options.showKeys)return 0;
-        if(!controller)return keyWidth(options.keys[group],height);
+    float groupKeyWidth(std::size_t group,bool controller,bool vr,float height=18,bool show=true)const {
+        if(!show)return 0;
+        if(!controller)return options.keys[group]?keyWidth(options.keys[group],height):0;
         const auto binding=(vr?options.vrGroups:options.controllerGroups)[group];const auto style=vr?2u:options.controllerStyle;
         if(binding.button==PadButton::none)return 0;
         if(binding.modifier==PadButton::none)return keyWidth(padGlyph(binding.button,style),height);
         return keyWidth(padGlyph(binding.modifier,style),height*.85f)+keyWidth(padGlyph(binding.button,style),height*.85f)+12;
     }
-    void groupKey(float x,float y,std::size_t group,bool selected,bool controller,bool vr,float height=18) {
-        if(!controller){key(x,y,options.keys[group],selected,height);return;}
+    void groupKey(float x,float y,std::size_t group,bool selected,bool controller,bool vr,float height=18,bool show=true) {
+        if(!show)return;
+        if(!controller){if(options.keys[group])key(x,y,options.keys[group],selected,height,true);return;}
         const auto binding=(vr?options.vrGroups:options.controllerGroups)[group];
         const auto style=vr?2u:options.controllerStyle;
         if(binding.button==PadButton::none)return;
-        if(binding.modifier==PadButton::none){key(x,y,padGlyph(binding.button,style),selected,height);return;}
+        if(binding.modifier==PadButton::none){key(x,y,padGlyph(binding.button,style),selected,height,true);return;}
         const float h=height*.85f;
         const auto mod=padGlyph(binding.modifier,style),button=padGlyph(binding.button,style);
         const float left=keyWidth(mod,h),right=keyWidth(button,h),start=x-(left+right+12)*.5f;
-        key(start+left*.5f,y,mod,selected,h);text(start+left+6,y,"+",11,silver,false,0,true);key(start+left+12+right*.5f,y,button,selected,h);
+        key(start+left*.5f,y,mod,selected,h,true);text(start+left+6,y,"+",11,silver,false,0,true);key(start+left+12+right*.5f,y,button,selected,h,true);
     }
     void badge(float x,float y,const Entry& entry,int quantity,float cooldown,float size=13,bool rightAligned=false,WeaponStatus weapon={}) {
         const int count=badgeQuantity(entry,quantity,weapon,options);
         const bool poisoned=options.showPoison&&weapon.poisoned;
         if(count<0&&cooldown<=0&&!poisoned)return;
         const auto label=count>=0?(count>999?std::string("999+"):std::to_string(count)):cooldown>0?std::to_string(int(std::ceil(cooldown)))+"s":std::string{};
-        const auto textWidth=sans->CalcTextSizeA(size*scale,FLT_MAX,0,label.c_str()).x/scale;
+        auto* font=numbers?numbers:sans;
+        const auto textWidth=font->CalcTextSizeA(size*scale,FLT_MAX,0,label.c_str()).x/scale;
         const float poisonWidth=poisoned?size+3:0,w=textWidth+poisonWidth+8;
         if(rightAligned)x-=w*.5f;
         const float left=x-w*.5f;
         if(poisoned) {
-            const auto green=color(poisonMark);const float cx=left+4+size*.5f,cy=y+size*.65f,r=size*.26f;
-            const auto droplet=[&]{d->PathLineTo(p(cx,cy-size*.65f));d->PathArcTo(p(cx,cy),r*scale,-pi*.2f,pi*1.2f,12);};
-            droplet();d->PathFillConvex(green);
-            droplet();d->PathStroke(color(IM_COL32(12,18,10,210)),ImDrawFlags_Closed,std::max(1.f,scale*.7f));
+            if(textures.markers.poison) {
+                drawThemeImage(left+4,y,size,size,textures.markers.poison,theme.assets.markers.poison);
+            } else {
+                const auto green=color(poisonMark);const float cx=left+4+size*.5f,cy=y+size*.65f,r=size*.26f;
+                const auto droplet=[&]{d->PathLineTo(p(cx,cy-size*.65f));d->PathArcTo(p(cx,cy),r*scale,-pi*.2f,pi*1.2f,12);};
+                droplet();d->PathFillConvex(green);
+                droplet();d->PathStroke(color(IM_COL32(12,18,10,210)),ImDrawFlags_Closed,std::max(1.f,scale*.7f));
+            }
         }
-        if(!label.empty())text(left+4+poisonWidth+textWidth*.5f,y,label,size,count==0?depletedMark:ivory,false,0,true);
+        if(!label.empty()) {
+            auto* savedSans=sans;sans=font;
+            text(left+4+poisonWidth+textWidth*.5f,y,label,size,count==0?depletedMark:ivory,false,0,true);
+            sans=savedSans;
+        }
     }
 };
 }
-void Hud::initialize(const std::string& directory,const std::string& installedFontDirectory) {
+ImFont* Hud::loadCachedFont(const std::filesystem::path& path,float size,bool allowFallback) {
+    if(path.empty())return nullptr;
+    std::error_code error;
+    if(!std::filesystem::is_regular_file(path,error))return nullptr;
+    const auto fileSize=std::filesystem::file_size(path,error);
+    if(error||fileSize<12||fileSize>32*1024*1024)return nullptr;
+    const auto mtime=std::filesystem::last_write_time(path,error);
     auto& io=ImGui::GetIO();
-    const auto root=std::filesystem::path(directory);const auto latin=root/"Jost-Regular.ttf";
-    std::vector<std::filesystem::path> fallbacks{latin};
-    std::error_code ec;
-    if(std::filesystem::is_directory(root/"fallback",ec)) {
-        std::vector<std::filesystem::path> extra;
-        for(const auto& file:std::filesystem::directory_iterator(root/"fallback",ec))if(file.is_regular_file()&&(file.path().extension()==".ttf"||file.path().extension()==".otf"))extra.push_back(file.path());
-        std::sort(extra.begin(),extra.end());fallbacks.insert(fallbacks.end(),extra.begin(),extra.end());
-    }
-    const auto add=[&](const std::filesystem::path& path,float size,bool merge)->ImFont* {
-        std::error_code error;
-        if(!std::filesystem::is_regular_file(path,error)||std::filesystem::file_size(path,error)>32*1024*1024)return nullptr;
-        auto& bytes=fontData_[path];
-        if(bytes.empty()){std::ifstream file(path,std::ios::binary);bytes.assign(std::istreambuf_iterator<char>(file),{});}
+    auto& entry=fontCache_[path];
+    const bool sameFile=!entry.bytes.empty()&&entry.size==fileSize&&entry.mtime==mtime;
+    if(entry.font&&sameFile)return entry.font;
+    if(!sameFile) {
+        std::vector<char> bytes;
+        {std::ifstream file(path,std::ios::binary);bytes.assign(std::istreambuf_iterator<char>(file),{});}
         if(bytes.size()<12)return nullptr;
         const std::string_view magic(bytes.data(),4);
         if(magic!=std::string_view("\0\1\0\0",4)&&magic!="OTTO"&&magic!="ttcf")return nullptr;
-        ImFontConfig config;config.FontDataOwnedByAtlas=false;config.MergeMode=merge;
-        return io.Fonts->AddFontFromMemoryTTF(bytes.data(),int(bytes.size()),size,&config);
-    };
-    const auto load=[&](const std::filesystem::path& path,float size) {
-        auto* font=add(path,size,false);if(!font)font=io.Fonts->AddFontDefault();
-        for(const auto& fallback:fallbacks)if(fallback!=path)add(fallback,size,true);
-        return font;
-    };
-    medium=load(root/"Jost-Medium.ttf",24);sans=load(latin,18);io.FontDefault=sans;
-    themes_.load(root.parent_path()/"themes");
-    std::map<std::filesystem::path,ImFont*> cache;
+        if(!entry.bytes.empty())retiredFontBytes_.push_back(std::move(entry.bytes));
+        entry.bytes=std::move(bytes);entry.size=fileSize;entry.mtime=mtime;
+    } else {
+        const std::string_view magic(entry.bytes.data(),4);
+        if(magic!=std::string_view("\0\1\0\0",4)&&magic!="OTTO"&&magic!="ttcf")return nullptr;
+    }
+    if(entry.font&&entry.font!=sans&&entry.font!=medium&&entry.font!=io.FontDefault)io.Fonts->RemoveFont(entry.font);
+    ImFontConfig config;config.FontDataOwnedByAtlas=false;config.MergeMode=false;
+    entry.font=io.Fonts->AddFontFromMemoryTTF(entry.bytes.data(),int(entry.bytes.size()),size,&config);
+    if(entry.font&&allowFallback) {
+        for(const auto& fb:fallbacks_) {
+            if(fb==path)continue;
+            auto it=fontCache_.find(fb);
+            if(it==fontCache_.end()||it->second.bytes.size()<12)continue;
+            ImFontConfig merge;merge.FontDataOwnedByAtlas=false;merge.MergeMode=true;
+            io.Fonts->AddFontFromMemoryTTF(it->second.bytes.data(),int(it->second.bytes.size()),size,&merge);
+        }
+    }
+    return entry.font;
+}
+void Hud::initialize(const std::string& directory,const std::string& installedFontDirectory) {
+    auto& io=ImGui::GetIO();
+    fontDirectory_=std::filesystem::path(directory);
+    installedFontDirectory_=std::filesystem::path(installedFontDirectory);
+    themesDirectory_=fontDirectory_.parent_path()/"themes";
+    const auto latin=fontDirectory_/"Jost-Regular.ttf";
+    fallbacks_={latin};
+    std::error_code ec;
+    if(std::filesystem::is_directory(fontDirectory_/"fallback",ec)) {
+        std::vector<std::filesystem::path> extra;
+        for(const auto& file:std::filesystem::directory_iterator(fontDirectory_/"fallback",ec))
+            if(file.is_regular_file()&&(file.path().extension()==".ttf"||file.path().extension()==".otf"))extra.push_back(file.path());
+        std::sort(extra.begin(),extra.end());fallbacks_.insert(fallbacks_.end(),extra.begin(),extra.end());
+    }
+    for(const auto& fb:fallbacks_) {
+        std::error_code error;
+        if(!std::filesystem::is_regular_file(fb,error))continue;
+        const auto sz=std::filesystem::file_size(fb,error);
+        if(error||sz<12||sz>32*1024*1024)continue;
+        auto& entry=fontCache_[fb];
+        if(entry.bytes.empty()){std::ifstream file(fb,std::ios::binary);entry.bytes.assign(std::istreambuf_iterator<char>(file),{});}
+        entry.size=sz;entry.mtime=std::filesystem::last_write_time(fb,error);
+    }
+    medium=loadCachedFont(fontDirectory_/"Jost-Medium.ttf",24,true);
+    if(!medium)medium=io.Fonts->AddFontDefault();
+    sans=loadCachedFont(latin,18,true);
+    if(!sans)sans=io.Fonts->AddFontDefault();
+    io.FontDefault=sans;
+    reloadThemes(themesDirectory_);
+}
+void Hud::reloadThemes(const std::filesystem::path& themesDirectory) {
+    if(!themesDirectory.empty())themesDirectory_=themesDirectory;
+    themes_.load(themesDirectory_);
+    if(!detected_.empty()&&!themes_.contains(detected_))detected_.clear();
     const auto packFont=[&](const std::filesystem::path& path,ImFont* fallback) {
         if(path.empty())return fallback;
-        if(auto it=cache.find(path);it!=cache.end())return it->second;
-        std::error_code error;if(!std::filesystem::is_regular_file(path,error))return fallback;
-        auto* result=load(path,20);cache[path]=result;return result;
+        auto* loaded=loadCachedFont(path,20,true);
+        return loaded?loaded:fallback;
     };
-    for(const auto& t:themes_.all())skins_[t.id]={packFont(t.font,sans),packFont(t.titleFont.empty()?t.font:t.titleFont,medium),0};
+    std::map<std::string,Skin> nextSkins;
+    for(const auto& t:themes_.all()) {
+        auto* body=packFont(t.font,sans);
+        auto* title=packFont(t.titleFont.empty()?t.font:t.titleFont,medium);
+        auto* number=packFont(t.numberFont,body);
+        Skin skin{body,title,number,{}};
+        if(const auto prev=skins_.find(t.id);prev!=skins_.end())skin.textures=prev->second.textures;
+        nextSkins.emplace(t.id,std::move(skin));
+    }
+    skins_=std::move(nextSkins);
     fonts_.clear();
-    const auto choice=[&](const std::filesystem::path& path)->ImFont* {
-        if(auto it=cache.find(path);it!=cache.end())return it->second;
-        auto* font=add(path,20,false);if(!font)return nullptr;
-        for(const auto& fallback:fallbacks)if(fallback!=path)add(fallback,20,true);
-        cache[path]=font;return font;
-    };
     const auto discover=[&](const std::filesystem::path& folder,const char* prefix) {
         std::error_code error;if(folder.empty()||!std::filesystem::is_directory(folder,error))return;
         std::vector<std::filesystem::path> files;
-        for(const auto& file:std::filesystem::directory_iterator(folder,error))if(file.is_regular_file(error)&&(file.path().extension()==".ttf"||file.path().extension()==".otf"))files.push_back(file.path());
+        for(const auto& file:std::filesystem::directory_iterator(folder,error))
+            if(file.is_regular_file(error)&&(file.path().extension()==".ttf"||file.path().extension()==".otf"))files.push_back(file.path());
         std::sort(files.begin(),files.end());
         for(const auto& file:files) {
             if(fonts_.size()>=24)break;
             const auto name=file.filename().string();
             if(name.size()>96||std::any_of(name.begin(),name.end(),[](unsigned char c){return c<32;}))continue;
-            if(auto* font=choice(file))fonts_.push_back({prefix+name,file.stem().string(),font});
+            if(auto* font=loadCachedFont(file,20,true))fonts_.push_back({prefix+name,file.stem().string(),font});
         }
     };
-    discover(installedFontDirectory,"ui/");discover(root,"quickslot/");
+    discover(installedFontDirectory_,"ui/");discover(fontDirectory_,"quickslot/");
+    ++themeRevision_;
 }
 void Hud::drawItemIcon(ImDrawList* list,ImVec2 center,float size,const Entry& entry,const Options& o,bool available)const {
     if(entry.kind==Kind::combo&&entry.parts.size()==2) {
@@ -448,9 +622,9 @@ EquipmentMetrics Hud::equipmentMetrics(const EquippedDisplay& state,const Option
     metrics.measured=true;unsigned index=0;const float t=o.equipmentTextScale;
     forEachEquipmentRow(state,o,[&](const char* role,const std::optional<Row>& row) {
         const auto name=equipmentTextName(row,o.equipmentStyle!=4,o);
-        metrics.textWidths[index++]=std::max(font->CalcTextSizeA(11.5f*t,FLT_MAX,0,tr(role)).x,
+        if(index<metrics.textWidths.size())metrics.textWidths[index++]=std::max(font->CalcTextSizeA(11.5f*t,FLT_MAX,0,tr(role)).x,
             font->CalcTextSizeA(17*t,FLT_MAX,0,name.c_str()).x)+2;
-    });
+    },o.equipmentLayout==freeLayout);
     return metrics;
 }
 void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,ImVec2 viewport,ImDrawList* list,HudBounds* bounds) {
@@ -458,7 +632,7 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     const auto displacement=motion_.update(state,o,now);const auto visibilityTarget=fade_.update(state,o,now);
     // Editor previews show the settled layout; gameplay eases the HUD in and the selector open and closed.
     const bool animate=o.animateHud&&!state.editorPreview;
-    if(!state.browsing)wheelHighlightSet_=false;
+    if(!state.browsing){wheelHighlightSet_=false;wedgeLiftSet_=false;}
     const auto visibility=animate?shown_.update(visibilityTarget,now,.12f,.15f):visibilityTarget;
     const float selectorTarget=state.browsing?1.f:0.f,selectorShown=animate?selectorOpen_.update(selectorTarget,now,.1f,.08f):selectorTarget;
     const auto equipmentAlpha=equipmentFade_.update(state,o,now);
@@ -468,16 +642,19 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
     const bool notification=noticed||tipped;
     const auto screen=viewport.x>0&&viewport.y>0?viewport:ImGui::GetIO().DisplaySize;
     const auto metrics=equipmentMetrics(state.equipment,o);
+    const bool eqIncludeEmpty=state.placementPreview&&o.equipmentLayout==freeLayout;
+    const unsigned eqRows=equipmentRows(state.equipment,o,eqIncludeEmpty);
+    const auto eqRoles=activeEquipmentRoles(state.equipment,o,eqIncludeEmpty);
     // The display position of the group in use; the Free arrangement gathers the selector and notices around its tile.
     std::size_t activeSlot=0;for(std::size_t i=0;i<o.groupOrder.size();++i)if(o.groupOrder[i]==state.activeGroup)activeSlot=i;
-    auto geometry=hudGeometry(o,screen.x,screen.y,equipmentRows(state.equipment,o),metrics,state.rows.size(),activeSlot);
-    if(state.editorPreview&&!state.placementPreview&&list){const auto display=ImGui::GetIO().DisplaySize;geometry=previewGeometry(o,display.x,display.y,screen.x,screen.y,state.browsing,!state.selectorOnly,state.equipmentOnly,equipmentRows(state.equipment,o),metrics,state.rows.size(),state.previewZoom,activeSlot);}
+    auto geometry=hudGeometry(o,screen.x,screen.y,eqRows,metrics,state.rows.size(),activeSlot,eqRoles);
+    if(state.editorPreview&&!state.placementPreview&&list){const auto display=ImGui::GetIO().DisplaySize;geometry=previewGeometry(o,display.x,display.y,screen.x,screen.y,state.browsing,!state.selectorOnly,state.equipmentOnly,eqRows,metrics,state.rows.size(),state.previewZoom,activeSlot,eqRoles);}
     const auto& focus=geometry.focus;
     const float scale=geometry.scale;
     const auto& theme=this->theme(o);const auto& skin=skins_.at(theme.id);
     Paint p{list?list:ImGui::GetBackgroundDrawList(),
         {origin.x+geometry.origin.x+geometry.selectorOrigin.x*scale,origin.y+geometry.origin.y+geometry.selectorOrigin.y*scale},
-        geometry.selectorScale,o.selectorOpacity*visibility,chosenFont(o)?chosenFont(o):skin.title,chosenFont(o)?chosenFont(o):skin.body,skin.texture,keyTexture,keyGlyphs,o,theme,adjustments(o),itemIcons_,selectorTextFactor(o)};
+        geometry.selectorScale,o.selectorOpacity*visibility,chosenFont(o)?chosenFont(o):skin.title,chosenFont(o)?chosenFont(o):skin.body,chosenFont(o)?chosenFont(o):skin.number,skin.textures,keyTexture,keyGlyphs,o,theme,adjustments(o),itemIcons_,selectorTextFactor(o)};
     p.tweaks.iconScale=o.iconScale;
     const auto collect=[&](int start,Bounds& box){for(int i=start;i<p.d->VtxBuffer.Size;++i){const auto v=p.d->VtxBuffer[i].pos;box.include({v.x,v.y});}};
     const int selectorStart=p.d->VtxBuffer.Size;const float text=selectorTextFactor(o);
@@ -502,14 +679,14 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         p.d->PushClipRect(p.p(0,-32),p.p(geometry.selectorWidth,geometry.selectorHeight+24),true);
         const auto node=[&](const Row& row,float x,float y,float r,bool selected,unsigned shape,float opacity) {
             auto nodePaint=p;nodePaint.alpha*=opacity;
-            nodePaint.tile(x,y,r,selected,shape);
+            nodePaint.tile(x,y,r,selected,shape,row.equipped);
             nodePaint.icon(x,y,r*1.48f,rowIconEntry(row),row.available?nodePaint.itemColor(rowIconEntry(row)):muted,row.weapon.charge);
             nodePaint.sweep(x,y,r*.74f*nodePaint.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));nodePaint.soulGem(x,y,r*.74f*nodePaint.tweaks.iconScale,row.weapon.charge);
             // A diamond keeps its marker in its lower point and its count inside its lower right edge.
             const bool lozenge=shape==3;
             const float marker=lozenge?x:x+(isStack(row.entry)||row.cooldown>0||(o.showAmmo&&row.weapon.ammunition>=0)||(o.showPoison&&row.weapon.poisoned)?-1.f:1.f)*r*.7f,markerY=y+r*(lozenge?.72f:.7f);
             if(!row.available&&!isStack(row.entry)){nodePaint.circle(marker,markerY,lozenge?4.5f:6.f,IM_COL32(22,18,18,240),true);nodePaint.line(marker-3,markerY+3,marker+3,markerY-3,blood,1.6f);}
-            else if(row.equipped)nodePaint.diamond(marker,markerY,(lozenge?2.8f:3.5f)*nodePaint.mark(),equippedMark);
+            else if(row.equipped)nodePaint.equippedMarker(marker,markerY,(lozenge?2.8f:3.5f)*nodePaint.mark());
             if(lozenge)nodePaint.badge(x+r*.43f,y+r*.16f,row.entry,row.quantity,row.cooldown,selected?14:11,true,row.weapon);
             else nodePaint.badge(x+r*.58f,y+r*.5f,row.entry,row.quantity,row.cooldown,selected?15:12,false,row.weapon);
         };
@@ -542,23 +719,63 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     else for(const float radius:{layout.inner,outer})if(radius>0)p.d->AddCircle(center,radius*p.scale,c,96,std::max(1.f,width*p.scale));
                 };
                 const bool outline=o.wheelHighlight==0||o.wheelHighlight==2,filled=o.wheelHighlight==0||o.wheelHighlight==1,rim=o.wheelHighlight==3;
+                const auto& wTex=p.textures.wheel;const auto& wMeta=theme.assets.wheel;
+                const auto drawWedgeRing=[&](float middle,float inner,float outer) {
+                    const float insetOuter=n>1&&outer>0?std::asin(std::min(1.f,layout.wedgeGap*.5f/outer)):0.f;
+                    const float apex=n>1&&turn<pi?layout.wedgeGap*.5f/std::sin(turn*.5f):0.f;
+                    const bool hasInner=inner>apex+1.f;
+                    const float insetInner=hasInner&&n>1&&inner>0?std::asin(std::min(1.f,layout.wedgeGap*.5f/inner)):0.f;
+                    const float spanOuter=std::max(0.f,turn-2*insetOuter),spanInner=hasInner?std::max(0.f,turn-2*insetInner):0.f;
+                    const int steps=std::max(6,int(turn*outer*p.scale/6));
+                    const ImU32 tint=p.roleColor(wMeta.ringBg.tint,wMeta.ringBg.opacity*o.backgroundOpacity*o.wheelOpacity*frameAlpha);
+                    const ImVec2 apexPt=p.p(hub.x+std::cos(middle)*apex,hub.y+std::sin(middle)*apex);
+                    for(int k=0;k<steps;++k) {
+                        const float t0=float(k)/float(steps),t1=float(k+1)/float(steps);
+                        const float ao0=middle-turn*.5f+insetOuter+t0*spanOuter,ao1=middle-turn*.5f+insetOuter+t1*spanOuter;
+                        const ImVec2 po0=p.p(hub.x+std::cos(ao0)*outer,hub.y+std::sin(ao0)*outer);
+                        const ImVec2 po1=p.p(hub.x+std::cos(ao1)*outer,hub.y+std::sin(ao1)*outer);
+                        ImVec2 pi0=apexPt,pi1=apexPt;
+                        if(hasInner) {
+                            const float ai0=middle-turn*.5f+insetInner+t0*spanInner,ai1=middle-turn*.5f+insetInner+t1*spanInner;
+                            pi0=p.p(hub.x+std::cos(ai0)*inner,hub.y+std::sin(ai0)*inner);
+                            pi1=p.p(hub.x+std::cos(ai1)*inner,hub.y+std::sin(ai1)*inner);
+                        }
+                        p.d->AddImageQuad(wTex.ringBg.id,po0,po1,pi1,pi0,{t0,0},{t1,0},{t1,1},{t0,1},tint);
+                    }
+                };
+                const float wheelDt=(!animate||!wheelHighlightSet_)?0.f:std::clamp(float(now-wheelHighlightAt_),0.f,.25f);
+                const float kGlide=1.f-std::exp(-22.f*wheelDt),kLift=1.f-std::exp(-20.f*wheelDt);
+                const auto wedgeLiftOf=[&](std::size_t i) {
+                    const float targetLift=i==index?layout.lift:0.f;
+                    if(i>=wedgeLift_.size())return targetLift;
+                    if(!animate||!wedgeLiftSet_)wedgeLift_[i]=targetLift;
+                    else {
+                        wedgeLift_[i]+=(targetLift-wedgeLift_[i])*kLift;
+                        if(std::abs(targetLift-wedgeLift_[i])<.05f)wedgeLift_[i]=targetLift;
+                    }
+                    return wedgeLift_[i];
+                };
                 std::vector<std::vector<ImVec2>> shapes;
+                std::vector<float> lifts;
                 for(std::size_t i=0;i<n&&i<layout.ring.size();++i) {
-                    const auto& row=state.rows[i];const float outer=layout.outer+(i==index?layout.lift:0.f);
+                    const auto& row=state.rows[i];const float lift=wedgeLiftOf(i),outer=layout.outer+lift;
+                    lifts.push_back(lift);
                     shapes.push_back(segment(middleOf(float(i)),layout.inner,outer));
-                    fill(shapes.back(),outer,p.color(dark,o.backgroundOpacity*o.wheelOpacity*frameAlpha));
+                    if(wTex.ringBg)drawWedgeRing(middleOf(float(i)),layout.inner,outer);
+                    else fill(shapes.back(),outer,p.color(dark,o.backgroundOpacity*o.wheelOpacity*frameAlpha));
                     if(row.equipped&&o.equippedHighlight!=0&&o.equippedHighlight!=1)fill(shapes.back(),outer,p.color(equippedMark,.24f));
                 }
+                wedgeLiftSet_=true;
                 // The highlight glides to the pointed segment while motion is on.
                 const float target=middleOf(float(index));
                 if(!animate||!wheelHighlightSet_)wheelHighlight_=target;
                 else {
-                    wheelHighlight_+=std::remainder(target-wheelHighlight_,2*pi)*std::clamp(float(now-wheelHighlightAt_)*18.f,0.f,1.f);
+                    wheelHighlight_+=std::remainder(target-wheelHighlight_,2*pi)*kGlide;
                     if(std::abs(std::remainder(target-wheelHighlight_,2*pi))<.002f)wheelHighlight_=target;
                 }
                 wheelHighlightSet_=true;wheelHighlightAt_=now;
                 if(index<shapes.size()&&(filled||rim)) {
-                    const float outer=layout.outer+layout.lift;
+                    const float outer=layout.outer+(index<lifts.size()?lifts[index]:layout.lift);
                     fill(segment(wheelHighlight_,layout.inner,outer),outer,p.color(selectionMark,filled?.3f:.12f));
                     if(rim) {
                         // A rim highlight is a band of the accent color along the segment's outer edge.
@@ -569,17 +786,28 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     }
                 }
                 for(std::size_t i=0;i<shapes.size();++i) {
-                    const auto& row=state.rows[i];const bool pointed=i==index;const float outer=layout.outer+(pointed?layout.lift:0.f);
-                    stroke(shapes[i],outer,p.color(theme.border,frameAlpha),.8f);
+                    const auto& row=state.rows[i];const bool pointed=i==index;const float outer=layout.outer+lifts[i];
+                    if(!wTex.outerRim)stroke(shapes[i],outer,p.color(theme.border,frameAlpha),theme.style.borderWidth);
                     if(row.equipped&&o.equippedHighlight!=0&&o.equippedHighlight!=2)stroke(shapes[i],outer,p.color(equippedMark),1.6f);
                     if(pointed&&outline)stroke(shapes[i],outer,p.color(selectionMark),1.8f);
                 }
+                if(wTex.divider&&n>1) {
+                    const float spokeLen=std::max(4.f,layout.outer-layout.inner),spokeW=std::max(2.f,spokeLen*(wTex.divider.width/wTex.divider.height));
+                    const float midR=(layout.inner+layout.outer)*.5f;
+                    for(std::size_t i=0;i<n;++i) {
+                        const float angle=middleOf(float(i))-turn*.5f;
+                        p.drawRotatedImage(hub.x+std::cos(angle)*midR,hub.y+std::sin(angle)*midR,spokeW,spokeLen,angle+pi*.5f,wTex.divider,wMeta.divider,frameAlpha);
+                    }
+                }
+                if(wTex.innerRim&&layout.inner>2.f)p.drawThemeImage(hub.x-layout.inner,hub.y-layout.inner,layout.inner*2,layout.inner*2,wTex.innerRim,wMeta.innerRim,frameAlpha);
+                if(wTex.outerRim)p.drawThemeImage(hub.x-layout.outer,hub.y-layout.outer,layout.outer*2,layout.outer*2,wTex.outerRim,wMeta.outerRim,frameAlpha);
                 for(std::size_t i=0;i<shapes.size();++i) {
                     const auto& row=state.rows[i];const bool pointed=i==index;
-                    const float middle=middleOf(float(i)),outer=layout.outer+(pointed?layout.lift:0.f),reach=layout.reach+(pointed?layout.lift*.5f:0.f);
+                    const float lift=lifts[i],middle=middleOf(float(i)),outer=layout.outer+lift,reach=layout.reach+lift*.5f;
                     // Icons fill the ring: as large as its thickness and the segment's width allow.
                     const float chord=n>1?2*reach*std::sin(std::min(turn,pi)*.5f)-layout.wedgeGap:thickness;
-                    const float size=std::max(8.f,std::min(thickness*.62f,chord*.72f))*(pointed&&layout.lift>0?1.12f:1.f);
+                    const float liftRatio=layout.lift>0?std::clamp(lift/layout.lift,0.f,1.f):(pointed?1.f:0.f);
+                    const float size=std::max(8.f,std::min(thickness*.62f,chord*.72f))*(1.f+.12f*liftRatio);
                     const bool labelled=o.wheelLabels&&thickness>=size+16*text;
                     const Point slot{hub.x+std::cos(middle)*reach,hub.y+std::sin(middle)*reach-(labelled?7*text:0.f)};
                     auto item=p;if(!pointed)item.alpha*=.88f;
@@ -589,15 +817,21 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     item.soulGem(slot.x,slot.y,r,row.weapon.charge);
                     if(labelled)item.label(slot.x,slot.y+size*.5f+1,displayName(row.entry),11,row.available?ivory:muted,false,std::max(20.f,chord*.88f),true);
                     const Point out{std::cos(middle),std::sin(middle)};
-                    if(row.equipped)item.diamond(hub.x+out.x*(outer-7),hub.y+out.y*(outer-7),2.8f*item.mark(),equippedMark);
+                    if(row.equipped)item.equippedMarker(hub.x+out.x*(outer-7),hub.y+out.y*(outer-7),2.8f*item.mark());
                     if(!row.available&&!isStack(row.entry)){item.circle(slot.x+size*.36f,slot.y+size*.36f,5,IM_COL32(22,18,18,240),true);item.line(slot.x+size*.36f-3,slot.y+size*.36f+3,slot.x+size*.36f+3,slot.y+size*.36f-3,blood,1.5f);}
                     item.badge(slot.x+size*.32f,slot.y+size*.14f,row.entry,row.quantity,row.cooldown,pointed?13:11,false,row.weapon);
                 }
-                // The hub: an optional circle, the pointed item's name when it fits, and a dot that follows the stick or mouse.
+                // The hub: an optional circle, the pointed item's name when it fits, and a dot or pointer that follows the stick or mouse.
                 const float radius=layout.hubRadius;
                 if(o.wheelHubCircle&&radius>0) {
-                    p.d->AddCircleFilled(center,radius*p.scale,p.color(dark,o.backgroundOpacity*o.wheelOpacity*frameAlpha),64);
-                    p.d->AddCircle(center,radius*p.scale,p.color(theme.border,frameAlpha),64,std::max(1.f,.8f*p.scale));
+                    if(wTex.hubBg||wTex.hubBorder) {
+                        if(wTex.hubBg)p.drawThemeImage(hub.x-radius,hub.y-radius,radius*2,radius*2,wTex.hubBg,wMeta.hubBg,o.backgroundOpacity*o.wheelOpacity*frameAlpha);
+                        if(wTex.hubBorder)p.drawThemeImage(hub.x-radius,hub.y-radius,radius*2,radius*2,wTex.hubBorder,wMeta.hubBorder,frameAlpha);
+                    } else {
+                        p.d->AddCircleFilled(center,radius*p.scale,p.color(dark,o.backgroundOpacity*o.wheelOpacity*frameAlpha),64);
+                        p.d->AddCircle(center,radius*p.scale,p.color(theme.border,frameAlpha),64,std::max(1.f,theme.style.borderWidth*p.scale));
+                    }
+                    if(wTex.hubOverlay)p.drawThemeImage(hub.x-radius,hub.y-radius,radius*2,radius*2,wTex.hubOverlay,wMeta.hubOverlay,frameAlpha);
                 }
                 if(layout.nameInHub) {
                     const float nameSize=17,statusSize=12.5f,room=2*std::sqrt(std::max(1.f,radius*radius-27*text*27*text))-12;
@@ -615,7 +849,13 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     for(const auto& line:lines){p.label(hub.x,y,line,nameSize,active->available?ivory:muted,true,room,true);y+=(nameSize+2)*text;}
                     p.statusLine(hub.x,y+3,*active,statusSize,active->available?silver:depletedMark,room);
                 }
-                if(const float length=std::hypot(state.pointerX,state.pointerY);o.wheelPointer&&radius>0&&n>1&&length>.15f)p.circle(hub.x+state.pointerX/length*radius,hub.y+state.pointerY/length*radius,3,selectionMark,true);
+                if(const float length=std::hypot(state.pointerX,state.pointerY);o.wheelPointer&&radius>0&&n>1&&length>.15f) {
+                    const float dx=state.pointerX/length,dy=state.pointerY/length;
+                    if(wTex.pointer) {
+                        const float h=std::clamp(radius*.36f,10.f,28.f),w=h*(wTex.pointer.width/wTex.pointer.height);
+                        p.drawRotatedImage(hub.x+dx*radius,hub.y+dy*radius,w,h,std::atan2(dy,dx)+pi*.5f,wTex.pointer,wMeta.pointer);
+                    } else p.circle(hub.x+dx*radius,hub.y+dy*radius,3,selectionMark,true);
+                }
             } else if(o.selector==wheelSelector) {
                 for(std::size_t i=0;i<n&&i<layout.ring.size();++i) {
                     const auto slot=layout.ring[i];
@@ -651,11 +891,11 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
                     if(o.selector==4) {
                         const float y=layout.centerY+position*layout.listPitch;
                         auto q=p;q.alpha*=opacity;
-                        q.frame(12,y-layout.listHeight*.5f,layout.width-24,layout.listHeight,offset==0);
+                        q.frame(12,y-layout.listHeight*.5f,layout.width-24,layout.listHeight,offset==0,1,true,row.equipped);
                         q.icon(37,y,32,rowIconEntry(row),row.available?q.itemColor(rowIconEntry(row)):muted,row.weapon.charge);
                         q.sweep(37,y,16*q.tweaks.iconScale,cooldowns_.fraction(row.entry.form,row.cooldown));q.soulGem(37,y,16*q.tweaks.iconScale,row.weapon.charge);
                         q.label(66,y-8*text,displayName(row.entry),16,row.available?ivory:muted,true,layout.width-92);
-                        if(row.equipped)q.diamond(53,y+15,2.5f*q.mark(),equippedMark);
+                        if(row.equipped)q.equippedMarker(53,y+15,2.5f*q.mark());
                         else if(!row.available&&!isStack(row.entry)){q.circle(53,y+15,4,IM_COL32(22,18,18,240),true);q.line(50,y+18,56,y+12,blood,1.4f);}
                         q.badge(35,y+8,row.entry,row.quantity,row.cooldown,11,false,row.weapon);
                     } else {
@@ -739,58 +979,108 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         const bool emphasized=equipped&&!o.equippedHighlight;
         const bool ready=entry&&isConsumable(*entry)&&tile.consumable&&(!previewing||state.preview==state.selected);
         const bool badged=(o.showAmmo&&weapon.ammunition>=0)||(o.showPoison&&weapon.poisoned);
-        const float keyWidth=q.groupKeyWidth(id,state.controller,state.vr);
-        if(o.shape==0) {
+        const unsigned tileShape=effectiveTileShape(o,id);
+        const bool tileShowLabel=effectiveTileShowLabel(o,id);
+        const bool tileShowKey=effectiveTileShowKey(o,id);
+        const auto ownTileSize=tileSizeFor(geometry.groups,i);
+        const auto swap=swaps_[id].update(artwork,now,animate&&!state.browsing);
+        const auto drawTileIcon=[&](Paint& dst,float ix,float iy,float isize) {
+            if(swap.hasPrevious&&swap.progress<1) {
+                const float ease=easeOut(swap.progress);
+                Paint outPaint=dst;outPaint.alpha*=1.f-ease;
+                outPaint.icon(ix-9.f*ease,iy,isize,swap.previous,outPaint.itemColor(swap.previous));
+                Paint inPaint=dst;inPaint.alpha*=ease;
+                inPaint.icon(ix+9.f*(1.f-ease),iy,isize,*artwork,available?inPaint.itemColor(*artwork):muted,weapon.charge);
+            } else dst.icon(ix,iy,isize,*artwork,available?dst.itemColor(*artwork):muted,weapon.charge);
+            dst.sweep(ix,iy,isize*.5f*dst.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));
+            dst.soulGem(ix,iy,isize*.5f*dst.tweaks.iconScale,weapon.charge);
+        };
+        const float keyWidth=q.groupKeyWidth(id,state.controller,state.vr,18,tileShowKey);
+        if(tileShape==0) {
             // A card reads icon, text, key from left to right; a mirrored card reads the other way.
-            const bool wide=o.showCardNames||o.showLabels,mirror=o.mirrorCards&&wide;const float side=mirror?-1.f:1.f;
-            const float width=geometry.groups.tileWidth,keyColumn=o.showKeys?std::max(cardKeyColumn,keyWidth+8):0;
+            const bool wide=o.showCardNames||tileShowLabel,mirror=o.mirrorCards&&wide;const float side=mirror?-1.f:1.f;
+            const float width=ownTileSize.x,keyColumn=tileShowKey?std::max(cardKeyColumn,keyWidth+8):0;
             const float iconX=x+(!wide?(width-keyColumn)*.5f:mirror?width-25.f:25.f);
-            const float h=geometry.groups.tileHeight-7,cy=y+3+h*.5f,textX=mirror?x+width-51:x+51,textWidth=width-59-keyColumn;
-            q.frame(x,y+3,width,h,emphasized);if(equipped)q.equippedHighlight(x,y+3,width,h,0);if(previewing)q.highlight(x,y+3,width,h,0,q.accent(),true,false,3);q.pulse(x,y+3,width,h,0,pulse);
-            if(entry){q.icon(iconX,cy,36,*artwork,available?q.itemColor(*artwork):muted,weapon.charge);q.sweep(iconX,cy,18*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));q.soulGem(iconX,cy,18*q.tweaks.iconScale,weapon.charge);}
+            const float h=ownTileSize.y-7,cy=y+3+h*.5f,textX=mirror?x+width-51:x+51,textWidth=width-59-keyColumn;
+            q.frame(x,y+3,width,h,emphasized,1,true,equipped);if(equipped)q.equippedHighlight(x,y+3,width,h,0);if(previewing)q.highlight(x,y+3,width,h,0,q.accent(),true,false,3);q.pulse(x,y+3,width,h,0,pulse);
+            if(entry)drawTileIcon(q,iconX,cy,36);
             else q.text(iconX,cy-15,"+",24,muted,false,0,true);
-            const float block=(o.showLabels&&o.showCardNames?26*text+4:14*text),top=cy-block*.5f;
-            if(o.showLabels)q.label(textX,top,o.names[id],o.showCardNames?12.f:14.f,q.groupAccent?nameColor:ImU32(silver),true,textWidth,false,mirror);
-            if(o.showCardNames)q.label(textX,top+(o.showLabels?12*text+4:0),entry?displayName(*entry):tr("Empty"),14,entry&&!available?muted:ivory,true,textWidth,false,mirror);
-            if(keyWidth>0)q.groupKey(mirror?x+4+keyColumn*.5f:x+width-4-keyColumn*.5f,cy-9,id,previewing,state.controller,state.vr);
+            const float block=(tileShowLabel&&o.showCardNames?26*text+4:14*text),top=cy-block*.5f;
+            if(tileShowLabel)q.label(textX,top,o.names[id],o.showCardNames?12.f:14.f,q.groupAccent?nameColor:ImU32(silver),true,textWidth,false,mirror);
+            if(o.showCardNames)q.label(textX,top+(tileShowLabel?12*text+4:0),entry?displayName(*entry):tr("Empty"),14,entry&&!available?muted:ivory,true,textWidth,false,mirror);
+            if(keyWidth>0) {
+                float kx=mirror?x+4+keyColumn*.5f:x+width-4-keyColumn*.5f,ky=cy-9;
+                if(o.keyPosition==1){kx=x+width*.5f;ky=y-13;}
+                else if(o.keyPosition==2){kx=x+width*.5f;ky=y+3+h+1;}
+                else if(o.keyPosition==3){kx=x-keyWidth*.5f-4;ky=cy-9;}
+                else if(o.keyPosition==4){kx=x+width+keyWidth*.5f+4;ky=cy-9;}
+                else if(o.keyPosition==5){kx=x+keyWidth*.5f+3;ky=y-4;}
+                q.groupKey(kx,ky,id,previewing,state.controller,state.vr,18,tileShowKey);
+            }
             // Hand letters keep to the icon's outer corner, above the icon when a count or poison mark sits below it.
             if(hands)q.text(iconX-18*side,badged?cy-h*.5f+3:cy+h*.5f-8-10*q.mark(),handMarker(hands),10*q.mark(),equippedMark,false,0,mirror);
-            else if(equipped)q.diamond(iconX+18*side,cy+15,2.5f*q.mark(),equippedMark);
+            else if(equipped)q.equippedMarker(iconX+18*side,cy+15,2.5f*q.mark());
             else if(ready)q.ready(iconX+18*side,cy+15,2.5f*q.mark(),equippedMark);
-            if(entry)q.badge(iconX+2,cy+9,*entry,quantity,cooldown,11,false,weapon);
+            if(entry) {
+                float bx=iconX+2,by=cy+9;bool bRight=false;
+                if(o.badgePosition==2){bx=iconX-14;by=cy+9;}
+                else if(o.badgePosition==3){bx=iconX+14;by=cy-19;bRight=true;}
+                q.badge(bx,by,*entry,quantity,cooldown,11,bRight,weapon);
+            }
         } else {
             // The tile is drawn at its own size inside the widget; its name keeps the widget's text size.
-            const float size=o.tileSize,tileWidth=geometry.groups.tileWidth/size,tileHeight=geometry.groups.tileHeight/size;
+            const float size=o.tileSize,tileWidth=ownTileSize.x/size,tileHeight=ownTileSize.y/size;
             const auto corner=q.p(x,y);q.origin=corner;q.scale*=size;q.textFactor/=size;
             const float x=0,y=0;
-            const bool round=o.shape==1,slot=o.shape==2;
+            const bool round=tileShape==1,slot=tileShape==2;
             const float cx=x+tileWidth*.5f;
             const float cy=y+(round?37.f:slot?50.f:44.f);
-            const float markerX=cx+(entry&&(isStack(*entry)||cooldown>0||badged)?-1.f:1.f)*(round?21.f:slot?28.f:0.f);
+            const float halfR=round?29.f:slot?41.f:42.f;
+            const bool badgeLeft=o.badgePosition==2;
+            const bool hasBadge=entry&&(isStack(*entry)||cooldown>0||badged);
+            const float markerSide=badgeLeft?1.f:(hasBadge?-1.f:1.f);
+            const float markerX=cx+markerSide*(round?21.f:slot?28.f:0.f);
             const float markerY=cy+(round?21.f:slot?25.f:31.f);
-            if(round){q.medallion(cx,cy,29,emphasized);if(equipped)q.equippedHighlight(cx-29,cy-29,58,58,1);if(previewing)q.highlight(cx-29,cy-29,58,58,1,q.accent(),true,false,3);q.pulse(cx-29,cy-29,58,58,1,pulse);}
-            else if(slot){q.frame(cx-41,y,82,100,emphasized,o.layout==5?(i==0?0u:i==2?1u:2u):1u);if(equipped)q.equippedHighlight(cx-41,y,82,100,0);if(previewing)q.highlight(cx-41,y,82,100,0,q.accent(),true,false,3);q.pulse(cx-41,y,82,100,0,pulse);}
-            else {q.lozenge(cx,cy,42,emphasized);if(equipped)q.equippedHighlight(cx-42,cy-42,84,84,3);if(previewing)q.highlight(cx-42,cy-42,84,84,3,q.accent(),true,false,3);q.pulse(cx-42,cy-42,84,84,3,pulse);}
+            if(round){q.medallion(cx,cy,29,emphasized,equipped);if(equipped)q.equippedHighlight(cx-29,cy-29,58,58,1);if(previewing)q.highlight(cx-29,cy-29,58,58,1,q.accent(),true,false,3);q.pulse(cx-29,cy-29,58,58,1,pulse);}
+            else if(slot){q.frame(cx-41,y,82,100,emphasized,o.layout==5?(i==0?0u:i==2?1u:2u):1u,false,equipped);if(equipped)q.equippedHighlight(cx-41,y,82,100,0);if(previewing)q.highlight(cx-41,y,82,100,0,q.accent(),true,false,3);q.pulse(cx-41,y,82,100,0,pulse);}
+            else {q.lozenge(cx,cy,42,emphasized,equipped);if(equipped)q.equippedHighlight(cx-42,cy-42,84,84,3);if(previewing)q.highlight(cx-42,cy-42,84,84,3,q.accent(),true,false,3);q.pulse(cx-42,cy-42,84,84,3,pulse);}
+            const float keyH=round||slot?18.f:14.f;
+            const float ownKeyW=q.groupKeyWidth(id,state.controller,state.vr,keyH,tileShowKey);
+            const bool topInsideKey=o.keyPosition==0&&ownKeyW>0;
             if(entry) {
-                // A diamond's icon sits a little low under its key and takes the middle of the tile without one.
-                const float iconY=cy+(round||slot?0.f:keyWidth>0?4.f:0.f),iconSize=slot?54.f:round?40.f:keyWidth>0?42.f:46.f;
-                q.icon(cx,iconY,iconSize,*artwork,available?q.itemColor(*artwork):muted,weapon.charge);
-                q.sweep(cx,iconY,iconSize*.5f*q.tweaks.iconScale,cooldowns_.fraction(entry->form,cooldown));q.soulGem(cx,iconY,iconSize*.5f*q.tweaks.iconScale,weapon.charge);
+                const float iconY=cy+(round||slot?0.f:topInsideKey?4.f:0.f),iconSize=slot?54.f:round?40.f:topInsideKey?42.f:46.f;
+                drawTileIcon(q,cx,iconY,iconSize);
             }
             else {q.line(cx-5,cy,cx+5,cy,muted);q.line(cx,cy-5,cx,cy+5,muted);}
-            q.groupKey(cx,y+(round?0.f:slot?9.f:12.f),id,previewing,state.controller,state.vr,round||slot?18.f:14.f);
-            if(o.showLabels)q.label(cx,y+(round?71.f:slot?100.f:88.f),o.names[id],12,nameColor,true,tileWidth-2,true);
+            if(ownKeyW>0) {
+                float kx=cx,ky=y+(round?0.f:slot?9.f:(ownKeyW>32.f?5.f:12.f));
+                if(o.keyPosition==1){kx=cx;ky=y-(round?10.f:12.f);}
+                else if(o.keyPosition==2){kx=cx;ky=cy+(slot?52.f:halfR+2.f)+(tileShowLabel?13.f:0.f);}
+                else if(o.keyPosition==3){kx=cx-halfR-ownKeyW*.5f-4.f;ky=cy-keyH*.5f;}
+                else if(o.keyPosition==4){kx=cx+halfR+ownKeyW*.5f+4.f;ky=cy-keyH*.5f;}
+                else if(o.keyPosition==5){kx=cx-halfR*.75f;ky=cy-halfR*.95f;}
+                q.groupKey(kx,ky,id,previewing,state.controller,state.vr,keyH,tileShowKey);
+            }
+            if(tileShowLabel)q.label(cx,y+(round?71.f:slot?100.f:88.f),o.names[id],12,nameColor,true,tileWidth-2,true);
             // Circles and diamonds keep hand letters and counts inside their lower corners, over the icon.
             if(hands) {
-                if(slot)q.text(cx-27,cy+18,handMarker(hands),10*q.mark(),equippedMark);
-                else q.text(round?cx-19:cx-14,(round?cy+17:cy+20)-10*q.mark(),handMarker(hands),10*q.mark(),equippedMark);
+                if(slot)q.text(badgeLeft?cx+21:cx-27,cy+18,handMarker(hands),10*q.mark(),equippedMark);
+                else q.text(badgeLeft?(round?cx+14:cx+10):(round?cx-19:cx-14),(round?cy+17:cy+20)-10*q.mark(),handMarker(hands),10*q.mark(),equippedMark);
             }
-            else if(equipped)q.diamond(markerX,markerY,3*q.mark(),equippedMark);
+            else if(equipped)q.equippedMarker(markerX,markerY,3*q.mark());
             else if(ready)q.ready(markerX,markerY,3*q.mark(),equippedMark);
             else if(entry&&!available&&!isStack(*entry)){q.circle(markerX,markerY,5,IM_COL32(22,18,18,230),true);q.line(markerX-3,markerY+3,markerX+3,markerY-3,blood,1.5f);}
             if(entry) {
-                if(slot)q.badge(cx+22,cy+18,*entry,quantity,cooldown,13,false,weapon);
-                else q.badge(round?cx+23:cx+18,round?cy+5:cy+8,*entry,quantity,cooldown,12,true,weapon);
+                if(o.badgePosition==2) {
+                    if(slot)q.badge(cx-22,cy+18,*entry,quantity,cooldown,13,false,weapon);
+                    else q.badge(round?cx-14:cx-10,round?cy+5:cy+8,*entry,quantity,cooldown,12,false,weapon);
+                } else if(o.badgePosition==3) {
+                    if(slot)q.badge(cx+26,y+6,*entry,quantity,cooldown,13,true,weapon);
+                    else q.badge(round?cx+23:cx+18,round?cy-22:cy-22,*entry,quantity,cooldown,12,true,weapon);
+                } else {
+                    if(slot)q.badge(cx+22,cy+18,*entry,quantity,cooldown,13,false,weapon);
+                    else q.badge(round?cx+23:cx+18,round?cy+5:cy+8,*entry,quantity,cooldown,12,true,weapon);
+                }
             }
         }
         if(bounds){Bounds box;collect(tileStart,box);bounds->tiles.push_back(box);}
@@ -838,41 +1128,59 @@ void Hud::draw(const Snapshot& state,const Options& o,double now,ImVec2 origin,I
         }
     }
     if(bounds)collect(widgetStart,bounds->widget);
-    if(equipmentAlpha>0&&showEquipmentDisplay(state,o,now)) {
+    if(equipmentAlpha>0&&showEquipmentDisplay(state,o,now)&&eqRows>0) {
         const int start=p.d->VtxBuffer.Size;
         auto panel=p;const auto& box=geometry.equipment;
         panel.origin={origin.x+box.origin.x,origin.y+box.origin.y};panel.scale=box.scale;panel.alpha=o.equipmentOpacity*equipmentAlpha;panel.textFactor=o.equipmentTextScale;
         const float width=box.width,height=box.height,t=o.equipmentTextScale;
+        const bool mirroredList=o.mirrorEquipment&&o.equipmentStyle==0;
         if(o.equipmentStyle==0&&o.equipmentLayout==1) {
-            const auto shade=panel.color(dark,.72f*panel.tweaks.frameOpacity);
-            panel.d->AddRectFilledMultiColor(panel.p(0,0),panel.p(width,height),shade,shade&0x00ffffff,shade&0x00ffffff,shade);
-            if(panel.themeTexture)panel.d->AddImage(panel.themeTexture,panel.p(0,0),panel.p(width,height),{.80f,.16f},{.96f,.78f},panel.color(IM_COL32_WHITE,.12f*panel.tweaks.frameOpacity));
-            panel.d->AddLine(panel.p(1,3),panel.p(1,height-3),panel.color(panel.accent(),panel.tweaks.frameOpacity),std::max(1.f,1.4f*panel.scale));
+            if(panel.textures.equipmentPanel.any()) {
+                if(panel.textures.equipmentPanel.bg)panel.drawThemeImage(0,0,width,height,panel.textures.equipmentPanel.bg,theme.assets.equipmentPanel.bg,o.backgroundOpacity*panel.tweaks.frameOpacity,mirroredList);
+                if(panel.textures.equipmentPanel.border)panel.drawThemeImage(0,0,width,height,panel.textures.equipmentPanel.border,theme.assets.equipmentPanel.border,panel.tweaks.frameOpacity,mirroredList);
+            } else {
+                const auto shade=panel.color(dark,.72f*panel.tweaks.frameOpacity),fade=shade&0x00ffffff;
+                if(mirroredList)panel.d->AddRectFilledMultiColor(panel.p(0,0),panel.p(width,height),fade,shade,shade,fade);
+                else panel.d->AddRectFilledMultiColor(panel.p(0,0),panel.p(width,height),shade,fade,fade,shade);
+                if(panel.textures.atlas)panel.d->AddImage(panel.textures.atlas,panel.p(0,0),panel.p(width,height),{.80f,.16f},{.96f,.78f},panel.color(IM_COL32_WHITE,.12f*panel.tweaks.frameOpacity));
+                const float barX=mirroredList?width-1.f:1.f;
+                panel.d->AddLine(panel.p(barX,3),panel.p(barX,height-3),panel.color(panel.accent(),panel.tweaks.frameOpacity),std::max(1.f,1.4f*panel.scale));
+            }
         }
         unsigned slot=0;
         const auto drawRow=[&](const char* role,const std::optional<Row>& row) {
-            const auto cell=box.cells[slot++];const float x=cell.origin.x+cell.icon.x,y=cell.origin.y+cell.icon.y;
-            if(o.equipmentStyle==0&&o.equipmentLayout==1&&slot>1)panel.d->AddLine(panel.p(45,cell.origin.y-o.equipmentSpacing*.5f),panel.p(width-8,cell.origin.y-o.equipmentSpacing*.5f),panel.color(theme.border,.32f*panel.tweaks.frameOpacity));
-            if(o.equipmentStyle==0&&o.equipmentLayout!=1)panel.frame(cell.origin.x,cell.origin.y,cell.width,cell.height,false);
-            if(o.equipmentStyle>0&&o.equipmentStyle<4)panel.tile(x,y,28,false,o.equipmentStyle==2?3u:o.equipmentStyle==3?2u:1u);
-            auto item=panel;if(row&&equipmentDimmed(*row))item.alpha*=.4f;
+            const int cellStart=p.d->VtxBuffer.Size;
+            const unsigned curSlot=slot++;
+            const auto cell=box.cells[curSlot];
+            auto cellPaint=panel;
+            Point localOrigin=cell.origin;
+            if(const float own=equipmentCellScale(box,curSlot);own!=1){cellPaint.origin=cellPaint.p(cell.origin.x,cell.origin.y);cellPaint.scale*=own;localOrigin={0,0};}
+            const float x=localOrigin.x+cell.icon.x,y=localOrigin.y+cell.icon.y;
+            if(o.equipmentStyle==0&&o.equipmentLayout==1&&slot>1) {
+                const float lx0=mirroredList?8.f:45.f,lx1=mirroredList?width-45.f:width-8.f;
+                panel.d->AddLine(panel.p(lx0,cell.origin.y-o.equipmentSpacing*.5f),panel.p(lx1,cell.origin.y-o.equipmentSpacing*.5f),panel.color(theme.border,.32f*panel.tweaks.frameOpacity));
+            }
+            if(o.equipmentStyle==0&&o.equipmentLayout!=1)cellPaint.frame(localOrigin.x,localOrigin.y,cell.width,cell.height,false,1,true,false);
+            if(o.equipmentStyle>0&&o.equipmentStyle<4)cellPaint.tile(x,y,28,false,o.equipmentStyle==2?3u:o.equipmentStyle==3?2u:1u);
+            auto item=cellPaint;if(row&&equipmentDimmed(*row))item.alpha*=.4f;
             if(box.iconSize>0) {
                 if(row) {
                     item.icon(x,y,box.iconSize,rowIconEntry(*row),item.itemColor(rowIconEntry(*row)),row->weapon.charge);
                     item.sweep(x,y,box.iconSize*.5f*item.tweaks.iconScale,cooldowns_.fraction(row->entry.form,row->cooldown));item.soulGem(x,y,box.iconSize*.5f*item.tweaks.iconScale,row->weapon.charge);
                     const float size=11*std::clamp(t,.8f,1.25f),radius=o.equipmentStyle==0?box.iconSize*.5f:28.f;
-                    panel.badge(x+radius*(o.equipmentStyle==2?.7f:1.f),y+(o.equipmentStyle==0?radius-size:radius*.5f),row->entry,row->quantity,row->cooldown,size,true,row->weapon);
+                    cellPaint.badge(x+radius*(o.equipmentStyle==2?.7f:1.f),y+(o.equipmentStyle==0?radius-size:radius*.5f),row->entry,row->quantity,row->cooldown,size,true,row->weapon);
                 }
-                else panel.text(x,y-8*t,"—",16*t,muted,false,0,true);
+                else cellPaint.text(x,y-8*t,"—",16*t,muted,false,0,true);
             }
             if(o.equipmentShowText||o.equipmentStyle==0||o.equipmentStyle==4) {
-                const bool right=o.equipmentStyle>0&&o.equipmentStyle<4&&o.equipmentTextPosition==2;
-                const float tx=cell.origin.x+cell.text.x+(right?cell.textWidth:0),ty=cell.origin.y+cell.text.y;
-                panel.text(tx,ty,tr(role),11.5f*t,silver,false,cell.textWidth,cell.centered,right);
+                const bool right=mirroredList||(o.equipmentStyle>0&&o.equipmentStyle<4&&o.equipmentTextPosition==2);
+                const float tx=localOrigin.x+cell.text.x+(right?cell.textWidth:0),ty=localOrigin.y+cell.text.y;
+                cellPaint.text(tx,ty,tr(role),11.5f*t,silver,false,cell.textWidth,cell.centered,right);
                 item.text(tx,ty+16*t,equipmentTextName(row,box.iconSize>0,o),17*t,ivory,false,cell.textWidth,cell.centered,right);
             }
+            if(bounds){Bounds cb;collect(cellStart,cb);bounds->equipmentCells.push_back(cb);}
         };
-        forEachEquipmentRow(state.equipment,o,drawRow);
+        forEachEquipmentRow(state.equipment,o,drawRow,eqIncludeEmpty);
         if(bounds)collect(start,bounds->equipment);
     }
     if(notification&&visibility>0) {

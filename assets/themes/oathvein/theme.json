@@ -1,34 +1,181 @@
 {
-  "schema": 1,
+  "schema": 3,
   "id": "oathvein",
   "name": "Oathvein",
-  "description": "Oathvein",
+  "description": "Gothic forged crimson-iron and dark slate matching Oathvein UI",
   "frameStyle": 0,
   "palette": {
-    "accent": [
-      157,
-      65,
-      54
-    ],
-    "border": [
-      155,
-      105,
-      96,
-      210
-    ],
     "text": [
-      233,
-      230,
+      236,
+      231,
       221
     ],
+    "secondary": [
+      188,
+      177,
+      168
+    ],
+    "muted": [
+      132,
+      124,
+      120
+    ],
+    "accent": [
+      168,
+      58,
+      48
+    ],
     "background": [
-      13,
       14,
+      13,
       15,
-      170
+      200
+    ],
+    "border": [
+      162,
+      108,
+      96,
+      225
+    ],
+    "selection": [
+      236,
+      205,
+      168
+    ],
+    "equipped": [
+      218,
+      178,
+      126
+    ],
+    "charge": [
+      158,
+      112,
+      224
+    ],
+    "panel": [
+      18,
+      15,
+      17,
+      246
+    ],
+    "panelBorder": [
+      145,
+      92,
+      82,
+      210
     ]
   },
-  "atlas": "frames.png",
+  "style": {
+    "cornerCut": 8,
+    "borderWidth": 1.3,
+    "shadowOpacity": 0.45,
+    "glowOpacity": 0.34,
+    "editorRounding": 2,
+    "accentLine": false
+  },
+  "font": "@fonts/Jost-Regular.ttf",
+  "titleFont": "@fonts/LiberationSerif-Regular.ttf",
+  "numberFont": "@fonts/Jost-Medium.ttf",
+  "recommended": {
+    "shape": 3,
+    "selector": 5,
+    "wheelStyle": 1,
+    "wheelThickness": 0.45,
+    "wheelHighlight": 3,
+    "equippedHighlight": 1
+  },
+  "assets": {
+    "card": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "square": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "diamond": {
+      "bg": "diamond_bg.svg",
+      "border": "diamond_border.svg",
+      "selected": {
+        "file": "diamond_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "circle": {
+      "bg": "circle_bg.svg",
+      "border": "circle_border.svg",
+      "selected": {
+        "file": "circle_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "wheel": {
+      "ringBg": {
+        "file": "wheel_ring_bg.svg",
+        "rasterSize": 256
+      },
+      "outerRim": {
+        "file": "wheel_outer_rim.svg",
+        "rasterSize": 512
+      },
+      "innerRim": {
+        "file": "wheel_inner_rim.svg",
+        "rasterSize": 512
+      },
+      "hubBg": "wheel_hub_bg.svg",
+      "hubBorder": "wheel_hub_border.svg",
+      "hubOverlay": "wheel_hub_overlay.svg",
+      "pointer": {
+        "file": "wheel_pointer.svg",
+        "tint": "accent"
+      },
+      "divider": "wheel_spoke.svg"
+    },
+    "divider": "rule.svg",
+    "markers": {
+      "equipped": {
+        "file": "marker_equipped.svg",
+        "tint": "equipped"
+      },
+      "chargePip": {
+        "file": "marker_pip.svg",
+        "tint": "charge"
+      }
+    },
+    "equipmentPanel": {
+      "bg": {
+        "file": "equip_bg.svg",
+        "slice": 28
+      },
+      "border": {
+        "file": "equip_border.svg",
+        "slice": 28
+      }
+    }
+  },
+  "detectPriority": 70,
   "detect": [
     {
       "file": "Interface/hudmenu.swf",
@@ -41,6 +188,14 @@
     {
       "file": "Interface/tweenmenu.swf",
       "sha256": "13ee58ec7472d1480856c97506cac500428f97f2397e64e4d14ecfcfde322d66"
+    },
+    {
+      "file": "Interface/wheelmenu.swf",
+      "sha256": "ca1868668e035f549d9dcd60b95694bb1edd516f2f27b7f02064f17b074222a6"
+    },
+    {
+      "file": "Interface/skyhud/skyhud.txt",
+      "sha256": "d2d722c59592350ca7c1b6933b19b1fc5fcdd6ab6572af9fac1e10ac2a1948ba"
     }
   ]
 }

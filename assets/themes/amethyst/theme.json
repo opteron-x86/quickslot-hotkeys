@@ -1,0 +1,184 @@
+{
+  "schema": 3,
+  "id": "amethyst",
+  "name": "Amethyst",
+  "description": "Faceted royal violet glass and silver filigree matching Amethyst UI",
+  "frameStyle": 2,
+  "palette": {
+    "text": [
+      238,
+      232,
+      246
+    ],
+    "secondary": [
+      190,
+      176,
+      212
+    ],
+    "muted": [
+      134,
+      120,
+      156
+    ],
+    "accent": [
+      174,
+      108,
+      228
+    ],
+    "background": [
+      16,
+      12,
+      24,
+      205
+    ],
+    "border": [
+      152,
+      118,
+      192,
+      225
+    ],
+    "selection": [
+      216,
+      174,
+      252
+    ],
+    "equipped": [
+      196,
+      152,
+      242
+    ],
+    "charge": [
+      188,
+      124,
+      255
+    ],
+    "panel": [
+      20,
+      15,
+      30,
+      246
+    ],
+    "panelBorder": [
+      138,
+      104,
+      178,
+      210
+    ]
+  },
+  "style": {
+    "cornerCut": 8,
+    "borderWidth": 1.2,
+    "shadowOpacity": 0.42,
+    "glowOpacity": 0.36,
+    "editorRounding": 3,
+    "accentLine": false
+  },
+  "font": "@fonts/Jost-Regular.ttf",
+  "titleFont": "@fonts/LiberationSerif-Regular.ttf",
+  "numberFont": "@fonts/Jost-Medium.ttf",
+  "recommended": {
+    "shape": 3,
+    "selector": 5,
+    "wheelStyle": 1,
+    "wheelHighlight": 0,
+    "equippedHighlight": 3
+  },
+  "assets": {
+    "card": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "square": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "diamond": {
+      "bg": "diamond_bg.svg",
+      "border": "diamond_border.svg",
+      "selected": {
+        "file": "diamond_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "circle": {
+      "bg": "circle_bg.svg",
+      "border": "circle_border.svg",
+      "selected": {
+        "file": "circle_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "wheel": {
+      "ringBg": {
+        "file": "wheel_ring_bg.svg",
+        "rasterSize": 256
+      },
+      "outerRim": {
+        "file": "wheel_outer_rim.svg",
+        "rasterSize": 512
+      },
+      "innerRim": {
+        "file": "wheel_inner_rim.svg",
+        "rasterSize": 512
+      },
+      "hubBg": "wheel_hub_bg.svg",
+      "hubBorder": "wheel_hub_border.svg",
+      "hubOverlay": "wheel_hub_overlay.svg",
+      "pointer": {
+        "file": "wheel_pointer.svg",
+        "tint": "accent"
+      },
+      "divider": "wheel_spoke.svg"
+    },
+    "divider": "rule.svg",
+    "markers": {
+      "equipped": {
+        "file": "marker_equipped.svg",
+        "tint": "equipped"
+      },
+      "chargePip": {
+        "file": "marker_pip.svg",
+        "tint": "charge"
+      }
+    },
+    "equipmentPanel": {
+      "bg": {
+        "file": "equip_bg.svg",
+        "slice": 28
+      },
+      "border": {
+        "file": "equip_border.svg",
+        "slice": 28
+      }
+    }
+  },
+  "detectPriority": 75,
+  "detect": [
+    {
+      "file": "Interface/skyhud/skyhud.txt",
+      "sha256": "98aa684bf67cce0e5ebd6fd9b432bef33496c95e3e112d7402ad2335d133080e"
+    }
+  ]
+}

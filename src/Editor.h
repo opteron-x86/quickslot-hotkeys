@@ -1,7 +1,9 @@
 #pragma once
 #include "EditorModel.h"
 #include "Hud.h"
+#include "ThemeWatcher.h"
 #include <array>
+#include <filesystem>
 #include <map>
 
 namespace quickslot {
@@ -36,9 +38,11 @@ class Editor {
     std::map<unsigned,PadDraft> padDrafts_;
     bool placement_=false,previewOpen_=true;
     int placementPanelTarget_=-1;
-    // The group tile, by display position, that Free placement controls work on.
-    std::size_t placementTile_=0;
+    // The group tile or equipment cell, by display position, that Free placement controls work on.
+    std::size_t placementTile_=0,placementEquipmentSlot_=0;
     bool placementPanelRight_=false;
+    bool peekHud_=false,peekRight_=false;
+    int previewBackdrop_=0,previewState_=0;
     std::string hint_;
     ImVec2 mouse_{},dragStart_{},nudge_{};
     // Position mode: dragging re-anchors to the nearest of the nine anchors until one is chosen by hand.
@@ -68,10 +72,27 @@ class Editor {
     std::size_t outfitSelected_=0;
     std::array<char,128> pieceSearch_{};
     std::uint64_t shortcutRevision_=0;
+    bool reloadThemesRequested_=false,watchThemes_=false;
+    double themesReloadedAt_=-10;
+    ThemeWatcher themeWatcher_;
 public:
     void beginSession(const EditorState&);
     void input(const std::vector<EditorInput>&);
     bool controllerPointer() const{return pointerMode_;}
+    // Returns true before NewFrame when a manual reload or watched theme directory edit is due.
+    bool consumeThemeReloadRequest(double now,const std::filesystem::path& themesDir,bool editorOpen) {
+        if(reloadThemesRequested_) {
+            reloadThemesRequested_=false;
+            themeWatcher_.sync(themesDir,now);
+            themesReloadedAt_=now;
+            return true;
+        }
+        if(editorOpen&&watchThemes_&&tab_==1&&appearancePage_==0&&themeWatcher_.poll(themesDir,now)) {
+            themesReloadedAt_=now;
+            return true;
+        }
+        return false;
+    }
     std::vector<EditCommand> draw(const EditorState&,Hud&,double now);
 };
 }

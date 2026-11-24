@@ -37,7 +37,8 @@ class ReleaseTools(unittest.TestCase):
     def test_source_archive_has_build_tools_and_art_sources(self):
         files = support.source_files()
         for name in ['README.md', 'tools/package-release.py', '.github/workflows/build.yml',
-                     'assets/themes/oathvein/frames.png', 'vendor/commonlib/CMakeLists.txt']:
+                     'assets/themes/oathvein/theme.json', 'assets/themes/oathvein/diamond_border.svg',
+                     'vendor/commonlib/CMakeLists.txt']:
             self.assertIn(name, files)
         self.assertFalse(any(n.startswith(('build/', 'dist/', '.git/', 'assets/icons/')) for n in files))
 

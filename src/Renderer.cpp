@@ -21,13 +21,34 @@ struct Guard {
 };
 std::atomic<HWND> gameWindow{nullptr};
 UIIconTasks& uiIconTasks(){static auto* tasks=new UIIconTasks;return *tasks;}
+std::vector<unsigned char> readGameResource(const std::string& path) {
+    auto resource=path;std::replace(resource.begin(),resource.end(),'/','\\');
+    RE::BSResourceNiBinaryStream stream(resource);
+    if(!stream.good()||!stream.stream||!stream.stream->totalSize||stream.stream->totalSize>16*1024*1024)return {};
+    std::vector<unsigned char> bytes(stream.stream->totalSize);
+    if(!stream.read(bytes.data(),unsigned(bytes.size())))bytes.clear();
+    return bytes;
+}
 struct Graphics {
     ImGuiContext* imgui=nullptr;ID3D11Device* device=nullptr;
     std::unique_ptr<preview::DXIsolation> isolation;
     std::unique_ptr<I4Icons> i4;
     std::unique_ptr<PNGIIIcons> pngii;
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> keyTexture;
-    std::map<std::string,Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> themeTextures;
+    struct TextureCacheKey {
+        std::filesystem::path path;
+        unsigned rasterSize=0;
+        bool operator<(const TextureCacheKey& o)const{return path<o.path||(path==o.path&&rasterSize<o.rasterSize);}
+    };
+    struct CachedTexture {
+        Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+        int width=0,height=0;
+        std::uintmax_t size=0;
+        std::filesystem::file_time_type mtime{};
+    };
+    std::map<TextureCacheKey,CachedTexture> themeTextures;
+    // Retired textures from a theme reload are held until the next frame so the GPU finishes referencing them.
+    std::vector<Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> retiredTextures;
     Hud hud;Editor editor;bool backend=false;double previous=0;
     ~Graphics() {
         Guard guard;if(guard.previous==imgui)guard.previous=nullptr;
@@ -35,20 +56,62 @@ struct Graphics {
         if(backend)ImGui_ImplDX11_Shutdown();
         isolation.reset();if(imgui)ImGui::DestroyContext(imgui);
     }
+    bool uploadTexture(const ImageAsset& image,Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& view) {
+        if(!image||!device)return false;
+        D3D11_TEXTURE2D_DESC textureDesc{};textureDesc.Width=image.width;textureDesc.Height=image.height;
+        textureDesc.MipLevels=textureDesc.ArraySize=1;textureDesc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;
+        textureDesc.SampleDesc.Count=1;textureDesc.Usage=D3D11_USAGE_IMMUTABLE;textureDesc.BindFlags=D3D11_BIND_SHADER_RESOURCE;
+        D3D11_SUBRESOURCE_DATA pixels{};pixels.pSysMem=image.pixels.data();pixels.SysMemPitch=image.width*4;
+        Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
+        return SUCCEEDED(device->CreateTexture2D(&textureDesc,&pixels,&texture))&&SUCCEEDED(device->CreateShaderResourceView(texture.Get(),nullptr,&view));
+    }
+    void loadThemeAssets(bool reload) {
+        if(reload)hud.reloadThemes();
+        std::map<TextureCacheKey,CachedTexture> nextTextures;
+        const auto fetch=[&](const std::filesystem::path& path,unsigned rasterSize,bool legacyAtlas)->LoadedTexture {
+            if(path.empty())return {};
+            std::error_code ec;
+            if(!std::filesystem::is_regular_file(path,ec))return {};
+            const auto sz=std::filesystem::file_size(path,ec);if(ec)return {};
+            const auto mt=std::filesystem::last_write_time(path,ec);if(ec)return {};
+            const TextureCacheKey key{std::filesystem::weakly_canonical(path,ec),legacyAtlas?0u:rasterSize};
+            if(const auto reuse=nextTextures.find(key);reuse!=nextTextures.end())
+                return {reinterpret_cast<ImTextureID>(reuse->second.view.Get()),float(reuse->second.width),float(reuse->second.height)};
+            if(const auto prev=themeTextures.find(key);prev!=themeTextures.end()&&prev->second.size==sz&&prev->second.mtime==mt&&prev->second.view) {
+                nextTextures.emplace(key,prev->second);
+                return {reinterpret_cast<ImTextureID>(prev->second.view.Get()),float(prev->second.width),float(prev->second.height)};
+            }
+            const auto image=legacyAtlas?loadImageAsset(path):loadThemeImage(path,rasterSize);
+            if(legacyAtlas&&(image.width!=1024||image.height!=320))return {};
+            Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> view;
+            if(!uploadTexture(image,view))return {};
+            nextTextures.emplace(key,CachedTexture{view,image.width,image.height,sz,mt});
+            return {reinterpret_cast<ImTextureID>(view.Get()),float(image.width),float(image.height)};
+        };
+        for(const auto& theme:hud.themes().all()) {
+            SkinTextures skin=loadSkinTextures(theme,[&](const ThemeImage& img){return img?fetch(img.path,img.rasterSize,false):LoadedTexture{};});
+            if(!theme.atlas.empty()) {
+                const auto atlas=fetch(theme.atlas,0,true);
+                if(atlas)skin.atlas=atlas.id;
+                else SKSE::log::warn("Theme {} frame atlas unavailable; using vector fallback",theme.id);
+            }
+            hud.setThemeTextures(theme.id,std::move(skin));
+        }
+        // Keep previous textures alive for one more frame before releasing them.
+        for(auto& [key,entry]:themeTextures)if(entry.view&&!nextTextures.contains(key))retiredTextures.push_back(std::move(entry.view));
+        themeTextures=std::move(nextTextures);
+        for(const auto& warning:hud.themes().warnings())SKSE::log::warn("Theme pack: {}",warning);
+        hud.setDetectedTheme(hud.themes().detect(readGameResource));
+        SKSE::log::info("{}: {} theme packs, {} textures, installed interface {}",reload?"Theme reload":"Theme init",
+            hud.themes().all().size(),themeTextures.size(),hud.detectedTheme().empty()?"none (Minimal)":hud.detectedTheme());
+    }
     void initialize(ID3D11Device* d,ID3D11DeviceContext* c,IDXGISwapChain* swap) {
         DXGI_SWAP_CHAIN_DESC desc{};
         if(FAILED(swap->GetDesc(&desc))||!desc.OutputWindow)throw std::runtime_error("Cannot locate game window");
         gameWindow=desc.OutputWindow;device=d;
         isolation=std::make_unique<preview::DXIsolation>(d,c);
         i4=std::make_unique<I4Icons>(d,c);
-        pngii=std::make_unique<PNGIIIcons>(d,[](const std::string& path) {
-            auto resource=path;std::replace(resource.begin(),resource.end(),'/','\\');
-            RE::BSResourceNiBinaryStream stream(resource);
-            if(!stream.good()||!stream.stream||!stream.stream->totalSize||stream.stream->totalSize>16*1024*1024)return std::vector<unsigned char>{};
-            std::vector<unsigned char> bytes(stream.stream->totalSize);
-            if(!stream.read(bytes.data(),unsigned(bytes.size())))bytes.clear();
-            return bytes;
-        },[](std::string_view message){SKSE::log::info("{}",message);},[](std::function<void()> task){uiIconTasks().post(std::move(task));});
+        pngii=std::make_unique<PNGIIIcons>(d,readGameResource,[](std::string_view message){SKSE::log::info("{}",message);},[](std::function<void()> task){uiIconTasks().post(std::move(task));});
         hud.setItemIconProvider([this](const Entry& entry){
             auto fallback=i4->find(entry);
             if(const auto label=i4->label(entry))if(auto icon=pngii->find(i4HasForm(entry)?entry.form:0,*label))return icon;
@@ -59,32 +122,9 @@ struct Graphics {
         io.ConfigFlags|=ImGuiConfigFlags_NoMouseCursorChange;io.MouseDrawCursor=false;
         io.ConfigErrorRecoveryEnableAssert=false;io.ConfigErrorRecoveryEnableTooltip=false;
         hud.initialize((dataDirectory()/"Quickslot/fonts").string(),(dataDirectory()/"Interface/ImGuiIcons/Fonts").string());
-        const auto upload=[&](const ImageAsset& image,Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& view) {
-            if(!image)return false;
-            D3D11_TEXTURE2D_DESC textureDesc{};textureDesc.Width=image.width;textureDesc.Height=image.height;
-            textureDesc.MipLevels=textureDesc.ArraySize=1;textureDesc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;
-            textureDesc.SampleDesc.Count=1;textureDesc.Usage=D3D11_USAGE_IMMUTABLE;textureDesc.BindFlags=D3D11_BIND_SHADER_RESOURCE;
-            D3D11_SUBRESOURCE_DATA pixels{};pixels.pSysMem=image.pixels.data();pixels.SysMemPitch=image.width*4;
-            Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
-            return SUCCEEDED(d->CreateTexture2D(&textureDesc,&pixels,&texture))&&SUCCEEDED(d->CreateShaderResourceView(texture.Get(),nullptr,&view));
-        };
-        for(const auto& theme:hud.themes().all())if(!theme.atlas.empty()) {
-            const auto image=loadImageAsset(theme.atlas);auto& view=themeTextures[theme.id];
-            if(image.width==1024&&image.height==320&&upload(image,view))hud.setTheme(theme.id,reinterpret_cast<ImTextureID>(view.Get()));
-            else SKSE::log::warn("Theme {} frame atlas unavailable; using vector fallback",theme.id);
-        }
-        for(const auto& warning:hud.themes().warnings())SKSE::log::warn("Theme pack: {}",warning);
-        hud.setDetectedTheme(hud.themes().detect([](const std::string& path) {
-            auto resource=path;std::replace(resource.begin(),resource.end(),'/','\\');
-            RE::BSResourceNiBinaryStream stream(resource);
-            if(!stream.good()||!stream.stream||!stream.stream->totalSize||stream.stream->totalSize>16*1024*1024)return std::vector<unsigned char>{};
-            std::vector<unsigned char> bytes(stream.stream->totalSize);
-            if(!stream.read(bytes.data(),unsigned(bytes.size())))bytes.clear();
-            return bytes;
-        }));
-        SKSE::log::info("Installed interface: {}",hud.detectedTheme().empty()?"no matching theme pack; Automatic uses Minimal":"matches theme "+hud.detectedTheme());
+        loadThemeAssets(false);
         const auto keys=loadKeyAtlas(dataDirectory()/"Interface/ImGuiIcons/Icons");
-        if(upload(keys.image,keyTexture))hud.setKeys(reinterpret_cast<ImTextureID>(keyTexture.Get()),keys.glyphs);
+        if(uploadTexture(keys.image,keyTexture))hud.setKeys(reinterpret_cast<ImTextureID>(keyTexture.Get()),keys.glyphs);
         SKSE::log::info("Quickslot HUD assets: I4 item icons, theme packs {}, ImGui key glyphs {}",hud.themes().all().size(),keyTexture?keys.loaded:0);
         backend=ImGui_ImplDX11_Init(d,c);if(!backend)throw std::runtime_error("D3D11 backend initialization failed");
         previous=clockNow();SKSE::log::info("Quickslot native renderer ready");
@@ -123,6 +163,8 @@ std::vector<EditCommand> renderHud(const Snapshot& snapshot,const Options& optio
         if(r.graphics&&r.graphics->device!=device)r.graphics.reset();
         if(!r.graphics){r.graphics=std::make_unique<Graphics>();r.graphics->initialize(device,context,swap);}
         auto& g=*r.graphics;ImGui::SetCurrentContext(g.imgui);
+        g.retiredTextures.clear();
+        if(g.editor.consumeThemeReloadRequest(now,g.hud.themesDirectory(),editor!=nullptr))g.loadThemeAssets(true);
         g.i4->beginFrame(editor?editor->options.itemArtwork:options.itemArtwork);
         g.pngii->beginFrame((editor?editor->options.itemArtwork:options.itemArtwork)==2,itemIconGeneration());
         localization().select(options.language);

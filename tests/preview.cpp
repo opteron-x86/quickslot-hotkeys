@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include "Hud.h"
 #include "Editor.h"
+#include "ThemeWatcher.h"
 #include "EditorFixture.h"
 #include "UiProbe.h"
 #include "Assets.h"
@@ -16,14 +17,22 @@
 
 using namespace quickslot;
 int main(int argc,char** argv) {
-    const std::string root=argc>1?argv[1]:".";
-    const std::string output=argc>2?argv[2]:"";
-    const std::string scene=argc>3?argv[3]:"carousel";
-    const int width=argc>4?std::stoi(argv[4]):1600,height=argc>5?std::stoi(argv[5]):900;
+    bool watchThemes=false;
+    std::vector<std::string> positional;
+    for(int i=1;i<argc;++i) {
+        const std::string arg=argv[i];
+        if(arg=="--watch")watchThemes=true;
+        else positional.push_back(arg);
+    }
+    const std::string root=!positional.empty()?positional[0]:".";
+    const std::string output=positional.size()>1?positional[1]:"";
+    const std::string scene=positional.size()>2?positional[2]:"carousel";
+    const int width=positional.size()>3?std::stoi(positional[3]):1600,height=positional.size()>4?std::stoi(positional[4]):900;
     if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER)!=0){std::cerr<<SDL_GetError()<<'\n';return 1;}
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,3);SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,SDL_GL_CONTEXT_PROFILE_CORE);
-    auto* window=SDL_CreateWindow("Quickslot — native HUD",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,width,height,SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE);
+    const Uint32 windowFlags=SDL_WINDOW_OPENGL|(output.empty()?SDL_WINDOW_RESIZABLE:SDL_WINDOW_HIDDEN);
+    auto* window=SDL_CreateWindow("Quickslot — native HUD",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,width,height,windowFlags);
     if(!window){std::cerr<<SDL_GetError()<<'\n';return 1;}
     auto gl=SDL_GL_CreateContext(window);if(!gl){std::cerr<<SDL_GetError()<<'\n';return 1;}
     ImGui::CreateContext();auto& io=ImGui::GetIO();io.IniFilename=nullptr;io.LogFilename=nullptr;
@@ -45,10 +54,42 @@ int main(int argc,char** argv) {
     }
     const auto itemTexture=upload(fixtureIcon);
     hud.setItemIconProvider([&](const Entry&)->std::optional<ItemIcon>{return ItemIcon{ImTextureID(itemTexture),ImTextureID(itemTexture),{}};});
-    std::vector<GLuint> themes;for(const auto& t:hud.themes().all())if(!t.atlas.empty()){const auto id=texture(t.atlas.string());themes.push_back(id);hud.setTheme(t.id,ImTextureID(id));}
-    const auto keys=loadKeyAtlas(argc>7?std::filesystem::path(argv[7]):std::filesystem::path(root)/"tests/fixtures/keys");
+    struct GLTexture {GLuint id=0;int width=0,height=0;std::uintmax_t size=0;std::filesystem::file_time_type mtime{};};
+    std::map<std::pair<std::filesystem::path,unsigned>,GLTexture> themeTextures;
+    std::vector<GLuint> retiredTextures;
+    const auto loadThemes=[&](bool reload) {
+        if(reload)hud.reloadThemes();
+        std::map<std::pair<std::filesystem::path,unsigned>,GLTexture> next;
+        const auto fetch=[&](const std::filesystem::path& path,unsigned rasterSize,bool legacyAtlas)->LoadedTexture {
+            if(path.empty())return {};
+            std::error_code ec;
+            if(!std::filesystem::is_regular_file(path,ec))return {};
+            const auto sz=std::filesystem::file_size(path,ec);if(ec)return {};
+            const auto mt=std::filesystem::last_write_time(path,ec);if(ec)return {};
+            const std::pair key{std::filesystem::weakly_canonical(path,ec),legacyAtlas?0u:rasterSize};
+            if(const auto it=next.find(key);it!=next.end())return {ImTextureID(it->second.id),float(it->second.width),float(it->second.height)};
+            if(const auto it=themeTextures.find(key);it!=themeTextures.end()&&it->second.size==sz&&it->second.mtime==mt&&it->second.id) {
+                next.emplace(key,it->second);
+                return {ImTextureID(it->second.id),float(it->second.width),float(it->second.height)};
+            }
+            const auto img=legacyAtlas?loadImageAsset(path):loadThemeImage(path,rasterSize);
+            if(!img||(legacyAtlas&&(img.width!=1024||img.height!=320)))return {};
+            const GLuint id=upload(img);
+            next.emplace(key,GLTexture{id,img.width,img.height,sz,mt});
+            return {ImTextureID(id),float(img.width),float(img.height)};
+        };
+        for(const auto& t:hud.themes().all()) {
+            SkinTextures skin=loadSkinTextures(t,[&](const ThemeImage& img){return img?fetch(img.path,img.rasterSize,false):LoadedTexture{};});
+            if(!t.atlas.empty())skin.atlas=fetch(t.atlas,0,true).id;
+            hud.setThemeTextures(t.id,std::move(skin));
+        }
+        for(const auto& [key,entry]:themeTextures)if(entry.id&&!next.contains(key))retiredTextures.push_back(entry.id);
+        themeTextures=std::move(next);
+    };
+    loadThemes(false);
+    const auto keys=loadKeyAtlas(positional.size()>6?std::filesystem::path(positional[6]):std::filesystem::path(root)/"tests/fixtures/keys");
     const auto keyTexture=keys.image?upload(keys.image):0;hud.setKeys(ImTextureID(keyTexture),keys.glyphs);
-    const auto backdrop=argc>6?texture(argv[6]):0;
+    const auto backdrop=positional.size()>5?texture(positional[5]):0;
     ImGui::GetCurrentContext()->TestEngineHookItems=true;
     const bool editorScene=scene.starts_with("editor");
     Snapshot snapshot;snapshot.visible=true;snapshot.browsing=scene!="idle";snapshot.preview=1;snapshot.selected=1;snapshot.activeGroup=1;
@@ -349,6 +390,20 @@ int main(int argc,char** argv) {
     if(scene=="editor-layout")previewClicks={"Appearance"};
     if(scene=="editor-settings")previewClicks={"Settings##main"};
     if(scene=="editor-free"||scene=="editor-free-position"){editing.options.groupCount=4;editing.options.layout=freeLayout;for(int slot=0;slot<4;++slot)editing.options.tilePlaces[editing.options.groupOrder[std::size_t(slot)]]={std::array<unsigned,4>{3,5,1,7}[std::size_t(slot)],0,0,slot==2?1.6f:1.f};previewClicks=scene=="editor-free"?std::vector<std::string>{"Appearance","Widget"}:std::vector<std::string>{"Appearance","Widget","Position"};}
+    if(scene=="editor-snow-enchanted") {
+        editing.options.themeId="oathvein";editing.options.groupCount=4;editing.options.layout=freeLayout;editing.options.chargeIcons=2;
+        editing.options.tilePlaces[editing.options.groupOrder[0]]={6,-220,0,1.05f,1,1,1};
+        editing.options.tilePlaces[editing.options.groupOrder[1]]={7,-90,0,1.2f,4,0,1};
+        editing.options.tilePlaces[editing.options.groupOrder[2]]={7,30,0,1.2f,2,0,1};
+        editing.options.tilePlaces[editing.options.groupOrder[3]]={8,180,0,1.05f,3,0,1};
+        previewClicks={"Appearance","##preview backdrop","Snow","##preview state","Enchanted","Widget"};
+    }
+    if(scene=="editor-peek") {
+        editing.options.themeId="crimson-filigree";editing.options.groupCount=4;layoutPreset(editing.options,1);editing.options.scale=1.25f;
+        editing.options.showEquipment=true;editing.options.showEquipmentAmmo=true;editing.options.mirrorEquipment=true;
+        editing.options.equipmentAnchor=5;editing.options.equipmentX=0;editing.options.equipmentY=0;
+        previewClicks={"Appearance","Equipment","Peek HUD"};
+    }
     if(scene=="editor-simple")previewClicks={"Appearance","Widget","Show advanced settings"};
     if(scene=="editor-pngii")previewClicks={"Appearance","Theme","Use PNGII icons","Use PNGII icons"};
     if(scene=="editor-groups")previewClicks={"Appearance","Widget"};
@@ -416,6 +471,7 @@ int main(int argc,char** argv) {
     // QUICKSLOT_PREVIEW_TIP=<binding> shows the first-run tip and names that binding in an empty group's selector.
     if(const char* binding=std::getenv("QUICKSLOT_PREVIEW_TIP");binding&&*binding){snapshot.editorShortcut=binding;snapshot.tip=trNamed("Press %s to set up Quickslot",binding);}
     if(const char* group=std::getenv("QUICKSLOT_PREVIEW_CAPTION");group&&*group){snapshot.browsing=false;snapshot.activeGroup=std::min<std::size_t>(std::strtoul(group,nullptr,10),Arsenal::count-1);snapshot.revealUntil=1e12;}
+    ThemeWatcher cliWatcher;
     const auto started=SDL_GetTicks64();   // HUD stills wait for the opening motion to settle
     bool running=true;int frames=0,previewStep=0,scrollAttempts=0,settled=0,keyboardStep=0;ImVec2 tabPoint{};
     while(running) {
@@ -425,10 +481,14 @@ int main(int argc,char** argv) {
             if(event.type==SDL_KEYDOWN&&event.key.keysym.sym==SDLK_ESCAPE)running=false;
             if(event.type==SDL_KEYDOWN&&event.key.keysym.sym==SDLK_1)snapshot.browsing=true;
             if(event.type==SDL_KEYUP&&event.key.keysym.sym==SDLK_1){snapshot.selected=snapshot.preview;snapshot.browsing=false;}
+            if(event.type==SDL_KEYDOWN&&event.key.keysym.sym==SDLK_r)loadThemes(true);
             if(event.type==SDL_MOUSEWHEEL&&!snapshot.rows.empty()) {
                 const int count=int(snapshot.rows.size());snapshot.preview=std::size_t((int(snapshot.preview)-event.wheel.y%count+count)%count);
             }
         }
+        for(const auto id:retiredTextures)glDeleteTextures(1,&id);retiredTextures.clear();
+        const double nowSeconds=double(SDL_GetTicks64())/1000.;
+        if(editor.consumeThemeReloadRequest(nowSeconds,hud.themesDirectory(),editorScene)||(watchThemes&&cliWatcher.poll(hud.themesDirectory(),nowSeconds)))loadThemes(true);
         ImGui_ImplOpenGL3_NewFrame();ImGui_ImplSDL2_NewFrame();
         if(editorScene){editor.beginSession(editing);
             const int click=previewStep/4,phase=previewStep%4;bool advance=true;
@@ -477,6 +537,6 @@ int main(int argc,char** argv) {
         }
         SDL_GL_SwapWindow(window);++frames;
     }
-    glDeleteTextures(1,&itemTexture);for(const auto t:themes)glDeleteTextures(1,&t);glDeleteTextures(1,&keyTexture);if(backdrop)glDeleteTextures(1,&backdrop);
+    glDeleteTextures(1,&itemTexture);for(const auto& [k,t]:themeTextures)glDeleteTextures(1,&t.id);for(const auto id:retiredTextures)glDeleteTextures(1,&id);glDeleteTextures(1,&keyTexture);if(backdrop)glDeleteTextures(1,&backdrop);
     ImGui_ImplOpenGL3_Shutdown();ImGui_ImplSDL2_Shutdown();ImGui::DestroyContext();SDL_GL_DeleteContext(gl);SDL_DestroyWindow(window);SDL_Quit();
 }

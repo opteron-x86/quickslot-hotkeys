@@ -1,33 +1,179 @@
 {
-  "schema": 1,
+  "schema": 3,
   "id": "dear-diary-dark",
   "name": "Dear Diary Dark",
-  "description": "Dear Diary Dark Mode",
+  "description": "Warm dark walnut parchment and etched brass matching Dear Diary Dark Mode",
   "frameStyle": 2,
   "palette": {
-    "accent": [
-      183,
-      151,
-      102
-    ],
-    "border": [
-      113,
-      99,
-      76,
-      220
-    ],
     "text": [
-      232,
-      224,
-      207
+      234,
+      225,
+      206
+    ],
+    "secondary": [
+      190,
+      176,
+      152
+    ],
+    "muted": [
+      138,
+      126,
+      108
+    ],
+    "accent": [
+      192,
+      156,
+      102
     ],
     "background": [
       22,
       17,
       13,
-      205
+      212
+    ],
+    "border": [
+      134,
+      114,
+      84,
+      225
+    ],
+    "selection": [
+      232,
+      202,
+      146
+    ],
+    "equipped": [
+      214,
+      182,
+      126
+    ],
+    "charge": [
+      154,
+      126,
+      218
+    ],
+    "panel": [
+      26,
+      20,
+      16,
+      248
+    ],
+    "panelBorder": [
+      126,
+      106,
+      78,
+      215
     ]
   },
+  "style": {
+    "cornerCut": 6,
+    "borderWidth": 1.2,
+    "shadowOpacity": 0.42,
+    "glowOpacity": 0.3,
+    "editorRounding": 3,
+    "accentLine": false
+  },
+  "font": "@fonts/LiberationSerif-Regular.ttf",
+  "titleFont": "@fonts/LiberationSerif-Regular.ttf",
+  "numberFont": "@fonts/Jost-Medium.ttf",
+  "recommended": {
+    "shape": 0,
+    "layout": 1,
+    "selector": 4,
+    "equippedHighlight": 1
+  },
+  "assets": {
+    "card": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "square": {
+      "bg": {
+        "file": "card_bg.svg",
+        "slice": 40
+      },
+      "border": {
+        "file": "card_border.svg",
+        "slice": 40
+      },
+      "selected": {
+        "file": "card_selected.svg",
+        "tint": "selection",
+        "slice": 40
+      }
+    },
+    "diamond": {
+      "bg": "diamond_bg.svg",
+      "border": "diamond_border.svg",
+      "selected": {
+        "file": "diamond_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "circle": {
+      "bg": "circle_bg.svg",
+      "border": "circle_border.svg",
+      "selected": {
+        "file": "circle_selected.svg",
+        "tint": "selection"
+      }
+    },
+    "wheel": {
+      "ringBg": {
+        "file": "wheel_ring_bg.svg",
+        "rasterSize": 256
+      },
+      "outerRim": {
+        "file": "wheel_outer_rim.svg",
+        "rasterSize": 512
+      },
+      "innerRim": {
+        "file": "wheel_inner_rim.svg",
+        "rasterSize": 512
+      },
+      "hubBg": "wheel_hub_bg.svg",
+      "hubBorder": "wheel_hub_border.svg",
+      "hubOverlay": "wheel_hub_overlay.svg",
+      "pointer": {
+        "file": "wheel_pointer.svg",
+        "tint": "accent"
+      },
+      "divider": "wheel_spoke.svg"
+    },
+    "divider": "rule.svg",
+    "markers": {
+      "equipped": {
+        "file": "marker_equipped.svg",
+        "tint": "equipped"
+      },
+      "chargePip": {
+        "file": "marker_pip.svg",
+        "tint": "charge"
+      }
+    },
+    "equipmentPanel": {
+      "bg": {
+        "file": "equip_bg.svg",
+        "slice": 28
+      },
+      "border": {
+        "file": "equip_border.svg",
+        "slice": 28
+      }
+    }
+  },
+  "detectPriority": 45,
   "detect": [
     {
       "file": "Interface/hudmenu.swf",

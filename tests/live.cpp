@@ -1,11 +1,13 @@
 #include "LiveEditor.h"
 #include "Settings.h"
 #include "Themes.h"
+#include "ThemeWatcher.h"
 #include "Sha256.h"
 #include "Layout.h"
 #include "HudMotion.h"
 #include "Assets.h"
 #include "Presets.h"
+#include "EquippedState.h"
 #include <fstream>
 #include <iostream>
 #include <source_location>
@@ -25,10 +27,15 @@ int main(int argc,char** argv)try {
     o.themeId="norden";check(adjustments(o).iconScale==1.1f,"Returning to a theme recalls its own customization");
     auto bad=o;bad.themeId="../outside";bad.themeAdjustments["norden"].frameOpacity=NAN;bad.selectorX=INFINITY;bad.selectorY=-4;bad.selectorDock=999;sanitizeOptions(bad);
     check(bad.themeId=="minimal"&&bad.themeAdjustments["norden"].frameOpacity==1&&bad.selectorX==.75f&&bad.selectorY==0&&bad.selectorDock==4,"Invalid custom options bounded without poisoning geometry");
-    Themes themes;themes.load(std::filesystem::path(argv[1])/"assets/themes");check(themes.warnings().empty()&&themes.all().size()==9,"All seven external packs and two builtins load");
-    for(const auto& id:{"minimal","silver","oathvein","norden","veldun","edge","untarnished","nordic","dear-diary-dark"})check(themes.contains(id),"Expected theme is selectable");
+    Themes themes;themes.load(std::filesystem::path(argv[1])/"assets/themes");check(themes.warnings().empty()&&themes.all().size()==18,"All sixteen external packs and two builtins load");
+    for(const auto& id:{"minimal","silver","oathvein","norden","veldun","edge","untarnished","nordic","dear-diary-dark","amethyst","horizons","immortal","outlander","crimson-filigree","dwemer-aetherium","sovngarde-astral","imperial-parchment","daedric-oblivion"})check(themes.contains(id),"Expected theme is selectable");
     check(themes.get("missing-pack").id=="minimal","Missing selected theme has a readable fallback");
-    for(const auto& t:themes.all())if(!t.atlas.empty()){const auto image=loadImageAsset(t.atlas);check(image.width==1024&&image.height==320,"Converted theme atlas meets renderer contract");}
+    for(const auto& t:themes.all()) {
+        if(!t.atlas.empty()){const auto image=loadImageAsset(t.atlas);check(image.width==1024&&image.height==320,"Converted theme atlas meets renderer contract");}
+        if(t.id!="minimal"&&t.id!="silver") {
+            check(!t.assets.card.border.path.empty()&&!t.assets.diamond.border.path.empty()&&!t.assets.circle.border.path.empty()&&!t.assets.wheel.outerRim.path.empty()&&!t.assets.wheel.innerRim.path.empty()&&!t.assets.wheel.ringBg.path.empty()&&!t.recommendedJson.empty(),"Each bundled schema 3 pack carries sculpted SVG layers and a recommended look");
+        }
+    }
 
     const auto temp=std::filesystem::temp_directory_path()/"quickslot-theme-tests";std::filesystem::create_directories(temp);
     const auto write=[&](const char* dir,Json j){auto p=temp/dir;std::filesystem::create_directories(p);std::ofstream(p/"theme.json")<<j.dump();};
@@ -65,9 +72,81 @@ int main(int argc,char** argv)try {
         check(marked.detect(reader)=="second","Any one matching file identifies the interface");
         files={{"Interface/hudmenu.swf","unknown"}};check(marked.detect(reader).empty()&&marked.detect({}).empty(),"An unrecognized interface matches no pack");
         Themes bundled;bundled.load(std::filesystem::path(argv[1])/"assets/themes");unsigned signed_=0;for(const auto& t:bundled.all())signed_+=!t.detect.empty();
-        check(bundled.warnings().empty()&&signed_==7,"Each bundled interface pack carries a detection signature");
+        check(bundled.warnings().empty()&&signed_==11,"Each bundled interface-matching pack carries a detection signature");
     }
     check(themePanel(styled)==rgba(16,17,18,240)&&themePanelBorder(styled)==rgba(19,20,21)&&styled.atlasMargin==120,"Schema 2 packs set editor surfaces and a bounded corner size");
+    {
+        // Schema 3: modular PNG/SVG assets, style controls, extends inheritance, Tier 1/2 detection and ThemeWatcher.
+        const auto v3=temp/"v3";std::filesystem::remove_all(v3);
+        const auto writePack=[&](const char* dir,const Json& j){auto p=v3/dir;std::filesystem::create_directories(p);std::ofstream(p/"theme.json")<<j.dump();return p;};
+        const auto parentDir=writePack("parent",{
+            {"schema",3},{"id","base-v3"},{"name","Base V3"},{"detectPriority",60},
+            {"palette",{{"text",{240,235,220}},{"accent",{180,40,40}},{"charge",{100,190,255}}}},
+            {"style",{{"cornerCut",8},{"borderWidth",1.5},{"shadowOpacity",0.5},{"glowOpacity",0.4},{"iconInset",0.18},{"editorRounding",6},{"accentLine",false}}},
+            {"recommended",{{"wheelStyle",1},{"wheelThickness",0.5},{"wheelHighlight",3},{"equippedHighlight",1}}},
+            {"assets",{
+                {"card",{{"bg","card_bg.png"},{"border",{{"file","card_border.svg"},{"tint","border"},{"slice",{24,16,24,16}},{"rasterSize",256}}}}},
+                {"diamond",{{"bg","diamond.svg"},{"selected",{{"file","diamond_sel.svg"},{"tint","accent"},{"opacity",0.8}}}}},
+                {"wheel",{{"ringBg","ring.png"},{"outerRim","ring.png"},{"innerRim","ring.png"},{"pointer",{{"file","ptr.svg"},{"tint","selection"}}}}},
+                {"divider","rule.svg"},
+                {"markers",{{"equipped",{{"file","eq.svg"},{"tint","equipped"}}}}},
+                {"equipmentPanel",{{"bg","equip.png"}}}
+            }},
+            {"detect",Json::array({
+                {{"file","Interface/hudmenu.swf"},{"sha256",sha256(std::vector<unsigned char>{'h','u','d'})}},
+                {{"file","Interface/unique.ini"},{"exists",true}}
+            })}
+        });
+        for(const char* name:{"card_bg.png","card_border.svg","diamond.svg","diamond_sel.svg","ring.png","ptr.svg","rule.svg","eq.svg","equip.png"})std::ofstream(parentDir/name)<<"x";
+        const auto childDir=writePack("child",{
+            {"schema",3},{"id","child-v3"},{"name","Child V3"},{"extends","base-v3"},{"detectPriority",80},
+            {"palette",{{"accent",{40,180,90}}}},
+            {"assets",{
+                {"diamond",{{"selected",nullptr}}},
+                {"circle",{{"border",{{"file","circle.svg"},{"tint","accent"},{"slice",20}}}}}
+            }},
+            {"detect",Json::array({{{"file","Interface/fontconfig.txt"},{"contains","Trattatello"}}})}
+        });
+        std::ofstream(childDir/"circle.svg")<<"x";
+        writePack("cycle-a",{{"schema",3},{"id","cycle-a"},{"name","Cycle A"},{"extends","cycle-b"}});
+        writePack("cycle-b",{{"schema",3},{"id","cycle-b"},{"name","Cycle B"},{"extends","cycle-a"}});
+        writePack("orphan",{{"schema",3},{"id","orphan"},{"name","Orphan"},{"extends","does-not-exist"}});
+        writePack("bad-tint",{{"schema",3},{"id","bad-tint"},{"name","Bad Tint"},{"assets",{{"divider",{{"file","a.svg"},{"tint","rainbow"}}}}}});
+        writePack("bad-ext",{{"schema",3},{"id","bad-ext"},{"name","Bad Ext"},{"assets",{{"divider","a.bmp"}}}});
+        Themes t3;t3.load(v3);
+        check(t3.contains("base-v3")&&t3.contains("child-v3"),"Schema 3 base and child packs load");
+        check(!t3.contains("cycle-a")&&!t3.contains("cycle-b")&&!t3.contains("orphan")&&!t3.contains("bad-tint")&&!t3.contains("bad-ext"),"Cyclic extends, missing parents, invalid tints and non-PNG/SVG assets are rejected");
+        const auto& base=t3.get("base-v3");const auto& child=t3.get("child-v3");
+        check(base.charge==rgba(100,190,255)&&near(base.style.cornerCut,8)&&near(base.style.borderWidth,1.5f)&&near(base.style.editorRounding,6)&&!base.style.accentLine,"Schema 3 style and charge color load");
+        check(base.assets.card.border.tint==ThemeTint::border&&base.assets.card.border.slice==std::array<unsigned,4>{24,16,24,16}&&base.assets.card.border.rasterSize==256,"Schema 3 asset slice, tint and rasterSize load");
+        check(child.accent==rgba(40,180,90)&&child.text==base.text&&child.charge==base.charge&&near(child.style.cornerCut,8),"Child inherits parent palette and style while overriding accent");
+        check(child.assets.card.bg.path==parentDir/"card_bg.png"&&child.assets.wheel.ringBg.path==parentDir/"ring.png"&&child.assets.wheel.outerRim.path==parentDir/"ring.png"&&child.assets.wheel.innerRim.path==parentDir/"ring.png","Inherited asset paths resolve inside the parent folder");
+        {
+            Options cur;cur.themeId="child-v3";cur.fontId="ui";cur.keys[0]=42;
+            check(!recommendedLookMatches(cur,child.recommendedJson),"Recommended look detects differences from defaults");
+            const auto applied=mergeRecommendedLook(cur,child.recommendedJson);
+            check(applied.wheelStyle==1&&near(applied.wheelThickness,.5f)&&applied.wheelHighlight==3&&applied.equippedHighlight==1,"Recommended look applies wheel and highlight settings");
+            check(applied.themeId=="child-v3"&&applied.fontId=="ui"&&applied.keys[0]==42&&recommendedLookMatches(applied,child.recommendedJson),"Recommended look preserves theme, font and controls");
+        }
+        check(child.assets.diamond.bg.path==parentDir/"diamond.svg"&&!child.assets.diamond.selected,"Setting an inherited asset slot to null clears it");
+        check(child.assets.circle.border.path==childDir/"circle.svg"&&child.assets.circle.border.slice==std::array<unsigned,4>{20,20,20,20},"Child adds new modular slots with scalar slice");
+        const auto bytes=[](std::string_view text){return std::vector<unsigned char>(text.begin(),text.end());};
+        std::map<std::string,std::string> res{{"Interface/hudmenu.swf","hud"},{"Interface/fontconfig.txt","map \"$TitleFont\" = \"Trattatello\""}};
+        const auto reader=[&](const std::string& path){const auto it=res.find(path);return it==res.end()?std::vector<unsigned char>{}:bytes(it->second);};
+        check(t3.detect(reader)=="base-v3","Tier 1 sha256 detection takes priority over Tier 2 contains/exists");
+        res.erase("Interface/hudmenu.swf");res["Interface/unique.ini"]="x";
+        check(t3.detect(reader)=="child-v3","Higher detectPriority wins among Tier 2 exists and contains matches");
+        res.erase("Interface/fontconfig.txt");
+        check(t3.detect(reader)=="base-v3","Tier 2 exists rule matches when higher-priority contains does not");
+
+        ThemeWatcher watcher(.5);
+        check(!watcher.poll(v3,10.0),"First poll primes the watcher without triggering");
+        check(!watcher.poll(v3,10.2),"Polls within the throttle interval do not trigger");
+        std::ofstream(childDir/"circle.svg")<<"updated-svg-content";
+        check(!watcher.poll(v3,10.3),"Changes wait until the throttle interval elapses");
+        check(watcher.poll(v3,10.6),"File edits trigger the watcher once the interval elapses");
+        check(!watcher.poll(v3,11.2),"No further trigger fires when files stay unchanged");
+    }
 
     Arsenal a;Entry e;e.form=0x1234;e.owner=0x14;e.unique=9;e.name="Tempered sword";a.groups[0].add(e);Options start;
     EditHistory history;history.begin(a,start);auto edited=start;
@@ -131,5 +210,63 @@ int main(int argc,char** argv)try {
         Options imported;importAppearance(imported,restored);check(widgetVisibility(imported)==mode&&imported.keepDrawnVisible,"Appearance presets include visibility settings");
     }
     auto prior=Json::parse(encodeOptions(hidden));prior.erase("keepDrawnVisible");check(!decodeOptions(prior.dump()).keepDrawnVisible,"Existing settings leave the new override off");
+    {
+        // Phase 3: Free per-tile overrides, Free equipment placement, per-role visibility, mirrorEquipment, anchors & TileSwapMotion.
+        Options p3;p3.layout=freeLayout;p3.groupCount=4;
+        p3.tilePlaces[0]={0,12,18,1.25f,1,1,2}; // Cards, Show label, Hide key
+        p3.tilePlaces[1]={2,-16,20,1.f,4,2,1};  // Diamonds, Hide label, Show key
+        p3.equipmentLayout=freeLayout;p3.showEquipment=true;p3.mirrorEquipment=true;
+        p3.equipmentKeepCombatVisible=false;p3.equipmentKeepDrawnVisible=true;
+        p3.equipmentPlaces[unsigned(EquipmentRole::rightHand)]={3,24,-30,1.2f};
+        p3.equipmentPlaces[unsigned(EquipmentRole::consumable)]={5,-24,10,1.f};
+        p3.equipmentRoles[unsigned(EquipmentRole::consumable)]=1; // When equipped
+        p3.equipmentRoles[unsigned(EquipmentRole::voice)]=2;      // Hide
+        p3.keyPosition=3;p3.badgePosition=2;
+        const auto savedP3=encodeOptions(p3);
+        const auto loadedP3=decodeOptions(savedP3);
+        check(loadedP3.tilePlaces[0]==p3.tilePlaces[0]&&loadedP3.tilePlaces[1]==p3.tilePlaces[1],"Per-tile Free shape, label and key overrides persist");
+        check(loadedP3.equipmentLayout==freeLayout&&loadedP3.equipmentPlaces==p3.equipmentPlaces&&loadedP3.equipmentRoles==p3.equipmentRoles,"Free equipment positions and per-role visibility persist");
+        check(loadedP3.mirrorEquipment&&!loadedP3.equipmentKeepCombatVisible&&loadedP3.equipmentKeepDrawnVisible&&loadedP3.keyPosition==3&&loadedP3.badgePosition==2,"Mirrored equipment, combat/drawn rules and key/badge anchors persist");
+        check(effectiveTileShape(loadedP3,0)==0&&effectiveTileShowLabel(loadedP3,0)&&!effectiveTileShowKey(loadedP3,0),"Tile 0 resolves its Card/label/key overrides");
+        check(effectiveTileShape(loadedP3,1)==3&&!effectiveTileShowLabel(loadedP3,1)&&effectiveTileShowKey(loadedP3,1),"Tile 1 resolves its Diamond/label/key overrides");
+        const auto geo=hudGeometry(loadedP3,1920,1080);
+        check(tileSizeFor(geo.groups,0).x!=tileSizeFor(geo.groups,1).x,"Overridden Free tiles compute distinct footprints");
+
+        EquippedDisplay eq;Entry sword;sword.name="Sword";eq.hands[0]=Row{sword,true,true};
+        check(equipmentRows(eq,loadedP3)==2,"Per-role Hide and empty When-equipped roles omit rows cleanly");
+        Entry pot;pot.kind=Kind::potion;pot.name="Potion";eq.consumable=Row{pot,true,false,{},3};
+        check(equipmentRows(eq,loadedP3)==3,"When-equipped role appears once populated");
+
+        Options mirrorList;mirrorList.equipmentStyle=0;mirrorList.equipmentLayout=1;
+        const auto leftList=equipmentGeometry(mirrorList,1920,1080,4);
+        mirrorList.mirrorEquipment=true;
+        const auto rightList=equipmentGeometry(mirrorList,1920,1080,4);
+        check(rightList.cells[0].icon.x>leftList.cells[0].icon.x&&rightList.cells[0].text.x<rightList.cells[0].icon.x,"Mirrored vertical equipment list places icons on the right");
+
+        Options fromVert=mirrorList;freeEquipmentFrom(fromVert,1,1920,1080,4);
+        check(fromVert.equipmentLayout==freeLayout&&fromVert.equipmentPlaces[0].anchor<unanchored,"Switching equipment to Free snapshots current role anchors");
+
+        const std::array<std::array<float,2>,2> siblings{{{300.f,380.f},{620.f,700.f}}};
+        const auto multiSnap=snapPlacementAxis((618.f-8.f)/(1920.f-16.f-80.f),80,1920,0,80,0,1920,16,siblings);
+        check(multiSnap.aligned&&near(multiSnap.guide,620.f),"Multi-element snapping aligns against any sibling bounding box");
+
+        Snapshot eqSnap;eqSnap.visible=true;eqSnap.equipment=eq;
+        Options eqFadeOpts=loadedP3;eqFadeOpts.equipmentDim=true;eqFadeOpts.equipmentFadeDelay=1;eqFadeOpts.equipmentIdleOpacity=.2f;
+        EquipmentFade eqFade;
+        check(eqFade.update(eqSnap,eqFadeOpts,0)==1&&near(eqFade.update(eqSnap,eqFadeOpts,2),.2f),"Equipment fades after idle delay");
+        eqSnap.inCombat=true;
+        check(near(eqFade.update(eqSnap,eqFadeOpts,3),.2f),"Disabling equipmentKeepCombatVisible lets equipment stay dimmed in combat");
+        eqSnap.weaponsDrawn=true;
+        check(eqFade.update(eqSnap,eqFadeOpts,3.1)==1,"Enabling equipmentKeepDrawnVisible wakes dimmed equipment when weapons are drawn");
+
+        TileSwapMotion swap;
+        Entry a;a.form=0x100;a.name="Iron Sword";
+        Entry b;b.form=0x200;b.name="Steel Mace";
+        check(!swap.update(&a,1.0,true).hasPrevious,"Initial tile item does not play a swap transition");
+        const auto mid=swap.update(&b,1.05,true);
+        check(mid.hasPrevious&&mid.previous.form==0x100&&mid.progress>=0,"Changing tile item outside browsing starts a directional swap transition");
+        const auto prog=swap.update(&b,1.12,true);
+        check(prog.hasPrevious&&prog.progress>0&&prog.progress<1&&!swap.update(&b,1.30,true).hasPrevious,"Swap transition progresses and settles cleanly");
+    }
     std::cout<<"PASS: "<<checks<<" live editing, identity-safe undo, autosave, theme loading, placement and motion checks.\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

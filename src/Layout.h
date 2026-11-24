@@ -1,6 +1,7 @@
 #pragma once
 #include "Model.h"
 #include <limits>
+#include <span>
 
 namespace quickslot {
 struct Point {float x=0,y=0;};
@@ -10,15 +11,16 @@ struct Bounds {
     float height()const{return max.y-min.y;}
     void include(Point p){if(!valid){min=max=p;valid=true;}else{min.x=std::min(min.x,p.x);min.y=std::min(min.y,p.y);max.x=std::max(max.x,p.x);max.y=std::max(max.y,p.y);}}
 };
-struct HudBounds {Bounds widget,selector,equipment;std::vector<Bounds> tiles;};
+struct HudBounds {Bounds widget,selector,equipment;std::vector<Bounds> tiles,equipmentCells;};
 
 inline float hudTextFactor(const Options& o){return o.textScale;}
 inline float selectorTextFactor(const Options& o){return o.selectorTextScale;}
 // The room a card keeps at its outer end for its key or button label.
 inline constexpr float cardKeyColumn=26;
-// tileScales sizes each tile in the Free arrangement; elsewhere it is empty and every tile has scale 1.
-struct LayoutGeometry {std::vector<Point> tiles;std::vector<float> tileScales;float width=0,height=0,tileWidth=0,tileHeight=0;};
+// tileScales and tileSizes size each tile in the Free arrangement; elsewhere they are empty and every tile shares scale 1 and tileWidth x tileHeight.
+struct LayoutGeometry {std::vector<Point> tiles;std::vector<float> tileScales;std::vector<Point> tileSizes;float width=0,height=0,tileWidth=0,tileHeight=0;};
 inline float tileScale(const LayoutGeometry& g,std::size_t slot){return slot<g.tileScales.size()?g.tileScales[slot]:1.f;}
+inline Point tileSizeFor(const LayoutGeometry& g,std::size_t slot){return slot<g.tileSizes.size()?g.tileSizes[slot]:Point{g.tileWidth,g.tileHeight};}
 // Shape codes match the HUD tile renderer: circle, rectangle, diamond.
 inline float tileDistance(Point direction,float width,float height,unsigned shape,float gap) {
     const float length=std::hypot(direction.x,direction.y);
@@ -76,20 +78,33 @@ inline Arrangement arrangeTiles(const std::vector<Point>& sizes,unsigned layout,
     for(auto& p:a.centers){p.x-=bounds.min.x;p.y-=bounds.min.y;}
     a.width=bounds.width();a.height=bounds.height();return a;
 }
+struct TileMetrics {float tileWidth=0,tileHeight=0;Point footprint{};unsigned shape=2;};
+inline TileMetrics tileMetricsFor(const Options& o,unsigned shapeChoice,bool showLabels,bool showKeys) {
+    const float text=hudTextFactor(o),size=o.tileSize;TileMetrics m;
+    switch(shapeChoice) {
+    // Circle, square and diamond tiles scale with tileSize; the name under them keeps its own text size.
+    case 1:m.tileWidth=std::max(68*size,showLabels?76*std::max(1.f,text):0.f);m.tileHeight=showLabels?71*size+12*text+4:70*size;m.footprint={58*size,58*size};m.shape=1;break;
+    case 2:m.tileWidth=std::max(82*size,showLabels?82*std::max(1.f,text):0.f);m.tileHeight=showLabels?100*size+12*text+4:100*size;m.footprint={82*size,100*size};m.shape=2;break;
+    case 3:m.tileWidth=std::max(88*size,showLabels?88*std::max(1.f,text):0.f);m.tileHeight=showLabels?88*size+12*text+4:88*size;m.footprint={84*size,84*size};m.shape=3;break;
+    default:m.tileWidth=(o.showCardNames||showLabels?59+o.cardWidth*std::max(1.f,text):64)+(showKeys?cardKeyColumn:0);m.tileHeight=std::max(56.f,(o.showCardNames&&showLabels?26:14)*text+20);m.footprint={m.tileWidth,m.tileHeight-7};m.shape=2;break;
+    }
+    if(showLabels&&shapeChoice){m.footprint={m.tileWidth,m.tileHeight};m.shape=2;}
+    return m;
+}
 inline LayoutGeometry groupGeometry(const Options& o) {
     LayoutGeometry g;const auto count=std::clamp(o.groupCount,std::size_t(1),Arsenal::count);
-    const float text=hudTextFactor(o),size=o.tileSize;Point footprint;unsigned shape=2;
-    switch(o.shape) {
-    // Circle, square and diamond tiles scale with tileSize; the name under them keeps its own text size.
-    case 1:g.tileWidth=std::max(68*size,o.showLabels?76*std::max(1.f,text):0.f);g.tileHeight=o.showLabels?71*size+12*text+4:70*size;footprint={58*size,58*size};shape=1;break;
-    case 2:g.tileWidth=std::max(82*size,o.showLabels?82*std::max(1.f,text):0.f);g.tileHeight=o.showLabels?100*size+12*text+4:100*size;footprint={82*size,100*size};break;
-    case 3:g.tileWidth=std::max(88*size,o.showLabels?88*std::max(1.f,text):0.f);g.tileHeight=o.showLabels?88*size+12*text+4:88*size;footprint={84*size,84*size};shape=3;break;
-    default:g.tileWidth=(o.showCardNames||o.showLabels?59+o.cardWidth*std::max(1.f,text):64)+(o.showKeys?cardKeyColumn:0);g.tileHeight=std::max(56.f,(o.showCardNames&&o.showLabels?26:14)*text+20);footprint={g.tileWidth,g.tileHeight-7};break;
+    const auto base=tileMetricsFor(o,o.shape,o.showLabels,o.showKeys);
+    g.tileWidth=base.tileWidth;g.tileHeight=base.tileHeight;
+    if(o.layout==freeLayout) {
+        for(std::size_t slot=0;slot<count;++slot) {
+            const auto id=o.groupOrder[slot];
+            const auto m=tileMetricsFor(o,effectiveTileShape(o,id),effectiveTileShowLabel(o,id),effectiveTileShowKey(o,id));
+            g.tileSizes.push_back({m.tileWidth,m.tileHeight});
+        }
     }
-    if(o.showLabels&&o.shape){footprint={g.tileWidth,g.tileHeight};shape=2;}
-    const auto arranged=arrangeTiles(std::vector<Point>(count,footprint),o.layout,o.spacing,shape,0,unsigned(std::clamp(o.gridColumns,1.f,8.f)));
-    for(const auto p:arranged.centers)g.tiles.push_back({std::max(0.f,p.x-footprint.x*.5f),std::max(0.f,p.y-footprint.y*.5f)});
-    g.width=arranged.width+g.tileWidth-footprint.x;g.height=arranged.height+g.tileHeight-footprint.y;
+    const auto arranged=arrangeTiles(std::vector<Point>(count,base.footprint),o.layout==freeLayout?0u:o.layout,o.spacing,base.shape,0,unsigned(std::clamp(o.gridColumns,1.f,8.f)));
+    for(const auto p:arranged.centers)g.tiles.push_back({std::max(0.f,p.x-base.footprint.x*.5f),std::max(0.f,p.y-base.footprint.y*.5f)});
+    g.width=arranged.width+g.tileWidth-base.footprint.x;g.height=arranged.height+g.tileHeight-base.footprint.y;
     return g;
 }
 inline unsigned selectorTileShape(const Options& o){return o.selectorShape?o.selectorShape:o.selector==0?2u:1u;}
@@ -217,14 +232,22 @@ inline Anchored anchorFor(Point corner,Point size,const Options& o,float screenX
 }
 struct EquipmentMetrics {std::array<float,6> textWidths{};bool measured=false;};
 struct EquipmentCell {Point origin,icon,text;float width=0,height=0,textWidth=0;bool centered=false;};
+inline constexpr std::array<EquipmentRole,6> defaultEquipmentRoles{
+    EquipmentRole::rightHand,EquipmentRole::leftHand,EquipmentRole::consumable,EquipmentRole::voice,EquipmentRole::ammo,EquipmentRole::readySpell};
 struct EquipmentGeometry {
     Point origin;std::array<EquipmentCell,6> cells{};
+    std::array<EquipmentRole,6> roles=defaultEquipmentRoles;
+    std::array<float,6> cellScales{1,1,1,1,1,1};
+    unsigned rowCount=0;
     float width=0,height=0,scale=1,iconSize=30;
 };
-inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={}) {
-    EquipmentGeometry g;rows=std::clamp(rows,1u,6u);
+inline float equipmentCellScale(const EquipmentGeometry& g,std::size_t slot){return slot<g.cellScales.size()?g.cellScales[slot]:1.f;}
+inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={},
+                                           std::array<EquipmentRole,6> roles=defaultEquipmentRoles) {
+    EquipmentGeometry g;rows=std::clamp(rows,1u,6u);g.rowCount=rows;g.roles=roles;
     const float t=o.equipmentTextScale,textHeight=36*t;
     const bool labels=o.equipmentShowText||o.equipmentStyle==0||o.equipmentStyle==4;
+    const bool mirroredList=o.mirrorEquipment&&o.equipmentStyle==0;
     g.iconSize=o.equipmentStyle==0?30.f:o.equipmentStyle==4?0.f:o.equipmentStyle==2?32.f:38.f;
     std::vector<Point> sizes;
     for(unsigned i=0;i<rows;++i) {
@@ -238,7 +261,7 @@ inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float 
             cell.text={cell.width*.5f,o.equipmentTextPosition==0?0.f:frame+6};
         } else {
             cell.width=frame+8+cell.textWidth;cell.height=std::max(frame,textHeight);
-            const bool right=o.equipmentStyle==0||o.equipmentTextPosition==3;
+            const bool right=(o.equipmentStyle==0&&!mirroredList)||(o.equipmentStyle>0&&o.equipmentTextPosition==3);
             cell.icon={right?frame*.5f:cell.width-frame*.5f,cell.height*.5f};
             cell.text={right?frame+8:0.f,(cell.height-textHeight)*.5f};
         }
@@ -249,13 +272,39 @@ inline EquipmentGeometry equipmentGeometry(const Options& o,float screenX,float 
         for(unsigned i=0;i<rows;++i) {
             auto& cell=g.cells[i];cell.width=sizes[i].x=width;
             if(cell.centered)cell.icon.x=cell.text.x=width*.5f;
-            else if(o.equipmentStyle>0&&o.equipmentStyle<4&&labels&&o.equipmentTextPosition==2) {
+            else if(mirroredList) {
+                cell.icon.x=width-15;cell.text.x=width-38-cell.textWidth;
+            } else if(o.equipmentStyle>0&&o.equipmentStyle<4&&labels&&o.equipmentTextPosition==2) {
                 cell.icon.x=width-28;cell.text.x=width-64-cell.textWidth;
             }
         }
     }
+    if(o.equipmentLayout==freeLayout) {
+        float maxW=1,maxH=1;
+        for(const auto sz:sizes){maxW=std::max(maxW,sz.x+8);maxH=std::max(maxH,sz.y+8);}
+        g.scale=std::max(.05f,std::min({o.equipmentScale*resolutionScale(screenY),(screenX-16)/maxW,(screenY-16)/maxH}));
+        std::vector<Point> corners;Bounds box;
+        for(unsigned i=0;i<rows;++i) {
+            const auto& place=o.equipmentPlaces[unsigned(roles[i])];
+            g.cellScales[i]=place.scale;
+            const float own=g.scale*place.scale;
+            const Point size{(sizes[i].x+8)*own,(sizes[i].y+8)*own};
+            Point c;
+            if(place.anchor<unanchored)c=placedCorner(place.anchor,place.x,place.y,0,0,size,o,screenX,screenY);
+            else if(corners.empty())c=placedCorner(3,16,-40,0,0,size,o,screenX,screenY);
+            else {
+                const auto prev=corners.back();
+                const float step=(sizes[i-1].y+8)*g.scale*g.cellScales[i-1]+o.equipmentSpacing*g.scale;
+                c={prev.x,std::clamp(prev.y+step,8.f,std::max(8.f,screenY-8-size.y))};
+            }
+            corners.push_back(c);box.include(c);box.include({c.x+size.x,c.y+size.y});
+        }
+        g.origin=box.min;g.width=std::max(1.f,box.width()/g.scale);g.height=std::max(1.f,box.height()/g.scale);
+        for(unsigned i=0;i<rows;++i)g.cells[i].origin={(corners[i].x-box.min.x)/g.scale+4*g.cellScales[i],(corners[i].y-box.min.y)/g.scale+4*g.cellScales[i]};
+        return g;
+    }
     const auto shape=!labels?(o.equipmentStyle==1?1u:o.equipmentStyle==2?3u:2u):2u;
-    const auto arranged=arrangeTiles(sizes,o.equipmentLayout,o.equipmentSpacing,shape);
+    const auto arranged=arrangeTiles(sizes,o.equipmentLayout,o.equipmentSpacing,shape,0,unsigned(std::clamp(o.gridColumns,1.f,8.f)));
     g.width=arranged.width+8;g.height=arranged.height+8;
     for(unsigned i=0;i<rows;++i)g.cells[i].origin={4+arranged.centers[i].x-sizes[i].x*.5f,4+arranged.centers[i].y-sizes[i].y*.5f};
     g.scale=std::max(.05f,std::min({o.equipmentScale*resolutionScale(screenY),(screenX-16)/g.width,(screenY-16)/g.height}));
@@ -271,24 +320,30 @@ inline std::vector<Point> freeTileCorners(const Options& o,const LayoutGeometry&
     std::vector<Point> corners;
     for(std::size_t slot=0;slot<groups.tiles.size();++slot) {
         const auto& place=o.tilePlaces[o.groupOrder[slot]];const float own=scale*place.scale;
-        const Point size{groups.tileWidth*own,groups.tileHeight*own};
+        const auto ts=tileSizeFor(groups,slot);
+        const Point size{ts.x*own,ts.y*own};
         if(place.anchor<unanchored)corners.push_back(placedCorner(place.anchor,place.x,place.y,0,0,size,o,screenX,screenY));
         else if(corners.empty())corners.push_back(placedCorner(8,-8,-8,0,0,size,o,screenX,screenY));
         else {
-            const auto previous=corners.back();const float step=groups.tileWidth*scale*o.tilePlaces[o.groupOrder[slot-1]].scale+o.spacing*scale;
+            const auto previous=corners.back();
+            const auto prevTs=tileSizeFor(groups,slot-1);
+            const float step=prevTs.x*scale*o.tilePlaces[o.groupOrder[slot-1]].scale+o.spacing*scale;
             corners.push_back({std::clamp(previous.x+step,8.f,std::max(8.f,screenX-8-size.x)),previous.y});
         }
     }
     return corners;
 }
-inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={},std::size_t selectorCount=5,std::size_t activeSlot=0) {
-    HudGeometry g;g.equipment=equipmentGeometry(o,screenX,screenY,rows,metrics);g.groups=groupGeometry(o);g.width=g.groups.width;g.captionHeight=15*hudTextFactor(o)+8;
-    g.groupOrigin={0,o.shape==0?3.f:0.f};g.height=g.groups.height+g.groupOrigin.y;
+inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={},std::size_t selectorCount=5,std::size_t activeSlot=0,
+                               std::array<EquipmentRole,6> equipmentRoles=defaultEquipmentRoles) {
+    HudGeometry g;g.equipment=equipmentGeometry(o,screenX,screenY,rows,metrics,equipmentRoles);g.groups=groupGeometry(o);g.width=g.groups.width;g.captionHeight=15*hudTextFactor(o)+8;
+    g.groupOrigin={0,o.shape==0&&o.layout!=freeLayout?3.f:o.shape==0?3.f:0.f};g.height=g.groups.height+g.groupOrigin.y;
     const auto selectorLayout=selectorGeometry(o,selectorCount);g.selectorHeight=selectorLayout.height;g.selectorWidth=selectorLayout.width;
     const float sh=g.selectorHeight+32,resolutionScale=quickslot::resolutionScale(screenY);
     const bool free=o.layout==freeLayout;
+    float maxFreeW=g.groups.tileWidth,maxFreeH=g.groups.tileHeight;
+    if(free)for(std::size_t i=0;i<g.groups.tiles.size();++i){const auto ts=tileSizeFor(g.groups,i);maxFreeW=std::max(maxFreeW,ts.x);maxFreeH=std::max(maxFreeH,ts.y);}
     // Free tiles each keep to the screen, so only one tile has to fit.
-    const float fitWidth=free?g.groups.tileWidth:g.width,fitHeight=free?g.groups.tileHeight+g.groupOrigin.y:g.height;
+    const float fitWidth=free?maxFreeW:g.width,fitHeight=free?maxFreeH+g.groupOrigin.y:g.height;
     // The widget and the selector each have their own scale, kept within the screen.
     g.scale=std::max(.05f,std::min({o.scale*resolutionScale,(screenX-16)/fitWidth,(screenY-16)/fitHeight}));
     g.selectorScale=std::max(.05f,std::min({o.selectorScale*resolutionScale,(screenX-16)/g.selectorWidth,(screenY-16)/sh}));
@@ -297,11 +352,16 @@ inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsi
         // The widget becomes the box around the placed tiles; each tile keeps its own screen position inside it.
         const auto corners=freeTileCorners(o,g.groups,g.scale,screenX,screenY);
         for(std::size_t i=0;i<corners.size();++i)g.groups.tileScales.push_back(o.tilePlaces[o.groupOrder[i]].scale);
-        Bounds box;for(std::size_t i=0;i<corners.size();++i){const auto c=corners[i];const float own=g.scale*g.groups.tileScales[i];box.include(c);box.include({c.x+g.groups.tileWidth*own,c.y+g.groups.tileHeight*own});}
+        Bounds box;
+        for(std::size_t i=0;i<corners.size();++i) {
+            const auto c=corners[i];const float own=g.scale*g.groups.tileScales[i];const auto ts=tileSizeFor(g.groups,i);
+            box.include(c);box.include({c.x+ts.x*own,c.y+ts.y*own});
+        }
         for(std::size_t i=0;i<corners.size();++i)g.groups.tiles[i]={(corners[i].x-box.min.x)/g.scale,(corners[i].y-box.min.y)/g.scale};
         g.groups.width=box.width()/g.scale;g.groups.height=box.height()/g.scale;g.width=g.groups.width;g.height=g.groups.height+g.groupOrigin.y;
         const auto active=std::min(activeSlot,g.groups.tiles.size()-1);const auto focused=g.groups.tiles[active];const float own=g.groups.tileScales[active];
-        g.focus={focused,{focused.x+g.groups.tileWidth*own,focused.y+g.groups.tileHeight*own},true};
+        const auto activeTs=tileSizeFor(g.groups,active);
+        g.focus={focused,{focused.x+activeTs.x*own,focused.y+activeTs.y*own},true};
         g.origin={box.min.x-g.groupOrigin.x*g.scale,box.min.y-g.groupOrigin.y*g.scale};
     }
     const float w=g.width*g.scale,h=g.height*g.scale,sw=g.selectorWidth*g.selectorScale,soh=sh*g.selectorScale,gap=o.selectorGap*g.scale;
@@ -327,8 +387,8 @@ inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsi
             };
             float score=overlap(focusCorner,fw,fh);
             if(free)for(std::size_t i=0;i<g.groups.tiles.size();++i) {
-                const float own=g.scale*tileScale(g.groups,i);
-                score+=overlap({g.origin.x+(g.groupOrigin.x+g.groups.tiles[i].x)*g.scale,g.origin.y+(g.groupOrigin.y+g.groups.tiles[i].y)*g.scale},g.groups.tileWidth*own,g.groups.tileHeight*own);
+                const float own=g.scale*tileScale(g.groups,i);const auto ts=tileSizeFor(g.groups,i);
+                score+=overlap({g.origin.x+(g.groupOrigin.x+g.groups.tiles[i].x)*g.scale,g.origin.y+(g.groupOrigin.y+g.groups.tiles[i].y)*g.scale},ts.x*own,ts.y*own);
             }
             if(score<best){selector=p;best=score;}
             if(score==0)break;
@@ -340,39 +400,65 @@ inline HudGeometry hudGeometry(const Options& o,float screenX,float screenY,unsi
 // The selector's box on screen: its top-left corner and its size.
 inline Point selectorCorner(const HudGeometry& g){return {g.origin.x+g.selectorOrigin.x*g.scale,g.origin.y+g.selectorOrigin.y*g.scale-32*g.selectorScale};}
 inline Point selectorExtent(const HudGeometry& g){return {g.selectorWidth*g.selectorScale,(g.selectorHeight+32)*g.selectorScale};}
-// The placeable elements: 0 widget, 1 selector, 2 equipment display, and in the Free arrangement 3 onward for the group
-// tiles in display order.
+// The placeable elements: 0 widget, 1 selector, 2 equipment display, 3..10 group tiles in Free arrangement,
+// and 11..16 equipment role cells in Free equipment arrangement.
 struct ElementSlot {unsigned Options::*anchor;float Options::*x;float Options::*y;};
 inline constexpr ElementSlot elementSlots[]{{&Options::anchor,&Options::offsetX,&Options::offsetY},
     {&Options::selectorAnchor,&Options::selectorOffsetX,&Options::selectorOffsetY},{&Options::equipmentAnchor,&Options::equipmentOffsetX,&Options::equipmentOffsetY}};
 inline constexpr int firstTileElement=3;
-inline bool tileElement(int element){return element>=firstTileElement;}
+inline constexpr int firstEquipmentElement=firstTileElement+int(Arsenal::count);
+inline bool tileElement(int element){return element>=firstTileElement&&element<firstEquipmentElement;}
 inline std::size_t tileSlot(int element){return std::size_t(element-firstTileElement);}
+inline bool equipmentElement(int element){return element>=firstEquipmentElement&&element<firstEquipmentElement+int(EquipmentRole::count);}
+inline std::size_t equipmentSlot(int element){return std::size_t(element-firstEquipmentElement);}
 inline Point elementCorner(const HudGeometry& g,int element) {
+    if(equipmentElement(element)&&equipmentSlot(element)<g.equipment.rowCount) {
+        const auto s=equipmentSlot(element);const float own=equipmentCellScale(g.equipment,s);
+        const auto cell=g.equipment.cells[s];
+        return {g.equipment.origin.x+(cell.origin.x-4*own)*g.equipment.scale,g.equipment.origin.y+(cell.origin.y-4*own)*g.equipment.scale};
+    }
     if(tileElement(element)&&tileSlot(element)<g.groups.tiles.size()) {
         const auto tile=g.groups.tiles[tileSlot(element)];return {g.origin.x+(g.groupOrigin.x+tile.x)*g.scale,g.origin.y+(g.groupOrigin.y+tile.y)*g.scale};
     }
     return element==2?g.equipment.origin:element==1?selectorCorner(g):g.origin;
 }
 inline Point elementExtent(const HudGeometry& g,int element) {
-    if(tileElement(element)){const float own=g.scale*tileScale(g.groups,tileSlot(element));return {g.groups.tileWidth*own,g.groups.tileHeight*own};}
+    if(equipmentElement(element)&&equipmentSlot(element)<g.equipment.rowCount) {
+        const auto s=equipmentSlot(element);const float own=g.equipment.scale*equipmentCellScale(g.equipment,s);
+        const auto& cell=g.equipment.cells[s];
+        return {(cell.width+8)*own,(cell.height+8)*own};
+    }
+    if(tileElement(element)){const auto s=tileSlot(element);const float own=g.scale*tileScale(g.groups,s);const auto ts=tileSizeFor(g.groups,s);return {ts.x*own,ts.y*own};}
     return element==2?Point{g.equipment.width*g.equipment.scale,g.equipment.height*g.equipment.scale}:element==1?selectorExtent(g):Point{g.width*g.scale,g.height*g.scale};
 }
-inline unsigned elementAnchor(const Options& o,int element) {
+inline unsigned elementAnchor(const Options& o,int element,const HudGeometry* g=nullptr) {
+    if(equipmentElement(element)) {
+        const auto s=equipmentSlot(element);
+        const auto role=g&&s<g->equipment.rowCount?g->equipment.roles[s]:EquipmentRole(std::min<std::size_t>(s,std::size_t(EquipmentRole::count)-1));
+        return o.equipmentPlaces[unsigned(role)].anchor;
+    }
     if(tileElement(element))return tileSlot(element)<Arsenal::count?o.tilePlaces[o.groupOrder[tileSlot(element)]].anchor:unanchored;
     return o.*elementSlots[element].anchor;
 }
 // An element's anchor and offset: the saved ones, or for an unanchored element those that match where it sits now.
 inline Anchored elementPlacement(const Options& o,const HudGeometry& g,int element,float screenX,float screenY) {
-    if(tileElement(element)) {
+    if(equipmentElement(element)) {
+        const auto s=equipmentSlot(element);
+        if(s<g.equipment.rowCount){const auto& t=o.equipmentPlaces[unsigned(g.equipment.roles[s])];if(t.anchor<unanchored)return {t.anchor,t.x,t.y};}
+    } else if(tileElement(element)) {
         if(tileSlot(element)<Arsenal::count){const auto& t=o.tilePlaces[o.groupOrder[tileSlot(element)]];if(t.anchor<unanchored)return {t.anchor,t.x,t.y};}
-    }else {
+    } else {
         const auto& slot=elementSlots[element];
         if(o.*slot.anchor<unanchored)return {o.*slot.anchor,o.*slot.x,o.*slot.y};
     }
     return anchorFor(elementCorner(g,element),elementExtent(g,element),o,screenX,screenY);
 }
-inline void placeElement(Options& o,int element,Anchored placement) {
+inline void placeElement(Options& o,int element,Anchored placement,const HudGeometry* g=nullptr) {
+    if(equipmentElement(element)) {
+        const auto s=equipmentSlot(element);
+        const auto role=g&&s<g->equipment.rowCount?g->equipment.roles[s]:EquipmentRole(std::min<std::size_t>(s,std::size_t(EquipmentRole::count)-1));
+        auto& t=o.equipmentPlaces[unsigned(role)];t.anchor=placement.anchor;t.x=placement.x;t.y=placement.y;return;
+    }
     if(tileElement(element)){if(tileSlot(element)<Arsenal::count){auto& t=o.tilePlaces[o.groupOrder[tileSlot(element)]];t.anchor=placement.anchor;t.x=placement.x;t.y=placement.y;}return;}
     const auto& slot=elementSlots[element];o.*slot.anchor=placement.anchor;o.*slot.x=placement.x;o.*slot.y=placement.y;
 }
@@ -394,11 +480,22 @@ inline void freeTilesFrom(Options& o,unsigned arrangement,float screenX,float sc
     const auto g=hudGeometry(source,screenX,screenY);
     for(std::size_t slot=0;slot<g.groups.tiles.size();++slot) {
         const int element=firstTileElement+int(slot);
-        o.tilePlaces[o.groupOrder[slot]]={};
+        auto& dst=o.tilePlaces[o.groupOrder[slot]];
         const auto placed=anchorFor(elementCorner(g,element),elementExtent(g,element),o,screenX,screenY);
-        o.tilePlaces[o.groupOrder[slot]]={placed.anchor,placed.x,placed.y,1};
+        dst.anchor=placed.anchor;dst.x=placed.x;dst.y=placed.y;dst.scale=1;
     }
     o.layout=freeLayout;
+}
+inline void freeEquipmentFrom(Options& o,unsigned arrangement,float screenX,float screenY,unsigned rows=4,const EquipmentMetrics& metrics={},
+                              std::array<EquipmentRole,6> roles=defaultEquipmentRoles) {
+    auto source=o;source.equipmentLayout=arrangement==freeLayout?1u:arrangement;
+    const auto g=hudGeometry(source,screenX,screenY,rows,metrics,5,0,roles);
+    for(unsigned slot=0;slot<g.equipment.rowCount;++slot) {
+        const int element=firstEquipmentElement+int(slot);
+        const auto placed=anchorFor(elementCorner(g,element),elementExtent(g,element),o,screenX,screenY);
+        o.equipmentPlaces[unsigned(roles[slot])]={placed.anchor,placed.x,placed.y,1};
+    }
+    o.equipmentLayout=freeLayout;
 }
 struct EditorGeometry {float scale=1,width=1220,height=800;};
 inline EditorGeometry editorGeometry(const Options&,float screenX,float screenY) {
@@ -413,7 +510,7 @@ inline float placementGridStep(const Options& o,float screenHeight) {
 struct SnapAxis {float value=0,guide=0;bool aligned=false;};
 
 inline SnapAxis snapPlacementAxis(float value,float extent,float screen,float lowOffset,float highOffset,
-                                  float frameLow,float frameHigh,float step,std::optional<std::array<float,2>> other={}) {
+                                  float frameLow,float frameHigh,float step,std::span<const std::array<float,2>> others) {
     const float travel=screen-16-extent;
     if(value<=0||value>=1||travel<=0||step<=0)return {std::clamp(value,0.f,1.f)};
     const float start=8+value*travel,center=(frameLow+frameHigh)*.5f;
@@ -422,14 +519,23 @@ inline SnapAxis snapPlacementAxis(float value,float extent,float screen,float lo
     const auto consider=[&](float anchor,float target){if(std::abs(target-anchor)<std::abs(delta)){delta=target-anchor;guide=target;}};
     for(float anchor:anchors){consider(anchor,center+std::round((anchor-center)/step)*step);for(float edge:{frameLow,center,frameHigh})consider(anchor,edge);}
 
-    if(other){float distance=std::min(6.f,step*.33f);for(float anchor:anchors)for(float target:{(*other)[0],((*other)[0]+(*other)[1])*.5f,(*other)[1]})
-        if(std::abs(target-anchor)<distance){distance=std::abs(target-anchor);delta=target-anchor;guide=target;}}
+    float distance=std::min(6.f,step*.33f);
+    for(const auto& other:others) {
+        for(float anchor:anchors)for(float target:{other[0],(other[0]+other[1])*.5f,other[1]})
+            if(std::abs(target-anchor)<distance){distance=std::abs(target-anchor);delta=target-anchor;guide=target;}
+    }
     const float snapped=value+delta/travel,clamped=std::clamp(snapped,0.f,1.f);
     return {clamped,guide,snapped==clamped};
 }
-inline HudGeometry previewGeometry(const Options& o,float screenX,float screenY,float width,float height,bool selector,bool groups=true,bool equipment=false,unsigned rows=4,const EquipmentMetrics& metrics={},std::size_t selectorCount=5,float zoom=0,std::size_t activeSlot=0) {
+inline SnapAxis snapPlacementAxis(float value,float extent,float screen,float lowOffset,float highOffset,
+                                  float frameLow,float frameHigh,float step,std::optional<std::array<float,2>> other={}) {
+    if(other){const std::array<std::array<float,2>,1> one{*other};return snapPlacementAxis(value,extent,screen,lowOffset,highOffset,frameLow,frameHigh,step,one);}
+    return snapPlacementAxis(value,extent,screen,lowOffset,highOffset,frameLow,frameHigh,step,std::span<const std::array<float,2>>{});
+}
+inline HudGeometry previewGeometry(const Options& o,float screenX,float screenY,float width,float height,bool selector,bool groups=true,bool equipment=false,unsigned rows=4,const EquipmentMetrics& metrics={},std::size_t selectorCount=5,float zoom=0,std::size_t activeSlot=0,
+                                   std::array<EquipmentRole,6> equipmentRoles=defaultEquipmentRoles) {
     const auto arrange=[&](const Options& look) {
-        auto g=hudGeometry(look,screenX,screenY,rows,metrics,selectorCount,activeSlot);g.origin={};g.equipment.origin={};
+        auto g=hudGeometry(look,screenX,screenY,rows,metrics,selectorCount,activeSlot,equipmentRoles);g.origin={};g.equipment.origin={};
         if(selector&&groups&&!equipment) {
             // A docked selector sits beside the focus: the whole widget, or in the Free arrangement the tile in use.
             const float ratio=g.selectorScale/g.scale,fx=g.groupOrigin.x+g.focus.min.x,fy=g.groupOrigin.y+g.focus.min.y,w=g.focus.width(),h=g.focus.height(),sw=g.selectorWidth*ratio,sh=(g.selectorHeight+32)*ratio,gap=look.selectorGap;

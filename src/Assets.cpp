@@ -1,5 +1,9 @@
 #include "Assets.h"
+#include <lunasvg.h>
 #include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <cstring>
 #include <fstream>
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
@@ -7,6 +11,18 @@
 #include "../third_party/stb_image.h"
 
 namespace quickslot {
+namespace {
+std::vector<unsigned char> readBinaryFile(const std::filesystem::path& path,std::size_t maxBytes=16*1024*1024) {
+    std::ifstream stream(path,std::ios::binary|std::ios::ate);
+    if(!stream)return {};
+    const auto length=stream.tellg();
+    if(length<=0||static_cast<std::size_t>(length)>maxBytes)return {};
+    std::vector<unsigned char> bytes(static_cast<std::size_t>(length));
+    stream.seekg(0);
+    if(!stream.read(reinterpret_cast<char*>(bytes.data()),length))return {};
+    return bytes;
+}
+}
 ImageAsset decodeImageAsset(std::span<const unsigned char> bytes,int maxDimension) {
     ImageAsset result;
     if(bytes.empty()||bytes.size()>16*1024*1024)return result;
@@ -18,14 +34,38 @@ ImageAsset decodeImageAsset(std::span<const unsigned char> bytes,int maxDimensio
     stbi_image_free(decoded);return result;
 }
 ImageAsset loadImageAsset(const std::filesystem::path& path) {
-    ImageAsset result;
-    std::ifstream stream(path,std::ios::binary|std::ios::ate);
-    if(!stream)return result;
-    const auto length=stream.tellg();
-    if(length<=0||length>16*1024*1024)return result;
-    std::vector<unsigned char> bytes(static_cast<std::size_t>(length));
-    stream.seekg(0);if(!stream.read(reinterpret_cast<char*>(bytes.data()),length))return result;
-    return decodeImageAsset(bytes);
+    const auto bytes=readBinaryFile(path);
+    return bytes.empty()?ImageAsset{}:decodeImageAsset(bytes);
+}
+ImageAsset decodeThemeImage(std::string_view extension,std::span<const unsigned char> bytes,unsigned svgMaxDimension,int maxDimension) {
+    if(bytes.empty()||bytes.size()>16*1024*1024||maxDimension<1)return {};
+    std::string ext(extension);
+    if(!ext.empty()&&ext.front()=='.')ext.erase(ext.begin());
+    for(auto& c:ext)c=char(std::tolower(static_cast<unsigned char>(c)));
+    if(ext=="png")return decodeImageAsset(bytes,maxDimension);
+    if(ext!="svg")return {};
+    auto doc=lunasvg::Document::loadFromData(reinterpret_cast<const char*>(bytes.data()),bytes.size());
+    if(!doc)return {};
+    const float srcW=doc->width(),srcH=doc->height();
+    if(!std::isfinite(srcW)||!std::isfinite(srcH)||srcW<=0||srcH<=0)return {};
+    const unsigned cap=std::clamp(svgMaxDimension,64u,static_cast<unsigned>(maxDimension));
+    const float scale=float(cap)/std::max(srcW,srcH);
+    if(!std::isfinite(scale)||scale<=0)return {};
+    const int width=std::clamp(int(std::lround(srcW*scale)),1,maxDimension);
+    const int height=std::clamp(int(std::lround(srcH*scale)),1,maxDimension);
+    lunasvg::Bitmap bitmap(width,height);
+    if(bitmap.isNull())return {};
+    bitmap.clear(0);
+    doc->render(bitmap,lunasvg::Matrix(float(width)/srcW,0,0,float(height)/srcH,0,0));
+    bitmap.convertToRGBA();
+    ImageAsset out;out.width=width;out.height=height;
+    out.pixels.resize(std::size_t(width)*std::size_t(height)*4);
+    for(int y=0;y<height;++y)std::memcpy(out.pixels.data()+std::size_t(y)*std::size_t(width)*4,bitmap.data()+std::size_t(y)*std::size_t(bitmap.stride()),std::size_t(width)*4);
+    return out;
+}
+ImageAsset loadThemeImage(const std::filesystem::path& path,unsigned svgMaxDimension,int maxDimension) {
+    const auto bytes=readBinaryFile(path);
+    return bytes.empty()?ImageAsset{}:decodeThemeImage(path.extension().string(),bytes,svgMaxDimension,maxDimension);
 }
 }
 

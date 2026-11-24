@@ -5,7 +5,17 @@
 
 namespace quickslot {
 inline void sanitizeOptions(Options& o) {
-    for(auto& t:o.tilePlaces){if(t.anchor>9)t.anchor=9;for(float* v:{&t.x,&t.y})*v=std::isfinite(*v)?std::clamp(*v,-8000.f,8000.f):0.f;t.scale=std::isfinite(t.scale)?std::clamp(t.scale,.25f,3.f):1.f;}
+    const auto sanitizePlace=[](TilePlace& t) {
+        if(t.anchor>9)t.anchor=9;
+        for(float* v:{&t.x,&t.y})*v=std::isfinite(*v)?std::clamp(*v,-8000.f,8000.f):0.f;
+        t.scale=std::isfinite(t.scale)?std::clamp(t.scale,.25f,3.f):1.f;
+        if(t.shape>4)t.shape=0;
+        if(t.showLabel>2)t.showLabel=0;
+        if(t.showKey>2)t.showKey=0;
+    };
+    for(auto& t:o.tilePlaces)sanitizePlace(t);
+    for(auto& t:o.equipmentPlaces)sanitizePlace(t);
+    for(auto& r:o.equipmentRoles)if(r>2)r=0;
     if(!languageID(o.language))o.language="auto";
     o.groupCount=std::clamp(o.groupCount,std::size_t(1),Arsenal::count);
     std::array<bool,Arsenal::count> seen{};
@@ -113,7 +123,7 @@ inline std::string encodeOptions(Options o) {
     Json controllerActions=Json::array();for(const auto b:o.controllerActions)controllerActions.push_back(binding(b));
     Json j{{"schema",1},{"language",o.language},{"groupOrder",o.groupOrder},{"skipEmpty",o.skipEmpty},{"cycleKeepOtherHand",o.cycleKeepOtherHand},{"tapRecall",o.tapRecall},{"holdDelay",o.holdDelay},{"cycleDelay",o.cycleDelay},{"menuCapture",o.menuCapture},{"selectionSpeed",o.selectionSpeed},{"themeId",o.themeId},{"fontId",o.fontId},{"themeAdjustments",tweaks},
         {"voiceHotkey",o.voiceHotkey},{"shoutCharge",o.shoutCharge},{"groupUnequipHotkey",o.groupUnequipHotkey},{"groupRemoveHotkey",o.groupRemoveHotkey},
-        {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},{"tilePlaces",[&]{Json places=Json::array();for(const auto& t:o.tilePlaces)places.push_back(Json::array({t.anchor,t.x,t.y,t.scale}));return places;}()},{"gameplayEditing",o.gameplayEditing},{"introSeen",o.introSeen},{"advancedAppearance",o.advancedAppearance},
+        {"quickLootKeyboard",o.quickLootKeyboard},{"quickLootController",o.quickLootController},{"tilePlaces",[&]{Json places=Json::array();for(const auto& t:o.tilePlaces)places.push_back((t.shape||t.showLabel||t.showKey)?Json::array({t.anchor,t.x,t.y,t.scale,t.shape,t.showLabel,t.showKey}):Json::array({t.anchor,t.x,t.y,t.scale}));return places;}()},{"equipmentPlaces",[&]{Json places=Json::array();for(const auto& t:o.equipmentPlaces)places.push_back(Json::array({t.anchor,t.x,t.y,t.scale}));return places;}()},{"equipmentRoles",o.equipmentRoles},{"gameplayEditing",o.gameplayEditing},{"introSeen",o.introSeen},{"advancedAppearance",o.advancedAppearance},
         {"groupCaptureRightHotkey",o.groupCaptureRightHotkey},{"groupCaptureLeftHotkey",o.groupCaptureLeftHotkey},{"groupMoveHotkey",o.groupMoveHotkey},
         {"selectorReorderHotkey",o.selectorReorderHotkey},{"selectorUnequipHotkey",o.selectorUnequipHotkey},{"selectorRemoveHotkey",o.selectorRemoveHotkey},
         {"mouseActions",o.mouseActions},{"groupModifiers",o.groupModifiers},{"selectorBindings",selectorBindings},{"allowUnusedModifiers",o.allowUnusedModifiers},{"controllerActions",controllerActions},
@@ -253,12 +263,19 @@ inline Options decodeOptions(const std::string& bytes) {
         const float middle=std::isfinite(radius->get<float>())?std::max(radius->get<float>(),100.f):100.f;
         o.wheelSize=middle+28;o.wheelThickness=56/o.wheelSize;o.wheelGap=std::clamp(o.selectorSpacing*.25f,1.5f,12.f);
     }
+    const auto decodePlace=[](const Json& t,TilePlace& out) {
+        if(!t.is_array()||(t.size()!=3&&t.size()!=4&&t.size()!=7)||!t[0].is_number_unsigned()||!t[1].is_number()||!t[2].is_number())return;
+        if(t.size()>=4&&!t[3].is_number())return;
+        if(t.size()==7&&(!t[4].is_number_unsigned()||!t[5].is_number_unsigned()||!t[6].is_number_unsigned()))return;
+        out={t[0].get<unsigned>(),t[1].get<float>(),t[2].get<float>(),t.size()>=4?t[3].get<float>():1.f,
+             t.size()==7?t[4].get<unsigned>():0u,t.size()==7?t[5].get<unsigned>():0u,t.size()==7?t[6].get<unsigned>():0u};
+    };
     if(const auto places=j.find("tilePlaces");places!=j.end()&&places->is_array())
-        for(std::size_t i=0;i<std::min(places->size(),o.tilePlaces.size());++i) {
-            const auto& t=(*places)[i];
-            if(t.is_array()&&t.size()>=3&&t.size()<=4&&t[0].is_number_unsigned()&&t[1].is_number()&&t[2].is_number()&&(t.size()==3||t[3].is_number()))
-                o.tilePlaces[i]={t[0].get<unsigned>(),t[1].get<float>(),t[2].get<float>(),t.size()==4?t[3].get<float>():1.f};
-        }
+        for(std::size_t i=0;i<std::min(places->size(),o.tilePlaces.size());++i)decodePlace((*places)[i],o.tilePlaces[i]);
+    if(const auto places=j.find("equipmentPlaces");places!=j.end()&&places->is_array())
+        for(std::size_t i=0;i<std::min(places->size(),o.equipmentPlaces.size());++i)decodePlace((*places)[i],o.equipmentPlaces[i]);
+    if(const auto roles=j.find("equipmentRoles");roles!=j.end()&&roles->is_array())
+        for(std::size_t i=0;i<std::min(roles->size(),o.equipmentRoles.size());++i)if((*roles)[i].is_number_unsigned())o.equipmentRoles[i]=(*roles)[i].get<unsigned>();
     if(j.value("layoutVersion",1)<3) {
         // Earlier files shared one text size and one opacity across the HUD, and widget text kept its size below 100% scale.
         const float scale=std::isfinite(o.scale)&&o.scale>0?o.scale:1,size=std::isfinite(o.textScale)?o.textScale:1,text=size*std::max(1.f,scale)/scale;

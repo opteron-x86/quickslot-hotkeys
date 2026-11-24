@@ -41,7 +41,8 @@ ImGuiKey imguiKey(unsigned scan) {
 struct Drag {std::uint64_t session,revision,catalogVersion,candidate;std::size_t group,index;std::uint32_t shortcut=0;};
 // The editor takes its surfaces, text and highlights from the active theme's palette.
 void style(const Theme& theme,const Options& options) {
-    auto& s=ImGui::GetStyle();s.WindowRounding=2;s.ChildRounding=0;s.FrameRounding=1;s.PopupRounding=1;s.ScrollbarRounding=2;
+    const float rounding=theme.style.editorRounding;
+    auto& s=ImGui::GetStyle();s.WindowRounding=rounding;s.ChildRounding=0;s.FrameRounding=std::max(0.f,rounding*.5f);s.PopupRounding=std::max(0.f,rounding*.5f);s.ScrollbarRounding=rounding;
     s.WindowPadding={20,16};s.FramePadding={10,7};s.ItemSpacing={10,9};s.ItemInnerSpacing={6,6};s.WindowBorderSize=1;
     const auto vec=[](std::uint32_t color){return ImGui::ColorConvertU32ToFloat4(color);};
     const auto mix=[](ImVec4 a,ImVec4 b,float amount,float alpha=1){return ImVec4{a.x+(b.x-a.x)*amount,a.y+(b.y-a.y)*amount,a.z+(b.z-a.z)*amount,alpha};};
@@ -120,7 +121,7 @@ void Editor::beginSession(const EditorState& state) {
         return;
     }
     restoreSerial_=state.restoreSerial;orderSelection_.reset();previewFittedMode_=-1;presetCheckRevision_=~0ull;autoAnchor_=true;nudge_={};
-    session_=state.session;catalogVersion_=state.catalogVersion;candidate_=0;selected_=0;binding_=-1;placement_=false;placementPanelTarget_=-1;returnTextFocus_=0;hint_.clear();downs_.clear();
+    session_=state.session;catalogVersion_=state.catalogVersion;candidate_=0;selected_=0;binding_=-1;placement_=false;placementTile_=0;placementEquipmentSlot_=0;peekHud_=false;placementPanelTarget_=-1;returnTextFocus_=0;hint_.clear();downs_.clear();
     search_.fill(0);keys_.fill(false);padKeys_.fill(false);padDowns_.clear();pointerMode_=pointerDown_=false;pointerAxis_={};filter_=0;shortcutIndex_.reset();editingLibrary_=0;shortcutGroup_=Arsenal::count;shortcut_=smartEntry(0,0,0);comboName_.fill(0);builder_=0;comboCandidates_={};handSearch_={};
     for(std::size_t i=0;i<Arsenal::count;++i)std::snprintf(names_[i].data(),names_[i].size(),"%s",state.options.names[i].c_str());
     auto& io=ImGui::GetIO();io.ClearInputKeys();io.ClearInputMouse();mouse_={io.DisplaySize.x*.5f,io.DisplaySize.y*.5f};io.AddMousePosEvent(mouse_.x,mouse_.y);
@@ -372,22 +373,82 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
     auto& io=ImGui::GetIO();
     // Placement helpers shared by Position mode and the Placement sections of the Appearance pages.
     std::optional<HudGeometry> measured;
+    const auto liveEqRows=[&]{return equipmentRows(snapshot.equipment,options,options.equipmentLayout==freeLayout);};
+    const auto liveEqRoles=[&]{return activeEquipmentRoles(snapshot.equipment,options,options.equipmentLayout==freeLayout);};
     const auto liveGeometry=[&]()->const HudGeometry& {
-        if(!measured)measured=hudGeometry(options,screen.x,screen.y,equipmentRows(snapshot.equipment,options),hud.equipmentMetrics(snapshot.equipment,options),snapshot.rows.size());
+        if(!measured)measured=hudGeometry(options,screen.x,screen.y,liveEqRows(),hud.equipmentMetrics(snapshot.equipment,options),snapshot.rows.size(),0,liveEqRoles());
         return *measured;
     };
     const auto placementOf=[&](int target){return elementPlacement(options,liveGeometry(),target,screen.x,screen.y);};
-    const auto setPlacement=[&](int target,Anchored placement){placeElement(options,target,placement);changed=true;};
+    const auto setPlacement=[&](int target,Anchored placement){placeElement(options,target,placement,&liveGeometry());measured.reset();changed=true;};
     // Moves an element's corner to a screen point. Its anchor follows the nearest of the nine while automatic anchoring is on.
     const auto setCorner=[&](int target,Point corner) {
-        const auto& g=liveGeometry();const auto anchor=elementAnchor(options,target);
+        const auto& g=liveGeometry();const auto anchor=elementAnchor(options,target,&g);
         setPlacement(target,anchorFor(corner,elementExtent(g,target),options,screen.x,screen.y,autoAnchor_?std::nullopt:std::optional(anchor)));
     };
     const auto setAnchorArea=[&](unsigned area) {
         // Elements keep their distance from the old area's edges, so they move with the new one.
-        for(int target=0;target<3;++target)if(target!=1||options.selectorDock==4)placeElement(options,target,placementOf(target));
-        if(options.layout==freeLayout)for(std::size_t slot=0;slot<options.groupCount;++slot)placeElement(options,firstTileElement+int(slot),placementOf(firstTileElement+int(slot)));
-        options.anchorFrame=area;changed=true;
+        const auto g=liveGeometry();
+        for(int target=0;target<3;++target)if(target!=1||options.selectorDock==4)placeElement(options,target,elementPlacement(options,g,target,screen.x,screen.y),&g);
+        if(options.layout==freeLayout)for(std::size_t slot=0;slot<options.groupCount;++slot)placeElement(options,firstTileElement+int(slot),elementPlacement(options,g,firstTileElement+int(slot),screen.x,screen.y),&g);
+        if(options.equipmentLayout==freeLayout)for(unsigned slot=0;slot<g.equipment.rowCount;++slot)placeElement(options,firstEquipmentElement+int(slot),elementPlacement(options,g,firstEquipmentElement+int(slot),screen.x,screen.y),&g);
+        options.anchorFrame=area;measured.reset();changed=true;
+    };
+    const auto alignElements=[&](const std::vector<int>& groupTargets,int refTarget,unsigned mode) {
+        if(groupTargets.size()<2)return;
+        const auto g=liveGeometry();
+        const auto refCorner=elementCorner(g,refTarget),refExtent=elementExtent(g,refTarget);
+        for(const int t:groupTargets) {
+            if(t==refTarget)continue;
+            auto corner=elementCorner(g,t);const auto ext=elementExtent(g,t);
+            if(mode==0)corner.x=refCorner.x;
+            else if(mode==1)corner.x=refCorner.x+(refExtent.x-ext.x)*.5f;
+            else if(mode==2)corner.x=refCorner.x+refExtent.x-ext.x;
+            else if(mode==3)corner.y=refCorner.y;
+            else if(mode==4)corner.y=refCorner.y+(refExtent.y-ext.y)*.5f;
+            else if(mode==5)corner.y=refCorner.y+refExtent.y-ext.y;
+            const auto anchor=elementAnchor(options,t,&g);
+            placeElement(options,t,anchorFor(corner,ext,options,screen.x,screen.y,autoAnchor_?std::nullopt:std::optional(anchor)),&g);
+        }
+        measured.reset();changed=true;
+    };
+    const auto distributeElements=[&](std::vector<int> groupTargets,bool horizontal) {
+        if(groupTargets.size()<3)return;
+        const auto g=liveGeometry();
+        std::sort(groupTargets.begin(),groupTargets.end(),[&](int a,int b) {
+            const auto ca=elementCorner(g,a),ea=elementExtent(g,a),cb=elementCorner(g,b),eb=elementExtent(g,b);
+            return horizontal?(ca.x+ea.x*.5f)<(cb.x+eb.x*.5f):(ca.y+ea.y*.5f)<(cb.y+eb.y*.5f);
+        });
+        const auto firstC=elementCorner(g,groupTargets.front()),firstE=elementExtent(g,groupTargets.front());
+        const auto lastC=elementCorner(g,groupTargets.back()),lastE=elementExtent(g,groupTargets.back());
+        const float startCenter=horizontal?(firstC.x+firstE.x*.5f):(firstC.y+firstE.y*.5f);
+        const float endCenter=horizontal?(lastC.x+lastE.x*.5f):(lastC.y+lastE.y*.5f);
+        const float stepCenter=(endCenter-startCenter)/float(groupTargets.size()-1);
+        for(std::size_t i=1;i+1<groupTargets.size();++i) {
+            const int t=groupTargets[i];auto corner=elementCorner(g,t);const auto ext=elementExtent(g,t);
+            const float c=startCenter+stepCenter*float(i);
+            if(horizontal)corner.x=c-ext.x*.5f;else corner.y=c-ext.y*.5f;
+            const auto anchor=elementAnchor(options,t,&g);
+            placeElement(options,t,anchorFor(corner,ext,options,screen.x,screen.y,autoAnchor_?std::nullopt:std::optional(anchor)),&g);
+        }
+        measured.reset();changed=true;
+    };
+    const auto alignDistributeRow=[&](const std::vector<int>& groupTargets,int refTarget) {
+        if(groupTargets.size()<2)return;
+        UI::TextDisabled("Align to selected");
+        const float third=(ImGui::GetContentRegionAvail().x-px(8))/3.f;
+        if(UI::Button("Left##align",{third,0}))alignElements(groupTargets,refTarget,0);
+        ImGui::SameLine(0,px(4));if(UI::Button("Center##align",{third,0}))alignElements(groupTargets,refTarget,1);
+        ImGui::SameLine(0,px(4));if(UI::Button("Right##align",{third,0}))alignElements(groupTargets,refTarget,2);
+        if(UI::Button("Top##align",{third,0}))alignElements(groupTargets,refTarget,3);
+        ImGui::SameLine(0,px(4));if(UI::Button("Middle##align",{third,0}))alignElements(groupTargets,refTarget,4);
+        ImGui::SameLine(0,px(4));if(UI::Button("Bottom##align",{third,0}))alignElements(groupTargets,refTarget,5);
+        if(groupTargets.size()>=3) {
+            const float half=(ImGui::GetContentRegionAvail().x-px(4))*.5f;
+            if(UI::Button("Distribute horizontally",{half,0}))distributeElements(groupTargets,true);
+            ImGui::SameLine(0,px(4));
+            if(UI::Button("Distribute vertically",{half,0}))distributeElements(groupTargets,false);
+        }
     };
     const auto placementControls=[&](int target) {
         const auto& g=liveGeometry();auto placement=placementOf(target);
@@ -445,6 +506,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         };
         static const Bounds none{};
         const auto targetBox=[&](int target)->const Bounds&{
+            if(equipmentElement(target))return equipmentSlot(target)<bounds.equipmentCells.size()?bounds.equipmentCells[equipmentSlot(target)]:none;
             if(tileElement(target))return tileSlot(target)<bounds.tiles.size()?bounds.tiles[tileSlot(target)]:none;
             return target==2?bounds.equipment:target==1?bounds.selector:bounds.widget;};
         const auto targetSize=[&](int target){return elementExtent(geometry,target);};
@@ -453,17 +515,32 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             const auto corner=elementCorner(geometry,target),extent=targetSize(target);
             return Point{std::clamp((corner.x-8)/std::max(1.f,screen.x-16-extent.x),0.f,1.f),std::clamp((corner.y-8)/std::max(1.f,screen.y-16-extent.y),0.f,1.f)};
         };
+        // In the Free arrangement each group tile or equipment cell is its own target in place of the whole widget/panel.
+        const bool freeTiles=options.layout==freeLayout;
+        const bool freeEquip=options.showEquipment&&options.equipmentLayout==freeLayout;
+        std::vector<int> targets;
+        if(!freeTiles)targets.push_back(0);
+        targets.push_back(1);
+        if(options.showEquipment&&!freeEquip)targets.push_back(2);
+        if(freeTiles)for(std::size_t slot=0;slot<std::min(options.groupCount,bounds.tiles.size());++slot)targets.push_back(firstTileElement+int(slot));
+        if(freeEquip)for(std::size_t slot=0;slot<bounds.equipmentCells.size();++slot)targets.push_back(firstEquipmentElement+int(slot));
         const auto move=[&](int target,float x,float y,bool snapX=true,bool snapY=true) {
             const auto& box=targetBox(target);const auto extent=targetSize(target);
-            const auto& other=tileElement(target)?none:targetBox(target==0?1:0);
             const auto corner=elementCorner(geometry,target);
             const float originX=corner.x,originY=corner.y;
             if(options.placementSnap&&!io.KeyShift&&box.valid) {
-                const bool alignOther=other.valid&&(target!=0||options.selectorDock==4);
-                const auto horizontal=snapPlacementAxis(x,extent.x,screen.x,box.min.x-originX,box.max.x-originX,frame.min.x,frame.max.x,step,
-                    alignOther?std::optional{std::array{other.min.x,other.max.x}}:std::nullopt);
-                const auto vertical=snapPlacementAxis(y,extent.y,screen.y,box.min.y-originY,box.max.y-originY,frame.min.y,frame.max.y,step,
-                    alignOther?std::optional{std::array{other.min.y,other.max.y}}:std::nullopt);
+                std::vector<std::array<float,2>> othersX,othersY;
+                for(const int otherId:targets) {
+                    if(otherId==target)continue;
+                    if(target==0&&otherId==1&&options.selectorDock!=4)continue;
+                    if(tileElement(target)&&otherId==1&&options.selectorDock!=4)continue;
+                    const auto& ob=targetBox(otherId);
+                    if(!ob.valid)continue;
+                    othersX.push_back({ob.min.x,ob.max.x});
+                    othersY.push_back({ob.min.y,ob.max.y});
+                }
+                const auto horizontal=snapPlacementAxis(x,extent.x,screen.x,box.min.x-originX,box.max.x-originX,frame.min.x,frame.max.x,step,othersX);
+                const auto vertical=snapPlacementAxis(y,extent.y,screen.y,box.min.y-originY,box.max.y-originY,frame.min.y,frame.max.y,step,othersY);
                 if(snapX)x=horizontal.value;if(snapY)y=vertical.value;
                 const auto color=IM_COL32(120,208,230,220);
                 if(snapX&&horizontal.aligned)guides->AddLine({horizontal.guide,0},{horizontal.guide,screen.y},color);
@@ -471,13 +548,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             }
             setCorner(target,{8+std::max(0.f,screen.x-16-extent.x)*x,8+std::max(0.f,screen.y-16-extent.y)*y});
         };
-        // In the Free arrangement each group tile is its own target in place of the widget.
-        const bool freeTiles=options.layout==freeLayout;
-        std::vector<int> targets;if(!freeTiles)targets.push_back(0);targets.push_back(1);targets.push_back(2);
-        if(freeTiles)for(std::size_t slot=0;slot<std::min(options.groupCount,bounds.tiles.size());++slot)targets.push_back(firstTileElement+int(slot));
         if(freeTiles&&placementTarget_==0)placementTarget_=firstTileElement+int(placementTile_);
         if(!freeTiles&&tileElement(placementTarget_))placementTarget_=0;
+        if(freeEquip&&placementTarget_==2)placementTarget_=firstEquipmentElement+int(std::min<std::size_t>(placementEquipmentSlot_,std::max<std::size_t>(1,bounds.equipmentCells.size())-1));
+        if(!freeEquip&&equipmentElement(placementTarget_))placementTarget_=options.showEquipment?2:(freeTiles?firstTileElement+int(placementTile_):0);
         if(tileElement(placementTarget_))placementTile_=tileSlot(placementTarget_);
+        if(equipmentElement(placementTarget_))placementEquipmentSlot_=equipmentSlot(placementTarget_);
         if(placementTarget_==1)detachSelector();
         if(placementTarget_==2&&!options.showEquipment)placementTarget_=freeTiles?firstTileElement+int(placementTile_):0;
         for(const int target:targets) {
@@ -489,9 +565,9 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             guides->AddLine({(box.min.x+box.max.x)*.5f,(box.min.y+box.max.y)*.5f-px(4)},{(box.min.x+box.max.x)*.5f,(box.min.y+box.max.y)*.5f+px(4)},color);
             ImGui::SetNextWindowPos({box.min.x,box.min.y});ImGui::SetNextWindowSize({box.width(),box.height()});
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,{0,0});
-            const auto windowName=tileElement(target)?"##tile placement "+std::to_string(tileSlot(target)):std::string(target==2?"##equipment placement":target==1?"##selector placement":"##widget placement");
+            const auto windowName=equipmentElement(target)?"##equip placement "+std::to_string(equipmentSlot(target)):tileElement(target)?"##tile placement "+std::to_string(tileSlot(target)):std::string(target==2?"##equipment placement":target==1?"##selector placement":"##widget placement");
             ImGui::Begin(windowName.c_str(),nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoBackground|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoNav);
-            const auto buttonName=tileElement(target)?"Drag tile "+std::to_string(tileSlot(target)+1):std::string(target==2?"Drag equipment":target==1?"Drag selector":"Drag widget");
+            const auto buttonName=equipmentElement(target)?"Drag equipment "+std::to_string(equipmentSlot(target)+1):tileElement(target)?"Drag tile "+std::to_string(tileSlot(target)+1):std::string(target==2?"Drag equipment":target==1?"Drag selector":"Drag widget");
             ImGui::InvisibleButton(buttonName.c_str(),ImGui::GetContentRegionAvail());
             if(ImGui::IsItemActivated()) {
                 placementTarget_=target;if(target==1)detachSelector();
@@ -505,11 +581,17 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         }
         for(const auto& box:bounds.tiles)if(box.valid)guides->AddRect({box.min.x,box.min.y},{box.max.x,box.max.y},IM_COL32(225,224,218,50));
         const auto& selected=targetBox(placementTarget_);
-        // Each element scales on its own: the widget, the selector, the equipment display, or a Free tile.
-        const auto scaleMember=placementTarget_==2?&Options::equipmentScale:placementTarget_==1?&Options::selectorScale:&Options::scale;
-        // A Free tile resizes on its own; the other targets use their element's scale.
-        const auto scaleValue=[&]()->float&{return tileElement(placementTarget_)?options.tilePlaces[options.groupOrder[tileSlot(placementTarget_)]].scale:options.*scaleMember;};
-        const auto& scaleRange=setting(tileElement(placementTarget_)?&Options::scale:scaleMember);
+        // Each element scales on its own: the widget, the selector, the equipment display, a Free tile, or a Free equipment cell.
+        const auto scaleMember=(placementTarget_==2||equipmentElement(placementTarget_))?&Options::equipmentScale:placementTarget_==1?&Options::selectorScale:&Options::scale;
+        const auto scaleValue=[&]()->float&{
+            if(equipmentElement(placementTarget_)) {
+                const auto s=equipmentSlot(placementTarget_);
+                const auto role=s<geometry.equipment.rowCount?geometry.equipment.roles[s]:EquipmentRole::rightHand;
+                return options.equipmentPlaces[unsigned(role)].scale;
+            }
+            return tileElement(placementTarget_)?options.tilePlaces[options.groupOrder[tileSlot(placementTarget_)]].scale:options.*scaleMember;
+        };
+        const auto& scaleRange=setting((tileElement(placementTarget_)||equipmentElement(placementTarget_))?&Options::scale:scaleMember);
         if(selected.valid) {
             // A handle on the corner farthest from the anchor resizes the element; the anchored point stays where it is.
             const auto placement=placementOf(placementTarget_);const auto at=anchorPoint(placement.anchor);
@@ -525,7 +607,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());   // the handle stays above the element it resizes
             ImGui::InvisibleButton("Scale handle",{reach*2,reach*2});
             if(ImGui::IsItemActivated()) {
-                if(elementAnchor(options,placementTarget_)>=unanchored)setPlacement(placementTarget_,placement);
+                if(elementAnchor(options,placementTarget_,&geometry)>=unanchored)setPlacement(placementTarget_,placement);
                 scaleStart_=scaleValue();scaleReach_=std::max(px(8),std::hypot(grip.x-pivot.x,grip.y-pivot.y));
             }
             if(ImGui::IsItemActive()&&ImGui::IsMouseDragging(ImGuiMouseButton_Left,0)) {
@@ -545,21 +627,31 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         ImGui::SetNextWindowPos({panelX,px(20)},ImGuiCond_Always);ImGui::SetNextWindowSizeConstraints({panelWidth,0},{panelWidth,screen.y-px(40)});
         ImGui::Begin("Position",nullptr,ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoCollapse);
         {
-            // One list picks what to place: the widget or, in the Free arrangement, each group's tile; then the selector
-            // and the equipment display.
+            // One list picks what to place: the widget or Free tiles, the selector, and the equipment display or Free equipment cells.
             const auto elementName=[&](int target)->std::string {
+                if(equipmentElement(target)) {
+                    const auto s=equipmentSlot(target);
+                    const auto role=s<geometry.equipment.rowCount?geometry.equipment.roles[s]:EquipmentRole::rightHand;
+                    return std::string(tr("Equipment"))+" · "+tr(equipmentRoleName(role,twoHandedDisplay(snapshot.equipment)));
+                }
                 if(tileElement(target))return std::string(tr("Tile"))+" · "+options.names[options.groupOrder[std::min(tileSlot(target),options.groupCount-1)]];
                 return tr(target==2?"Equipment":target==1?"Selector":"Widget");
             };
             std::vector<int> elements;
             if(freeTiles)for(std::size_t slot=0;slot<options.groupCount;++slot)elements.push_back(firstTileElement+int(slot));else elements.push_back(0);
-            elements.push_back(1);if(options.showEquipment)elements.push_back(2);
+            elements.push_back(1);
+            if(options.showEquipment) {
+                if(freeEquip)for(unsigned slot=0;slot<geometry.equipment.rowCount;++slot)elements.push_back(firstEquipmentElement+int(slot));
+                else elements.push_back(2);
+            }
             ImGui::AlignTextToFramePadding();UI::TextDisabled("Element");ImGui::SameLine();ImGui::SetNextItemWidth(-1);
             if(ImGui::BeginCombo("##placement element",elementName(placementTarget_).c_str())) {
                 for(const int target:elements) {
                     ImGui::PushID(target);
                     if(ImGui::Selectable(elementName(target).c_str(),placementTarget_==target)) {
-                        placementTarget_=target;if(tileElement(target))placementTile_=tileSlot(target);
+                        placementTarget_=target;
+                        if(tileElement(target))placementTile_=tileSlot(target);
+                        if(equipmentElement(target))placementEquipmentSlot_=equipmentSlot(target);
                         if(target==1){detachSelector();previewOpen_=true;}
                     }
                     ImGui::PopID();
@@ -568,10 +660,17 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             }
         }
         placementControls(placementTarget_);
+        if(tileElement(placementTarget_)) {
+            std::vector<int> groupTargets;for(std::size_t slot=0;slot<options.groupCount;++slot)groupTargets.push_back(firstTileElement+int(slot));
+            alignDistributeRow(groupTargets,placementTarget_);
+        } else if(equipmentElement(placementTarget_)) {
+            std::vector<int> eqTargets;for(unsigned slot=0;slot<geometry.equipment.rowCount;++slot)eqTargets.push_back(firstEquipmentElement+int(slot));
+            alignDistributeRow(eqTargets,placementTarget_);
+        }
         UI::Checkbox("Pick the nearest anchor when dragging",&autoAnchor_);
         {
             float percent=scaleValue()*100;ImGui::SetNextItemWidth(-px(90));
-            if(UI::SliderFloat(tileElement(placementTarget_)?"Tile size":"Scale",&percent,scaleRange.low*100,scaleRange.high*100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){if(elementAnchor(options,placementTarget_)>=unanchored)placeElement(options,placementTarget_,placementOf(placementTarget_));scaleValue()=percent/100;changed=true;}
+            if(UI::SliderFloat((tileElement(placementTarget_)||equipmentElement(placementTarget_))?"Tile size":"Scale",&percent,scaleRange.low*100,scaleRange.high*100,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){if(elementAnchor(options,placementTarget_,&geometry)>=unanchored)placeElement(options,placementTarget_,placementOf(placementTarget_),&geometry);scaleValue()=percent/100;measured.reset();changed=true;}
         }
         if(UI::CollapsingHeader("Appearance##position")) {
             // The chosen element's main look settings, so it can be tuned where it sits.
@@ -579,14 +678,14 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 const auto& s=setting(member);const float shown=s.unit==Unit::percent?100.f:1.f;float value=options.*member*shown;
                 const char* format=s.unit==Unit::percent?"%.0f%%":s.unit==Unit::pixels?"%.0f px":s.unit==Unit::seconds?"%.1f s":s.unit==Unit::degrees?"%.0f°":"%.0f";
                 ImGui::SetNextItemWidth(-px(120));
-                if(UI::SliderFloat((std::string(name)+"##position").c_str(),&value,s.low*shown,s.high*shown,format,ImGuiSliderFlags_AlwaysClamp)){options.*member=value/shown;changed=true;}
+                if(UI::SliderFloat((std::string(name)+"##position").c_str(),&value,s.low*shown,s.high*shown,format,ImGuiSliderFlags_AlwaysClamp)){options.*member=value/shown;measured.reset();changed=true;}
             };
             const auto pick=[&](const char* name,unsigned Options::*member,const char* choices) {
                 int value=int(options.*member);ImGui::SetNextItemWidth(-px(120));
-                if(UI::Combo((std::string(name)+"##position").c_str(),&value,choices)){options.*member=unsigned(value);changed=true;return true;}
+                if(UI::Combo((std::string(name)+"##position").c_str(),&value,choices)){options.*member=unsigned(value);measured.reset();changed=true;return true;}
                 return false;
             };
-            const auto toggle=[&](const char* name,bool Options::*member){changed|=UI::Checkbox((std::string(name)+"##position").c_str(),&(options.*member));};
+            const auto toggle=[&](const char* name,bool Options::*member){if(UI::Checkbox((std::string(name)+"##position").c_str(),&(options.*member))){measured.reset();changed=true;}};
             if(placementTarget_==1) {
                 pick("Arrangement",&Options::selector,"Horizontal strip\0Arc\0Ring\0Vertical strip\0List\0Wheel\0");
                 const bool wheel=options.selector==wheelSelector,segments=wheel&&options.wheelStyle==1;
@@ -603,16 +702,29 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(wheel){toggle("Show center circle",&Options::wheelHubCircle);slider("Rotation",&Options::wheelRotation);}
                 slider("Text size",&Options::selectorTextScale);slider("Opacity",&Options::selectorOpacity);
                 toggle("Show enchantment charge",&Options::showCharge);
-            } else if(placementTarget_==2) {
+            } else if(placementTarget_==2||equipmentElement(placementTarget_)) {
                 pick("Style",&Options::equipmentStyle,"List\0Circles\0Diamonds\0Squares\0Text only\0");
-                pick("Arrangement",&Options::equipmentLayout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
+                const unsigned eqBefore=options.equipmentLayout;
+                if(pick("Arrangement",&Options::equipmentLayout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0Grid\0Free\0")&&options.equipmentLayout==freeLayout&&eqBefore!=freeLayout) {
+                    options.equipmentLayout=eqBefore;
+                    freeEquipmentFrom(options,eqBefore,screen.x,screen.y,liveEqRows(),hud.equipmentMetrics(snapshot.equipment,options),liveEqRoles());
+                    placementTarget_=firstEquipmentElement;placementEquipmentSlot_=0;measured.reset();
+                }
                 slider("Spacing",&Options::equipmentSpacing);slider("Text size",&Options::equipmentTextScale);slider("Opacity",&Options::equipmentOpacity);
+                if(options.equipmentStyle==0&&options.equipmentLayout==1)toggle("Mirror equipment list",&Options::mirrorEquipment);
                 if(options.equipmentStyle>0&&options.equipmentStyle<4)toggle("Show equipment names",&Options::equipmentShowText);
             } else {
                 const unsigned arrangedBefore=options.layout;
                 if(pick("Arrangement",&Options::layout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0Grid\0Free\0")&&options.layout==freeLayout&&arrangedBefore!=freeLayout)
-                    {options.layout=arrangedBefore;freeTilesFrom(options,arrangedBefore,screen.x,screen.y);placementTarget_=firstTileElement;placementTile_=0;}
+                    {options.layout=arrangedBefore;freeTilesFrom(options,arrangedBefore,screen.x,screen.y);placementTarget_=firstTileElement;placementTile_=0;measured.reset();}
                 pick("Tile shape",&Options::shape,"Cards\0Circles\0Squares\0Diamonds\0");
+                if(tileElement(placementTarget_)) {
+                    auto& tp=options.tilePlaces[options.groupOrder[tileSlot(placementTarget_)]];
+                    int ownShape=int(tp.shape),ownLabel=int(tp.showLabel),ownKey=int(tp.showKey);
+                    ImGui::SetNextItemWidth(-px(120));if(UI::Combo("This tile shape##position",&ownShape,"Follow widget\0Cards\0Circles\0Squares\0Diamonds\0")){tp.shape=unsigned(ownShape);measured.reset();changed=true;}
+                    ImGui::SetNextItemWidth(-px(120));if(UI::Combo("This tile name##position",&ownLabel,"Follow widget\0Show\0Hide\0")){tp.showLabel=unsigned(ownLabel);measured.reset();changed=true;}
+                    ImGui::SetNextItemWidth(-px(120));if(UI::Combo("This tile key##position",&ownKey,"Follow widget\0Show\0Hide\0")){tp.showKey=unsigned(ownKey);measured.reset();changed=true;}
+                }
                 slider("Spacing",&Options::spacing);slider("Text size",&Options::textScale);slider("Opacity",&Options::opacity);
                 toggle("Show group names",&Options::showLabels);toggle("Show keys",&Options::showKeys);
             }
@@ -625,7 +737,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         ImGui::SetNextItemWidth(-px(90));if(UI::Combo("Grid frame",&gridFrame,"Full screen\0" "16:9\0" "2:1\0" "21:9\0")){options.placementFrame=unsigned(gridFrame);changed=true;}
         ImGui::SetNextItemWidth(-px(90));if(UI::Combo("Screen area",&area,"Full screen\0" "16:9\0" "2:1\0" "21:9\0"))setAnchorArea(unsigned(area));
         if(ImGui::IsItemHovered())UI::SetTooltip("Anchors hold on to this area. On an ultrawide screen, 16:9 keeps the HUD within the central part of the screen.");
-        if(freeTiles&&UI::Button("Reset tile positions",{-1,0})){freeTilesFrom(options,2,screen.x,screen.y);changed=true;}
+        if(freeTiles&&UI::Button("Reset tile positions",{-1,0})){freeTilesFrom(options,2,screen.x,screen.y);measured.reset();changed=true;}
+        if(freeEquip&&UI::Button("Reset equipment positions",{-1,0})){freeEquipmentFrom(options,1,screen.x,screen.y,liveEqRows(),hud.equipmentMetrics(snapshot.equipment,options),liveEqRoles());measured.reset();changed=true;}
         if(UI::Checkbox("Show open selector",&previewOpen_)&&!previewOpen_)placementTarget_=freeTiles?firstTileElement+int(placementTile_):0;
         UI::TextWrapped("Arrow keys: move 1 px · Shift: 10 px");
         if(state.controller&&!state.vr)UI::TextWrapped("Right stick: cursor · %s: drag · %s + D-pad: move 1 px",padLabel(PadButton::a,options.controllerStyle).c_str(),padLabel(PadButton::lb,options.controllerStyle).c_str());
@@ -634,8 +747,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
         ImGui::BeginDisabled(!state.canUndo);if(UI::Button("Undo",{-1,0}))emit(command(EditAction::undo,state.draft.active));ImGui::EndDisabled();
         ImGui::End();
     } else {
-        const float w=metrics.width,h=metrics.height;
-        ImGui::SetNextWindowPos({(screen.x-w)*.5f,(screen.y-h)*.5f},ImGuiCond_Always);ImGui::SetNextWindowSize({w,h});
+        const bool peeking=tab_==1&&peekHud_;
+        const float w=peeking?std::min(px(500),screen.x*.46f):metrics.width,h=peeking?screen.y-px(24):metrics.height;
+        const ImVec2 winPos=peeking?ImVec2{peekRight_?screen.x-w-px(12):px(12),px(12)}:ImVec2{(screen.x-w)*.5f,(screen.y-h)*.5f};
+        ImGui::SetNextWindowPos(winPos,ImGuiCond_Always);ImGui::SetNextWindowSize({w,h});
         ImGui::Begin("Quickslot",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings);
         label(tr("Quickslot"));
         placementPanelTarget_=-1;
@@ -1208,7 +1323,6 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             UI::TextWrapped("Choose the modifier held with a group or navigation key. None disables that action. Assigning an existing binding swaps the two actions.");
             {
                 const char* groupNames[]{"Add right hand / highlighted item","Add left hand","Move to another group","Unequip group item","Remove group shortcut","Reorder while browsing"};
-                UI::TextWrapped("Choose the modifier held with a group or navigation key. None disables that action. Assigning an existing binding swaps the two actions.");
                 for(unsigned i=0;i<options.groupModifiers.size();++i) {
                     ImGui::PushID(int(i));ImGui::SetNextItemWidth(px(185));
                     const auto selected=groupActionEnabled(options,GroupModifier(i))?options.groupModifiers[i]:0u;
@@ -1449,12 +1563,24 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             }
         } else {
             const std::array<const char*,5> sections{"Theme","Widget","Selector","Equipment","General"};
-            for(int i=0;i<5;++i){if(i)ImGui::SameLine();const bool active=appearancePage_==i;if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));if(UI::Button(sections[std::size_t(i)],{px(110),0})){appearancePage_=i;previewMode_=i==2?1:i==3?3:0;}if(active)ImGui::PopStyleColor();}
-            ImGui::SameLine(0,px(18));changed|=UI::Checkbox("Show advanced settings",&options.advancedAppearance);
+            const float sectionBtnW=peeking?px(84):px(110);
+            for(int i=0;i<5;++i){if(i)ImGui::SameLine();const bool active=appearancePage_==i;if(active)ImGui::PushStyleColor(ImGuiCol_Button,ImGui::GetStyleColorVec4(ImGuiCol_Header));if(UI::Button(sections[std::size_t(i)],{sectionBtnW,0})){appearancePage_=i;previewMode_=i==2?1:i==3?3:0;}if(active)ImGui::PopStyleColor();}
+            if(!peeking)ImGui::SameLine(0,px(18));
+            changed|=UI::Checkbox("Show advanced settings",&options.advancedAppearance);
             if(ImGui::IsItemHovered())UI::SetTooltip("Adds spacing, text sizes, opacity, exact placement, idle fading and the less common display options to each page.");
+            ImGui::SameLine(0,px(14));UI::Checkbox("Peek HUD",&peekHud_);
+            if(ImGui::IsItemHovered())UI::SetTooltip("Docks Appearance to the side of the screen and renders the live HUD over the game world.");
+            if(peeking) {
+                ImGui::SameLine(0,px(8));
+                if(UI::Button(peekRight_?"Dock left":"Dock right"))peekRight_=!peekRight_;
+                ImGui::AlignTextToFramePadding();UI::TextDisabled("View");ImGui::SameLine();ImGui::SetNextItemWidth(px(135));
+                UI::Combo("##preview view",&previewMode_,"Widget\0Selector\0Both\0Equipment\0");
+                ImGui::SameLine(0,px(8));UI::TextDisabled("State");ImGui::SameLine();ImGui::SetNextItemWidth(-1);
+                UI::Combo("##preview state",&previewState_,"Normal\0Equipped\0Enchanted\0Poisoned\0Cooldown\0Depleted\0");
+            }
             const bool advanced=options.advancedAppearance;
             ImGui::Separator();
-            const float controlsWidth=std::min(px(470),ImGui::GetContentRegionAvail().x*.46f);
+            const float controlsWidth=peeking?0.f:std::min(px(470),ImGui::GetContentRegionAvail().x*.46f);
             beginPanel("appearance",{controlsWidth,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
             const auto id=options.themeId;const auto& currentTheme=hud.theme(options);const bool automatic=id==automaticTheme;
             // Every setting row has its name on the left and its control on the right, ending in a mark that restores the default.
@@ -1544,6 +1670,24 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(tuned){options.themeAdjustments[options.themeId]=tweak;changed=true;}
                     if(UI::Button("Reset theme",{-1,0})){options.themeAdjustments.erase(options.themeId);changed=true;}
                     if(ImGui::IsItemHovered())UI::SetTooltip("Restores this theme's accent and frame opacity.");
+                    if(!currentTheme.recommendedJson.empty()) {
+                        const bool matches=recommendedLookMatches(options,currentTheme.recommendedJson);
+                        ImGui::BeginDisabled(matches);
+                        if(UI::Button("Apply theme's recommended look",{-1,0})){options=mergeRecommendedLook(options,currentTheme.recommendedJson);changed=true;}
+                        ImGui::EndDisabled();
+                        if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("Applies the tile shapes, wheel style and highlights tuned for this theme.");
+                    }
+                    if(UI::Button("Reload themes",{-1,0}))reloadThemesRequested_=true;
+                    if(ImGui::IsItemHovered())UI::SetTooltip("Reloads theme manifests, artwork and fonts from disk without restarting Skyrim.");
+                    if(UI::Checkbox("Auto-reload theme changes",&watchThemes_))themeWatcher_.reset();
+                    if(ImGui::IsItemHovered())UI::SetTooltip("Watches the themes folder while this page is open and reloads after edits.");
+                    if(now-themesReloadedAt_<2.5)UI::TextDisabled("Themes reloaded");
+                    if(!hud.themeWarnings().empty()) {
+                        const auto header=std::string(tr("Theme diagnostics"))+" ("+std::to_string(hud.themeWarnings().size())+")##theme diagnostics";
+                        if(ImGui::CollapsingHeader(header.c_str())) {
+                            for(const auto& warning:hud.themeWarnings())ImGui::TextWrapped("%s",warning.c_str());
+                        }
+                    }
                 }
                 if(advanced&&heading("Colors")) {
                     if(number("Background opacity",&Options::backgroundOpacity)&&ImGui::IsItemHovered())UI::SetTooltip("Fades the inside of frames and keeps their borders. Frame opacity fades both.");
@@ -1591,14 +1735,27 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                         }
                         auto& tile=options.tilePlaces[options.groupOrder[placementTile_]];
                         rowLabel("Tile size");ImGui::SetNextItemWidth(-1);float percent=tile.scale*100;
-                        if(UI::SliderFloat("##free tile size",&percent,25,300,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){tile.scale=percent/100;changed=true;}
-                        if(advanced)placementControls(firstTileElement+int(placementTile_));
-                        if(UI::Button("Reset tile positions",{-1,0})){freeTilesFrom(options,2,screen.x,screen.y);changed=true;}
+                        if(UI::SliderFloat("##free tile size",&percent,25,300,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){tile.scale=percent/100;measured.reset();changed=true;}
+                        int ownShape=int(tile.shape),ownLabel=int(tile.showLabel),ownKey=int(tile.showKey);
+                        rowLabel("This tile shape");ImGui::SetNextItemWidth(-1);
+                        if(UI::Combo("##free tile shape",&ownShape,"Follow widget\0Cards\0Circles\0Squares\0Diamonds\0")){tile.shape=unsigned(ownShape);measured.reset();changed=true;}
+                        if(advanced) {
+                            rowLabel("This tile name");ImGui::SetNextItemWidth(-1);
+                            if(UI::Combo("##free tile label",&ownLabel,"Follow widget\0Show\0Hide\0")){tile.showLabel=unsigned(ownLabel);measured.reset();changed=true;}
+                            rowLabel("This tile key");ImGui::SetNextItemWidth(-1);
+                            if(UI::Combo("##free tile key",&ownKey,"Follow widget\0Show\0Hide\0")){tile.showKey=unsigned(ownKey);measured.reset();changed=true;}
+                            placementControls(firstTileElement+int(placementTile_));
+                            std::vector<int> groupTargets;for(std::size_t slot=0;slot<options.groupCount;++slot)groupTargets.push_back(firstTileElement+int(slot));
+                            alignDistributeRow(groupTargets,firstTileElement+int(placementTile_));
+                        }
+                        if(UI::Button("Reset tile positions",{-1,0})){freeTilesFrom(options,2,screen.x,screen.y);measured.reset();changed=true;}
                         if(UI::Button("Position",{-1,0})){placement_=true;placementTarget_=firstTileElement+int(placementTile_);}
                     }else {if(advanced)placementControls(0);place(0);}
                 }
                 if(heading("Content")) {
                     flag("Show group names",&Options::showLabels);flag("Show keys",&Options::showKeys);
+                    choice("Key position","##key position",&Options::keyPosition,"Automatic\0Top\0Bottom\0Left\0Right\0Corner\0");
+                    choice("Count position","##badge position",&Options::badgePosition,"Automatic\0Bottom-right\0Bottom-left\0Top-right\0");
                     if(options.shape==0)flag("Show card item names",&Options::showCardNames);
                     flag("Show poisoned weapons",&Options::showPoison);flag("Show bow ammunition",&Options::showAmmo);
                     flag("Hide empty groups",&Options::hideEmptyGroups);
@@ -1667,18 +1824,53 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(options.showEquipment&&options.equipmentDim) {
                     number("Idle delay",&Options::equipmentFadeDelay);
                     number("Idle opacity",&Options::equipmentIdleOpacity);
+                    flag("Keep visible in combat",&Options::equipmentKeepCombatVisible);
+                    flag("Keep visible with weapons drawn",&Options::equipmentKeepDrawnVisible);
                 }
                 if(heading("Layout")) {
                     choice("Style","##equipment style",&Options::equipmentStyle,"List\0Circles\0Diamonds\0Squares\0Text only\0");
-                    choice("Arrangement","##equipment layout",&Options::equipmentLayout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0");
+                    const unsigned eqBefore=options.equipmentLayout;
+                    choice("Arrangement","##equipment layout",&Options::equipmentLayout,"Horizontal\0Vertical\0Diamond\0Cross\0Circle\0Staggered cross\0Grid\0Free\0");
+                    if(options.equipmentLayout==freeLayout&&eqBefore!=freeLayout) {
+                        options.equipmentLayout=eqBefore;
+                        freeEquipmentFrom(options,eqBefore,screen.x,screen.y,liveEqRows(),hud.equipmentMetrics(snapshot.equipment,options),liveEqRoles());
+                        placementEquipmentSlot_=0;measured.reset();changed=true;
+                    }
+                    if(options.equipmentLayout==6)number("Columns",&Options::gridColumns);
                     number("Spacing",&Options::equipmentSpacing);
+                    if(options.equipmentStyle==0&&options.equipmentLayout==1) {
+                        if(flag("Mirror equipment list",&Options::mirrorEquipment)&&ImGui::IsItemHovered())
+                            UI::SetTooltip("Places the accent bar and icons on the right and right-aligns text, matching the right edge of the screen.");
+                    }
                 }
                 if(heading("Size")) {
                     number("Scale",&Options::equipmentScale);number("Text size",&Options::equipmentTextScale);number("Opacity",&Options::equipmentOpacity);
                 }
                 if(heading("Placement")) {
-                    if(advanced)placementControls(2);
-                    if(options.showEquipment)place(2);
+                    if(options.equipmentLayout==freeLayout) {
+                        const auto& g=liveGeometry();
+                        const unsigned count=std::max(1u,g.equipment.rowCount);
+                        placementEquipmentSlot_=std::min<std::size_t>(placementEquipmentSlot_,count-1);
+                        const auto roleOf=[&](std::size_t s){return g.equipment.roles[std::min<std::size_t>(s,count-1)];};
+                        rowLabel("Slot");ImGui::SetNextItemWidth(-1);
+                        if(ImGui::BeginCombo("##free equipment cell",tr(equipmentRoleName(roleOf(placementEquipmentSlot_),twoHandedDisplay(snapshot.equipment))))) {
+                            for(unsigned s=0;s<count;++s){ImGui::PushID(int(s));if(ImGui::Selectable(tr(equipmentRoleName(roleOf(s),twoHandedDisplay(snapshot.equipment))),placementEquipmentSlot_==s))placementEquipmentSlot_=s;ImGui::PopID();}
+                            ImGui::EndCombo();
+                        }
+                        auto& cellPlace=options.equipmentPlaces[unsigned(roleOf(placementEquipmentSlot_))];
+                        rowLabel("Slot size");ImGui::SetNextItemWidth(-1);float percent=cellPlace.scale*100;
+                        if(UI::SliderFloat("##free equipment size",&percent,25,300,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){cellPlace.scale=percent/100;measured.reset();changed=true;}
+                        if(advanced) {
+                            placementControls(firstEquipmentElement+int(placementEquipmentSlot_));
+                            std::vector<int> eqTargets;for(unsigned s=0;s<count;++s)eqTargets.push_back(firstEquipmentElement+int(s));
+                            alignDistributeRow(eqTargets,firstEquipmentElement+int(placementEquipmentSlot_));
+                        }
+                        if(UI::Button("Reset equipment positions",{-1,0})){freeEquipmentFrom(options,1,screen.x,screen.y,liveEqRows(),hud.equipmentMetrics(snapshot.equipment,options),liveEqRoles());measured.reset();changed=true;}
+                        if(options.showEquipment&&UI::Button("Position",{-1,0})){placement_=true;placementTarget_=firstEquipmentElement+int(placementEquipmentSlot_);}
+                    } else {
+                        if(advanced)placementControls(2);
+                        if(options.showEquipment)place(2);
+                    }
                 }
                 if((advanced||(options.equipmentStyle>0&&options.equipmentStyle<4))&&heading("Content")) {
                     if(options.equipmentStyle>0&&options.equipmentStyle<4) {
@@ -1686,6 +1878,20 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                         if(options.equipmentShowText)choice("Text position","##equipment text",&Options::equipmentTextPosition,"Top\0Bottom\0Left\0Right\0");
                     }
                     flag("Show equipped ammunition",&Options::showEquipmentAmmo);
+                    if(advanced) {
+                        const auto rolePicker=[&](EquipmentRole role,const char* labelText,const char* key) {
+                            rowLabel(labelText);int mode=int(options.equipmentRoles[unsigned(role)]);
+                            ImGui::SetNextItemWidth(std::max(px(50),ImGui::GetContentRegionAvail().x-side-gap));
+                            if(UI::Combo(key,&mode,"Show\0When equipped\0Hide\0")){options.equipmentRoles[unsigned(role)]=unsigned(mode);measured.reset();changed=true;}
+                            if(resetMark(labelText,options.equipmentRoles[unsigned(role)]!=0)){options.equipmentRoles[unsigned(role)]=0;measured.reset();changed=true;}
+                        };
+                        rolePicker(EquipmentRole::rightHand,"Right hand","##equip role 0");
+                        rolePicker(EquipmentRole::leftHand,"Left hand","##equip role 1");
+                        if(options.showEquipmentAmmo)rolePicker(EquipmentRole::ammo,"Ammunition","##equip role 2");
+                        rolePicker(EquipmentRole::consumable,"Consumable","##equip role 3");
+                        rolePicker(EquipmentRole::voice,"Power / shout","##equip role 4");
+                        if(snapshot.equipment.castsReady)rolePicker(EquipmentRole::readySpell,"Ready spell","##equip role 5");
+                    }
                 }
                 resetPage(Section::equipment);
             } else {
@@ -1699,23 +1905,65 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(UI::Button("Reset all appearance",{-1,0})){auto c=command(EditAction::builtinPreset,groupID);c.presetName="builtin:default";emit(c);}
                 if(ImGui::IsItemHovered())UI::SetTooltip("Applies the Default preset: every Appearance page returns to its defaults. Controls, groups and language stay.");
             }
-            endPanel();ImGui::SameLine();
-            beginPanel("live preview",{0,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
-            label(tr("Preview"));ImGui::SetNextItemWidth(px(180));UI::Combo("##preview view",&previewMode_,"Widget\0Selector\0Both\0Equipment\0");snapshot.browsing=previewMode_==1||previewMode_==2;snapshot.selectorOnly=previewMode_==1;snapshot.equipmentOnly=previewMode_==3;
-            label(tr("Zoom"));ImGui::SameLine();ImGui::SetNextItemWidth(px(150));UI::SliderFloat("##Preview zoom",&previewZoom_,5,400,"%.0f%%");ImGui::SameLine();
-            const bool fitPreview=UI::Button("Fit preview");
-            const auto origin=ImGui::GetCursorScreenPos(),size=ImGui::GetContentRegionAvail();
-            auto previewOptions=options;
-            previewOptions.showIdle=true;if(snapshot.equipmentOnly)previewOptions.showEquipment=true;auto* d=ImGui::GetWindowDrawList();d->PushClipRect(origin,{origin.x+size.x,origin.y+size.y},true);
-            if(fitPreview||previewFittedMode_!=previewMode_) {
-                const auto display=ImGui::GetIO().DisplaySize;
-                previewZoom_=std::clamp(100*previewGeometry(previewOptions,display.x,display.y,size.x,size.y,snapshot.browsing,!snapshot.selectorOnly,snapshot.equipmentOnly,
-                    equipmentRows(snapshot.equipment,previewOptions),hud.equipmentMetrics(snapshot.equipment,previewOptions),snapshot.rows.size()).previewZoom,5.f,400.f);
-                previewFittedMode_=previewMode_;
-            }
-            snapshot.previewZoom=previewZoom_*.01f;
-            hud.draw(snapshot,previewOptions,now,origin,size,d);d->PopClipRect();
             endPanel();
+            const auto applyPreviewState=[&](Snapshot& shot) {
+                if(previewState_==1) {
+                    for(auto& g:shot.groups)if(g.entry)g.equipped=true;
+                    if(shot.preview<shot.rows.size())shot.rows[shot.preview].equipped=true;
+                } else if(previewState_==2) {
+                    for(auto& g:shot.groups)if(g.entry)g.weapon.charge=.64f;
+                    for(std::size_t i=0;i<shot.rows.size();++i)shot.rows[i].weapon.charge=i%2==0?.64f:.16f;
+                    for(auto& h:shot.equipment.hands)if(h)h->weapon.charge=.64f;
+                } else if(previewState_==3) {
+                    for(auto& g:shot.groups)if(g.entry)g.weapon.poisoned=true;
+                    for(auto& r:shot.rows)r.weapon.poisoned=true;
+                    if(shot.equipment.hands[0])shot.equipment.hands[0]->weapon.poisoned=true;
+                } else if(previewState_==4) {
+                    for(auto& g:shot.groups)if(g.entry)g.cooldown=9.5f;
+                    for(auto& r:shot.rows)r.cooldown=9.5f;
+                    if(shot.equipment.voice)shot.equipment.voice->cooldown=9.5f;
+                } else if(previewState_==5) {
+                    for(auto& g:shot.groups)if(g.entry){g.available=false;g.quantity=0;}
+                    for(auto& r:shot.rows){r.available=false;r.quantity=0;}
+                }
+            };
+            snapshot.browsing=previewMode_==1||previewMode_==2;snapshot.selectorOnly=previewMode_==1;snapshot.equipmentOnly=previewMode_==3;
+            applyPreviewState(snapshot);
+            if(peeking) {
+                auto peekOptions=options;
+                peekOptions.showIdle=true;
+                if(snapshot.equipmentOnly)peekOptions.showEquipment=true;
+                auto peekShot=snapshot;
+                peekShot.placementPreview=true;
+                hud.draw(peekShot,peekOptions,now,{0,0},screen,ImGui::GetBackgroundDrawList());
+            } else {
+                ImGui::SameLine();
+                beginPanel("live preview",{0,0},ImGuiChildFlags_Borders|ImGuiChildFlags_NavFlattened);
+                label(tr("Preview"));ImGui::SameLine();ImGui::SetNextItemWidth(px(125));UI::Combo("##preview view",&previewMode_,"Widget\0Selector\0Both\0Equipment\0");
+                snapshot.browsing=previewMode_==1||previewMode_==2;snapshot.selectorOnly=previewMode_==1;snapshot.equipmentOnly=previewMode_==3;
+                ImGui::SameLine(0,px(8));label(tr("Backdrop"));ImGui::SameLine();ImGui::SetNextItemWidth(px(95));UI::Combo("##preview backdrop",&previewBackdrop_,"Dark\0Mid\0Snow\0");
+                ImGui::SameLine(0,px(8));label(tr("State"));ImGui::SameLine();ImGui::SetNextItemWidth(px(125));UI::Combo("##preview state",&previewState_,"Normal\0Equipped\0Enchanted\0Poisoned\0Cooldown\0Depleted\0");
+                label(tr("Zoom"));ImGui::SameLine();ImGui::SetNextItemWidth(px(150));UI::SliderFloat("##Preview zoom",&previewZoom_,5,400,"%.0f%%");ImGui::SameLine();
+                const bool fitPreview=UI::Button("Fit preview");
+                const auto origin=ImGui::GetCursorScreenPos(),size=ImGui::GetContentRegionAvail();
+                auto previewOptions=options;
+                previewOptions.showIdle=true;if(snapshot.equipmentOnly)previewOptions.showEquipment=true;
+                auto* d=ImGui::GetWindowDrawList();
+                if(previewBackdrop_==1)d->AddRectFilled(origin,{origin.x+size.x,origin.y+size.y},IM_COL32(76,82,80,235));
+                else if(previewBackdrop_==2)d->AddRectFilled(origin,{origin.x+size.x,origin.y+size.y},IM_COL32(226,229,232,245));
+                d->PushClipRect(origin,{origin.x+size.x,origin.y+size.y},true);
+                if(fitPreview||previewFittedMode_!=previewMode_) {
+                    const auto display=ImGui::GetIO().DisplaySize;
+                    const unsigned pEqRows=equipmentRows(snapshot.equipment,previewOptions);
+                    const auto pEqRoles=activeEquipmentRoles(snapshot.equipment,previewOptions);
+                    previewZoom_=std::clamp(100*previewGeometry(previewOptions,display.x,display.y,size.x,size.y,snapshot.browsing,!snapshot.selectorOnly,snapshot.equipmentOnly,
+                        pEqRows,hud.equipmentMetrics(snapshot.equipment,previewOptions),snapshot.rows.size(),0,0,pEqRoles).previewZoom,5.f,400.f);
+                    previewFittedMode_=previewMode_;
+                }
+                snapshot.previewZoom=previewZoom_*.01f;
+                hud.draw(snapshot,previewOptions,now,origin,size,d);d->PopClipRect();
+                endPanel();
+            }
         }
         endPanel();
         ImGui::Separator();

@@ -4,7 +4,18 @@ $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudi
 if (-not $installation) { throw 'Visual Studio C++ tools were not found' }
 Import-Module "$installation/Common7/Tools/Microsoft.VisualStudio.DevShell.dll"
 Enter-VsDevShell -VsInstallPath $installation -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
-$env:PATH = "C:/Program Files/LLVM/bin;$env:PATH"
+$llvmCandidates = @(
+    "$installation/VC/Tools/Llvm/x64/bin"
+    "C:/Program Files/LLVM/bin"
+) | Where-Object { Test-Path "$_/clang-cl.exe" }
+$selectedLlvm = $llvmCandidates | ForEach-Object {
+    $out = (& "$_/clang-cl.exe" --version | Select-Object -First 1) -join ''
+    $ver = if ($out -match 'clang version (\d+\.\d+\.\d+)') { [version]$Matches[1] } else { [version]'0.0.0' }
+    Write-Host "Found clang-cl $ver in $_"
+    [pscustomobject]@{ Path = $_; Version = $ver }
+} | Sort-Object Version -Descending | Select-Object -First 1
+if (-not $selectedLlvm) { throw 'clang-cl.exe was not found' }
+$env:PATH = "$($selectedLlvm.Path);$env:PATH"
 foreach ($name in @('PATH', 'INCLUDE', 'LIB', 'LIBPATH', 'VSINSTALLDIR', 'VCToolsInstallDir', 'WindowsSdkDir', 'WindowsSDKVersion')) {
     $value = [Environment]::GetEnvironmentVariable($name)
     if ($value) { "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }

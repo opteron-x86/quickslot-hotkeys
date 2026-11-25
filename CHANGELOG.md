@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.17.0-rc.7
+## 0.17.0-rc.8
 
 - Armor, clothing and jewelry can be added to groups. A tap puts a piece on, and a tap on a worn piece takes it off.
 - **New → Outfit** saves a set of worn pieces as one entry, with **Use worn**, **Include hands** and **Take off everything else**. A tap on a worn outfit puts back the gear worn before it.
@@ -18,11 +18,12 @@
 - **Peek HUD** docks the editor as a left or right side-drawer while drawing the live HUD across the full screen. The split preview pane has **Backdrop** (**Dark**, **Mid**, **Snow**) and **State** (**Normal**, **Equipped**, **Enchanted**, **Poisoned**, **Cooldown**, **Depleted**) controls.
 - Widget tiles and selectors include **Hexagons** and **Frameless** (icon-only) shapes, true 1:1 **Squares** with corner hotkeys, centered **Diamonds** icons, single-line **Cards** with a leading-edge accent bar, **Unified hotbar** (fusing Horizontal, Vertical or Grid slots with hairline dividers), **Active tile emphasis** (`0%`–`25%`) and **Label position** (**Below**, **Above**, **Inside**).
 - **Selector → Style → List** displays a compact scrollable panel with the group name and item count in the header, inline hand, equipped, unavailable, poison, count and cooldown details on each row, and a scrollbar thumb.
+- **Selector → Show item descriptions** displays damage, enchantments, active poisons, armor ratings, ammunition damage, spell Magicka costs and effects, shout word cooldowns, outfit armor totals and combination summaries alongside potion, food, poison and scroll effects while browsing.
 - **Presets** includes **Souls Cross** (1:1 square four-way cross with the compact list selector) and **Action Bar** (bottom unified hotbar with labels above and corner hotkeys).
-- **Free** group tiles have per-tile **This tile shape**, **This tile name** and **This tile key** overrides. **Appearance → Widget → Content** has **Key position** and **Count position**.
+- **Free** group tiles have per-tile **This tile size**, **This tile shape**, **This tile name** and **This tile key** overrides. **Appearance → Widget → Content** has **Key position** and **Count position**.
 - **Appearance → Equipment** has **Grid** and **Free** arrangements, **Mirror equipment list**, per-role visibility (**Show**, **When equipped**, **Hide**) and **Keep visible in combat** / **Keep visible with weapons drawn** options when dimming on idle.
 - **Position** snaps edges and centers against sibling Free tiles and other HUD elements, and **Align** and **Distribute** line up or space Free tiles and Free equipment cells.
-- **Widget**, **Selector** and **Equipment** have independent **Size** (`25%`–`300%`) and **Text size** (`50%`–`300%`) controls, so resizing tiles, frames or wheels keeps label text at its chosen size.
+- **Widget**, **Selector** and **Equipment** each have unified **Size** (`25%`–`300%`) and independent **Text size** (`50%`–`300%`) controls, so resizing tiles, frames or wheels keeps label text at its chosen size.
 - HUD fades ease out smoothly, group tiles animate item changes, and radial wheel highlights and raised segments glide between wedges.
 
 ## 0.16.0

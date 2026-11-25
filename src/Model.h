@@ -333,7 +333,61 @@ inline float chargeFraction(float current,float capacity) {
     if(!std::isfinite(current)||current<0)return 1;
     return std::clamp(current/capacity,0.f,1.f);
 }
-// description: what a potion, food, poison or scroll does, from its effects.
+// Concise stat and effect descriptions shown under the highlighted item in the selector.
+inline std::string joinItemInfo(std::initializer_list<std::string_view> parts,std::string_view separator=" · ") {
+    std::string result;
+    const auto space=[](char c){return c==' '||c=='\t'||c=='\r'||c=='\n';};
+    for(auto part:parts) {
+        while(!part.empty()&&space(part.front()))part.remove_prefix(1);
+        while(!part.empty()&&space(part.back()))part.remove_suffix(1);
+        if(part.empty())continue;
+        if(!result.empty())result+=separator;
+        result+=part;
+    }
+    return result;
+}
+inline std::string formatWeaponInfo(float damage,std::string_view enchantment={},std::string_view poison={}) {
+    const int rounded=std::isfinite(damage)&&damage>.5f?int(std::lround(damage)):0;
+    const std::string stat=rounded>0?trNamed("Damage %s",std::to_string(rounded)):std::string{};
+    const std::string coated=!poison.empty()?trNamed("Poisoned: %s",poison):std::string{};
+    return joinItemInfo({stat,enchantment,coated});
+}
+inline std::string formatArmorInfo(float armor,std::string_view enchantment={}) {
+    const int rounded=std::isfinite(armor)&&armor>.5f?int(std::lround(armor)):0;
+    const std::string stat=rounded>0?trNamed("Armor %s",std::to_string(rounded)):std::string{};
+    return joinItemInfo({stat,enchantment});
+}
+inline std::string formatAmmoInfo(float damage,std::string_view effect={}) {
+    const int rounded=std::isfinite(damage)&&damage>.5f?int(std::lround(damage)):0;
+    const std::string stat=rounded>0?trNamed("Damage %s",std::to_string(rounded)):std::string{};
+    return joinItemInfo({stat,effect});
+}
+inline std::string formatSpellInfo(float magickaCost,bool concentration,std::string_view effect={}) {
+    const int rounded=std::isfinite(magickaCost)&&magickaCost>.5f?int(std::lround(magickaCost)):0;
+    const std::string cost=rounded>0?(concentration?trNamed("%s Magicka/s",std::to_string(rounded)):trNamed("%s Magicka",std::to_string(rounded))):std::string{};
+    return joinItemInfo({cost,effect});
+}
+inline std::string formatShoutInfo(const std::vector<float>& cooldowns,std::string_view effect={}) {
+    std::string times;
+    for(const float seconds:cooldowns) {
+        if(!std::isfinite(seconds)||seconds<=0)continue;
+        const int rounded=std::max(1,int(std::lround(seconds)));
+        if(!times.empty())times+=" / ";
+        times+=std::to_string(rounded)+'s';
+    }
+    const std::string cooldown=!times.empty()?trNamed("Cooldown %s",times):std::string{};
+    return joinItemInfo({cooldown,effect});
+}
+inline std::string formatOutfitInfo(float totalArmor,unsigned enchantedCount=0) {
+    const int rounded=std::isfinite(totalArmor)&&totalArmor>.5f?int(std::lround(totalArmor)):0;
+    const std::string stat=rounded>0?trNamed("Armor %s",std::to_string(rounded)):std::string{};
+    const std::string ench=enchantedCount>0?trNamed("%s enchanted",std::to_string(enchantedCount)):std::string{};
+    return joinItemInfo({stat,ench});
+}
+inline std::string formatComboInfo(std::string_view rightInfo,std::string_view leftInfo) {
+    return joinItemInfo({rightInfo,leftInfo}," + ");
+}
+// description: concise stats and effects for the highlighted item (damage, armor, enchantments, spell costs, shout cooldowns, or consumable effects).
 struct Row { Entry entry;bool available=false,equipped=false;std::string detail;int quantity=0;float cooldown=0;bool powerUsed=false;std::string feedback;WeaponStatus weapon;std::optional<Entry> iconEntry;bool cycleBlocked=false;std::string description; };
 inline const Entry& rowIconEntry(const Row& row){return row.iconEntry?*row.iconEntry:row.entry;}
 struct GroupTile {std::optional<Entry> entry;std::size_t count=0;bool available=false,equipped=false;int quantity=0;float cooldown=0;bool voice=false,consumable=false;WeaponStatus weapon;std::optional<Entry> iconEntry;};

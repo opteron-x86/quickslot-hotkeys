@@ -348,5 +348,22 @@ int main()try {
         check(kept,"Converted elements stay where they were");
         check(!anchorUnplacedElements(converted,0,0),"Nothing converts before the screen size is known");
     }
+    {
+        // Concise item descriptions for weapons, armor, ammo, spells, powers, shouts, outfits and combinations.
+        check(formatWeaponInfo(42.4f)=="Damage 42","Unenchanted weapons report rounded damage");
+        check(formatWeaponInfo(34.f,"Burns target for 15 points.")=="Damage 34 · Burns target for 15 points.","Enchanted weapons combine damage and enchantment");
+        check(formatWeaponInfo(11.f,{},"Causes 25 points of poison damage.")=="Damage 11 · Poisoned: Causes 25 points of poison damage.","Poisoned weapons append the active poison effect");
+        check(formatWeaponInfo(0.f,"Shoots a fireball.")=="Shoots a fireball.","Staves without physical damage show their enchantment alone");
+        check(formatArmorInfo(48.2f,"Increases Health by 50 points.")=="Armor 48 · Increases Health by 50 points.","Enchanted armor combines rating and enchantment");
+        check(formatArmorInfo(0.f,"Destruction spells cost 25% less to cast.")=="Destruction spells cost 25% less to cast.","Zero-armor jewelry and clothing omit the armor rating");
+        check(formatAmmoInfo(14.f)=="Damage 14"&&formatAmmoInfo(14.f,"Explodes on impact.")=="Damage 14 · Explodes on impact.","Ammunition reports damage and optional effect");
+        check(formatSpellInfo(133.2f,false,"A fiery explosion.")=="133 Magicka · A fiery explosion.","Cast spells report Magicka cost and effect");
+        check(formatSpellInfo(14.f,true,"A gout of fire.")=="14 Magicka/s · A gout of fire.","Concentration spells report Magicka per second");
+        check(formatSpellInfo(0.f,false,"Foes flee for 30 seconds.")=="Foes flee for 30 seconds.","Powers with zero Magicka cost show their effect alone");
+        check(formatShoutInfo({15.f,20.f,45.f},"Your Voice is raw power.")=="Cooldown 15s / 20s / 45s · Your Voice is raw power.","Shouts list unlocked word cooldowns and description");
+        check(formatShoutInfo({15.f},{})=="Cooldown 15s","Single-word shouts list one cooldown");
+        check(formatOutfitInfo(214.f,3)=="Armor 214 · 3 enchanted"&&formatOutfitInfo(0.f,2)=="2 enchanted","Outfits summarize total armor and enchanted piece count");
+        check(formatComboInfo("Damage 34","Armor 22")=="Damage 34 + Armor 22"&&formatComboInfo("Damage 34",{})=="Damage 34","Combinations join active hand summaries");
+    }
     std::cout<<"PASS: "<<checks<<" preset, ammo, feedback, fixed editor, grid and preview checks\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

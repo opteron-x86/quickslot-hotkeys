@@ -281,8 +281,8 @@ int main(int argc,char** argv)try {
             check(state.options.selectorScale!=own&&state.options.scale==widget,"Position Scale resizes only the selector");
             click("Undo");check(state.options.selectorScale==own,"The selector's Position scale supports Undo");
             click("Appearance##position");click("Arrangement##position");click("Wheel");
-            check(state.options.selector==wheelSelector&&!probe::find("Wheel size##position").empty()&&!probe::find("Show center circle##position").empty(),"Position mode shows the selector's own look settings");
-            click("Wheel style##position");click("Segments");check(state.options.wheelStyle==1&&!probe::find("Ring thickness##position").empty()&&!probe::find("Highlight##position").empty(),"A segmented wheel's settings appear with it");
+            check(state.options.selector==wheelSelector&&probe::find("Wheel size##position").empty()&&!probe::find("Show center circle##position").empty(),"Position mode shows the selector's own look settings");
+            click("Wheel style##position");click("Segments");check(state.options.wheelStyle==1&&!probe::find("Ring thickness##position").empty()&&!probe::find("Highlight##position").empty()&&probe::find("Ring opacity##position").empty(),"A segmented wheel's settings appear with it");
             click("Show center circle##position");check(!state.options.wheelHubCircle&&state.options.scale==widget,"Look settings in Position apply live");
             click("Undo");click("Undo");click("Undo");check(state.options.selector!=wheelSelector&&state.options.wheelHubCircle,"Look changes in Position support Undo");
             click("Appearance##position");
@@ -306,16 +306,17 @@ int main(int argc,char** argv)try {
         const auto before=state.options;
         click("##shape");click("Cards");check(!probe::find("##Card width").empty()&&probe::find("##Tile size").empty()&&!probe::find("Mirror cards").empty(),"Cards offer a width and mirroring");
         click("Mirror cards");click("+##Card width");check(state.options.mirrorCards&&state.options.cardWidth==Options{}.cardWidth+1,"Card options apply live");
-        click("##shape");click("Squares");check(probe::find("##Card width").empty()&&!probe::find("##Tile size").empty()&&probe::find("Mirror cards").empty(),"Other shapes offer a tile size");
-        click("+##Tile size");check(state.options.tileSize>1,"Tile size applies live");
+        click("##shape");click("Squares");check(probe::find("##Card width").empty()&&probe::find("##Tile size").empty()&&probe::find("Mirror cards").empty(),"Non-card shapes size through Size alone");
+        check(!probe::find("##key position").empty(),"Key position appears while Show keys is on");
+        click("Show keys");check(probe::find("##key position").empty(),"Key position hides when Show keys is off");click("Show keys");
         check(probe::find("##Columns").empty(),"Columns belong to the grid arrangement");
         click("##layout");click("Grid");click("-##Columns");check(state.options.layout==6&&state.options.gridColumns==3,"The grid arrangement has a column count");
-        click("Selector");click("##selector");click("Horizontal strip");click("##selector visible");click("7");check(state.options.selectorVisible==2&&probe::find("##Wheel size").empty(),"Strips choose how many items they show");
-        click("##selector");click("Wheel");check(probe::find("##selector visible").empty()&&!probe::find("##Wheel size").empty(),"The wheel has a size in place of a visible count");
-        click("+##Wheel size");check(state.options.wheelSize==Options{}.wheelSize+2,"Wheel size applies live");
+        click("Selector");click("##selector");click("Horizontal strip");click("##selector visible");click("7");check(state.options.selectorVisible==2&&probe::find("##Wheel size").empty()&&!probe::find("Animate scrolling").empty(),"Strips choose how many items they show");
+        click("##selector");click("Wheel");check(probe::find("##selector visible").empty()&&probe::find("##Wheel size").empty()&&probe::find("Animate scrolling").empty(),"The wheel hides strip-only controls and sizes through Size");
         check(!probe::find("##selector shape").empty(),"A wheel of tiles chooses its item shape");
-        click("##wheel style");click("Segments");check(state.options.wheelStyle==1&&probe::find("##selector shape").empty(),"A segmented wheel replaces the item shape");
-        click("##reset Wheel style");check(state.options.wheelStyle==0,"The wheel style resets to tiles");
+        click("##wheel style");click("Segments");check(state.options.wheelStyle==1&&probe::find("##selector shape").empty()&&probe::find("##Ring opacity").empty(),"A segmented wheel replaces the item shape");
+        click("+##Ring thickness");check(state.options.wheelThickness>Options{}.wheelThickness,"Ring thickness applies live");
+        click("##reset Ring thickness");click("##reset Wheel style");check(state.options.wheelStyle==0,"The wheel style resets to tiles");
         click("Theme");click("Custom text color");click("Custom selection color");click("-##Background opacity");click("+##Icon size");
         check(state.options.customTextColor&&state.options.customSelectionColor&&state.options.backgroundOpacity<1&&state.options.iconScale>1,"Theme colors, background opacity and icon size apply live");
         click("Groups##main");click("Color##group");check(state.options.groupColored[state.draft.active],"A group can take its own color");
@@ -1083,7 +1084,7 @@ int main(int argc,char** argv)try {
         check(state.options.layout==freeLayout&&state.options.tilePlaces[state.options.groupOrder[0]].anchor<unanchored&&state.options.tilePlaces[state.options.groupOrder[3]].anchor<unanchored,"Choosing Free places every visible tile");
         click("Undo");check(state.options.layout!=freeLayout,"Choosing Free is one undoable change");
         click("##layout");click("Free");
-        check(!probe::find("##free tile").empty()&&!probe::find("##free tile size").empty()&&!probe::find("Reset tile positions").empty(),"Free shows a tile picker, a tile size and a reset");
+        check(!probe::find("##free tile").empty()&&!probe::find("##free tile size").empty()&&!probe::find("Reset tile positions").empty()&&probe::find("##Spacing").empty(),"Free shows a tile picker, a tile size and a reset without arrangement spacing");
         click("##free tile");click("Magic");
         const auto magic=state.options.groupOrder[2];const auto beforeSize=state.options.tilePlaces[magic].scale;
         // Tiles spread to the four edges, so each one can be grabbed on its own.

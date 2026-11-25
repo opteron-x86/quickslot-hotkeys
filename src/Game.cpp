@@ -171,24 +171,41 @@ bool voiceButton(RE::INPUT_DEVICE device,unsigned code,float value,float held) {
     controls->shoutHandler->ProcessButton(event,&controls->data);return true;
 }
 std::string gameName(const char* text){return cleanName(gameTextUTF8(text?text:"",localization().codepage()));}
-// What a potion, food, poison or scroll does: each shown effect's description with its magnitude and duration filled in.
-std::string magicDescription(std::uint32_t formID) {
-    auto* form=RE::TESForm::LookupByID(formID);auto* magic=form?form->As<RE::MagicItem>():nullptr;if(!magic||form->Is(RE::FormType::Spell))return {};
+// Strip Skyrim formatting tags (<...>) and normalize whitespace on a game text line.
+std::string cleanGameDescription(std::string line) {
+    for(auto open=line.find('<');open!=std::string::npos;open=line.find('<',open)){const auto close=line.find('>',open);if(close==std::string::npos)break;line.erase(open,close-open+1);}
+    std::string out;out.reserve(line.size());bool space=true;
+    for(const char ch:line) {
+        if(ch==' '||ch=='\t'||ch=='\r'||ch=='\n'){if(!space){out+=' ';space=true;}}
+        else {out+=ch;space=false;}
+    }
+    if(!out.empty()&&out.back()==' ')out.pop_back();
+    return out;
+}
+// Visible magic effects of a potion, food, poison, scroll, enchantment, spell or shout word with magnitude, duration and area filled in.
+std::string formatMagicEffects(const RE::MagicItem* magic) {
+    if(!magic)return {};
     std::string text;
     for(auto* effect:magic->effects) {
         if(!effect||!effect->baseEffect||effect->baseEffect->data.flags.any(RE::EffectSetting::EffectSettingData::Flag::kHideInUI))continue;
         const char* raw=effect->baseEffect->magicItemDescription.c_str();if(!raw||!*raw)continue;
         auto line=gameTextUTF8(raw,localization().codepage());
         const auto number=[](float value){return std::isfinite(value)?std::to_string(int(std::lround(value))):std::string{};};
-        for(const auto& [tag,value]:{std::pair{std::string("<mag>"),number(effect->GetMagnitude())},std::pair{std::string("<dur>"),std::to_string(effect->GetDuration())}})
+        for(const auto& [tag,value]:{std::pair{std::string("<mag>"),number(effect->GetMagnitude())},std::pair{std::string("<dur>"),std::to_string(effect->GetDuration())},std::pair{std::string("<area>"),std::to_string(effect->GetArea())}})
             for(auto at=line.find(tag);at!=std::string::npos;at=line.find(tag,at+value.size()))line.replace(at,tag.size(),value);
-        // Other tags, such as a global's name, are left out.
-        for(auto open=line.find('<');open!=std::string::npos;open=line.find('<',open)){const auto close=line.find('>',open);if(close==std::string::npos)break;line.erase(open,close-open+1);}
+        line=cleanGameDescription(std::move(line));
+        if(line.empty())continue;
         if(!text.empty())text+=' ';
         text+=line;
         if(text.size()>400)break;
     }
     return text;
+}
+std::string formDescription(RE::TESDescription* desc,RE::TESForm* parent) {
+    if(!desc||!parent)return {};
+    RE::BSString raw;desc->GetDescription(raw,parent);
+    if(raw.empty())return {};
+    return cleanGameDescription(gameTextUTF8(raw.c_str(),localization().codepage()));
 }
 bool worn(RE::ExtraDataList* extra,const Entry& entry) {
     if(!extra)return false;
@@ -577,6 +594,101 @@ ShortcutResolution resolveShortcut(const Entry& entry,RE::PlayerCharacter* playe
     }
     if(isReusable(entry))result.row.iconEntry=result.action;
     return result;
+}
+RE::EnchantmentItem* itemEnchantment(RE::TESEnchantableForm* base,RE::ExtraDataList* extra) {
+    if(extra)if(const auto* own=extra->GetByType<RE::ExtraEnchantment>();own&&own->enchantment)return own->enchantment;
+    return base?base->formEnchanting:nullptr;
+}
+std::string weaponSummary(RE::TESObjectWEAP* weapon,RE::ExtraDataList* extra,RE::PlayerCharacter* player,bool brief) {
+    if(!weapon)return {};
+    float damage=0;
+    if(!weapon->IsStaff()&&player){RE::InventoryEntryData item(weapon,1);if(extra)item.AddExtraList(extra);damage=player->GetDamage(&item);}
+    if(brief&&damage>.5f)return formatWeaponInfo(damage);
+    std::string enchant=formatMagicEffects(itemEnchantment(weapon,extra));
+    if(enchant.empty())enchant=formDescription(weapon,weapon);
+    if(brief)return formatWeaponInfo(damage,enchant);
+    std::string poison;
+    if(extra)if(const auto* coated=extra->GetByType<RE::ExtraPoison>();coated&&coated->poison&&coated->count>0)poison=formatMagicEffects(coated->poison);
+    return formatWeaponInfo(damage,enchant,poison);
+}
+std::string armorSummary(RE::TESObjectARMO* armor,RE::ExtraDataList* extra,RE::PlayerCharacter* player,bool brief) {
+    if(!armor)return {};
+    float rating=0;
+    if(player){RE::InventoryEntryData item(armor,1);if(extra)item.AddExtraList(extra);rating=player->GetArmorValue(&item);}
+    if(brief&&rating>.5f)return formatArmorInfo(rating);
+    std::string enchant=formatMagicEffects(itemEnchantment(armor,extra));
+    if(enchant.empty())enchant=formDescription(armor,armor);
+    return formatArmorInfo(rating,enchant);
+}
+std::string ammoSummary(RE::TESAmmo* ammo) {
+    if(!ammo)return {};
+    const auto& data=ammo->GetRuntimeData();
+    std::string effect;
+    if(const char* raw=data.shortDesc.c_str();raw&&*raw)effect=cleanGameDescription(gameTextUTF8(raw,localization().codepage()));
+    return formatAmmoInfo(data.data.damage,effect);
+}
+std::string spellSummary(RE::SpellItem* spell,RE::PlayerCharacter* player,bool brief) {
+    if(!spell)return {};
+    const bool isSpell=spell->GetSpellType()==RE::MagicSystem::SpellType::kSpell;
+    const float cost=isSpell&&player?spell->CalculateMagickaCost(player):0.f;
+    const bool concentration=isSpell&&spell->GetCastingType()==RE::MagicSystem::CastingType::kConcentration;
+    if(brief&&cost>.5f)return formatSpellInfo(cost,concentration);
+    std::string effect=formatMagicEffects(spell);
+    if(effect.empty())effect=formDescription(spell,spell);
+    return formatSpellInfo(cost,concentration,effect);
+}
+std::string shoutSummary(RE::TESShout* shout) {
+    if(!shout)return {};
+    std::vector<float> cooldowns;RE::SpellItem* highest=nullptr;
+    for(const auto& variation:shout->variations)if(variation.word&&variation.word->GetKnown()){cooldowns.push_back(variation.recoveryTime);if(variation.spell)highest=variation.spell;}
+    std::string effect=formatMagicEffects(highest);
+    if(effect.empty())effect=formDescription(shout,shout);
+    return formatShoutInfo(cooldowns,effect);
+}
+std::string resolvedItemSummary(const Resolved& item,std::uint32_t fallbackForm,RE::PlayerCharacter* player,bool brief) {
+    if(item.shout)return shoutSummary(item.shout);
+    if(item.spell)return spellSummary(item.spell,player,brief);
+    if(item.object) {
+        if(auto* weapon=item.object->As<RE::TESObjectWEAP>())return weaponSummary(weapon,item.extra,player,brief);
+        if(auto* armor=item.object->As<RE::TESObjectARMO>())return armorSummary(armor,item.extra,player,brief);
+        if(auto* ammo=item.object->As<RE::TESAmmo>())return ammoSummary(ammo);
+        if(auto* magic=item.object->As<RE::MagicItem>())return formatMagicEffects(magic);
+    }
+    auto* form=fallbackForm?RE::TESForm::LookupByID(fallbackForm):nullptr;
+    if(!form)return {};
+    if(auto* shout=form->As<RE::TESShout>())return shoutSummary(shout);
+    if(auto* spell=form->As<RE::SpellItem>())return spellSummary(spell,player,brief);
+    if(auto* weapon=form->As<RE::TESObjectWEAP>())return weaponSummary(weapon,nullptr,player,brief);
+    if(auto* armor=form->As<RE::TESObjectARMO>())return armorSummary(armor,nullptr,player,brief);
+    if(auto* ammo=form->As<RE::TESAmmo>())return ammoSummary(ammo);
+    if(auto* magic=form->As<RE::MagicItem>())return formatMagicEffects(magic);
+    return {};
+}
+std::string itemDescription(const Entry& entry,const ShortcutResolution& resolved,RE::PlayerCharacter* player,const RE::TESObjectREFR::InventoryItemMap& inventory) {
+    if(isHandAction(entry))return {};
+    if(isConsumable(entry)||entry.kind==Kind::scroll) {
+        auto* form=RE::TESForm::LookupByID(rowIconEntry(resolved.row).form);
+        return formatMagicEffects(form?form->As<RE::MagicItem>():nullptr);
+    }
+    if(entry.kind==Kind::combo) {
+        std::array<std::string,2> parts;
+        for(unsigned hand=0;hand<2&&hand<resolved.action.parts.size();++hand)
+            if(!isHandAction(resolved.action.parts[hand]))parts[hand]=resolvedItemSummary(resolved.parts[hand],resolved.action.parts[hand].form,player,true);
+        return formatComboInfo(parts[0],parts[1]);
+    }
+    if(entry.kind==Kind::outfit) {
+        float totalArmor=0;unsigned enchanted=0;
+        for(const auto& part:entry.parts) {
+            if(part.kind!=Kind::armor&&part.kind!=Kind::shield)continue;
+            const auto piece=resolve(part,player,inventory);
+            auto* armor=piece.object?piece.object->As<RE::TESObjectARMO>():part.form?RE::TESForm::LookupByID<RE::TESObjectARMO>(part.form):nullptr;
+            if(!armor)continue;
+            if(player){RE::InventoryEntryData item(armor,1);if(piece.extra)item.AddExtraList(piece.extra);const float rating=player->GetArmorValue(&item);if(std::isfinite(rating)&&rating>0)totalArmor+=rating;}
+            if(itemEnchantment(armor,piece.extra))++enchanted;
+        }
+        return formatOutfitInfo(totalArmor,enchanted);
+    }
+    return resolvedItemSummary(resolved.item,resolved.action.form,player,false);
 }
 RE::TESObjectREFR::InventoryItemMap inventoryFor(const Arsenal& arsenal,RE::PlayerCharacter* player) {
     std::unordered_set<RE::FormID> forms;
@@ -1642,7 +1754,7 @@ void Game::refresh() {
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             if(i==arsenal_.active) {
                 snapshot_.rows.push_back(resolved.row);
-                if(options_.showDescriptions&&(isConsumable(entry)||entry.kind==Kind::scroll))snapshot_.rows.back().description=magicDescription(rowIconEntry(resolved.row).form);
+                if(options_.showDescriptions)snapshot_.rows.back().description=itemDescription(entry,resolved,player,inventory);
                 if(group.automatic()&&tracksInstance(entry)&&!entry.owner)snapshot_.rows.back().detail=tr("Equip one copy first");
             }
             if(j==group.selected){
@@ -2208,6 +2320,7 @@ void Game::refreshEditor() {
             entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo||entry.kind==Kind::outfit)entry.parts=resolved.row.entry.parts;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             rows.push_back(resolved.row);
+            rows.back().description=itemDescription(entry,resolved,player,inventory);
             if(editor_.draft.groups[i].automatic()&&tracksInstance(entry)&&!entry.owner)rows.back().detail=tr("Equip one copy first");
             if(i==consumableGroup&&rows.size()-1==editor_.draft.groups[i].selected){editor_.equippedDisplay.consumable=resolved.row;if(resolved.item.available())editor_.equippedDisplay.consumable->entry=resolved.action;}
         }

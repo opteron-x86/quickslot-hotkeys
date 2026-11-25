@@ -692,13 +692,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 if(wheel)pick("Wheel style",&Options::wheelStyle,"Tiles\0Segments\0");
                 if(options.selector!=4&&!segments)pick("Item shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0Hexagons\0Frameless\0");
                 if(!segments&&options.selector!=4)slider("Spacing",&Options::selectorSpacing);
-                if(wheel)slider("Wheel size",&Options::wheelSize);else if(options.selector!=2)pick("Visible items",&Options::selectorVisible,"3\0005\0007\0009\0");
+                if(!wheel&&options.selector!=2)pick("Visible items",&Options::selectorVisible,"3\0005\0007\0009\0");
                 if(segments) {
                     slider("Ring thickness",&Options::wheelThickness);
                     if(!hud.theme(options).assets.wheel.outerRim)slider("Gap",&Options::wheelGap);
                     pick("Item name",&Options::wheelName,"In the center\0Below the wheel\0Hidden\0");
                     pick("Highlight",&Options::wheelHighlight,"Fill and outline\0Fill\0Outline\0Rim\0");
-                    slider("Ring opacity",&Options::wheelOpacity);
                 }
                 if(wheel){toggle("Show center circle",&Options::wheelHubCircle);slider("Rotation",&Options::wheelRotation);}
                 slider("Text size",&Options::selectorTextScale);slider("Opacity",&Options::selectorOpacity);
@@ -711,7 +710,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     freeEquipmentFrom(options,eqBefore,screen.x,screen.y,liveEqRows(),hud.equipmentMetrics(snapshot.equipment,options),liveEqRoles());
                     placementTarget_=firstEquipmentElement;placementEquipmentSlot_=0;measured.reset();
                 }
-                slider("Spacing",&Options::equipmentSpacing);slider("Text size",&Options::equipmentTextScale);slider("Opacity",&Options::equipmentOpacity);
+                if(options.equipmentLayout!=freeLayout)slider("Spacing",&Options::equipmentSpacing);
+                slider("Text size",&Options::equipmentTextScale);slider("Opacity",&Options::equipmentOpacity);
                 if(options.equipmentStyle==0&&options.equipmentLayout==1)toggle("Mirror equipment list",&Options::mirrorEquipment);
                 if(options.equipmentStyle>0&&options.equipmentStyle<4)toggle("Show equipment names",&Options::equipmentShowText);
             } else {
@@ -727,7 +727,8 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     ImGui::SetNextItemWidth(-px(120));if(UI::Combo("This tile name##position",&ownLabel,"Follow widget\0Show\0Hide\0")){tp.showLabel=unsigned(ownLabel);measured.reset();changed=true;}
                     ImGui::SetNextItemWidth(-px(120));if(UI::Combo("This tile key##position",&ownKey,"Follow widget\0Show\0Hide\0")){tp.showKey=unsigned(ownKey);measured.reset();changed=true;}
                 }
-                slider("Spacing",&Options::spacing);slider("Text size",&Options::textScale);slider("Opacity",&Options::opacity);
+                if(!unifiedHotbar(options)&&options.layout!=freeLayout)slider("Spacing",&Options::spacing);
+                slider("Text size",&Options::textScale);slider("Opacity",&Options::opacity);
                 toggle("Show group names",&Options::showLabels);toggle("Show keys",&Options::showKeys);
             }
         }
@@ -1722,13 +1723,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(options.layout==0||options.layout==1||options.layout==6) {
                         if(flag("Unified hotbar",&Options::unifiedBar)&&ImGui::IsItemHovered())UI::SetTooltip("Fuses the group tiles into one continuous bar with hairline dividers.");
                     }
-                    if(!unifiedHotbar(options))number("Spacing",&Options::spacing);
+                    if(!unifiedHotbar(options)&&options.layout!=freeLayout)number("Spacing",&Options::spacing);
                     if(options.shape==0&&(options.showCardNames||options.showLabels)){if(flag("Mirror cards",&Options::mirrorCards)&&ImGui::IsItemHovered())UI::SetTooltip("Puts the icon on the right and aligns the text to it, for a widget on the right side of the screen.");}
                 }
                 if(heading("Size")) {
                     number("Size",&Options::scale);
-                    if(options.shape==0){if(options.showCardNames||options.showLabels)number("Card width",&Options::cardWidth);}
-                    else number("Tile size",&Options::tileSize);
+                    if(options.shape==0&&(options.showCardNames||options.showLabels))number("Card width",&Options::cardWidth);
                     if(!unifiedHotbar(options)&&number("Active tile emphasis",&Options::activeGroupBoost)&&ImGui::IsItemHovered())UI::SetTooltip("Subtly enlarges the active group's tile around its center.");
                     number("Text size",&Options::textScale);number("Opacity",&Options::opacity);
                 }
@@ -1740,7 +1740,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                             ImGui::EndCombo();
                         }
                         auto& tile=options.tilePlaces[options.groupOrder[placementTile_]];
-                        rowLabel("Tile size");ImGui::SetNextItemWidth(-1);float percent=tile.scale*100;
+                        rowLabel("This tile size");ImGui::SetNextItemWidth(-1);float percent=tile.scale*100;
                         if(UI::SliderFloat("##free tile size",&percent,25,300,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){tile.scale=percent/100;measured.reset();changed=true;}
                         int ownShape=int(tile.shape),ownLabel=int(tile.showLabel),ownKey=int(tile.showKey);
                         rowLabel("This tile shape");ImGui::SetNextItemWidth(-1);
@@ -1762,7 +1762,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     flag("Show group names",&Options::showLabels);
                     if(options.shape!=0&&options.showLabels)choice("Label position","##label position",&Options::labelPosition,"Below\0Above\0Inside\0");
                     flag("Show keys",&Options::showKeys);
-                    choice("Key position","##key position",&Options::keyPosition,"Automatic\0Top\0Bottom\0Left\0Right\0Corner\0");
+                    if(options.showKeys)choice("Key position","##key position",&Options::keyPosition,"Automatic\0Top\0Bottom\0Left\0Right\0Corner\0");
                     choice("Count position","##badge position",&Options::badgePosition,"Automatic\0Bottom-right\0Bottom-left\0Top-right\0");
                     if(options.shape==0)flag("Show card item names",&Options::showCardNames);
                     flag("Show poisoned weapons",&Options::showPoison);flag("Show bow ammunition",&Options::showAmmo);
@@ -1789,8 +1789,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     const bool wheel=options.selector==wheelSelector,segments=wheel&&options.wheelStyle==1;
                     if(options.selector!=4&&!segments)choice("Item shape","##selector shape",&Options::selectorShape,"Automatic\0Circles\0Squares\0Diamonds\0Hexagons\0Frameless\0");
                     if(!segments&&options.selector!=4)number("Spacing",&Options::selectorSpacing);
-                    if(wheel){if(number("Wheel size",&Options::wheelSize)&&ImGui::IsItemHovered())UI::SetTooltip("The wheel's outer radius. Its ring, icons and center grow with it.");}
-                    else if(options.selector!=2)choice("Visible items","##selector visible",&Options::selectorVisible,"3\0005\0007\0009\0");
+                    if(!wheel&&options.selector!=2)choice("Visible items","##selector visible",&Options::selectorVisible,"3\0005\0007\0009\0");
                 }
                 if(options.selector==wheelSelector&&heading("Wheel")) {
                     const bool segments=options.wheelStyle==1;
@@ -1800,7 +1799,6 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                         if(choice("Item name","##wheel name",&Options::wheelName,"In the center\0Below the wheel\0Hidden\0")&&ImGui::IsItemHovered())UI::SetTooltip("Where the pointed item's name appears. A center too small for it sends the name below the wheel.");
                         if(choice("Highlight","##wheel highlight",&Options::wheelHighlight,"Fill and outline\0Fill\0Outline\0Rim\0")&&ImGui::IsItemHovered())UI::SetTooltip("How the pointed segment stands out. Rim draws a band of the accent color along its outer edge.");
                         if(flag("Raise the pointed segment",&Options::wheelLift)&&ImGui::IsItemHovered())UI::SetTooltip("Moves the pointed segment outward and enlarges its icon.");
-                        if(number("Ring opacity",&Options::wheelOpacity)&&ImGui::IsItemHovered())UI::SetTooltip("The opacity of the segments and the center behind the icons.");
                         if(flag("Item names on segments",&Options::wheelLabels)&&ImGui::IsItemHovered())UI::SetTooltip("Writes each item's name under its icon when the ring is thick enough.");
                     }
                     flag("Show center circle",&Options::wheelHubCircle);
@@ -1820,10 +1818,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 }
                 if(heading("Content")) {
                     if(flag("Show enchantment charge",&Options::showCharge)&&ImGui::IsItemHovered())UI::SetTooltip("Shows a weapon's remaining enchantment charge as five diamonds beside its hand, under its name.");
-                    if(flag("Show item descriptions",&Options::showDescriptions)&&ImGui::IsItemHovered())UI::SetTooltip("Shows what a potion, food, poison or scroll does under its name.");
+                    if(flag("Show item descriptions",&Options::showDescriptions)&&ImGui::IsItemHovered())UI::SetTooltip("Shows damage, armor rating, enchantments, spell costs, shout cooldowns and item effects under the highlighted item.");
                     flag("Show group and position",&Options::selectorFooter);
                     flag("Show selector hints",&Options::showHints);
-                    flag("Animate scrolling",&Options::animateScroll);
+                    if(options.selector!=wheelSelector)flag("Animate scrolling",&Options::animateScroll);
                 }
                 resetPage(Section::selector);
             } else if(appearancePage_==3) {
@@ -1845,7 +1843,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                         placementEquipmentSlot_=0;measured.reset();changed=true;
                     }
                     if(options.equipmentLayout==6)number("Columns",&Options::gridColumns);
-                    number("Spacing",&Options::equipmentSpacing);
+                    if(options.equipmentLayout!=freeLayout)number("Spacing",&Options::equipmentSpacing);
                     if(options.equipmentStyle==0&&options.equipmentLayout==1) {
                         if(flag("Mirror equipment list",&Options::mirrorEquipment)&&ImGui::IsItemHovered())
                             UI::SetTooltip("Places the accent bar and icons on the right and right-aligns text, matching the right edge of the screen.");
@@ -1866,7 +1864,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                             ImGui::EndCombo();
                         }
                         auto& cellPlace=options.equipmentPlaces[unsigned(roleOf(placementEquipmentSlot_))];
-                        rowLabel("Slot size");ImGui::SetNextItemWidth(-1);float percent=cellPlace.scale*100;
+                        rowLabel("This slot size");ImGui::SetNextItemWidth(-1);float percent=cellPlace.scale*100;
                         if(UI::SliderFloat("##free equipment size",&percent,25,300,"%.0f%%",ImGuiSliderFlags_AlwaysClamp)){cellPlace.scale=percent/100;measured.reset();changed=true;}
                         if(advanced) {
                             placementControls(firstEquipmentElement+int(placementEquipmentSlot_));

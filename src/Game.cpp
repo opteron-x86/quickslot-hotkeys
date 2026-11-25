@@ -1115,7 +1115,7 @@ void Game::queueHand(Hand hand,bool controller) {
     if(!selection_.held()||selection_.index()>=arsenal_.current().entries.size())return;
     const auto index=selection_.index();
     selectionTime(false);controller_.cancel();pending_.reset();released_.reset();consumableRequest_.reset();cycleConfirm_.cancel();
-    if(auto commit=releaseToHand(selection_,arsenal_.current(),arsenal_.active,hand,controller)) {
+    if(auto commit=releaseToHand(selection_,arsenal_.current(),arsenal_.active,hand,controller,forcedGroupHand(options_,arsenal_.active))) {
         selectionController_=controller;released_=Released{*commit};snapshot_.revealUntil=clockNow()+2;
     }
 }
@@ -1619,7 +1619,7 @@ void Game::menuCapture(std::size_t groupID,Hand hand) {
                 if(auto* row=list?list->GetSelectedItem():nullptr){data=row->data.objDesc;if(data)selectedForm=data->object;}
             }
             if(!selectedForm||selectedForm->GetFormID()!=formID||(!magic&&reinterpret_cast<std::uintptr_t>(data)!=descriptorToken)){report(tr("Selection moved — choose the item again"));return;}
-            Entry e;e.form=formID;e.hand=hand;
+            Entry e;e.form=formID;e.hand=forcedGroupHand(options_,groupID).value_or(hand);
             if(!identify(selectedForm,e)){report(tr("This item cannot be added to Quickslot"));return;}
             e.name=gameName(selectedForm->GetName());
             if(arsenal_.groups[groupID].entries.size()>=Group::limit){report(tr("This group is full (16 items)"));return;}
@@ -1729,6 +1729,7 @@ void Game::capture(Hand hand) {
         if(const auto* name=target->GetDisplayName(object);name&&*name)entry.name=gameName(name);
     }
     entry.name=cleanName(entry.name);
+    entry=effectiveGroupEntry(entry,options_,arsenal_.active);
     auto& group=arsenal_.current();
     const bool duplicate=std::any_of(group.entries.begin(),group.entries.end(),[&](const Entry& e){return e.same(entry);});
     if(!duplicate&&group.entries.size()>=Group::limit){notice(tr("This group is full (16 items)"));return;}
@@ -1748,13 +1749,13 @@ void Game::refresh() {
     for(std::size_t i=0;i<Arsenal::count;++i) {
         auto& group=arsenal_.groups[i];auto& tile=snapshot_.groups[i];tile={};tile.count=group.entries.size();
         for(std::size_t j=0;j<group.entries.size();++j) {
-            auto& entry=group.entries[j];const auto resolved=resolveShortcut(entry,player,inventory,potions,deficits,&equipment,options_.cycleKeepOtherHand&&cyclesOnTap(groupMode(options_,arsenal_,i))&&!(selection_.browsing()&&selection_.group()==i));const auto& item=resolved.item;
+            auto& entry=group.entries[j];const auto effective=effectiveGroupEntry(entry,options_,i);const auto resolved=resolveShortcut(effective,player,inventory,potions,deficits,&equipment,options_.cycleKeepOtherHand&&cyclesOnTap(groupMode(options_,arsenal_,i))&&!(selection_.browsing()&&selection_.group()==i));const auto& item=resolved.item;
             entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo||entry.kind==Kind::outfit)entry.parts=resolved.row.entry.parts;
             const bool available=resolved.row.available;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             if(i==arsenal_.active) {
                 snapshot_.rows.push_back(resolved.row);
-                if(options_.showDescriptions)snapshot_.rows.back().description=itemDescription(entry,resolved,player,inventory);
+                if(options_.showDescriptions)snapshot_.rows.back().description=itemDescription(effective,resolved,player,inventory);
                 if(group.automatic()&&tracksInstance(entry)&&!entry.owner)snapshot_.rows.back().detail=tr("Equip one copy first");
             }
             if(j==group.selected){
@@ -1767,7 +1768,7 @@ void Game::refresh() {
     }
     if(arsenal_.rememberedConsumable){const auto resolved=resolveShortcut(*arsenal_.rememberedConsumable,player,inventory,potions,deficits);snapshot_.equipment.consumable=resolved.row;if(resolved.item.available())snapshot_.equipment.consumable->entry=resolved.action;}
     for(std::size_t i=0;i<options_.groupCount;++i)snapshot_.equipment.castsReady|=castStyle(options_,options_.groupOrder[i])==CastStyle::oblivion;
-    if(const auto* ready=readySpell(arsenal_,options_))snapshot_.equipment.readySpell=resolveShortcut(*ready,player,inventory,potions,deficits).row;
+    if(const auto* ready=readySpell(arsenal_,options_))snapshot_.equipment.readySpell=resolveShortcut(effectiveGroupEntry(*ready,options_,arsenal_.readySpellGroup),player,inventory,potions,deficits).row;
     dirty_=false;
 }
 void Game::startVoice(const Entry& entry) {
@@ -1831,7 +1832,7 @@ void Game::castReadySpell() {
     if(SpellCasting::get().channeling())return;
     const auto* ready=readySpell(arsenal_,options_);
     if(!ready){notice(tr("Ready a spell in an Oblivion-style group first"));return;}
-    castEntry(*ready,true);
+    castEntry(effectiveGroupEntry(*ready,options_,arsenal_.readySpellGroup),true);
 }
 void Game::queueConsumable(bool controller) {
     if(voice_.active()){notice(tr("Voice action in progress"));return;}
@@ -1871,9 +1872,11 @@ void Game::equip(const Selection::Commit& commit,bool unequip) {
     if(!accepts(commit)||!allowed(MenuPurpose::input,commit.controller))return;
     try {
         auto* player=RE::PlayerCharacter::GetSingleton();
-        auto saved=arsenal_.current().entries[commit.index];
+        auto saved=effectiveGroupEntry(arsenal_.current().entries[commit.index],options_,commit.group);
+        const auto forced=forcedGroupHand(options_,commit.group);
         if(commit.hand) {
-            const auto chosen=entryForHand(saved,*commit.hand);if(!chosen||unequip)return;
+            const auto requested=forced&&!isHandAction(saved)&&flexibleHand(saved)?*forced:*commit.hand;
+            const auto chosen=entryForHand(saved,requested);if(!chosen||unequip)return;
             saved=*chosen;
         }
         const auto action=selectionAction(saved,commit,options_);
@@ -2088,7 +2091,7 @@ void Game::progressEquipment() {
         if(gear_){pending_.reset();dirty_=true;break;}
         if(pending.phase!=EquipmentPhase::unequipping) {
             arsenal_.current().selected=commit.index;
-            if(commit.hand&&pending.pairStep<0)rememberHand(arsenal_.current(),commit.index,*commit.hand);
+            if(commit.hand&&pending.pairStep<0&&!forcedGroupHand(options_,commit.group))rememberHand(arsenal_.current(),commit.index,*commit.hand);
             rememberChoice(commit.group,arsenal_.current().entries[commit.index]);
         }
         notice(isHandAction(entry)?handName(entry)+tr(" empty"):(pending.phase==EquipmentPhase::unequipping?tr("Unequipped — "):isVoice(entry)?tr("Selected — "):tr("Equipped — "))+entryLabel(entry),false);
@@ -2316,18 +2319,19 @@ void Game::refreshEditor() {
     for(std::size_t i=0;i<Arsenal::count;++i) {
         auto& rows=editor_.rows[i];rows.clear();
         for(auto& entry:editor_.draft.groups[i].entries) {
-            const auto resolved=resolveShortcut(entry,player,inventory,potions,editor_.deficits,&equipment,editor_.options.cycleKeepOtherHand&&cyclesOnTap(groupMode(editor_.options,editor_.draft,i)));const auto& item=resolved.item;
+            const auto effective=effectiveGroupEntry(entry,editor_.options,i);
+            const auto resolved=resolveShortcut(effective,player,inventory,potions,editor_.deficits,&equipment,editor_.options.cycleKeepOtherHand&&cyclesOnTap(groupMode(editor_.options,editor_.draft,i)));const auto& item=resolved.item;
             entry.icon=resolved.row.entry.icon;if(entry.kind==Kind::combo||entry.kind==Kind::outfit)entry.parts=resolved.row.entry.parts;
             if(!isSmartEquipment(entry)&&item.extra)if(const char* name=item.extra->GetDisplayName(item.object);name&&*name)entry.name=gameName(name);
             rows.push_back(resolved.row);
-            rows.back().description=itemDescription(entry,resolved,player,inventory);
+            rows.back().description=itemDescription(effective,resolved,player,inventory);
             if(editor_.draft.groups[i].automatic()&&tracksInstance(entry)&&!entry.owner)rows.back().detail=tr("Equip one copy first");
             if(i==consumableGroup&&rows.size()-1==editor_.draft.groups[i].selected){editor_.equippedDisplay.consumable=resolved.row;if(resolved.item.available())editor_.equippedDisplay.consumable->entry=resolved.action;}
         }
     }
     if(editor_.draft.rememberedConsumable){const auto resolved=resolveShortcut(*editor_.draft.rememberedConsumable,player,inventory,potions,editor_.deficits);editor_.equippedDisplay.consumable=resolved.row;if(resolved.item.available())editor_.equippedDisplay.consumable->entry=resolved.action;}
     for(std::size_t i=0;i<editor_.options.groupCount;++i)editor_.equippedDisplay.castsReady|=castStyle(editor_.options,editor_.options.groupOrder[i])==CastStyle::oblivion;
-    if(const auto* ready=readySpell(editor_.draft,editor_.options))editor_.equippedDisplay.readySpell=resolveShortcut(*ready,player,inventory,potions,editor_.deficits).row;
+    if(const auto* ready=readySpell(editor_.draft,editor_.options))editor_.equippedDisplay.readySpell=resolveShortcut(effectiveGroupEntry(*ready,editor_.options,editor_.draft.readySpellGroup),player,inventory,potions,editor_.deficits).row;
     dirty_=false;
 }
 std::optional<Entry> Game::captureCandidate(std::uint64_t candidate,Hand hand) {

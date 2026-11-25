@@ -438,6 +438,8 @@ template<class IsDown> inline unsigned keyboardModifiers(IsDown down) {
            ((down(56)||down(184))?keyModifier::alt:0u);
 }
 enum class GroupMode : unsigned {browse,cycle,cycleBrowse};
+// Hand policy for a group: per item (default), or always equip flexible one-handed items/spells/scrolls to the right or left hand.
+enum class GroupHand : unsigned {item,right,left};
 // What a group does with its spells and scrolls: equips them (the default), casts the selected one on a tap without
 // changing what the hands hold (quick cast), or makes it the ready spell that Cast ready spell casts (Oblivion style).
 enum class CastStyle : unsigned {equip,quick,oblivion};
@@ -463,6 +465,7 @@ struct Options {
     std::size_t groupCount=3;
     std::array<std::size_t,Arsenal::count> groupOrder{0,1,2,3,4,5,6,7};
     std::array<GroupMode,Arsenal::count> groupModes{};
+    std::array<GroupHand,Arsenal::count> groupHands{};
     std::array<CastStyle,Arsenal::count> castStyles{};
     std::array<bool,Arsenal::count> autoSort{},separateConsumableUse{};
     KeyBinding consumableKey;
@@ -856,7 +859,7 @@ inline void resetGroup(Arsenal& a,Options& o,std::size_t id) {
     auto& g=a.groups[id];const auto revision=g.revision+1;g={};g.revision=revision;
     o.names[id]="Group "+std::to_string(id+1);
     o.keys[id]=0;o.controllerGroups[id]={};o.vrGroups[id]={};
-    o.groupModes[id]=GroupMode::browse;o.castStyles[id]=CastStyle::equip;o.autoSort[id]=false;o.separateConsumableUse[id]=false;
+    o.groupModes[id]=GroupMode::browse;o.groupHands[id]=GroupHand::item;o.castStyles[id]=CastStyle::equip;o.autoSort[id]=false;o.separateConsumableUse[id]=false;
     if(a.consumableGroup==id){a.consumableGroup=Arsenal::count;a.rememberedConsumable.reset();}
     if(a.readySpellGroup==id)a.readySpellGroup=Arsenal::count;
 }
@@ -947,6 +950,17 @@ inline bool assignGroupKey(Options& o,std::size_t group,unsigned key) {
 }
 inline bool flexibleHand(const Entry& e){return !isConsumable(e)&&!isVoice(e)&&!wornGear(e)&&e.kind!=Kind::combo&&e.kind!=Kind::ammo&&e.kind!=Kind::smartAmmo&&e.kind!=Kind::unarmed&&!e.twoHanded&&e.kind!=Kind::shield&&e.kind!=Kind::torch&&!smartShield(e);}
 inline Hand normalizedHand(const Entry& e,Hand hand){return isConsumable(e)||isVoice(e)||wornGear(e)||e.kind==Kind::ammo||e.kind==Kind::smartAmmo||e.kind==Kind::unarmed||e.twoHanded?Hand::right:e.kind==Kind::shield||e.kind==Kind::torch||smartShield(e)?Hand::left:hand;}
+inline std::optional<Hand> forcedGroupHand(const Options& o,std::size_t group) {
+    if(group>=Arsenal::count)return {};
+    if(o.groupHands[group]==GroupHand::right)return Hand::right;
+    if(o.groupHands[group]==GroupHand::left)return Hand::left;
+    return {};
+}
+inline Entry effectiveGroupEntry(Entry entry,const Options& o,std::size_t group) {
+    if(const auto forced=forcedGroupHand(o,group);forced&&!isHandAction(entry)&&flexibleHand(entry))
+        entry.hand=normalizedHand(entry,*forced);
+    return entry;
+}
 inline std::optional<Entry> entryForHand(const Entry& entry,Hand hand) {
     if(unsigned(hand)>1||isConsumable(entry)||isVoice(entry)||isHandAction(entry)||wornGear(entry)||entry.kind==Kind::combo||entry.kind==Kind::ammo||entry.kind==Kind::smartAmmo)return {};
     if(hand==Hand::right&&(entry.kind==Kind::shield||entry.kind==Kind::torch||smartShield(entry)))return {};
@@ -960,10 +974,13 @@ inline std::optional<Hand> handButtonTarget(const Entry& entry,Hand hand) {
     return entryForHand(entry,other)?std::optional{other}:std::nullopt;
 }
 // A hand button commits the highlighted entry to that hand. An entry with no hand is selected as a release would.
-inline std::optional<Selection::Commit> releaseToHand(Selection& selection,const Group& group,std::size_t groupID,Hand hand,bool controller) {
+// When a group forces a hand, flexible entries always target that hand.
+inline std::optional<Selection::Commit> releaseToHand(Selection& selection,const Group& group,std::size_t groupID,Hand hand,bool controller,std::optional<Hand> forcedHand={}) {
     if(!selection.held())return {};
     if(selection.index()>=group.entries.size()){selection.cancel();return {};}
-    const auto target=handButtonTarget(group.entries[selection.index()],hand);
+    const auto& entry=group.entries[selection.index()];
+    const auto requested=forcedHand&&!isHandAction(entry)&&flexibleHand(entry)?*forcedHand:hand;
+    const auto target=handButtonTarget(entry,requested);
     auto commit=selection.release(group,groupID);
     if(commit){if(target)commit->hand=*target;commit->browsed=true;commit->controller=controller;}
     return commit;

@@ -1251,6 +1251,19 @@ int main(int argc,char** argv)try {
         click("Selector");click("##selector");click("List");check(state.options.selector==4,"Compact List selector renders cleanly");frame();
         click("Presets");click("Souls Cross");click("Apply preset");check(state.options.layout==5&&state.options.shape==2&&state.options.selector==4,"Souls Cross built-in preset applies from Presets tab");
         click("Action Bar");click("Apply preset");check(state.options.unifiedBar&&state.options.labelPosition==1,"Action Bar built-in preset applies from Presets tab");
+
+        // Per-group Hand setting: Per item / Always right / Always left.
+        click("Groups##main");
+        click("##group hand");click("Always left");
+        check(state.options.groupHands[state.draft.active]==GroupHand::left,"Group Hand setting updates to Always left");
+        check(probe::one("Change hand").disabled,"Change hand disables while the group forces a hand");
+        click("##filter");click("Weapons");click("##candidate",0);
+        check(!probe::find("Add · left hand").empty()&&probe::find("Add right").empty(),"Catalog offers a single forced-hand add button when group hand is locked");
+        click("##group source");click("All Favorites");
+        check(probe::find("Default hand").empty(),"Favorites Default hand hides while group Hand is locked");
+        click("##group hand");click("Per item");
+        check(state.options.groupHands[state.draft.active]==GroupHand::item&&!probe::find("Default hand").empty(),"Returning group Hand to Per item restores Favorites Default hand");
+        click("Undo");check(state.options.groupHands[state.draft.active]==GroupHand::left,"Group Hand changes support Undo");
     }
     ImGui::DestroyContext();std::cout<<"PASS: "<<checks<<" real ImGui interaction checks (search, add, hand, remove, rename, rebind, duplicate guard, layouts, dragging, live changes, undo/revert, external themes, independent placement, empty group).\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

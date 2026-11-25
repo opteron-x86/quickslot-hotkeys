@@ -2,6 +2,13 @@
   "language": "en",
   "name": "English",
   "strings": {
+    "Per item uses each item's own hand. Always right or Always left equips every one-handed weapon, spell and scroll in this group to that hand.": "Per item uses each item's own hand. Always right or Always left equips every one-handed weapon, spell and scroll in this group to that hand.",
+    "Add · left hand": "Add · left hand",
+    "Add · right hand": "Add · right hand",
+    "This group's Hand setting chooses the hand for every item.": "This group's Hand setting chooses the hand for every item.",
+    "Per item": "Per item",
+    "Always right": "Always right",
+    "Always left": "Always left",
     "%s Magicka/s": "%s Magicka/s",
     "%s Magicka": "%s Magicka",
     "This tile size": "This tile size",

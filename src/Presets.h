@@ -41,7 +41,7 @@ inline void copyControls(Options& target,const Options& source) {
 }
 inline void copyGroupSetup(Options& target,const Options& source) {
     target.names=source.names;target.groupCount=source.groupCount;target.groupOrder=source.groupOrder;
-    target.groupModes=source.groupModes;target.castStyles=source.castStyles;target.separateConsumableUse=source.separateConsumableUse;target.autoSort=source.autoSort;
+    target.groupModes=source.groupModes;target.groupHands=source.groupHands;target.castStyles=source.castStyles;target.separateConsumableUse=source.separateConsumableUse;target.autoSort=source.autoSort;
     target.groupColored=source.groupColored;target.groupColors=source.groupColors;
 }
 inline void copyPreferences(Options& target,const Options& source) {

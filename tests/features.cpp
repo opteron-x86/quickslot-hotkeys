@@ -1,3 +1,4 @@
+#include "GroupSetup.h"
 #include "Presets.h"
 #include "SmartConsumables.h"
 #include "Layout.h"
@@ -364,6 +365,34 @@ int main()try {
         check(formatShoutInfo({15.f},{})=="Cooldown 15s","Single-word shouts list one cooldown");
         check(formatOutfitInfo(214.f,3)=="Armor 214 · 3 enchanted"&&formatOutfitInfo(0.f,2)=="2 enchanted","Outfits summarize total armor and enchanted piece count");
         check(formatComboInfo("Damage 34","Armor 22")=="Damage 34 + Armor 22"&&formatComboInfo("Damage 34",{})=="Damage 34","Combinations join active hand summaries");
+    }
+    {
+        // Per-group Hand setting: Per item, Always right, Always left.
+        Options handOpts;handOpts.groupHands[0]=GroupHand::left;handOpts.groupHands[1]=GroupHand::right;
+        check(forcedGroupHand(handOpts,0)==Hand::left&&forcedGroupHand(handOpts,1)==Hand::right&&!forcedGroupHand(handOpts,2),"forcedGroupHand reports only groups locked to a hand");
+        Entry sword;sword.form=0x10;sword.kind=Kind::sword;sword.hand=Hand::right;
+        Entry spell;spell.form=0x20;spell.kind=Kind::spell;spell.spell=true;spell.hand=Hand::left;
+        Entry bow;bow.form=0x30;bow.kind=Kind::bow;bow.twoHanded=true;bow.hand=Hand::right;
+        Entry shield;shield.form=0x40;shield.kind=Kind::shield;shield.hand=Hand::left;
+        Entry clearRight=emptyHandEntry(Hand::right);
+        check(effectiveGroupEntry(sword,handOpts,0).hand==Hand::left&&effectiveGroupEntry(spell,handOpts,1).hand==Hand::right,"Forced group hand overrides flexible weapons and spells");
+        check(effectiveGroupEntry(bow,handOpts,0).hand==Hand::right&&effectiveGroupEntry(shield,handOpts,1).hand==Hand::left&&effectiveGroupEntry(clearRight,handOpts,0).hand==Hand::right,"Forced group hand leaves two-handed items, shields and hand actions untouched");
+        Group g;g.add(sword);g.add(shield);g.selected=0;Selection sel;
+        sel.press(0,g,0,false);
+        const auto c1=releaseToHand(sel,g,0,Hand::right,false,forcedGroupHand(handOpts,0));
+        check(c1&&c1->hand==Hand::left,"Hand buttons obey the group's forced hand for flexible items");
+        sel.press(0,g,1,false);sel.cycle(1,g);
+        const auto c2=releaseToHand(sel,g,1,Hand::right,false,forcedGroupHand(handOpts,1));
+        check(c2&&c2->hand==Hand::left,"Shields stay in the left hand even inside an Always right group");
+        const auto round=decodeOptions(encodeOptions(handOpts));
+        check(round.groupHands[0]==GroupHand::left&&round.groupHands[1]==GroupHand::right&&round.groupHands[2]==GroupHand::item,"groupHands survives JSON roundtrip");
+        auto bad=handOpts;bad.groupHands[3]=GroupHand(99);sanitizeOptions(bad);
+        check(bad.groupHands[3]==GroupHand::item,"Out-of-range groupHands values clamp to Per item");
+        const auto savedSetup=withGroupSetup(Options{},encodeGroupSetup(handOpts));
+        check(savedSetup&&savedSetup->groupHands[0]==GroupHand::left&&savedSetup->groupHands[1]==GroupHand::right,"groupHands travels with character group setup");
+        check(mergeOptions(Options{},handOpts,presetPart::look).groupHands[0]==GroupHand::item&&mergeOptions(Options{},handOpts,presetPart::groups).groupHands[0]==GroupHand::left,"groupHands travels with preset group setup, not appearance");
+        Arsenal a;auto cleared=handOpts;resetGroup(a,cleared,0);
+        check(cleared.groupHands[0]==GroupHand::item,"resetGroup restores Per item hand policy");
     }
     std::cout<<"PASS: "<<checks<<" preset, ammo, feedback, fixed editor, grid and preview checks\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL: "<<e.what()<<'\n';return 1;}

@@ -64,10 +64,11 @@ void style(const Theme& theme,const Options& options) {
 Snapshot preview(const EditorState& state) {
     Snapshot s;s.editorPreview=true;s.visible=true;s.browsing=true;s.activeGroup=state.draft.active;
     s.rows=state.rows[s.activeGroup];s.selected=s.preview=state.draft.current().selected;
+    for(auto& row:s.rows)row.entry=effectiveGroupEntry(row.entry,state.options,s.activeGroup);
     s.equipment=state.equippedDisplay;
     for(std::size_t i=0;i<Arsenal::count;++i) {
         const auto& g=state.draft.groups[i];auto& tile=s.groups[i];tile.count=g.entries.size();
-        if(g.selected<state.rows[i].size()){const auto& row=state.rows[i][g.selected];tile.entry=row.entry;tile.iconEntry=row.iconEntry;tile.weapon=row.weapon;tile.available=row.available;tile.equipped=row.equipped;tile.quantity=row.quantity;tile.cooldown=row.cooldown;tile.voice=isVoice(row.entry)&&row.equipped;tile.consumable=i==selectedConsumableGroup(state.draft);}
+        if(g.selected<state.rows[i].size()){const auto& row=state.rows[i][g.selected];tile.entry=effectiveGroupEntry(row.entry,state.options,i);tile.iconEntry=row.iconEntry;tile.weapon=row.weapon;tile.available=row.available;tile.equipped=row.equipped;tile.quantity=row.quantity;tile.cooldown=row.cooldown;tile.voice=isVoice(row.entry)&&row.equipped;tile.consumable=i==selectedConsumableGroup(state.draft);}
     }
     return s;
 }
@@ -290,7 +291,7 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                     if(d.session==state.session&&d.revision==state.revision) {
                         auto c=command(d.candidate?EditAction::add:d.group==destination?EditAction::reorder:EditAction::move,d.candidate?destination:d.group,d.index,destination);
                         if(d.shortcut){c.action=EditAction::addShortcut;c.group=destination;c.libraryID=d.shortcut;}
-                        else if(d.candidate){c.candidate=d.candidate;c.catalogVersion=d.catalogVersion;}
+                        else if(d.candidate){c.candidate=d.candidate;c.catalogVersion=d.catalogVersion;if(const auto forced=forcedGroupHand(options,destination))c.hand=*forced;}
                         else if(d.group==destination)c.target=index.value_or(state.draft.groups[destination].entries.empty()?0:state.draft.groups[destination].entries.size()-1);
                         emit(c);
                     }
@@ -806,8 +807,12 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 }
                 ImGui::EndCombo();
             }
-            if(group.automatic()) {
-                ImGui::SameLine();ImGui::SetNextItemWidth(px(140));int hand=int(group.favoriteHand);
+            ImGui::SameLine();UI::TextDisabled("Hand");
+            if(ImGui::IsItemHovered())UI::SetTooltip("Per item uses each item's own hand. Always right or Always left equips every one-handed weapon, spell and scroll in this group to that hand.");
+            ImGui::SameLine();ImGui::SetNextItemWidth(px(145));int groupHand=int(options.groupHands[groupID]);
+            if(UI::Combo("##group hand",&groupHand,"Per item\0Always right\0Always left\0")){options.groupHands[groupID]=GroupHand(groupHand);changed=true;}
+            if(group.automatic()&&options.groupHands[groupID]==GroupHand::item) {
+                ImGui::SameLine();ImGui::SetNextItemWidth(px(120));int hand=int(group.favoriteHand);
                 if(UI::Combo("Default hand",&hand,"Right\0Left\0")){auto c=command(EditAction::favoriteSource,groupID);c.source=group.source;c.favoriteCategories=group.favoriteCategories;c.hand=Hand(hand);emit(c);}
             }
             const auto loadDefinition=[&](const Entry& entry) {
@@ -965,12 +970,17 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             picked=pickedItem();
             ImGui::BeginDisabled(!picked||!picked->addable);
             const bool flexible=picked&&!picked->entry.shortcut&&flexibleHand(picked->entry);
+            const auto forcedHand=forcedGroupHand(options,groupID);
             const auto add=[&](Hand hand){auto c=command(picked&&picked->entry.shortcut?EditAction::addShortcut:EditAction::add,groupID);c.candidate=candidate_;c.hand=hand;c.libraryID=picked?picked->entry.shortcut:0;emit(c);};
-            if(flexible) {
+            if(flexible&&!forcedHand) {
                 const float bw=(ImGui::GetContentRegionAvail().x-px(10))*.5f;
                 if(UI::Button("Add right",{bw,0}))add(Hand::right);
                 if(focusAdd)ImGui::FocusItem();
                 ImGui::SameLine();if(UI::Button("Add left",{bw,0}))add(Hand::left);
+            } else if(flexible&&forcedHand) {
+                if(*forcedHand==Hand::left){if(UI::Button("Add · left hand",{-1,0}))add(Hand::left);}
+                else {if(UI::Button("Add · right hand",{-1,0}))add(Hand::right);}
+                if(focusAdd)ImGui::FocusItem();
             } else {
                 if(UI::Button(picked&&picked->entry.twoHanded?"Add · both hands":"Add to group",{-1,0}))add(Hand::right);
                 if(focusAdd)ImGui::FocusItem();
@@ -1224,7 +1234,9 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
                 hud.drawItemIcon(d,{pos.x+px(22),pos.y+px(23.5f)},px(32),i<state.rows[groupID].size()?rowIconEntry(state.rows[groupID][i]):e,options,available);
                 ImGui::RenderTextEllipsis(d,{pos.x+px(44),pos.y+px(4)},{end.x-px(6),end.y},end.x-px(6),name.c_str(),nullptr,&nameSize);
                 ImGui::PopStyleColor();
-                const auto status=i<state.rows[groupID].size()?rowStatus(state.rows[groupID][i]):handName(e);
+                std::string status;
+                if(i<state.rows[groupID].size()){auto shownRow=state.rows[groupID][i];shownRow.entry=effectiveGroupEntry(shownRow.entry,options,groupID);status=rowStatus(shownRow);}
+                else status=handName(effectiveGroupEntry(e,options,groupID));
                 d->AddText(nullptr,px(14),{pos.x+px(44),pos.y+px(27)},ImGui::GetColorU32(brass),status.c_str());d->PopClipRect();
                 const auto statusWidth=ImGui::GetFont()->CalcTextSizeA(px(14),FLT_MAX,0,status.c_str()).x;
                 if(std::max(nameSize.x,statusWidth)>end.x-pos.x-px(50)&&ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))UI::SetTooltip("%s\n%s",e.name.c_str(),status.c_str());
@@ -1239,8 +1251,10 @@ std::vector<EditCommand> Editor::draw(const EditorState& state,Hud& hud,double n
             if(UI::Button(group.automatic()?"Exclude":"Remove")){emit(command(EditAction::remove,groupID,selected_));shortcutIndex_.reset();editingLibrary_=0;builder_=0;}ImGui::SameLine();
             ImGui::BeginDisabled(group.automatic()||!has||selected_==0);if(UI::Button("Up"))emit(command(EditAction::reorder,groupID,selected_,selected_-1));ImGui::EndDisabled();ImGui::SameLine();
             ImGui::BeginDisabled(group.automatic()||!has||selected_+1>=group.entries.size());if(UI::Button("Down"))emit(command(EditAction::reorder,groupID,selected_,selected_+1));ImGui::EndDisabled();
-            ImGui::BeginDisabled(group.automatic()||!has||!flexibleHand(group.entries[has?selected_:0]));
+            const bool groupForcesHand=forcedGroupHand(options,groupID).has_value();
+            ImGui::BeginDisabled(group.automatic()||groupForcesHand||!has||!flexibleHand(group.entries[has?selected_:0]));
             if(UI::Button("Change hand",{-1,0})&&has){auto c=command(EditAction::hand,groupID,selected_);c.hand=group.entries[selected_].hand==Hand::left?Hand::right:Hand::left;emit(c);}ImGui::EndDisabled();
+            if(groupForcesHand&&ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))UI::SetTooltip("This group's Hand setting chooses the hand for every item.");
             ImGui::SetNextItemWidth(-1);
             ImGui::BeginDisabled(group.automatic());
             if(ImGui::BeginCombo("##move","Move to another group…")) {

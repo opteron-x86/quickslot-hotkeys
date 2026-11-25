@@ -9,21 +9,21 @@ Equipment and consumable shortcut groups with a configurable HUD. Tap a group ke
 [*]Armor, clothing and jewelry in any group: a tap puts a piece on and the next tap takes it off.
 [*]Outfits: one tap wears a saved set of pieces, with or without both hands, and a tap on a worn outfit puts back what you wore before.
 [*]Groups populated automatically from one or more Skyrim Favorites categories.
-[*]Hand buttons while the selector is open: mouse buttons or triggers put an item in either hand or take it out, and the hand is remembered.
+[*]Hand buttons while the selector is open: mouse buttons or triggers put an item in either hand or take it out, and the hand is remembered. Per-group [b]Hand[/b] policy chooses Per item, Always right or Always left.
 [*]Smart weapons by physical damage, shields by armor, ammo by damage and potions by strength or best fit.
 [*]A Tap choice for each group, equip the last item or step to the next, with optional hold-to-browse.
 [*]Spell casting without equipping: a quick-cast group casts its selected spell on a tap, and an Oblivion-style group readies a spell for a Cast key. Needs Open Animation Replacer and Quickslot Casting Animations.
 [*]New characters start with groups that follow their Skyrim Favorites.
 [*]A dedicated consumable binding for using the last selected potion, food or poison.
 [*]Keyboard, XInput, PS4 and experimental VR controls with configurable modifiers.
-[*]Independent equipment display with quantity badges, poison indicators, bow ammunition counts, shout timers and power dimming.
+[*]Independent equipment display with Grid and Free layouts, right-edge mirroring, per-role visibility, quantity badges, poison indicators, bow ammunition counts, shout timers and power dimming.
 [*]Separate keyboard/mouse and controller options for using Quickslot while QuickLoot is open.
-[*]Rows, columns, grids, crosses, diamonds, circles, lists and a wheel selector with tile or segmented-ring styles.
-[*]Separate scale, text size, opacity and anchored placement for the widget, selector and equipment display.
-[*]A wheel you can shape: size, ring thickness, gaps, highlight styles, rotation, and an optional center circle.
-[*]Enchantment charge as diamonds under the weapon's name, and on its icon as a color fill or a small soul gem.
-[*]Themes, icon sets, custom colors, per-group colors and an equipped-item highlight.
-[*]A preset manager with built-in layouts, automatic presets for controller and keyboard, Undo, automatic saving and menu translations.
+[*]Cards, squares, circles, diamonds, hexagons, frameless icons, unified hotbars, a compact scrollable list selector and a wheel selector with tile or segmented-ring styles.
+[*]Independent Size (25%–300%), Text size (50%–300%), opacity and anchored placement for the widget, selector and equipment display, plus Peek HUD live preview mode.
+[*]A wheel you can shape: size, ring thickness, gaps, highlight styles, raised pointed segments, rotation, and an optional center circle.
+[*]Full item stats and effect descriptions while browsing, plus enchantment charge as diamonds under the weapon's name and on its icon as a color fill or a small soul gem.
+[*]16 bundled 2.5D PBR theme packs with automatic UI detection and live reload, icon sets, custom colors, per-group colors and an equipped-item highlight.
+[*]A preset manager with built-in layouts (including Souls Cross and Action Bar), automatic presets for controller and keyboard, Undo, automatic saving and menu translations.
 [/list]
 
 [b]Requirements[/b]
@@ -57,21 +57,17 @@ In Groups, open the Manual dropdown and check the Favorites categories to includ
 
 [b]Appearance[/b]
 
-Themes include Skyrim silver, Dear Diary Dark, Edge, Minimal, Norden, Nordic, Oathvein, Untarnished and Vel'dun. Appearance has a page each for Theme, Widget, Selector, Equipment and General. Every slider has step buttons and a reset; Reset page and Reset all appearance restore the defaults.
+Built-in themes include Minimal and Skyrim silver, alongside 16 bundled 2.5D PBR theme packs: interface-matching packs for Amethyst, Dear Diary Dark, Edge, Horizons, Immortal, Norden, Nordic, Oathvein, Outlander, Untarnished and Vel'dun, plus standalone Crimson Filigree, Daedric Oblivion, Dwemer Aetherium, Imperial Parchment and Sovngarde Astral themes. Appearance has a page each for Theme, Widget, Selector, Equipment and General, with [b]Peek HUD[/b] to dock the editor as a side-drawer over the live HUD. Every slider has step buttons and a reset; Reset page and Reset all appearance restore the defaults.
 
-Each display holds on to one of nine screen anchors with a pixel offset. The Free arrangement places and sizes each group's tile on its own, so groups can sit on both sides of the screen. In Position mode, drag or resize a display, nudge it with the arrow keys or LB + D-pad, or center it. Screen area keeps the HUD inside a 16:9, 2:1 or 21:9 area on ultrawide screens.
+Each display holds on to one of nine screen anchors with a pixel offset. The Free arrangement places and sizes each group's tile or equipment cell on its own, with Align, Distribute and snap guides in Position mode. Drag or resize a display, nudge it with the arrow keys or LB + D-pad, or center it. Screen area keeps the HUD inside a 16:9, 2:1 or 21:9 area on ultrawide screens.
 
-Presets lists built-in Default, Cards, Cross, Diamond, Circle and Wheel layouts above your own. New installations show diamond tiles with an arc selector. Rename, duplicate, update and delete presets, preview them, and apply their look, controls or groups. Input device presets switch the look when you change between controller and keyboard.
+Presets lists built-in Default, Cards, Cross, Diamond, Circle, Wheel, Souls Cross and Action Bar layouts above your own. New installations show diamond tiles with an arc selector. Rename, duplicate, update and delete presets, preview them, and apply their look, controls or groups. Input device presets switch the look when you change between controller and keyboard.
 
-[b]Equipped highlight[/b] under Appearance → Theme outlines or tints the tile of an equipped item. [b]Wheel style → Segments[/b] under Appearance → Selector turns the wheel into a ring of wedges with the pointed item's name in the center; the Wheel section sets its ring thickness, gaps, highlight, rotation and center circle.
+[b]Equipped highlight[/b] under Appearance → Theme outlines or tints the tile of an equipped item. [b]Wheel style → Segments[/b] under Appearance → Selector turns the wheel into a ring of wedges with the pointed item's name in the center; the Wheel section sets its ring thickness, gaps, highlight, raised pointed segments, rotation and center circle. [b]Selector → Style → List[/b] opens a compact scrollable panel with inline hand, equipped, poison, quantity and cooldown indicators.
 
-Item icons use your installed I4 packs, or SkyUI category icons without I4. Original displays their colors; Theme and White apply the selected tint. Smart shortcuts show the item currently selected, combinations show both items, and hand actions use a gauntlet.
+Under [b]Appearance → Theme → Icons → Item icons[/b], choose [b]I4[/b] (your installed I4 packs, then SkyUI), [b]SkyUI[/b] (SkyUI category icons), or [b]PNGII[/b] (PNG Icon Injector artwork, then I4, then SkyUI). Original displays artwork colors; Theme and White apply the selected tint. Smart shortcuts show the item currently selected, combinations show both items, and hand actions use a gauntlet.
 
-Enable [b]Use PNGII icons[/b] under Appearance → Theme to display matching artwork from PNG Icon Injector. I4 supplies the remaining icons.
-
-Enable Show equipped ammunition under Appearance → Equipment to display equipped arrows or bolts and their current count.
-
-The equipment display shows the right hand first, then left hand, consumable and power/shout. Quantities and shout timers appear on icons. Groups and equipment have independent visibility settings.
+The equipment display shows the right hand, left hand, ammunition, selected consumable, power/shout and ready spell, with Grid and Free layouts, right-edge mirroring and per-role visibility. Quantities and shout timers appear on icons. Groups and equipment have independent visibility settings, including [b]Keep visible in combat[/b] and [b]Keep visible with weapons drawn[/b].
 
 Settings holds language, interface sounds, input device presets, QuickLoot input, the character option and Reset Quickslot, which returns to a new installation's settings and Favorites groups. Appearance pages start with their main settings; Show advanced settings adds the rest.
 

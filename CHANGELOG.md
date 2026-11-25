@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.17.0-rc.9
+## 0.17.0
 
 - **Groups → Hand** sets whether one-handed weapons, spells and scrolls in a group equip **Per item**, **Always right** or **Always left**.
 - Armor, clothing and jewelry can be added to groups. A tap puts a piece on, and a tap on a worn piece takes it off.
